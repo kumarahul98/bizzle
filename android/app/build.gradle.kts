@@ -7,7 +7,10 @@ plugins {
 
 android {
     namespace = "traevy.traevy"
-    compileSdk = flutter.compileSdkVersion
+    // compileSdk is the SDK headers used at build time. drift_flutter pulls in
+    // jni / jni_flutter which require API 35 headers. Runtime behavior is
+    // governed by targetSdk (34) and minSdk (34), keeping D-08 intact.
+    compileSdk = 35
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -20,12 +23,12 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "traevy.traevy"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        // Phase 1 D-08: pin minSdk and targetSdk to 34. The user accepts the
+        // narrower device coverage in exchange for a modern API baseline.
+        // Do not replace these with `flutter.*` indirection.
+        minSdk = 34
+        targetSdk = 34
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
