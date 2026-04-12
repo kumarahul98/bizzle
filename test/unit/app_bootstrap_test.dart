@@ -14,7 +14,9 @@ void main() {
         );
 
         // MaterialApp is configured with the expected title and themes.
-        final materialApp = tester.widget<MaterialApp>(find.byType(MaterialApp));
+        final materialApp = tester.widget<MaterialApp>(
+          find.byType(MaterialApp),
+        );
         expect(materialApp.title, 'Traevy');
         expect(materialApp.theme, lightTheme);
         expect(materialApp.darkTheme, darkTheme);
