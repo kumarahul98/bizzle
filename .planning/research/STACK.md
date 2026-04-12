@@ -72,7 +72,7 @@
 | Technology | Version | Purpose | Why |
 |------------|---------|---------|-----|
 | TypeScript | ^5.5 | Lambda handler language | Strict type safety, excellent DynamoDB SDK types. |
-| Node.js | 20.x | Lambda runtime | LTS runtime, stable, well-supported by AWS. |
+| Node.js | 24.x | Lambda runtime | Latest LTS runtime supported by AWS Lambda. |
 | @aws-sdk/client-dynamodb | ^3.600+ | DynamoDB client | AWS SDK v3, modular imports, tree-shakeable. |
 | @aws-sdk/lib-dynamodb | ^3.600+ | DynamoDB Document client | Automatic marshalling/unmarshalling. Type-safe with interfaces. |
 | zod | ^3.23 | Input validation | Schema-based validation at handler entry. Generates TypeScript types from schemas. |
@@ -202,7 +202,7 @@ This is the highest-risk item in the stack because GPS tracking is the core feat
 
 - Flutter 3.41.6 / Dart 3.11.4 -- verified from local installation (HIGH confidence)
 - Package versions -- based on training data up to May 2025, flagged as MEDIUM confidence. Actual latest versions may be higher. Run `flutter pub add [package]` to get current versions.
-- AWS SDK v3, SAM, Node.js 20.x -- well-established, unlikely to have breaking changes (HIGH confidence)
+- AWS SDK v3, SAM, Node.js 24.x -- well-established, unlikely to have breaking changes (HIGH confidence)
 - Tracelet package -- UNVERIFIED, not found in training data (LOW confidence)
 
 ---
