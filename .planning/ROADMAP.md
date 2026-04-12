@@ -41,7 +41,7 @@ Plans:
 - [x] 01-01-PLAN.md — Flutter project scaffold, core dependencies, Android Gradle config
 - [x] 01-02-PLAN.md — Config constants, theme, routes, main.dart ProviderScope wiring, analysis_options
 - [x] 01-03-PLAN.md — Drift database: 3 tables, 3 DAOs, AppDatabase, Riverpod providers, build_runner codegen
-- [ ] 01-04-PLAN.md — DAO/index/preferences/migration tests, schema v1 snapshot, widget smoke test
+- [x] 01-04-PLAN.md — DAO/index/preferences/migration tests, schema v1 snapshot, widget smoke test
 
 ### Phase 2: Core Tracking
 **Goal**: Users can record a commute trip from start to stop with background GPS capture, producing a complete trip record with traffic breakdown
