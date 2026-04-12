@@ -35,11 +35,13 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. A trip can be inserted into and queried from the Drift database via DAO
   4. All config constants (speed threshold, cutoff hours, retry limits) are defined in constants.dart
   5. Riverpod is wired up and a basic provider resolves correctly
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 01-01: TBD
-- [ ] 01-02: TBD
+- [ ] 01-01-PLAN.md — Flutter project scaffold, core dependencies, Android Gradle config
+- [ ] 01-02-PLAN.md — Config constants, theme, routes, main.dart ProviderScope wiring, analysis_options
+- [ ] 01-03-PLAN.md — Drift database: 3 tables, 3 DAOs, AppDatabase, Riverpod providers, build_runner codegen
+- [ ] 01-04-PLAN.md — DAO/index/preferences/migration tests, schema v1 snapshot, widget smoke test
 
 ### Phase 2: Core Tracking
 **Goal**: Users can record a commute trip from start to stop with background GPS capture, producing a complete trip record with traffic breakdown
@@ -192,7 +194,7 @@ Note: Phases 1-7 deliver the complete local-first experience without any authent
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/2 | Not started | - |
+| 1. Foundation | 0/4 | Not started | - |
 | 2. Core Tracking | 0/3 | Not started | - |
 | 3. Trip Management | 0/2 | Not started | - |
 | 4. Trip History | 0/2 | Not started | - |
