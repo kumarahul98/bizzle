@@ -84,9 +84,10 @@ Requirements covered: TRACK-01, TRACK-02, TRACK-04, TRACK-05, UX-03.
 ## Existing Code Insights
 
 ### Reusable Assets
-- `TripsDao.createTrip(...)` — Phase 1 DAO handles inserts + sync-queue enqueue in one call. Phase 2 calls this on Stop.
+- `TripsDao.insertTrip(TripsCompanion)` — Phase 1 DAO inserts into `trips` table only. **Phase 2 must wrap `TripsDao.insertTrip` + `SyncQueueDao.enqueueCreate(tripId)` in an `appDatabase.transaction(() async { ... })` so the trip and its sync-queue entry land atomically.**
+- `SyncQueueDao.enqueueCreate(String tripId)` — Phase 1 DAO. Payload is null; the sync engine (Phase 10) re-reads the fresh trip at sync time.
 - `AppDatabase` + `appDatabaseProvider` (manual Riverpod Provider in `lib/database/providers.dart`) — access the DB from tracking code via `ref.read(appDatabaseProvider)`.
-- `kStuckSpeedThresholdKmh = 10` in `lib/config/constants.dart` — the only source of truth for the moving/stuck boundary.
+- `kStuckSpeedThresholdKmh = 10` in `lib/config/constants.dart` — the project's source-of-truth moving/stuck boundary in **km/h**. Phase 2 adds a derived `kStuckSpeedThresholdMs = kStuckSpeedThresholdKmh / 3.6` because `geolocator`'s `Position.speed` is in **m/s**, not km/h. Comparing raw `Position.speed` against `kStuckSpeedThresholdKmh` is a silent bug that classifies everything as stuck.
 - `uuid` package is already in pubspec.yaml — use `const Uuid().v4()` for client-side trip IDs.
 
 ### Established Patterns
@@ -97,9 +98,9 @@ Requirements covered: TRACK-01, TRACK-02, TRACK-04, TRACK-05, UX-03.
 - **Drift is the single source of truth** — the tracking UI reads its "saved trip" state via Drift streams after Stop, not from in-memory state.
 
 ### Integration Points
-- **Drift database**: Tracking finalization calls `TripsDao` to insert the trip row (and enqueue sync if applicable — sync itself is Phase 10).
-- **Riverpod providers**: Tracking state notifier exposes the in-progress trip (samples, accumulators, status) to the tracking screen. Database access via `appDatabaseProvider`.
-- **AndroidManifest.xml**: Already declares `INTERNET`, `ACCESS_FINE_LOCATION`, `ACCESS_BACKGROUND_LOCATION`, and `FOREGROUND_SERVICE` from Phase 1 plan 01-01. Verify `FOREGROUND_SERVICE_LOCATION` (Android 14 subtype) is also present — if not, Phase 2 adds it.
+- **Drift database**: Tracking finalization wraps `TripsDao.insertTrip(companion)` + `SyncQueueDao.enqueueCreate(tripId)` in a single `appDatabase.transaction(() async { ... })`. Sync itself is Phase 10.
+- **Riverpod providers**: A service-isolate-scoped `TripAccumulator` owns samples, distance, and moving/stuck counters during recording. A UI-side `TrackingNotifier` (manual Riverpod 3.x) exposes `TrackingState` to the tracking screen, ticking at 1 Hz from `service.invoke('tracking_state', ...)` snapshots. Samples never cross to the UI until finalization (D-06 — in-memory, service-isolate scoped). Database access via `appDatabaseProvider`.
+- **AndroidManifest.xml**: **Currently contains ZERO location, background location, or foreground service permissions.** (Phase 1 plan 01-01 did NOT land them despite what the SUMMARY implied.) Phase 2 adds from scratch: `ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION`, `ACCESS_BACKGROUND_LOCATION`, `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_LOCATION` (Android 14 subtype), plus `<service>` element with `android:foregroundServiceType="location"` and `tools:replace="android:foregroundServiceType"` (+ `xmlns:tools` namespace) to override `flutter_background_service`'s default service type.
 - **Routes**: `lib/config/routes.dart` currently holds the placeholder route table. Phase 2 adds `/tracking` and wires a minimal navigation entry point.
 - **Main app**: `lib/app.dart` currently renders `PlaceholderHome`. Phase 2 replaces that with a simple home that has a "Start commute" CTA.
 
