@@ -1,13 +1,12 @@
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 import 'package:path_provider/path_provider.dart';
-
-import 'daos/sync_queue_dao.dart';
-import 'daos/trips_dao.dart';
-import 'daos/user_preferences_dao.dart';
-import 'tables/sync_queue_table.dart';
-import 'tables/trips_table.dart';
-import 'tables/user_preferences_table.dart';
+import 'package:traevy/database/daos/sync_queue_dao.dart';
+import 'package:traevy/database/daos/trips_dao.dart';
+import 'package:traevy/database/daos/user_preferences_dao.dart';
+import 'package:traevy/database/tables/sync_queue_table.dart';
+import 'package:traevy/database/tables/trips_table.dart';
+import 'package:traevy/database/tables/user_preferences_table.dart';
 
 part 'database.g.dart';
 
@@ -33,6 +32,11 @@ const String _kDatabaseName = 'traevy';
   daos: [TripsDao, SyncQueueDao, UserPreferencesDao],
 )
 class AppDatabase extends _$AppDatabase {
+  /// Construct an `AppDatabase`.
+  ///
+  /// Production callers pass no argument and get a `drift_flutter`
+  /// connection. Tests inject `NativeDatabase.memory()` (wrapped in a
+  /// `DatabaseConnection` if they need `closeStreamsSynchronously`).
   AppDatabase([QueryExecutor? executor])
       : super(executor ?? _openConnection());
 

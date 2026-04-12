@@ -3,8 +3,9 @@ import 'package:drift/drift.dart';
 /// User-level preferences (dark mode, reminder times, direction cutoffs).
 ///
 /// Designed as a single-row table keyed at `id = 1`. Per D-04 the
-/// `onCreate` migration must NOT seed a row — `UserPreferencesDao.getOrDefault()`
-/// returns a hardcoded default value object when the row is absent. This
+/// `onCreate` migration must NOT seed a row — the DAO's
+/// `getOrDefault()` returns a hardcoded default value object when the
+/// row is absent. This
 /// lets first-run code read preferences without a racey upsert, and keeps
 /// migration logic trivial (nothing to re-seed after schema bumps).
 ///
@@ -38,12 +39,14 @@ class UserPreferences extends Table {
   IntColumn get eveningCutoffHour =>
       integer().withDefault(const Constant(12))();
 
+  /// True if the user has opted into the daily tracking reminder.
   BoolColumn get reminderEnabled =>
       boolean().withDefault(const Constant(false))();
 
   /// `HH:mm` formatted local time. Null when no reminder is scheduled.
   TextColumn get reminderTime => text().nullable()();
 
+  /// True if the reminder should also fire on Saturday and Sunday.
   BoolColumn get weekendReminder =>
       boolean().withDefault(const Constant(false))();
 

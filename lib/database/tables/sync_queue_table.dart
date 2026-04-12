@@ -46,6 +46,7 @@ class SyncQueue extends Table {
   /// and promotes the row to `'failed'`.
   IntColumn get retryCount => integer().withDefault(const Constant(0))();
 
+  /// Insertion time of the queue row, not of the underlying trip.
   DateTimeColumn get createdAt =>
       dateTime().withDefault(currentDateAndTime)();
 

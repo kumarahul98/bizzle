@@ -1,0 +1,2783 @@
+// GENERATED CODE - DO NOT MODIFY BY HAND
+
+part of 'database.dart';
+
+// ignore_for_file: type=lint
+class $TripsTable extends Trips with TableInfo<$TripsTable, TripRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $TripsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('local_user'),
+  );
+  static const VerificationMeta _startTimeMeta = const VerificationMeta(
+    'startTime',
+  );
+  @override
+  late final GeneratedColumn<DateTime> startTime = GeneratedColumn<DateTime>(
+    'start_time',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _endTimeMeta = const VerificationMeta(
+    'endTime',
+  );
+  @override
+  late final GeneratedColumn<DateTime> endTime = GeneratedColumn<DateTime>(
+    'end_time',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _durationSecondsMeta = const VerificationMeta(
+    'durationSeconds',
+  );
+  @override
+  late final GeneratedColumn<int> durationSeconds = GeneratedColumn<int>(
+    'duration_seconds',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _distanceMetersMeta = const VerificationMeta(
+    'distanceMeters',
+  );
+  @override
+  late final GeneratedColumn<double> distanceMeters = GeneratedColumn<double>(
+    'distance_meters',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _routePolylineMeta = const VerificationMeta(
+    'routePolyline',
+  );
+  @override
+  late final GeneratedColumn<String> routePolyline = GeneratedColumn<String>(
+    'route_polyline',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _directionMeta = const VerificationMeta(
+    'direction',
+  );
+  @override
+  late final GeneratedColumn<String> direction = GeneratedColumn<String>(
+    'direction',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _timeMovingSecondsMeta = const VerificationMeta(
+    'timeMovingSeconds',
+  );
+  @override
+  late final GeneratedColumn<int> timeMovingSeconds = GeneratedColumn<int>(
+    'time_moving_seconds',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _timeStuckSecondsMeta = const VerificationMeta(
+    'timeStuckSeconds',
+  );
+  @override
+  late final GeneratedColumn<int> timeStuckSeconds = GeneratedColumn<int>(
+    'time_stuck_seconds',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _isManualEntryMeta = const VerificationMeta(
+    'isManualEntry',
+  );
+  @override
+  late final GeneratedColumn<bool> isManualEntry = GeneratedColumn<bool>(
+    'is_manual_entry',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_manual_entry" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    userId,
+    startTime,
+    endTime,
+    durationSeconds,
+    distanceMeters,
+    routePolyline,
+    direction,
+    timeMovingSeconds,
+    timeStuckSeconds,
+    isManualEntry,
+    createdAt,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'trips';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<TripRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    }
+    if (data.containsKey('start_time')) {
+      context.handle(
+        _startTimeMeta,
+        startTime.isAcceptableOrUnknown(data['start_time']!, _startTimeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_startTimeMeta);
+    }
+    if (data.containsKey('end_time')) {
+      context.handle(
+        _endTimeMeta,
+        endTime.isAcceptableOrUnknown(data['end_time']!, _endTimeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_endTimeMeta);
+    }
+    if (data.containsKey('duration_seconds')) {
+      context.handle(
+        _durationSecondsMeta,
+        durationSeconds.isAcceptableOrUnknown(
+          data['duration_seconds']!,
+          _durationSecondsMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_durationSecondsMeta);
+    }
+    if (data.containsKey('distance_meters')) {
+      context.handle(
+        _distanceMetersMeta,
+        distanceMeters.isAcceptableOrUnknown(
+          data['distance_meters']!,
+          _distanceMetersMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_distanceMetersMeta);
+    }
+    if (data.containsKey('route_polyline')) {
+      context.handle(
+        _routePolylineMeta,
+        routePolyline.isAcceptableOrUnknown(
+          data['route_polyline']!,
+          _routePolylineMeta,
+        ),
+      );
+    }
+    if (data.containsKey('direction')) {
+      context.handle(
+        _directionMeta,
+        direction.isAcceptableOrUnknown(data['direction']!, _directionMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_directionMeta);
+    }
+    if (data.containsKey('time_moving_seconds')) {
+      context.handle(
+        _timeMovingSecondsMeta,
+        timeMovingSeconds.isAcceptableOrUnknown(
+          data['time_moving_seconds']!,
+          _timeMovingSecondsMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_timeMovingSecondsMeta);
+    }
+    if (data.containsKey('time_stuck_seconds')) {
+      context.handle(
+        _timeStuckSecondsMeta,
+        timeStuckSeconds.isAcceptableOrUnknown(
+          data['time_stuck_seconds']!,
+          _timeStuckSecondsMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_timeStuckSecondsMeta);
+    }
+    if (data.containsKey('is_manual_entry')) {
+      context.handle(
+        _isManualEntryMeta,
+        isManualEntry.isAcceptableOrUnknown(
+          data['is_manual_entry']!,
+          _isManualEntryMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  TripRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return TripRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      )!,
+      startTime: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}start_time'],
+      )!,
+      endTime: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}end_time'],
+      )!,
+      durationSeconds: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}duration_seconds'],
+      )!,
+      distanceMeters: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}distance_meters'],
+      )!,
+      routePolyline: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}route_polyline'],
+      ),
+      direction: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}direction'],
+      )!,
+      timeMovingSeconds: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}time_moving_seconds'],
+      )!,
+      timeStuckSeconds: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}time_stuck_seconds'],
+      )!,
+      isManualEntry: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_manual_entry'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $TripsTable createAlias(String alias) {
+    return $TripsTable(attachedDatabase, alias);
+  }
+}
+
+class TripRow extends DataClass implements Insertable<TripRow> {
+  /// Client-generated UUID v4. Never null.
+  final String id;
+
+  /// Owning user. Literal `'local_user'` placeholder until plan 01-02
+  /// introduces `kDefaultUserId` in `lib/config/constants.dart` and a
+  /// follow-up swap replaces this literal with the constant reference.
+  /// (Phase 8 auth later writes real Cognito subs on top of either form.)
+  final String userId;
+  final DateTime startTime;
+  final DateTime endTime;
+
+  /// Derived from `endTime - startTime` by the trip processor so stats
+  /// queries do not have to recompute per row.
+  final int durationSeconds;
+
+  /// Distance from the GPS provider, in meters.
+  final double distanceMeters;
+
+  /// Encoded polyline string (Google polyline algorithm). D-01 keeps this
+  /// on the trips table; list DAOs MUST project into `TripSummary` so
+  /// the column does not load for daily-log renders (Pitfall 7).
+  final String? routePolyline;
+
+  /// `'to_office'` or `'to_home'`. Auto-labeled from the morning/evening
+  /// cutoff, always user-editable from the trip detail screen.
+  final String direction;
+
+  /// Time the device reported speed ≥ 10 km/h (kSpeedThresholdKmh).
+  final int timeMovingSeconds;
+
+  /// Time the device reported speed < 10 km/h. This is the "stuck in
+  /// traffic" signal that drives the weekly stats dashboard.
+  final int timeStuckSeconds;
+
+  /// `true` for trips the user typed in by hand (no GPS capture). Manual
+  /// entries never have a polyline.
+  final bool isManualEntry;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  const TripRow({
+    required this.id,
+    required this.userId,
+    required this.startTime,
+    required this.endTime,
+    required this.durationSeconds,
+    required this.distanceMeters,
+    this.routePolyline,
+    required this.direction,
+    required this.timeMovingSeconds,
+    required this.timeStuckSeconds,
+    required this.isManualEntry,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['user_id'] = Variable<String>(userId);
+    map['start_time'] = Variable<DateTime>(startTime);
+    map['end_time'] = Variable<DateTime>(endTime);
+    map['duration_seconds'] = Variable<int>(durationSeconds);
+    map['distance_meters'] = Variable<double>(distanceMeters);
+    if (!nullToAbsent || routePolyline != null) {
+      map['route_polyline'] = Variable<String>(routePolyline);
+    }
+    map['direction'] = Variable<String>(direction);
+    map['time_moving_seconds'] = Variable<int>(timeMovingSeconds);
+    map['time_stuck_seconds'] = Variable<int>(timeStuckSeconds);
+    map['is_manual_entry'] = Variable<bool>(isManualEntry);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  TripsCompanion toCompanion(bool nullToAbsent) {
+    return TripsCompanion(
+      id: Value(id),
+      userId: Value(userId),
+      startTime: Value(startTime),
+      endTime: Value(endTime),
+      durationSeconds: Value(durationSeconds),
+      distanceMeters: Value(distanceMeters),
+      routePolyline: routePolyline == null && nullToAbsent
+          ? const Value.absent()
+          : Value(routePolyline),
+      direction: Value(direction),
+      timeMovingSeconds: Value(timeMovingSeconds),
+      timeStuckSeconds: Value(timeStuckSeconds),
+      isManualEntry: Value(isManualEntry),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory TripRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return TripRow(
+      id: serializer.fromJson<String>(json['id']),
+      userId: serializer.fromJson<String>(json['userId']),
+      startTime: serializer.fromJson<DateTime>(json['startTime']),
+      endTime: serializer.fromJson<DateTime>(json['endTime']),
+      durationSeconds: serializer.fromJson<int>(json['durationSeconds']),
+      distanceMeters: serializer.fromJson<double>(json['distanceMeters']),
+      routePolyline: serializer.fromJson<String?>(json['routePolyline']),
+      direction: serializer.fromJson<String>(json['direction']),
+      timeMovingSeconds: serializer.fromJson<int>(json['timeMovingSeconds']),
+      timeStuckSeconds: serializer.fromJson<int>(json['timeStuckSeconds']),
+      isManualEntry: serializer.fromJson<bool>(json['isManualEntry']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'userId': serializer.toJson<String>(userId),
+      'startTime': serializer.toJson<DateTime>(startTime),
+      'endTime': serializer.toJson<DateTime>(endTime),
+      'durationSeconds': serializer.toJson<int>(durationSeconds),
+      'distanceMeters': serializer.toJson<double>(distanceMeters),
+      'routePolyline': serializer.toJson<String?>(routePolyline),
+      'direction': serializer.toJson<String>(direction),
+      'timeMovingSeconds': serializer.toJson<int>(timeMovingSeconds),
+      'timeStuckSeconds': serializer.toJson<int>(timeStuckSeconds),
+      'isManualEntry': serializer.toJson<bool>(isManualEntry),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  TripRow copyWith({
+    String? id,
+    String? userId,
+    DateTime? startTime,
+    DateTime? endTime,
+    int? durationSeconds,
+    double? distanceMeters,
+    Value<String?> routePolyline = const Value.absent(),
+    String? direction,
+    int? timeMovingSeconds,
+    int? timeStuckSeconds,
+    bool? isManualEntry,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) => TripRow(
+    id: id ?? this.id,
+    userId: userId ?? this.userId,
+    startTime: startTime ?? this.startTime,
+    endTime: endTime ?? this.endTime,
+    durationSeconds: durationSeconds ?? this.durationSeconds,
+    distanceMeters: distanceMeters ?? this.distanceMeters,
+    routePolyline: routePolyline.present
+        ? routePolyline.value
+        : this.routePolyline,
+    direction: direction ?? this.direction,
+    timeMovingSeconds: timeMovingSeconds ?? this.timeMovingSeconds,
+    timeStuckSeconds: timeStuckSeconds ?? this.timeStuckSeconds,
+    isManualEntry: isManualEntry ?? this.isManualEntry,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  TripRow copyWithCompanion(TripsCompanion data) {
+    return TripRow(
+      id: data.id.present ? data.id.value : this.id,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      startTime: data.startTime.present ? data.startTime.value : this.startTime,
+      endTime: data.endTime.present ? data.endTime.value : this.endTime,
+      durationSeconds: data.durationSeconds.present
+          ? data.durationSeconds.value
+          : this.durationSeconds,
+      distanceMeters: data.distanceMeters.present
+          ? data.distanceMeters.value
+          : this.distanceMeters,
+      routePolyline: data.routePolyline.present
+          ? data.routePolyline.value
+          : this.routePolyline,
+      direction: data.direction.present ? data.direction.value : this.direction,
+      timeMovingSeconds: data.timeMovingSeconds.present
+          ? data.timeMovingSeconds.value
+          : this.timeMovingSeconds,
+      timeStuckSeconds: data.timeStuckSeconds.present
+          ? data.timeStuckSeconds.value
+          : this.timeStuckSeconds,
+      isManualEntry: data.isManualEntry.present
+          ? data.isManualEntry.value
+          : this.isManualEntry,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TripRow(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('startTime: $startTime, ')
+          ..write('endTime: $endTime, ')
+          ..write('durationSeconds: $durationSeconds, ')
+          ..write('distanceMeters: $distanceMeters, ')
+          ..write('routePolyline: $routePolyline, ')
+          ..write('direction: $direction, ')
+          ..write('timeMovingSeconds: $timeMovingSeconds, ')
+          ..write('timeStuckSeconds: $timeStuckSeconds, ')
+          ..write('isManualEntry: $isManualEntry, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    userId,
+    startTime,
+    endTime,
+    durationSeconds,
+    distanceMeters,
+    routePolyline,
+    direction,
+    timeMovingSeconds,
+    timeStuckSeconds,
+    isManualEntry,
+    createdAt,
+    updatedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is TripRow &&
+          other.id == this.id &&
+          other.userId == this.userId &&
+          other.startTime == this.startTime &&
+          other.endTime == this.endTime &&
+          other.durationSeconds == this.durationSeconds &&
+          other.distanceMeters == this.distanceMeters &&
+          other.routePolyline == this.routePolyline &&
+          other.direction == this.direction &&
+          other.timeMovingSeconds == this.timeMovingSeconds &&
+          other.timeStuckSeconds == this.timeStuckSeconds &&
+          other.isManualEntry == this.isManualEntry &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class TripsCompanion extends UpdateCompanion<TripRow> {
+  final Value<String> id;
+  final Value<String> userId;
+  final Value<DateTime> startTime;
+  final Value<DateTime> endTime;
+  final Value<int> durationSeconds;
+  final Value<double> distanceMeters;
+  final Value<String?> routePolyline;
+  final Value<String> direction;
+  final Value<int> timeMovingSeconds;
+  final Value<int> timeStuckSeconds;
+  final Value<bool> isManualEntry;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const TripsCompanion({
+    this.id = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.startTime = const Value.absent(),
+    this.endTime = const Value.absent(),
+    this.durationSeconds = const Value.absent(),
+    this.distanceMeters = const Value.absent(),
+    this.routePolyline = const Value.absent(),
+    this.direction = const Value.absent(),
+    this.timeMovingSeconds = const Value.absent(),
+    this.timeStuckSeconds = const Value.absent(),
+    this.isManualEntry = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  TripsCompanion.insert({
+    required String id,
+    this.userId = const Value.absent(),
+    required DateTime startTime,
+    required DateTime endTime,
+    required int durationSeconds,
+    required double distanceMeters,
+    this.routePolyline = const Value.absent(),
+    required String direction,
+    required int timeMovingSeconds,
+    required int timeStuckSeconds,
+    this.isManualEntry = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       startTime = Value(startTime),
+       endTime = Value(endTime),
+       durationSeconds = Value(durationSeconds),
+       distanceMeters = Value(distanceMeters),
+       direction = Value(direction),
+       timeMovingSeconds = Value(timeMovingSeconds),
+       timeStuckSeconds = Value(timeStuckSeconds);
+  static Insertable<TripRow> custom({
+    Expression<String>? id,
+    Expression<String>? userId,
+    Expression<DateTime>? startTime,
+    Expression<DateTime>? endTime,
+    Expression<int>? durationSeconds,
+    Expression<double>? distanceMeters,
+    Expression<String>? routePolyline,
+    Expression<String>? direction,
+    Expression<int>? timeMovingSeconds,
+    Expression<int>? timeStuckSeconds,
+    Expression<bool>? isManualEntry,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (userId != null) 'user_id': userId,
+      if (startTime != null) 'start_time': startTime,
+      if (endTime != null) 'end_time': endTime,
+      if (durationSeconds != null) 'duration_seconds': durationSeconds,
+      if (distanceMeters != null) 'distance_meters': distanceMeters,
+      if (routePolyline != null) 'route_polyline': routePolyline,
+      if (direction != null) 'direction': direction,
+      if (timeMovingSeconds != null) 'time_moving_seconds': timeMovingSeconds,
+      if (timeStuckSeconds != null) 'time_stuck_seconds': timeStuckSeconds,
+      if (isManualEntry != null) 'is_manual_entry': isManualEntry,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  TripsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? userId,
+    Value<DateTime>? startTime,
+    Value<DateTime>? endTime,
+    Value<int>? durationSeconds,
+    Value<double>? distanceMeters,
+    Value<String?>? routePolyline,
+    Value<String>? direction,
+    Value<int>? timeMovingSeconds,
+    Value<int>? timeStuckSeconds,
+    Value<bool>? isManualEntry,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return TripsCompanion(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      startTime: startTime ?? this.startTime,
+      endTime: endTime ?? this.endTime,
+      durationSeconds: durationSeconds ?? this.durationSeconds,
+      distanceMeters: distanceMeters ?? this.distanceMeters,
+      routePolyline: routePolyline ?? this.routePolyline,
+      direction: direction ?? this.direction,
+      timeMovingSeconds: timeMovingSeconds ?? this.timeMovingSeconds,
+      timeStuckSeconds: timeStuckSeconds ?? this.timeStuckSeconds,
+      isManualEntry: isManualEntry ?? this.isManualEntry,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (startTime.present) {
+      map['start_time'] = Variable<DateTime>(startTime.value);
+    }
+    if (endTime.present) {
+      map['end_time'] = Variable<DateTime>(endTime.value);
+    }
+    if (durationSeconds.present) {
+      map['duration_seconds'] = Variable<int>(durationSeconds.value);
+    }
+    if (distanceMeters.present) {
+      map['distance_meters'] = Variable<double>(distanceMeters.value);
+    }
+    if (routePolyline.present) {
+      map['route_polyline'] = Variable<String>(routePolyline.value);
+    }
+    if (direction.present) {
+      map['direction'] = Variable<String>(direction.value);
+    }
+    if (timeMovingSeconds.present) {
+      map['time_moving_seconds'] = Variable<int>(timeMovingSeconds.value);
+    }
+    if (timeStuckSeconds.present) {
+      map['time_stuck_seconds'] = Variable<int>(timeStuckSeconds.value);
+    }
+    if (isManualEntry.present) {
+      map['is_manual_entry'] = Variable<bool>(isManualEntry.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TripsCompanion(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('startTime: $startTime, ')
+          ..write('endTime: $endTime, ')
+          ..write('durationSeconds: $durationSeconds, ')
+          ..write('distanceMeters: $distanceMeters, ')
+          ..write('routePolyline: $routePolyline, ')
+          ..write('direction: $direction, ')
+          ..write('timeMovingSeconds: $timeMovingSeconds, ')
+          ..write('timeStuckSeconds: $timeStuckSeconds, ')
+          ..write('isManualEntry: $isManualEntry, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $SyncQueueTable extends SyncQueue
+    with TableInfo<$SyncQueueTable, SyncQueueRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SyncQueueTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _tripIdMeta = const VerificationMeta('tripId');
+  @override
+  late final GeneratedColumn<String> tripId = GeneratedColumn<String>(
+    'trip_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _actionMeta = const VerificationMeta('action');
+  @override
+  late final GeneratedColumn<String> action = GeneratedColumn<String>(
+    'action',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _payloadMeta = const VerificationMeta(
+    'payload',
+  );
+  @override
+  late final GeneratedColumn<String> payload = GeneratedColumn<String>(
+    'payload',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('pending'),
+  );
+  static const VerificationMeta _retryCountMeta = const VerificationMeta(
+    'retryCount',
+  );
+  @override
+  late final GeneratedColumn<int> retryCount = GeneratedColumn<int>(
+    'retry_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _syncedAtMeta = const VerificationMeta(
+    'syncedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> syncedAt = GeneratedColumn<DateTime>(
+    'synced_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    tripId,
+    action,
+    payload,
+    status,
+    retryCount,
+    createdAt,
+    syncedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sync_queue';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SyncQueueRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('trip_id')) {
+      context.handle(
+        _tripIdMeta,
+        tripId.isAcceptableOrUnknown(data['trip_id']!, _tripIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_tripIdMeta);
+    }
+    if (data.containsKey('action')) {
+      context.handle(
+        _actionMeta,
+        action.isAcceptableOrUnknown(data['action']!, _actionMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_actionMeta);
+    }
+    if (data.containsKey('payload')) {
+      context.handle(
+        _payloadMeta,
+        payload.isAcceptableOrUnknown(data['payload']!, _payloadMeta),
+      );
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('retry_count')) {
+      context.handle(
+        _retryCountMeta,
+        retryCount.isAcceptableOrUnknown(data['retry_count']!, _retryCountMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('synced_at')) {
+      context.handle(
+        _syncedAtMeta,
+        syncedAt.isAcceptableOrUnknown(data['synced_at']!, _syncedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  SyncQueueRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SyncQueueRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      tripId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}trip_id'],
+      )!,
+      action: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}action'],
+      )!,
+      payload: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payload'],
+      ),
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      retryCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}retry_count'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      syncedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}synced_at'],
+      ),
+    );
+  }
+
+  @override
+  $SyncQueueTable createAlias(String alias) {
+    return $SyncQueueTable(attachedDatabase, alias);
+  }
+}
+
+class SyncQueueRow extends DataClass implements Insertable<SyncQueueRow> {
+  /// Auto-increment primary key. Distinct from the trip UUID so the
+  /// same trip can have multiple queued actions (e.g. create → update).
+  final int id;
+
+  /// Foreign-key-ish reference to `trips.id`. Not a hard FK because the
+  /// trip row may be deleted before the delete action is flushed.
+  final String tripId;
+
+  /// `'create'`, `'update'`, or `'delete'`. Consumer code should use the
+  /// `kSyncActionCreate/Update/Delete` constants from `constants.dart`
+  /// once plan 01-02 lands.
+  final String action;
+
+  /// D-13: nullable text. Populated ONLY for delete actions with a JSON
+  /// snapshot `{id, user_id}` so the server can tombstone without the
+  /// now-missing trip row. Null for create/update.
+  final String? payload;
+
+  /// Literal default `'pending'` until plan 01-02 exposes
+  /// `kSyncStatusPending` in `lib/config/constants.dart`. A follow-up swap
+  /// replaces this literal with the constant reference.
+  final String status;
+
+  /// Monotonic retry counter; the sync engine gives up after 3 attempts
+  /// and promotes the row to `'failed'`.
+  final int retryCount;
+  final DateTime createdAt;
+
+  /// Set when the row transitions to `'synced'`. Null while pending/failed.
+  final DateTime? syncedAt;
+  const SyncQueueRow({
+    required this.id,
+    required this.tripId,
+    required this.action,
+    this.payload,
+    required this.status,
+    required this.retryCount,
+    required this.createdAt,
+    this.syncedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['trip_id'] = Variable<String>(tripId);
+    map['action'] = Variable<String>(action);
+    if (!nullToAbsent || payload != null) {
+      map['payload'] = Variable<String>(payload);
+    }
+    map['status'] = Variable<String>(status);
+    map['retry_count'] = Variable<int>(retryCount);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || syncedAt != null) {
+      map['synced_at'] = Variable<DateTime>(syncedAt);
+    }
+    return map;
+  }
+
+  SyncQueueCompanion toCompanion(bool nullToAbsent) {
+    return SyncQueueCompanion(
+      id: Value(id),
+      tripId: Value(tripId),
+      action: Value(action),
+      payload: payload == null && nullToAbsent
+          ? const Value.absent()
+          : Value(payload),
+      status: Value(status),
+      retryCount: Value(retryCount),
+      createdAt: Value(createdAt),
+      syncedAt: syncedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(syncedAt),
+    );
+  }
+
+  factory SyncQueueRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SyncQueueRow(
+      id: serializer.fromJson<int>(json['id']),
+      tripId: serializer.fromJson<String>(json['tripId']),
+      action: serializer.fromJson<String>(json['action']),
+      payload: serializer.fromJson<String?>(json['payload']),
+      status: serializer.fromJson<String>(json['status']),
+      retryCount: serializer.fromJson<int>(json['retryCount']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      syncedAt: serializer.fromJson<DateTime?>(json['syncedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'tripId': serializer.toJson<String>(tripId),
+      'action': serializer.toJson<String>(action),
+      'payload': serializer.toJson<String?>(payload),
+      'status': serializer.toJson<String>(status),
+      'retryCount': serializer.toJson<int>(retryCount),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'syncedAt': serializer.toJson<DateTime?>(syncedAt),
+    };
+  }
+
+  SyncQueueRow copyWith({
+    int? id,
+    String? tripId,
+    String? action,
+    Value<String?> payload = const Value.absent(),
+    String? status,
+    int? retryCount,
+    DateTime? createdAt,
+    Value<DateTime?> syncedAt = const Value.absent(),
+  }) => SyncQueueRow(
+    id: id ?? this.id,
+    tripId: tripId ?? this.tripId,
+    action: action ?? this.action,
+    payload: payload.present ? payload.value : this.payload,
+    status: status ?? this.status,
+    retryCount: retryCount ?? this.retryCount,
+    createdAt: createdAt ?? this.createdAt,
+    syncedAt: syncedAt.present ? syncedAt.value : this.syncedAt,
+  );
+  SyncQueueRow copyWithCompanion(SyncQueueCompanion data) {
+    return SyncQueueRow(
+      id: data.id.present ? data.id.value : this.id,
+      tripId: data.tripId.present ? data.tripId.value : this.tripId,
+      action: data.action.present ? data.action.value : this.action,
+      payload: data.payload.present ? data.payload.value : this.payload,
+      status: data.status.present ? data.status.value : this.status,
+      retryCount: data.retryCount.present
+          ? data.retryCount.value
+          : this.retryCount,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      syncedAt: data.syncedAt.present ? data.syncedAt.value : this.syncedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncQueueRow(')
+          ..write('id: $id, ')
+          ..write('tripId: $tripId, ')
+          ..write('action: $action, ')
+          ..write('payload: $payload, ')
+          ..write('status: $status, ')
+          ..write('retryCount: $retryCount, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('syncedAt: $syncedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    tripId,
+    action,
+    payload,
+    status,
+    retryCount,
+    createdAt,
+    syncedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SyncQueueRow &&
+          other.id == this.id &&
+          other.tripId == this.tripId &&
+          other.action == this.action &&
+          other.payload == this.payload &&
+          other.status == this.status &&
+          other.retryCount == this.retryCount &&
+          other.createdAt == this.createdAt &&
+          other.syncedAt == this.syncedAt);
+}
+
+class SyncQueueCompanion extends UpdateCompanion<SyncQueueRow> {
+  final Value<int> id;
+  final Value<String> tripId;
+  final Value<String> action;
+  final Value<String?> payload;
+  final Value<String> status;
+  final Value<int> retryCount;
+  final Value<DateTime> createdAt;
+  final Value<DateTime?> syncedAt;
+  const SyncQueueCompanion({
+    this.id = const Value.absent(),
+    this.tripId = const Value.absent(),
+    this.action = const Value.absent(),
+    this.payload = const Value.absent(),
+    this.status = const Value.absent(),
+    this.retryCount = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.syncedAt = const Value.absent(),
+  });
+  SyncQueueCompanion.insert({
+    this.id = const Value.absent(),
+    required String tripId,
+    required String action,
+    this.payload = const Value.absent(),
+    this.status = const Value.absent(),
+    this.retryCount = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.syncedAt = const Value.absent(),
+  }) : tripId = Value(tripId),
+       action = Value(action);
+  static Insertable<SyncQueueRow> custom({
+    Expression<int>? id,
+    Expression<String>? tripId,
+    Expression<String>? action,
+    Expression<String>? payload,
+    Expression<String>? status,
+    Expression<int>? retryCount,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? syncedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (tripId != null) 'trip_id': tripId,
+      if (action != null) 'action': action,
+      if (payload != null) 'payload': payload,
+      if (status != null) 'status': status,
+      if (retryCount != null) 'retry_count': retryCount,
+      if (createdAt != null) 'created_at': createdAt,
+      if (syncedAt != null) 'synced_at': syncedAt,
+    });
+  }
+
+  SyncQueueCompanion copyWith({
+    Value<int>? id,
+    Value<String>? tripId,
+    Value<String>? action,
+    Value<String?>? payload,
+    Value<String>? status,
+    Value<int>? retryCount,
+    Value<DateTime>? createdAt,
+    Value<DateTime?>? syncedAt,
+  }) {
+    return SyncQueueCompanion(
+      id: id ?? this.id,
+      tripId: tripId ?? this.tripId,
+      action: action ?? this.action,
+      payload: payload ?? this.payload,
+      status: status ?? this.status,
+      retryCount: retryCount ?? this.retryCount,
+      createdAt: createdAt ?? this.createdAt,
+      syncedAt: syncedAt ?? this.syncedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (tripId.present) {
+      map['trip_id'] = Variable<String>(tripId.value);
+    }
+    if (action.present) {
+      map['action'] = Variable<String>(action.value);
+    }
+    if (payload.present) {
+      map['payload'] = Variable<String>(payload.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (retryCount.present) {
+      map['retry_count'] = Variable<int>(retryCount.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (syncedAt.present) {
+      map['synced_at'] = Variable<DateTime>(syncedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncQueueCompanion(')
+          ..write('id: $id, ')
+          ..write('tripId: $tripId, ')
+          ..write('action: $action, ')
+          ..write('payload: $payload, ')
+          ..write('status: $status, ')
+          ..write('retryCount: $retryCount, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('syncedAt: $syncedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $UserPreferencesTable extends UserPreferences
+    with TableInfo<$UserPreferencesTable, UserPreferencesRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $UserPreferencesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('local_user'),
+  );
+  static const VerificationMeta _darkModeMeta = const VerificationMeta(
+    'darkMode',
+  );
+  @override
+  late final GeneratedColumn<String> darkMode = GeneratedColumn<String>(
+    'dark_mode',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('system'),
+  );
+  static const VerificationMeta _morningCutoffHourMeta = const VerificationMeta(
+    'morningCutoffHour',
+  );
+  @override
+  late final GeneratedColumn<int> morningCutoffHour = GeneratedColumn<int>(
+    'morning_cutoff_hour',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(12),
+  );
+  static const VerificationMeta _eveningCutoffHourMeta = const VerificationMeta(
+    'eveningCutoffHour',
+  );
+  @override
+  late final GeneratedColumn<int> eveningCutoffHour = GeneratedColumn<int>(
+    'evening_cutoff_hour',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(12),
+  );
+  static const VerificationMeta _reminderEnabledMeta = const VerificationMeta(
+    'reminderEnabled',
+  );
+  @override
+  late final GeneratedColumn<bool> reminderEnabled = GeneratedColumn<bool>(
+    'reminder_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("reminder_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _reminderTimeMeta = const VerificationMeta(
+    'reminderTime',
+  );
+  @override
+  late final GeneratedColumn<String> reminderTime = GeneratedColumn<String>(
+    'reminder_time',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _weekendReminderMeta = const VerificationMeta(
+    'weekendReminder',
+  );
+  @override
+  late final GeneratedColumn<bool> weekendReminder = GeneratedColumn<bool>(
+    'weekend_reminder',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("weekend_reminder" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    userId,
+    darkMode,
+    morningCutoffHour,
+    eveningCutoffHour,
+    reminderEnabled,
+    reminderTime,
+    weekendReminder,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'user_preferences';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<UserPreferencesRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    }
+    if (data.containsKey('dark_mode')) {
+      context.handle(
+        _darkModeMeta,
+        darkMode.isAcceptableOrUnknown(data['dark_mode']!, _darkModeMeta),
+      );
+    }
+    if (data.containsKey('morning_cutoff_hour')) {
+      context.handle(
+        _morningCutoffHourMeta,
+        morningCutoffHour.isAcceptableOrUnknown(
+          data['morning_cutoff_hour']!,
+          _morningCutoffHourMeta,
+        ),
+      );
+    }
+    if (data.containsKey('evening_cutoff_hour')) {
+      context.handle(
+        _eveningCutoffHourMeta,
+        eveningCutoffHour.isAcceptableOrUnknown(
+          data['evening_cutoff_hour']!,
+          _eveningCutoffHourMeta,
+        ),
+      );
+    }
+    if (data.containsKey('reminder_enabled')) {
+      context.handle(
+        _reminderEnabledMeta,
+        reminderEnabled.isAcceptableOrUnknown(
+          data['reminder_enabled']!,
+          _reminderEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('reminder_time')) {
+      context.handle(
+        _reminderTimeMeta,
+        reminderTime.isAcceptableOrUnknown(
+          data['reminder_time']!,
+          _reminderTimeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('weekend_reminder')) {
+      context.handle(
+        _weekendReminderMeta,
+        weekendReminder.isAcceptableOrUnknown(
+          data['weekend_reminder']!,
+          _weekendReminderMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  UserPreferencesRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return UserPreferencesRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      )!,
+      darkMode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}dark_mode'],
+      )!,
+      morningCutoffHour: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}morning_cutoff_hour'],
+      )!,
+      eveningCutoffHour: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}evening_cutoff_hour'],
+      )!,
+      reminderEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}reminder_enabled'],
+      )!,
+      reminderTime: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reminder_time'],
+      ),
+      weekendReminder: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}weekend_reminder'],
+      )!,
+    );
+  }
+
+  @override
+  $UserPreferencesTable createAlias(String alias) {
+    return $UserPreferencesTable(attachedDatabase, alias);
+  }
+}
+
+class UserPreferencesRow extends DataClass
+    implements Insertable<UserPreferencesRow> {
+  /// Non-auto-increment integer so callers always write `id = 1`. There
+  /// is exactly one row per app install in Phase 1.
+  final int id;
+
+  /// Owning user. Defaults to the `'local_user'` placeholder like the
+  /// trips table; Phase 8 replaces this with the Cognito sub.
+  final String userId;
+
+  /// `'system'`, `'light'`, or `'dark'`.
+  final String darkMode;
+
+  /// Hour (0-23) before which starting trips auto-label as `'to_office'`.
+  /// Defaults to 12 (noon) per CLAUDE.md direction auto-labeling section.
+  final int morningCutoffHour;
+
+  /// Hour (0-23) after which starting trips auto-label as `'to_home'`.
+  /// Defaults to 12 (noon) per CLAUDE.md direction auto-labeling section.
+  final int eveningCutoffHour;
+  final bool reminderEnabled;
+
+  /// `HH:mm` formatted local time. Null when no reminder is scheduled.
+  final String? reminderTime;
+  final bool weekendReminder;
+  const UserPreferencesRow({
+    required this.id,
+    required this.userId,
+    required this.darkMode,
+    required this.morningCutoffHour,
+    required this.eveningCutoffHour,
+    required this.reminderEnabled,
+    this.reminderTime,
+    required this.weekendReminder,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['user_id'] = Variable<String>(userId);
+    map['dark_mode'] = Variable<String>(darkMode);
+    map['morning_cutoff_hour'] = Variable<int>(morningCutoffHour);
+    map['evening_cutoff_hour'] = Variable<int>(eveningCutoffHour);
+    map['reminder_enabled'] = Variable<bool>(reminderEnabled);
+    if (!nullToAbsent || reminderTime != null) {
+      map['reminder_time'] = Variable<String>(reminderTime);
+    }
+    map['weekend_reminder'] = Variable<bool>(weekendReminder);
+    return map;
+  }
+
+  UserPreferencesCompanion toCompanion(bool nullToAbsent) {
+    return UserPreferencesCompanion(
+      id: Value(id),
+      userId: Value(userId),
+      darkMode: Value(darkMode),
+      morningCutoffHour: Value(morningCutoffHour),
+      eveningCutoffHour: Value(eveningCutoffHour),
+      reminderEnabled: Value(reminderEnabled),
+      reminderTime: reminderTime == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reminderTime),
+      weekendReminder: Value(weekendReminder),
+    );
+  }
+
+  factory UserPreferencesRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return UserPreferencesRow(
+      id: serializer.fromJson<int>(json['id']),
+      userId: serializer.fromJson<String>(json['userId']),
+      darkMode: serializer.fromJson<String>(json['darkMode']),
+      morningCutoffHour: serializer.fromJson<int>(json['morningCutoffHour']),
+      eveningCutoffHour: serializer.fromJson<int>(json['eveningCutoffHour']),
+      reminderEnabled: serializer.fromJson<bool>(json['reminderEnabled']),
+      reminderTime: serializer.fromJson<String?>(json['reminderTime']),
+      weekendReminder: serializer.fromJson<bool>(json['weekendReminder']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'userId': serializer.toJson<String>(userId),
+      'darkMode': serializer.toJson<String>(darkMode),
+      'morningCutoffHour': serializer.toJson<int>(morningCutoffHour),
+      'eveningCutoffHour': serializer.toJson<int>(eveningCutoffHour),
+      'reminderEnabled': serializer.toJson<bool>(reminderEnabled),
+      'reminderTime': serializer.toJson<String?>(reminderTime),
+      'weekendReminder': serializer.toJson<bool>(weekendReminder),
+    };
+  }
+
+  UserPreferencesRow copyWith({
+    int? id,
+    String? userId,
+    String? darkMode,
+    int? morningCutoffHour,
+    int? eveningCutoffHour,
+    bool? reminderEnabled,
+    Value<String?> reminderTime = const Value.absent(),
+    bool? weekendReminder,
+  }) => UserPreferencesRow(
+    id: id ?? this.id,
+    userId: userId ?? this.userId,
+    darkMode: darkMode ?? this.darkMode,
+    morningCutoffHour: morningCutoffHour ?? this.morningCutoffHour,
+    eveningCutoffHour: eveningCutoffHour ?? this.eveningCutoffHour,
+    reminderEnabled: reminderEnabled ?? this.reminderEnabled,
+    reminderTime: reminderTime.present ? reminderTime.value : this.reminderTime,
+    weekendReminder: weekendReminder ?? this.weekendReminder,
+  );
+  UserPreferencesRow copyWithCompanion(UserPreferencesCompanion data) {
+    return UserPreferencesRow(
+      id: data.id.present ? data.id.value : this.id,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      darkMode: data.darkMode.present ? data.darkMode.value : this.darkMode,
+      morningCutoffHour: data.morningCutoffHour.present
+          ? data.morningCutoffHour.value
+          : this.morningCutoffHour,
+      eveningCutoffHour: data.eveningCutoffHour.present
+          ? data.eveningCutoffHour.value
+          : this.eveningCutoffHour,
+      reminderEnabled: data.reminderEnabled.present
+          ? data.reminderEnabled.value
+          : this.reminderEnabled,
+      reminderTime: data.reminderTime.present
+          ? data.reminderTime.value
+          : this.reminderTime,
+      weekendReminder: data.weekendReminder.present
+          ? data.weekendReminder.value
+          : this.weekendReminder,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('UserPreferencesRow(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('darkMode: $darkMode, ')
+          ..write('morningCutoffHour: $morningCutoffHour, ')
+          ..write('eveningCutoffHour: $eveningCutoffHour, ')
+          ..write('reminderEnabled: $reminderEnabled, ')
+          ..write('reminderTime: $reminderTime, ')
+          ..write('weekendReminder: $weekendReminder')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    userId,
+    darkMode,
+    morningCutoffHour,
+    eveningCutoffHour,
+    reminderEnabled,
+    reminderTime,
+    weekendReminder,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is UserPreferencesRow &&
+          other.id == this.id &&
+          other.userId == this.userId &&
+          other.darkMode == this.darkMode &&
+          other.morningCutoffHour == this.morningCutoffHour &&
+          other.eveningCutoffHour == this.eveningCutoffHour &&
+          other.reminderEnabled == this.reminderEnabled &&
+          other.reminderTime == this.reminderTime &&
+          other.weekendReminder == this.weekendReminder);
+}
+
+class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
+  final Value<int> id;
+  final Value<String> userId;
+  final Value<String> darkMode;
+  final Value<int> morningCutoffHour;
+  final Value<int> eveningCutoffHour;
+  final Value<bool> reminderEnabled;
+  final Value<String?> reminderTime;
+  final Value<bool> weekendReminder;
+  const UserPreferencesCompanion({
+    this.id = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.darkMode = const Value.absent(),
+    this.morningCutoffHour = const Value.absent(),
+    this.eveningCutoffHour = const Value.absent(),
+    this.reminderEnabled = const Value.absent(),
+    this.reminderTime = const Value.absent(),
+    this.weekendReminder = const Value.absent(),
+  });
+  UserPreferencesCompanion.insert({
+    this.id = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.darkMode = const Value.absent(),
+    this.morningCutoffHour = const Value.absent(),
+    this.eveningCutoffHour = const Value.absent(),
+    this.reminderEnabled = const Value.absent(),
+    this.reminderTime = const Value.absent(),
+    this.weekendReminder = const Value.absent(),
+  });
+  static Insertable<UserPreferencesRow> custom({
+    Expression<int>? id,
+    Expression<String>? userId,
+    Expression<String>? darkMode,
+    Expression<int>? morningCutoffHour,
+    Expression<int>? eveningCutoffHour,
+    Expression<bool>? reminderEnabled,
+    Expression<String>? reminderTime,
+    Expression<bool>? weekendReminder,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (userId != null) 'user_id': userId,
+      if (darkMode != null) 'dark_mode': darkMode,
+      if (morningCutoffHour != null) 'morning_cutoff_hour': morningCutoffHour,
+      if (eveningCutoffHour != null) 'evening_cutoff_hour': eveningCutoffHour,
+      if (reminderEnabled != null) 'reminder_enabled': reminderEnabled,
+      if (reminderTime != null) 'reminder_time': reminderTime,
+      if (weekendReminder != null) 'weekend_reminder': weekendReminder,
+    });
+  }
+
+  UserPreferencesCompanion copyWith({
+    Value<int>? id,
+    Value<String>? userId,
+    Value<String>? darkMode,
+    Value<int>? morningCutoffHour,
+    Value<int>? eveningCutoffHour,
+    Value<bool>? reminderEnabled,
+    Value<String?>? reminderTime,
+    Value<bool>? weekendReminder,
+  }) {
+    return UserPreferencesCompanion(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      darkMode: darkMode ?? this.darkMode,
+      morningCutoffHour: morningCutoffHour ?? this.morningCutoffHour,
+      eveningCutoffHour: eveningCutoffHour ?? this.eveningCutoffHour,
+      reminderEnabled: reminderEnabled ?? this.reminderEnabled,
+      reminderTime: reminderTime ?? this.reminderTime,
+      weekendReminder: weekendReminder ?? this.weekendReminder,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (darkMode.present) {
+      map['dark_mode'] = Variable<String>(darkMode.value);
+    }
+    if (morningCutoffHour.present) {
+      map['morning_cutoff_hour'] = Variable<int>(morningCutoffHour.value);
+    }
+    if (eveningCutoffHour.present) {
+      map['evening_cutoff_hour'] = Variable<int>(eveningCutoffHour.value);
+    }
+    if (reminderEnabled.present) {
+      map['reminder_enabled'] = Variable<bool>(reminderEnabled.value);
+    }
+    if (reminderTime.present) {
+      map['reminder_time'] = Variable<String>(reminderTime.value);
+    }
+    if (weekendReminder.present) {
+      map['weekend_reminder'] = Variable<bool>(weekendReminder.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('UserPreferencesCompanion(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('darkMode: $darkMode, ')
+          ..write('morningCutoffHour: $morningCutoffHour, ')
+          ..write('eveningCutoffHour: $eveningCutoffHour, ')
+          ..write('reminderEnabled: $reminderEnabled, ')
+          ..write('reminderTime: $reminderTime, ')
+          ..write('weekendReminder: $weekendReminder')
+          ..write(')'))
+        .toString();
+  }
+}
+
+abstract class _$AppDatabase extends GeneratedDatabase {
+  _$AppDatabase(QueryExecutor e) : super(e);
+  $AppDatabaseManager get managers => $AppDatabaseManager(this);
+  late final $TripsTable trips = $TripsTable(this);
+  late final $SyncQueueTable syncQueue = $SyncQueueTable(this);
+  late final $UserPreferencesTable userPreferences = $UserPreferencesTable(
+    this,
+  );
+  late final Index idxTripsStartTime = Index(
+    'idx_trips_start_time',
+    'CREATE INDEX idx_trips_start_time ON trips (start_time)',
+  );
+  late final Index idxTripsDirectionStart = Index(
+    'idx_trips_direction_start',
+    'CREATE INDEX idx_trips_direction_start ON trips (direction, start_time)',
+  );
+  late final TripsDao tripsDao = TripsDao(this as AppDatabase);
+  late final SyncQueueDao syncQueueDao = SyncQueueDao(this as AppDatabase);
+  late final UserPreferencesDao userPreferencesDao = UserPreferencesDao(
+    this as AppDatabase,
+  );
+  @override
+  Iterable<TableInfo<Table, Object?>> get allTables =>
+      allSchemaEntities.whereType<TableInfo<Table, Object?>>();
+  @override
+  List<DatabaseSchemaEntity> get allSchemaEntities => [
+    trips,
+    syncQueue,
+    userPreferences,
+    idxTripsStartTime,
+    idxTripsDirectionStart,
+  ];
+}
+
+typedef $$TripsTableCreateCompanionBuilder =
+    TripsCompanion Function({
+      required String id,
+      Value<String> userId,
+      required DateTime startTime,
+      required DateTime endTime,
+      required int durationSeconds,
+      required double distanceMeters,
+      Value<String?> routePolyline,
+      required String direction,
+      required int timeMovingSeconds,
+      required int timeStuckSeconds,
+      Value<bool> isManualEntry,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+typedef $$TripsTableUpdateCompanionBuilder =
+    TripsCompanion Function({
+      Value<String> id,
+      Value<String> userId,
+      Value<DateTime> startTime,
+      Value<DateTime> endTime,
+      Value<int> durationSeconds,
+      Value<double> distanceMeters,
+      Value<String?> routePolyline,
+      Value<String> direction,
+      Value<int> timeMovingSeconds,
+      Value<int> timeStuckSeconds,
+      Value<bool> isManualEntry,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+
+class $$TripsTableFilterComposer extends Composer<_$AppDatabase, $TripsTable> {
+  $$TripsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get startTime => $composableBuilder(
+    column: $table.startTime,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get endTime => $composableBuilder(
+    column: $table.endTime,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get durationSeconds => $composableBuilder(
+    column: $table.durationSeconds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get distanceMeters => $composableBuilder(
+    column: $table.distanceMeters,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get routePolyline => $composableBuilder(
+    column: $table.routePolyline,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get direction => $composableBuilder(
+    column: $table.direction,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get timeMovingSeconds => $composableBuilder(
+    column: $table.timeMovingSeconds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get timeStuckSeconds => $composableBuilder(
+    column: $table.timeStuckSeconds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isManualEntry => $composableBuilder(
+    column: $table.isManualEntry,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$TripsTableOrderingComposer
+    extends Composer<_$AppDatabase, $TripsTable> {
+  $$TripsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get startTime => $composableBuilder(
+    column: $table.startTime,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get endTime => $composableBuilder(
+    column: $table.endTime,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get durationSeconds => $composableBuilder(
+    column: $table.durationSeconds,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get distanceMeters => $composableBuilder(
+    column: $table.distanceMeters,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get routePolyline => $composableBuilder(
+    column: $table.routePolyline,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get direction => $composableBuilder(
+    column: $table.direction,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get timeMovingSeconds => $composableBuilder(
+    column: $table.timeMovingSeconds,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get timeStuckSeconds => $composableBuilder(
+    column: $table.timeStuckSeconds,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isManualEntry => $composableBuilder(
+    column: $table.isManualEntry,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$TripsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $TripsTable> {
+  $$TripsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get startTime =>
+      $composableBuilder(column: $table.startTime, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get endTime =>
+      $composableBuilder(column: $table.endTime, builder: (column) => column);
+
+  GeneratedColumn<int> get durationSeconds => $composableBuilder(
+    column: $table.durationSeconds,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get distanceMeters => $composableBuilder(
+    column: $table.distanceMeters,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get routePolyline => $composableBuilder(
+    column: $table.routePolyline,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get direction =>
+      $composableBuilder(column: $table.direction, builder: (column) => column);
+
+  GeneratedColumn<int> get timeMovingSeconds => $composableBuilder(
+    column: $table.timeMovingSeconds,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get timeStuckSeconds => $composableBuilder(
+    column: $table.timeStuckSeconds,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isManualEntry => $composableBuilder(
+    column: $table.isManualEntry,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$TripsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $TripsTable,
+          TripRow,
+          $$TripsTableFilterComposer,
+          $$TripsTableOrderingComposer,
+          $$TripsTableAnnotationComposer,
+          $$TripsTableCreateCompanionBuilder,
+          $$TripsTableUpdateCompanionBuilder,
+          (TripRow, BaseReferences<_$AppDatabase, $TripsTable, TripRow>),
+          TripRow,
+          PrefetchHooks Function()
+        > {
+  $$TripsTableTableManager(_$AppDatabase db, $TripsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$TripsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$TripsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$TripsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> userId = const Value.absent(),
+                Value<DateTime> startTime = const Value.absent(),
+                Value<DateTime> endTime = const Value.absent(),
+                Value<int> durationSeconds = const Value.absent(),
+                Value<double> distanceMeters = const Value.absent(),
+                Value<String?> routePolyline = const Value.absent(),
+                Value<String> direction = const Value.absent(),
+                Value<int> timeMovingSeconds = const Value.absent(),
+                Value<int> timeStuckSeconds = const Value.absent(),
+                Value<bool> isManualEntry = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => TripsCompanion(
+                id: id,
+                userId: userId,
+                startTime: startTime,
+                endTime: endTime,
+                durationSeconds: durationSeconds,
+                distanceMeters: distanceMeters,
+                routePolyline: routePolyline,
+                direction: direction,
+                timeMovingSeconds: timeMovingSeconds,
+                timeStuckSeconds: timeStuckSeconds,
+                isManualEntry: isManualEntry,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                Value<String> userId = const Value.absent(),
+                required DateTime startTime,
+                required DateTime endTime,
+                required int durationSeconds,
+                required double distanceMeters,
+                Value<String?> routePolyline = const Value.absent(),
+                required String direction,
+                required int timeMovingSeconds,
+                required int timeStuckSeconds,
+                Value<bool> isManualEntry = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => TripsCompanion.insert(
+                id: id,
+                userId: userId,
+                startTime: startTime,
+                endTime: endTime,
+                durationSeconds: durationSeconds,
+                distanceMeters: distanceMeters,
+                routePolyline: routePolyline,
+                direction: direction,
+                timeMovingSeconds: timeMovingSeconds,
+                timeStuckSeconds: timeStuckSeconds,
+                isManualEntry: isManualEntry,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$TripsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $TripsTable,
+      TripRow,
+      $$TripsTableFilterComposer,
+      $$TripsTableOrderingComposer,
+      $$TripsTableAnnotationComposer,
+      $$TripsTableCreateCompanionBuilder,
+      $$TripsTableUpdateCompanionBuilder,
+      (TripRow, BaseReferences<_$AppDatabase, $TripsTable, TripRow>),
+      TripRow,
+      PrefetchHooks Function()
+    >;
+typedef $$SyncQueueTableCreateCompanionBuilder =
+    SyncQueueCompanion Function({
+      Value<int> id,
+      required String tripId,
+      required String action,
+      Value<String?> payload,
+      Value<String> status,
+      Value<int> retryCount,
+      Value<DateTime> createdAt,
+      Value<DateTime?> syncedAt,
+    });
+typedef $$SyncQueueTableUpdateCompanionBuilder =
+    SyncQueueCompanion Function({
+      Value<int> id,
+      Value<String> tripId,
+      Value<String> action,
+      Value<String?> payload,
+      Value<String> status,
+      Value<int> retryCount,
+      Value<DateTime> createdAt,
+      Value<DateTime?> syncedAt,
+    });
+
+class $$SyncQueueTableFilterComposer
+    extends Composer<_$AppDatabase, $SyncQueueTable> {
+  $$SyncQueueTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get tripId => $composableBuilder(
+    column: $table.tripId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get action => $composableBuilder(
+    column: $table.action,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get retryCount => $composableBuilder(
+    column: $table.retryCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get syncedAt => $composableBuilder(
+    column: $table.syncedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SyncQueueTableOrderingComposer
+    extends Composer<_$AppDatabase, $SyncQueueTable> {
+  $$SyncQueueTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get tripId => $composableBuilder(
+    column: $table.tripId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get action => $composableBuilder(
+    column: $table.action,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get retryCount => $composableBuilder(
+    column: $table.retryCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get syncedAt => $composableBuilder(
+    column: $table.syncedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SyncQueueTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SyncQueueTable> {
+  $$SyncQueueTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get tripId =>
+      $composableBuilder(column: $table.tripId, builder: (column) => column);
+
+  GeneratedColumn<String> get action =>
+      $composableBuilder(column: $table.action, builder: (column) => column);
+
+  GeneratedColumn<String> get payload =>
+      $composableBuilder(column: $table.payload, builder: (column) => column);
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<int> get retryCount => $composableBuilder(
+    column: $table.retryCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get syncedAt =>
+      $composableBuilder(column: $table.syncedAt, builder: (column) => column);
+}
+
+class $$SyncQueueTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SyncQueueTable,
+          SyncQueueRow,
+          $$SyncQueueTableFilterComposer,
+          $$SyncQueueTableOrderingComposer,
+          $$SyncQueueTableAnnotationComposer,
+          $$SyncQueueTableCreateCompanionBuilder,
+          $$SyncQueueTableUpdateCompanionBuilder,
+          (
+            SyncQueueRow,
+            BaseReferences<_$AppDatabase, $SyncQueueTable, SyncQueueRow>,
+          ),
+          SyncQueueRow,
+          PrefetchHooks Function()
+        > {
+  $$SyncQueueTableTableManager(_$AppDatabase db, $SyncQueueTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SyncQueueTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SyncQueueTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SyncQueueTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> tripId = const Value.absent(),
+                Value<String> action = const Value.absent(),
+                Value<String?> payload = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<int> retryCount = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime?> syncedAt = const Value.absent(),
+              }) => SyncQueueCompanion(
+                id: id,
+                tripId: tripId,
+                action: action,
+                payload: payload,
+                status: status,
+                retryCount: retryCount,
+                createdAt: createdAt,
+                syncedAt: syncedAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String tripId,
+                required String action,
+                Value<String?> payload = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<int> retryCount = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime?> syncedAt = const Value.absent(),
+              }) => SyncQueueCompanion.insert(
+                id: id,
+                tripId: tripId,
+                action: action,
+                payload: payload,
+                status: status,
+                retryCount: retryCount,
+                createdAt: createdAt,
+                syncedAt: syncedAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SyncQueueTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SyncQueueTable,
+      SyncQueueRow,
+      $$SyncQueueTableFilterComposer,
+      $$SyncQueueTableOrderingComposer,
+      $$SyncQueueTableAnnotationComposer,
+      $$SyncQueueTableCreateCompanionBuilder,
+      $$SyncQueueTableUpdateCompanionBuilder,
+      (
+        SyncQueueRow,
+        BaseReferences<_$AppDatabase, $SyncQueueTable, SyncQueueRow>,
+      ),
+      SyncQueueRow,
+      PrefetchHooks Function()
+    >;
+typedef $$UserPreferencesTableCreateCompanionBuilder =
+    UserPreferencesCompanion Function({
+      Value<int> id,
+      Value<String> userId,
+      Value<String> darkMode,
+      Value<int> morningCutoffHour,
+      Value<int> eveningCutoffHour,
+      Value<bool> reminderEnabled,
+      Value<String?> reminderTime,
+      Value<bool> weekendReminder,
+    });
+typedef $$UserPreferencesTableUpdateCompanionBuilder =
+    UserPreferencesCompanion Function({
+      Value<int> id,
+      Value<String> userId,
+      Value<String> darkMode,
+      Value<int> morningCutoffHour,
+      Value<int> eveningCutoffHour,
+      Value<bool> reminderEnabled,
+      Value<String?> reminderTime,
+      Value<bool> weekendReminder,
+    });
+
+class $$UserPreferencesTableFilterComposer
+    extends Composer<_$AppDatabase, $UserPreferencesTable> {
+  $$UserPreferencesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get darkMode => $composableBuilder(
+    column: $table.darkMode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get morningCutoffHour => $composableBuilder(
+    column: $table.morningCutoffHour,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get eveningCutoffHour => $composableBuilder(
+    column: $table.eveningCutoffHour,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get reminderEnabled => $composableBuilder(
+    column: $table.reminderEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get reminderTime => $composableBuilder(
+    column: $table.reminderTime,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get weekendReminder => $composableBuilder(
+    column: $table.weekendReminder,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$UserPreferencesTableOrderingComposer
+    extends Composer<_$AppDatabase, $UserPreferencesTable> {
+  $$UserPreferencesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get darkMode => $composableBuilder(
+    column: $table.darkMode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get morningCutoffHour => $composableBuilder(
+    column: $table.morningCutoffHour,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get eveningCutoffHour => $composableBuilder(
+    column: $table.eveningCutoffHour,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get reminderEnabled => $composableBuilder(
+    column: $table.reminderEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get reminderTime => $composableBuilder(
+    column: $table.reminderTime,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get weekendReminder => $composableBuilder(
+    column: $table.weekendReminder,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$UserPreferencesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $UserPreferencesTable> {
+  $$UserPreferencesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<String> get darkMode =>
+      $composableBuilder(column: $table.darkMode, builder: (column) => column);
+
+  GeneratedColumn<int> get morningCutoffHour => $composableBuilder(
+    column: $table.morningCutoffHour,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get eveningCutoffHour => $composableBuilder(
+    column: $table.eveningCutoffHour,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get reminderEnabled => $composableBuilder(
+    column: $table.reminderEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get reminderTime => $composableBuilder(
+    column: $table.reminderTime,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get weekendReminder => $composableBuilder(
+    column: $table.weekendReminder,
+    builder: (column) => column,
+  );
+}
+
+class $$UserPreferencesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $UserPreferencesTable,
+          UserPreferencesRow,
+          $$UserPreferencesTableFilterComposer,
+          $$UserPreferencesTableOrderingComposer,
+          $$UserPreferencesTableAnnotationComposer,
+          $$UserPreferencesTableCreateCompanionBuilder,
+          $$UserPreferencesTableUpdateCompanionBuilder,
+          (
+            UserPreferencesRow,
+            BaseReferences<
+              _$AppDatabase,
+              $UserPreferencesTable,
+              UserPreferencesRow
+            >,
+          ),
+          UserPreferencesRow,
+          PrefetchHooks Function()
+        > {
+  $$UserPreferencesTableTableManager(
+    _$AppDatabase db,
+    $UserPreferencesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$UserPreferencesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$UserPreferencesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$UserPreferencesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> userId = const Value.absent(),
+                Value<String> darkMode = const Value.absent(),
+                Value<int> morningCutoffHour = const Value.absent(),
+                Value<int> eveningCutoffHour = const Value.absent(),
+                Value<bool> reminderEnabled = const Value.absent(),
+                Value<String?> reminderTime = const Value.absent(),
+                Value<bool> weekendReminder = const Value.absent(),
+              }) => UserPreferencesCompanion(
+                id: id,
+                userId: userId,
+                darkMode: darkMode,
+                morningCutoffHour: morningCutoffHour,
+                eveningCutoffHour: eveningCutoffHour,
+                reminderEnabled: reminderEnabled,
+                reminderTime: reminderTime,
+                weekendReminder: weekendReminder,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> userId = const Value.absent(),
+                Value<String> darkMode = const Value.absent(),
+                Value<int> morningCutoffHour = const Value.absent(),
+                Value<int> eveningCutoffHour = const Value.absent(),
+                Value<bool> reminderEnabled = const Value.absent(),
+                Value<String?> reminderTime = const Value.absent(),
+                Value<bool> weekendReminder = const Value.absent(),
+              }) => UserPreferencesCompanion.insert(
+                id: id,
+                userId: userId,
+                darkMode: darkMode,
+                morningCutoffHour: morningCutoffHour,
+                eveningCutoffHour: eveningCutoffHour,
+                reminderEnabled: reminderEnabled,
+                reminderTime: reminderTime,
+                weekendReminder: weekendReminder,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$UserPreferencesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $UserPreferencesTable,
+      UserPreferencesRow,
+      $$UserPreferencesTableFilterComposer,
+      $$UserPreferencesTableOrderingComposer,
+      $$UserPreferencesTableAnnotationComposer,
+      $$UserPreferencesTableCreateCompanionBuilder,
+      $$UserPreferencesTableUpdateCompanionBuilder,
+      (
+        UserPreferencesRow,
+        BaseReferences<
+          _$AppDatabase,
+          $UserPreferencesTable,
+          UserPreferencesRow
+        >,
+      ),
+      UserPreferencesRow,
+      PrefetchHooks Function()
+    >;
+
+class $AppDatabaseManager {
+  final _$AppDatabase _db;
+  $AppDatabaseManager(this._db);
+  $$TripsTableTableManager get trips =>
+      $$TripsTableTableManager(_db, _db.trips);
+  $$SyncQueueTableTableManager get syncQueue =>
+      $$SyncQueueTableTableManager(_db, _db.syncQueue);
+  $$UserPreferencesTableTableManager get userPreferences =>
+      $$UserPreferencesTableTableManager(_db, _db.userPreferences);
+}

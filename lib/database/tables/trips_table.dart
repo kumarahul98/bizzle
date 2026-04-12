@@ -34,7 +34,10 @@ class Trips extends Table {
   TextColumn get userId =>
       text().withDefault(const Constant('local_user'))();
 
+  /// Trip start timestamp, stored in UTC.
   DateTimeColumn get startTime => dateTime()();
+
+  /// Trip end timestamp, stored in UTC.
   DateTimeColumn get endTime => dateTime()();
 
   /// Derived from `endTime - startTime` by the trip processor so stats
@@ -65,8 +68,13 @@ class Trips extends Table {
   BoolColumn get isManualEntry =>
       boolean().withDefault(const Constant(false))();
 
+  /// Insertion time. Defaults to `CURRENT_TIMESTAMP` so the DAO does
+  /// not have to set it explicitly.
   DateTimeColumn get createdAt =>
       dateTime().withDefault(currentDateAndTime)();
+
+  /// Last-modified time. Currently updated manually by the DAO on
+  /// every write; future Phase 3 code may move this to a trigger.
   DateTimeColumn get updatedAt =>
       dateTime().withDefault(currentDateAndTime)();
 

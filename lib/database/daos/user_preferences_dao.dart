@@ -1,7 +1,6 @@
 import 'package:drift/drift.dart';
-
-import '../database.dart';
-import '../tables/user_preferences_table.dart';
+import 'package:traevy/database/database.dart';
+import 'package:traevy/database/tables/user_preferences_table.dart';
 
 part 'user_preferences_dao.g.dart';
 
@@ -31,6 +30,8 @@ const String _kDarkModeSystem = 'system';
 /// read. A `UserPreferencesRow` cannot be returned in that case because
 /// Drift rows represent actual persisted data.
 class UserPreferencesValue {
+  /// Construct an explicit `UserPreferencesValue`. All fields required
+  /// so callers cannot accidentally leave a preference unset.
   const UserPreferencesValue({
     required this.userId,
     required this.darkMode,
@@ -52,12 +53,25 @@ class UserPreferencesValue {
         reminderTime = null,
         weekendReminder = false;
 
+  /// Owning user placeholder (Phase 8 replaces with Cognito sub).
   final String userId;
+
+  /// `'system'`, `'light'`, or `'dark'`.
   final String darkMode;
+
+  /// Hour (0-23) before which starts auto-label as `'to_office'`.
   final int morningCutoffHour;
+
+  /// Hour (0-23) after which starts auto-label as `'to_home'`.
   final int eveningCutoffHour;
+
+  /// True if the user has opted into the daily tracking reminder.
   final bool reminderEnabled;
+
+  /// `HH:mm` local time for the reminder; null when disabled.
   final String? reminderTime;
+
+  /// True if the reminder should also fire on Saturday and Sunday.
   final bool weekendReminder;
 }
 
@@ -70,7 +84,8 @@ class UserPreferencesValue {
 @DriftAccessor(tables: [UserPreferences])
 class UserPreferencesDao extends DatabaseAccessor<AppDatabase>
     with _$UserPreferencesDaoMixin {
-  UserPreferencesDao(super.db);
+  /// Bind the DAO to its parent `AppDatabase`.
+  UserPreferencesDao(super.attachedDatabase);
 
   /// Read the user's preferences, or fall back to the hardcoded
   /// defaults if no row has ever been written (first app launch).
@@ -103,7 +118,7 @@ class UserPreferencesDao extends DatabaseAccessor<AppDatabase>
   Future<void> upsert(UserPreferencesValue value) {
     return into(userPreferences).insertOnConflictUpdate(
       UserPreferencesCompanion.insert(
-        id: _kUserPreferencesId,
+        id: const Value<int>(_kUserPreferencesId),
         userId: Value<String>(value.userId),
         darkMode: Value<String>(value.darkMode),
         morningCutoffHour: Value<int>(value.morningCutoffHour),

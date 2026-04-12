@@ -1,7 +1,6 @@
 import 'package:drift/drift.dart';
-
-import '../database.dart';
-import '../tables/sync_queue_table.dart';
+import 'package:traevy/database/database.dart';
+import 'package:traevy/database/tables/sync_queue_table.dart';
 
 part 'sync_queue_dao.g.dart';
 
@@ -32,7 +31,8 @@ const String _statusSynced = 'synced';
 @DriftAccessor(tables: [SyncQueue])
 class SyncQueueDao extends DatabaseAccessor<AppDatabase>
     with _$SyncQueueDaoMixin {
-  SyncQueueDao(super.db);
+  /// Bind the DAO to its parent `AppDatabase`.
+  SyncQueueDao(super.attachedDatabase);
 
   /// Enqueue a `create` action for [tripId]. Payload is null: the sync
   /// engine re-reads the fresh trip row at sync time so user edits
