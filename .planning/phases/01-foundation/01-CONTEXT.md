@@ -23,7 +23,8 @@ Runnable Flutter project with complete Drift database schema and app-wide config
 - **D-05:** App name is "Traevy" with package identifier `traevy.traevy`.
 - **D-06:** Feature directories created phase-by-phase, not all upfront. Phase 1 creates only database/, config/, and shared/ directories.
 - **D-07:** Only core packages in Phase 1: Drift, Riverpod, build_runner, uuid, intl. GPS, charts, notifications added in their respective phases.
-- **D-08:** Target latest Android API level. Set minSdkVersion to latest stable (API 34/Android 14).
+- **D-08:** Set both `minSdkVersion` and `targetSdkVersion` to API 34 (Android 14). User accepts narrower device coverage in exchange for modern API baseline. (Research flagged this excludes ~40-55% of Android devices; user confirmed.)
+- **D-13:** `sync_queue.payload` is a nullable text column, populated only for delete actions. Create/update entries reference trip_id and read current trip state at sync time. Avoids stale payloads if trip is edited after queueing.
 
 ### Migration Strategy
 - **D-09:** Drift schema starts at schemaVersion 1. Every future schema change increments version with an explicit migration step.
