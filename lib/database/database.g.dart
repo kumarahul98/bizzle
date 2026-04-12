@@ -370,7 +370,11 @@ class TripRow extends DataClass implements Insertable<TripRow> {
   /// follow-up swap replaces this literal with the constant reference.
   /// (Phase 8 auth later writes real Cognito subs on top of either form.)
   final String userId;
+
+  /// Trip start timestamp, stored in UTC.
   final DateTime startTime;
+
+  /// Trip end timestamp, stored in UTC.
   final DateTime endTime;
 
   /// Derived from `endTime - startTime` by the trip processor so stats
@@ -399,7 +403,13 @@ class TripRow extends DataClass implements Insertable<TripRow> {
   /// `true` for trips the user typed in by hand (no GPS capture). Manual
   /// entries never have a polyline.
   final bool isManualEntry;
+
+  /// Insertion time. Defaults to `CURRENT_TIMESTAMP` so the DAO does
+  /// not have to set it explicitly.
   final DateTime createdAt;
+
+  /// Last-modified time. Currently updated manually by the DAO on
+  /// every write; future Phase 3 code may move this to a trigger.
   final DateTime updatedAt;
   const TripRow({
     required this.id,
@@ -1048,6 +1058,8 @@ class SyncQueueRow extends DataClass implements Insertable<SyncQueueRow> {
   /// Monotonic retry counter; the sync engine gives up after 3 attempts
   /// and promotes the row to `'failed'`.
   final int retryCount;
+
+  /// Insertion time of the queue row, not of the underlying trip.
   final DateTime createdAt;
 
   /// Set when the row transitions to `'synced'`. Null while pending/failed.
@@ -1577,10 +1589,14 @@ class UserPreferencesRow extends DataClass
   /// Hour (0-23) after which starting trips auto-label as `'to_home'`.
   /// Defaults to 12 (noon) per CLAUDE.md direction auto-labeling section.
   final int eveningCutoffHour;
+
+  /// True if the user has opted into the daily tracking reminder.
   final bool reminderEnabled;
 
   /// `HH:mm` formatted local time. Null when no reminder is scheduled.
   final String? reminderTime;
+
+  /// True if the reminder should also fire on Saturday and Sunday.
   final bool weekendReminder;
   const UserPreferencesRow({
     required this.id,
