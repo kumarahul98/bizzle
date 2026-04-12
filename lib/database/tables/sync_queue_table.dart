@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:traevy/config/constants.dart';
 
 /// Outbound sync queue for the client-authoritative (one-way) sync engine.
 ///
@@ -36,11 +37,10 @@ class SyncQueue extends Table {
   /// now-missing trip row. Null for create/update.
   TextColumn get payload => text().nullable()();
 
-  /// Literal default `'pending'` until plan 01-02 exposes
-  /// `kSyncStatusPending` in `lib/config/constants.dart`. A follow-up swap
-  /// replaces this literal with the constant reference.
+  /// Defaults to `kSyncStatusPending`. Moves to synced / failed via the
+  /// sync engine (Phase 9).
   TextColumn get status =>
-      text().withDefault(const Constant('pending'))();
+      text().withDefault(const Constant(kSyncStatusPending))();
 
   /// Monotonic retry counter; the sync engine gives up after 3 attempts
   /// and promotes the row to `'failed'`.

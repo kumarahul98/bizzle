@@ -25,7 +25,7 @@ class $TripsTable extends Trips with TableInfo<$TripsTable, TripRow> {
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
-    defaultValue: const Constant('local_user'),
+    defaultValue: const Constant(kDefaultUserId),
   );
   static const VerificationMeta _startTimeMeta = const VerificationMeta(
     'startTime',
@@ -365,10 +365,8 @@ class TripRow extends DataClass implements Insertable<TripRow> {
   /// Client-generated UUID v4. Never null.
   final String id;
 
-  /// Owning user. Literal `'local_user'` placeholder until plan 01-02
-  /// introduces `kDefaultUserId` in `lib/config/constants.dart` and a
-  /// follow-up swap replaces this literal with the constant reference.
-  /// (Phase 8 auth later writes real Cognito subs on top of either form.)
+  /// Owning user. Defaults to `kDefaultUserId`. Phase 8 auth rewrites
+  /// existing rows with the Cognito subject when authentication lands.
   final String userId;
 
   /// Trip start timestamp, stored in UTC.
@@ -872,7 +870,7 @@ class $SyncQueueTable extends SyncQueue
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
-    defaultValue: const Constant('pending'),
+    defaultValue: const Constant(kSyncStatusPending),
   );
   static const VerificationMeta _retryCountMeta = const VerificationMeta(
     'retryCount',
@@ -1050,9 +1048,8 @@ class SyncQueueRow extends DataClass implements Insertable<SyncQueueRow> {
   /// now-missing trip row. Null for create/update.
   final String? payload;
 
-  /// Literal default `'pending'` until plan 01-02 exposes
-  /// `kSyncStatusPending` in `lib/config/constants.dart`. A follow-up swap
-  /// replaces this literal with the constant reference.
+  /// Defaults to `kSyncStatusPending`. Moves to synced / failed via the
+  /// sync engine (Phase 9).
   final String status;
 
   /// Monotonic retry counter; the sync engine gives up after 3 attempts
@@ -1357,7 +1354,7 @@ class $UserPreferencesTable extends UserPreferences
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
-    defaultValue: const Constant('local_user'),
+    defaultValue: const Constant(kDefaultUserId),
   );
   static const VerificationMeta _darkModeMeta = const VerificationMeta(
     'darkMode',
@@ -1369,7 +1366,7 @@ class $UserPreferencesTable extends UserPreferences
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
-    defaultValue: const Constant('system'),
+    defaultValue: const Constant(kDarkModeSystem),
   );
   static const VerificationMeta _morningCutoffHourMeta = const VerificationMeta(
     'morningCutoffHour',
@@ -1381,7 +1378,7 @@ class $UserPreferencesTable extends UserPreferences
     false,
     type: DriftSqlType.int,
     requiredDuringInsert: false,
-    defaultValue: const Constant(12),
+    defaultValue: const Constant(kDefaultDirectionCutoffHour),
   );
   static const VerificationMeta _eveningCutoffHourMeta = const VerificationMeta(
     'eveningCutoffHour',
@@ -1393,7 +1390,7 @@ class $UserPreferencesTable extends UserPreferences
     false,
     type: DriftSqlType.int,
     requiredDuringInsert: false,
-    defaultValue: const Constant(12),
+    defaultValue: const Constant(kDefaultDirectionCutoffHour),
   );
   static const VerificationMeta _reminderEnabledMeta = const VerificationMeta(
     'reminderEnabled',
@@ -1575,19 +1572,19 @@ class UserPreferencesRow extends DataClass
   /// is exactly one row per app install in Phase 1.
   final int id;
 
-  /// Owning user. Defaults to the `'local_user'` placeholder like the
-  /// trips table; Phase 8 replaces this with the Cognito sub.
+  /// Owning user. Defaults to `kDefaultUserId`; Phase 8 replaces this
+  /// with the Cognito sub.
   final String userId;
 
-  /// `'system'`, `'light'`, or `'dark'`.
+  /// `'system'`, `'light'`, or `'dark'`. Default: `kDarkModeSystem`.
   final String darkMode;
 
   /// Hour (0-23) before which starting trips auto-label as `'to_office'`.
-  /// Defaults to 12 (noon) per CLAUDE.md direction auto-labeling section.
+  /// Default: `kDefaultDirectionCutoffHour`.
   final int morningCutoffHour;
 
   /// Hour (0-23) after which starting trips auto-label as `'to_home'`.
-  /// Defaults to 12 (noon) per CLAUDE.md direction auto-labeling section.
+  /// Default: `kDefaultDirectionCutoffHour`.
   final int eveningCutoffHour;
 
   /// True if the user has opted into the daily tracking reminder.

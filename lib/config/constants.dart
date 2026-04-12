@@ -78,3 +78,8 @@ const String kSyncStatusSynced = 'synced';
 ///
 /// See CLAUDE.md "sync_queue" table schema and `kSyncQueueMaxRetries`.
 const String kSyncStatusFailed = 'failed';
+
+/// `user_preferences.dark_mode` literal: follow the device-wide theme.
+///
+/// See CLAUDE.md "user_preferences" table schema.
+const String kDarkModeSystem = 'system';

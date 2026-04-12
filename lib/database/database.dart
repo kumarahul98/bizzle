@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/daos/sync_queue_dao.dart';
 import 'package:traevy/database/daos/trips_dao.dart';
 import 'package:traevy/database/daos/user_preferences_dao.dart';
@@ -9,12 +10,6 @@ import 'package:traevy/database/tables/trips_table.dart';
 import 'package:traevy/database/tables/user_preferences_table.dart';
 
 part 'database.g.dart';
-
-/// On-disk database filename (without extension). Hardcoded here as a
-/// temporary literal until plan 01-02 exposes `kDatabaseName` in
-/// `lib/config/constants.dart`. A follow-up commit will replace this
-/// constant with the imported value.
-const String _kDatabaseName = 'traevy';
 
 /// The single top-level Drift database for the Traevy app.
 ///
@@ -71,7 +66,7 @@ class AppDatabase extends _$AppDatabase {
   /// leak into iOS iCloud backups when iOS support lands).
   static QueryExecutor _openConnection() {
     return driftDatabase(
-      name: _kDatabaseName,
+      name: kDatabaseName,
       native: const DriftNativeOptions(
         databaseDirectory: getApplicationSupportDirectory,
       ),

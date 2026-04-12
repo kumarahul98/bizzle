@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:traevy/config/constants.dart';
 
 /// Trips table: the primary record of every commute.
 ///
@@ -27,12 +28,10 @@ class Trips extends Table {
   /// Client-generated UUID v4. Never null.
   TextColumn get id => text()();
 
-  /// Owning user. Literal `'local_user'` placeholder until plan 01-02
-  /// introduces `kDefaultUserId` in `lib/config/constants.dart` and a
-  /// follow-up swap replaces this literal with the constant reference.
-  /// (Phase 8 auth later writes real Cognito subs on top of either form.)
+  /// Owning user. Defaults to `kDefaultUserId`. Phase 8 auth rewrites
+  /// existing rows with the Cognito subject when authentication lands.
   TextColumn get userId =>
-      text().withDefault(const Constant('local_user'))();
+      text().withDefault(const Constant(kDefaultUserId))();
 
   /// Trip start timestamp, stored in UTC.
   DateTimeColumn get startTime => dateTime()();

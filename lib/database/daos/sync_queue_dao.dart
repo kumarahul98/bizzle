@@ -1,21 +1,9 @@
 import 'package:drift/drift.dart';
+import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/database.dart';
 import 'package:traevy/database/tables/sync_queue_table.dart';
 
 part 'sync_queue_dao.g.dart';
-
-/// Sync action literals. These mirror the `kSyncAction*` constants that
-/// plan 01-02 will expose in `lib/config/constants.dart`; once that
-/// plan lands, this file will be swapped to import the constants and
-/// delete these locals. The string values are the contract with the
-/// backend Lambda, so they must not drift across either source.
-const String _actionCreate = 'create';
-const String _actionUpdate = 'update';
-const String _actionDelete = 'delete';
-
-/// Sync status literals. Same swap story as the action constants.
-const String _statusPending = 'pending';
-const String _statusSynced = 'synced';
 
 /// Data-access object for the outbound sync queue.
 ///
@@ -41,7 +29,7 @@ class SyncQueueDao extends DatabaseAccessor<AppDatabase>
     return into(syncQueue).insert(
       SyncQueueCompanion.insert(
         tripId: tripId,
-        action: _actionCreate,
+        action: kSyncActionCreate,
       ),
     );
   }
@@ -52,7 +40,7 @@ class SyncQueueDao extends DatabaseAccessor<AppDatabase>
     return into(syncQueue).insert(
       SyncQueueCompanion.insert(
         tripId: tripId,
-        action: _actionUpdate,
+        action: kSyncActionUpdate,
       ),
     );
   }
@@ -69,7 +57,7 @@ class SyncQueueDao extends DatabaseAccessor<AppDatabase>
     return into(syncQueue).insert(
       SyncQueueCompanion.insert(
         tripId: tripId,
-        action: _actionDelete,
+        action: kSyncActionDelete,
         payload: Value<String>(payload),
       ),
     );
@@ -80,7 +68,7 @@ class SyncQueueDao extends DatabaseAccessor<AppDatabase>
   /// whenever connectivity is available.
   Stream<List<SyncQueueRow>> watchPending() {
     return (select(syncQueue)
-          ..where((q) => q.status.equals(_statusPending)))
+          ..where((q) => q.status.equals(kSyncStatusPending)))
         .watch();
   }
 
@@ -88,7 +76,7 @@ class SyncQueueDao extends DatabaseAccessor<AppDatabase>
   Future<void> markSynced(int id) {
     return (update(syncQueue)..where((q) => q.id.equals(id))).write(
       SyncQueueCompanion(
-        status: const Value<String>(_statusSynced),
+        status: const Value<String>(kSyncStatusSynced),
         syncedAt: Value<DateTime>(DateTime.now().toUtc()),
       ),
     );

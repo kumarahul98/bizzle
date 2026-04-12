@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/database.dart';
 import 'package:traevy/database/tables/user_preferences_table.dart';
 
@@ -8,18 +9,6 @@ part 'user_preferences_dao.g.dart';
 /// stores preferences as exactly one row at `id = 1`; callers must
 /// never insert at a different id.
 const int _kUserPreferencesId = 1;
-
-/// Default direction cutoff hour (noon). Mirrors what plan 01-02's
-/// `lib/config/constants.dart` will expose as `kDefaultDirectionCutoffHour`.
-const int _kDefaultDirectionCutoffHour = 12;
-
-/// Default owning user id placeholder. Mirrors `kDefaultUserId` from
-/// the pending `lib/config/constants.dart`.
-const String _kDefaultUserId = 'local_user';
-
-/// Dark mode default. Mirrors `kDarkModeSystem` from pending
-/// `lib/config/constants.dart`.
-const String _kDarkModeSystem = 'system';
 
 /// Plain Dart value type representing the user's preferences.
 ///
@@ -45,10 +34,10 @@ class UserPreferencesValue {
   /// The defaults used the first time the user launches the app —
   /// before the single row exists in the table (D-04).
   const UserPreferencesValue.defaults()
-      : userId = _kDefaultUserId,
-        darkMode = _kDarkModeSystem,
-        morningCutoffHour = _kDefaultDirectionCutoffHour,
-        eveningCutoffHour = _kDefaultDirectionCutoffHour,
+      : userId = kDefaultUserId,
+        darkMode = kDarkModeSystem,
+        morningCutoffHour = kDefaultDirectionCutoffHour,
+        eveningCutoffHour = kDefaultDirectionCutoffHour,
         reminderEnabled = false,
         reminderTime = null,
         weekendReminder = false;
