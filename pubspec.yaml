@@ -38,7 +38,9 @@ dependencies:
   flutter_riverpod: ^3.3.1
   intl: ^0.20.2
   path_provider: ^2.1.5
-  riverpod_annotation: ^4.0.2
+  # riverpod_annotation intentionally NOT added until drift_dev and
+  # riverpod_generator agree on an analyzer major. See
+  # lib/database/providers.dart for context.
   uuid: ^4.5.3
 
 dev_dependencies:
