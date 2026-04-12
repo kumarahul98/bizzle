@@ -71,9 +71,11 @@ Show people the reality of their commute — time wasted in traffic and how it c
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
 | Client-authoritative sync (one-way push) | Simplifies architecture, no conflict resolution needed | — Pending |
-| Drift as single source of truth | Offline-first requires local DB to be authoritative | — Pending |
-| Speed-based traffic detection (10 km/h) | Simple proxy that works without external traffic APIs | — Pending |
-| Tech stack open to research input | CLAUDE.md stack is a starting point, not locked | — Pending |
+| Drift as single source of truth | Offline-first requires local DB to be authoritative | ✓ Validated in Phase 1 (foundation) |
+| Speed-based traffic detection (10 km/h) | Simple proxy that works without external traffic APIs | ✓ Constant locked in Phase 1 (`kStuckSpeedThresholdKmh`) |
+| Tech stack open to research input | CLAUDE.md stack is a starting point, not locked | ✓ Phase 1 swapped flutter_lints → very_good_analysis; deferred riverpod_generator (analyzer conflict with drift_dev) |
+| Manual Riverpod 3.x providers (no codegen) | riverpod_generator/lint require analyzer ^9, drift_dev 2.32.1 requires analyzer ^10 | Phase 1 decision — revisit when ecosystem aligns |
+| compileSdk 35, minSdk/targetSdk 34 | jni_flutter transitive dep needs API 35 headers; runtime targets Android 14 per D-08 | Phase 1 decision |
 
 ## Evolution
 
