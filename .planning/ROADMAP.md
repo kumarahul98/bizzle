@@ -38,7 +38,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 4 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Flutter project scaffold, core dependencies, Android Gradle config
+- [x] 01-01-PLAN.md — Flutter project scaffold, core dependencies, Android Gradle config
 - [ ] 01-02-PLAN.md — Config constants, theme, routes, main.dart ProviderScope wiring, analysis_options
 - [ ] 01-03-PLAN.md — Drift database: 3 tables, 3 DAOs, AppDatabase, Riverpod providers, build_runner codegen
 - [ ] 01-04-PLAN.md — DAO/index/preferences/migration tests, schema v1 snapshot, widget smoke test
