@@ -34,3 +34,12 @@ const String kTripFinalizedEvent = 'trip_finalized';
 
 /// Event name for the stop command from UI → service isolate.
 const String kStopTrackingEvent = 'stop_tracking';
+
+/// Event name for an unrecoverable service-isolate failure (e.g. the
+/// Geolocator position stream emits an error mid-trip). The service
+/// isolate invokes this channel with a `{'reason': <string>}` payload —
+/// the reason is deliberately a stable short string so `TrackingNotifier`
+/// can map it to a user-facing `TrackingError` message without ever
+/// logging raw platform error text (which may contain PII such as
+/// lat/lng coordinates per T-02-07).
+const String kTrackingErrorEvent = 'tracking_error';

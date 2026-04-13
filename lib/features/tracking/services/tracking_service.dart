@@ -88,14 +88,39 @@ Future<void> trackingServiceOnStart(ServiceInstance service) async {
   );
 
   positionSub = Geolocator.getPositionStream(locationSettings: settings)
-      .listen((position) {
-    // Race guard: a position can still arrive after the stop handler has
-    // started but before `positionSub?.cancel()` returns. The
-    // `stopping` flag short-circuits those late samples before they
-    // touch the accumulator. See 02-RESEARCH §8 stop-race.
-    if (stopping) return;
-    accumulator.addSample(position);
-  });
+      .listen(
+    (position) {
+      // Race guard: a position can still arrive after the stop handler
+      // has started but before `positionSub?.cancel()` returns. The
+      // `stopping` flag short-circuits those late samples before they
+      // touch the accumulator. See 02-RESEARCH §8 stop-race.
+      if (stopping) return;
+      accumulator.addSample(position);
+    },
+    onError: (Object error, StackTrace stack) async {
+      // Mid-trip position stream failure path (WR-01). Examples: the
+      // user toggles Location Services off while a trip is active, a
+      // transient platform error surfaces, or permissions are revoked.
+      // Without this handler the error would propagate to the isolate
+      // zone, be silently swallowed, and leave the UI stuck in
+      // TrackingActive with no further events ever arriving.
+      //
+      // PII guard (T-02-07): we deliberately DO NOT log or forward
+      // `error.toString()` — raw platform errors can include lat/lng
+      // coordinates. Instead we forward a stable short `reason` tag
+      // that the UI notifier maps to a user-facing message.
+      if (stopping) return;
+      stopping = true;
+      uiTimer?.cancel();
+      await positionSub?.cancel();
+      service.invoke(
+        kTrackingErrorEvent,
+        <String, Object?>{'reason': 'position_stream_error'},
+      );
+      await service.stopSelf();
+    },
+    cancelOnError: true,
+  );
 
   uiTimer = Timer.periodic(kTrackingUiUpdateInterval, (_) {
     if (stopping) return;

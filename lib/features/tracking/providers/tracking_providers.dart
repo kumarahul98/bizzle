@@ -119,6 +119,7 @@ final NotifierProvider<TrackingNotifier, TrackingState> trackingStateProvider =
 class TrackingNotifier extends Notifier<TrackingState> {
   StreamSubscription<Map<String, dynamic>?>? _stateSub;
   StreamSubscription<Map<String, dynamic>?>? _finalizeSub;
+  StreamSubscription<Map<String, dynamic>?>? _errorSub;
   PersistResult? _lastPersistResult;
 
   @override
@@ -126,6 +127,7 @@ class TrackingNotifier extends Notifier<TrackingState> {
     ref.onDispose(() {
       unawaited(_stateSub?.cancel());
       unawaited(_finalizeSub?.cancel());
+      unawaited(_errorSub?.cancel());
     });
     _attach();
     return const TrackingIdle();
@@ -151,6 +153,21 @@ class TrackingNotifier extends Notifier<TrackingState> {
           .persistFinalizedTrip(trip);
       _lastPersistResult = result;
       state = const TrackingIdle();
+    });
+    // WR-01: map the service isolate's `tracking_error` channel to a
+    // user-facing TrackingError. The service isolate emits a stable
+    // short `reason` tag (PII guard — raw error text may contain
+    // lat/lng coordinates per T-02-07). The notifier owns the reason →
+    // user-facing message mapping so every supported reason is a
+    // deliberate UX choice.
+    _errorSub = service.on(kTrackingErrorEvent).listen((data) {
+      if (data == null) return;
+      final reason = data['reason'];
+      final message = switch (reason) {
+        'position_stream_error' => 'Location unavailable. Tracking stopped.',
+        _ => 'Tracking stopped unexpectedly',
+      };
+      state = TrackingError(message);
     });
   }
 
