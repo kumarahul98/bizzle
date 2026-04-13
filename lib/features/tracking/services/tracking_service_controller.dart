@@ -1,6 +1,13 @@
+import 'package:drift/drift.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:traevy/config/constants.dart';
+import 'package:traevy/database/daos/sync_queue_dao.dart';
+import 'package:traevy/database/daos/trips_dao.dart';
+import 'package:traevy/database/database.dart';
+import 'package:traevy/features/tracking/services/tracking_notification_service.dart';
 import 'package:traevy/features/tracking/services/tracking_service_events.dart';
+import 'package:traevy/features/tracking/state/finalized_trip.dart';
 
 /// UI-isolate wrapper around [FlutterBackgroundService]. Thin by design —
 /// all tracking logic (GPS stream, accumulator, 1 Hz snapshots, stop
@@ -10,24 +17,38 @@ import 'package:traevy/features/tracking/services/tracking_service_events.dart';
 ///     pre-flight that the home screen cannot easily guard on its own;
 ///   * the stop command, which is sent as an [kStopTrackingEvent]
 ///     `service.invoke` call (the service isolate listens for it and
-///     responds with [kTripFinalizedEvent]).
-///
-/// Plan 02-05 will add a `persistFinalizedTrip(FinalizedTrip)` method
-/// that wraps the Drift transaction (insert trip + enqueue sync queue
-/// entry) and dismisses the UX-03 notification. That method belongs to
-/// this class because it is the single place the UI isolate already
-/// touches the background-service machinery.
+///     responds with [kTripFinalizedEvent]);
+///   * the [persistFinalizedTrip] transaction — the atomic Drift write
+///     that inserts the trip and enqueues the sync-queue entry in a
+///     single transaction, with the D-10 short-trip discard guarding
+///     the threshold and the UX-03 notification dismissed on every
+///     exit path.
 ///
 /// **Not** responsible for permission pre-flight — callers must invoke
 /// `TrackingPermissionService.preflight` first (plan 02-04's tracking
 /// screen does so). This keeps the UI in charge of denial/banner UX.
 class TrackingServiceController {
-  /// Construct a controller bound to [service]. Production wiring is
-  /// done in `tracking_providers.dart` with `FlutterBackgroundService()`.
-  TrackingServiceController({required FlutterBackgroundService service})
-      : _service = service;
+  /// Construct a controller bound to [service], [database], its DAOs,
+  /// and the [notifications] wrapper. Production wiring is done in
+  /// `tracking_providers.dart` with `FlutterBackgroundService()`,
+  /// `appDatabaseProvider`, and the two DAO providers.
+  TrackingServiceController({
+    required FlutterBackgroundService service,
+    required AppDatabase database,
+    required TripsDao tripsDao,
+    required SyncQueueDao syncQueueDao,
+    required TrackingNotificationService notifications,
+  })  : _service = service,
+        _database = database,
+        _tripsDao = tripsDao,
+        _syncQueueDao = syncQueueDao,
+        _notifications = notifications;
 
   final FlutterBackgroundService _service;
+  final AppDatabase _database;
+  final TripsDao _tripsDao;
+  final SyncQueueDao _syncQueueDao;
+  final TrackingNotificationService _notifications;
 
   /// Start the background tracking service. Returns `true` if the
   /// service was asked to start (`FlutterBackgroundService.startService`
@@ -48,12 +69,28 @@ class TrackingServiceController {
   ///     `startService` (the fbs call would otherwise succeed, the
   ///     service would spin up, and Geolocator would then fail with an
   ///     unhelpful error on the first sample).
+  ///
+  /// On a successful start the UX-03 foreground notification is shown
+  /// via [TrackingNotificationService.showRecording]. The notification
+  /// call is wrapped in a defensive try/catch (Deviation Rule 4): on
+  /// Android 13+ `POST_NOTIFICATIONS` may not yet be granted on the
+  /// first run, and we prefer silent tracking over a failed start.
   Future<bool> start() async {
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       return false;
     }
-    return _service.startService();
+    final started = await _service.startService();
+    if (started) {
+      try {
+        await _notifications.showRecording();
+      } on Object {
+        // POST_NOTIFICATIONS denied on Android 13+ → tracking still
+        // works, the UX-03 notification is just absent until the user
+        // grants it. Do NOT rethrow (Deviation Rule 4).
+      }
+    }
+    return started;
   }
 
   /// Tell the background isolate to stop. The service responds
@@ -66,4 +103,94 @@ class TrackingServiceController {
   Future<void> stop() async {
     _service.invoke(kStopTrackingEvent);
   }
+
+  /// Atomically persist a finalized trip.
+  ///
+  /// Three outcomes, each a final variant of [PersistResult]:
+  ///
+  ///   * [PersistDiscardedTooShort] — the trip is below either the
+  ///     30 s duration threshold OR the 100 m distance threshold (D-10).
+  ///     No rows are written. The UX-03 notification is dismissed.
+  ///   * [PersistSaved] — the trip was written to the `trips` table and
+  ///     a matching `create` row was enqueued in the `sync_queue` table.
+  ///     BOTH writes happen inside a single [AppDatabase.transaction]
+  ///     call so either both succeed or both roll back. The UX-03
+  ///     notification is dismissed.
+  ///   * [PersistFailed] — the transaction threw. No rows survive
+  ///     (atomic rollback). The UX-03 notification is dismissed even on
+  ///     failure (T-02-20 — the notification must never outlive the
+  ///     tracking session).
+  ///
+  /// Direction is set to [kDirectionUnknown]; Phase 3 backfills the
+  /// real value from `start_time`. The `userId` column defaults to
+  /// [kDefaultUserId] at the DB level (D-02), so we do not set it here.
+  /// The `sync_queue` row has `payload = null` (D-13) — the sync engine
+  /// re-reads the fresh trip row at sync time.
+  Future<PersistResult> persistFinalizedTrip(FinalizedTrip trip) async {
+    if (trip.durationSeconds < kMinTripDurationSeconds ||
+        trip.distanceMeters < kMinTripDistanceMeters) {
+      await _notifications.dismiss();
+      return const PersistDiscardedTooShort();
+    }
+    try {
+      await _database.transaction(() async {
+        await _tripsDao.insertTrip(
+          TripsCompanion.insert(
+            id: trip.id,
+            startTime: trip.startTime,
+            endTime: trip.endTime,
+            durationSeconds: trip.durationSeconds,
+            distanceMeters: trip.distanceMeters,
+            direction: kDirectionUnknown,
+            timeMovingSeconds: trip.timeMovingSeconds,
+            timeStuckSeconds: trip.timeStuckSeconds,
+            routePolyline: Value<String?>(trip.encodedPolyline),
+          ),
+        );
+        await _syncQueueDao.enqueueCreate(trip.id);
+      });
+      await _notifications.dismiss();
+      return PersistSaved(trip.id);
+    } on Object catch (error) {
+      await _notifications.dismiss();
+      return PersistFailed(error);
+    }
+  }
+}
+
+/// Result of a [TrackingServiceController.persistFinalizedTrip] call.
+///
+/// Sealed so the UI layer can switch exhaustively on the three
+/// outcomes without a default branch — matches the Phase 2 convention
+/// established by `TrackingState` (plan 02-03).
+sealed class PersistResult {
+  const PersistResult();
+}
+
+/// The trip was persisted and enqueued for sync.
+final class PersistSaved extends PersistResult {
+  /// Construct a success result for [tripId].
+  const PersistSaved(this.tripId);
+
+  /// UUID of the persisted trip. Matches the Drift primary key.
+  final String tripId;
+}
+
+/// The trip was below the D-10 threshold (either duration or distance).
+/// Nothing was written.
+final class PersistDiscardedTooShort extends PersistResult {
+  /// Const singleton — the discard outcome carries no payload.
+  const PersistDiscardedTooShort();
+}
+
+/// The transaction threw. No rows survive (atomic rollback). [error]
+/// carries the root cause so the UI can surface a diagnostic without
+/// leaking the stack trace (T-02-22).
+final class PersistFailed extends PersistResult {
+  /// Construct a failure result wrapping [error].
+  const PersistFailed(this.error);
+
+  /// Underlying error object. UI code should call `.toString()` on this
+  /// when formatting a user-facing snackbar.
+  final Object error;
 }

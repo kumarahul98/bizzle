@@ -1,10 +1,14 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:traevy/database/providers.dart';
+import 'package:traevy/features/tracking/services/tracking_notification_service.dart';
 import 'package:traevy/features/tracking/services/tracking_permission_service.dart';
 import 'package:traevy/features/tracking/services/tracking_service_controller.dart';
 import 'package:traevy/features/tracking/services/tracking_service_events.dart';
+import 'package:traevy/features/tracking/state/finalized_trip.dart';
 import 'package:traevy/features/tracking/state/tracking_state.dart';
 
 /// Riverpod 3.x wiring for the tracking feature.
@@ -30,12 +34,13 @@ import 'package:traevy/features/tracking/state/tracking_state.dart';
 ///     `ref.onDispose` so test containers (`container.dispose()`)
 ///     release the fbs stream cleanly.
 ///
-/// No persistence is wired here — D-06 says Phase 2 keeps samples in
-/// memory, and the plan 02-05 persistence path will land in that plan.
-/// The `trip_finalized` listener below drops back to [TrackingIdle]
-/// without calling Drift. Plan 02-05 will insert its call to
-/// `TrackingServiceController.persistFinalizedTrip(...)` between
-/// `TrackingStopping` and `TrackingIdle`.
+/// Plan 02-05 wires persistence through
+/// `TrackingServiceController.persistFinalizedTrip(...)`. The
+/// `trip_finalized` listener on [TrackingNotifier] now transitions
+/// `TrackingStopping` → (await persist) → `TrackingIdle`, records the
+/// [PersistResult] in the notifier's last-result slot so the tracking
+/// screen can surface the D-10 / T-02-22 snackbars via
+/// `TrackingNotifier.consumeLastPersistResult`.
 
 /// Stateless [TrackingPermissionService] — safe to share. Const
 /// constructor (plan 02-01) means this provider reads a compile-time
@@ -46,13 +51,37 @@ final Provider<TrackingPermissionService> trackingPermissionServiceProvider =
   name: 'trackingPermissionServiceProvider',
 );
 
+/// [TrackingNotificationService] for the UX-03 foreground notification.
+///
+/// The service creates its own `FlutterLocalNotificationsPlugin`
+/// instance internally, but the plugin class is a singleton — so this
+/// provider and the `main()` bootstrap share the same underlying plugin
+/// state. Channel registration from `main()` therefore survives into
+/// every `showRecording()` / `dismiss()` call routed through this
+/// provider.
+final Provider<TrackingNotificationService>
+    trackingNotificationServiceProvider =
+    Provider<TrackingNotificationService>(
+  (ref) => TrackingNotificationService(),
+  name: 'trackingNotificationServiceProvider',
+);
+
 /// Thin UI-isolate wrapper around [FlutterBackgroundService]. The
 /// wrapped instance is the fbs singleton (`FlutterBackgroundService()`
 /// is a factory that always returns the same instance), so this
 /// provider is effectively a holder for the controller object itself.
+/// Dependencies (`AppDatabase`, the two DAOs, the notification service)
+/// are injected via `ref.watch` so Drift tests can override the
+/// database provider in isolation.
 final Provider<TrackingServiceController> trackingServiceControllerProvider =
     Provider<TrackingServiceController>(
-  (ref) => TrackingServiceController(service: FlutterBackgroundService()),
+  (ref) => TrackingServiceController(
+    service: FlutterBackgroundService(),
+    database: ref.watch(appDatabaseProvider),
+    tripsDao: ref.watch(tripsDaoProvider),
+    syncQueueDao: ref.watch(syncQueueDaoProvider),
+    notifications: ref.watch(trackingNotificationServiceProvider),
+  ),
   name: 'trackingServiceControllerProvider',
 );
 
@@ -80,20 +109,17 @@ final NotifierProvider<TrackingNotifier, TrackingState> trackingStateProvider =
 ///     updates the live tiles.
 ///   * `TrackingActive → TrackingStopping → TrackingIdle` — [stop]
 ///     sends the stop command, the service responds with
-///     `trip_finalized`, plan 02-05 will persist the trip here, then
-///     the state returns to idle.
+///     `trip_finalized`, `persistFinalizedTrip` runs inside
+///     `TrackingStopping`, and the state returns to idle. The
+///     resulting [PersistResult] is stashed in a private
+///     last-result slot for the tracking screen to consume via
+///     [consumeLastPersistResult].
 ///   * `TrackingStarting → TrackingError` — if the controller's start
 ///     pre-flight fails (e.g. Location Services disabled).
-///
-/// **Plan 02-05 hook:** inside the `trip_finalized` listener below,
-/// plan 02-05 will call
-/// `ref.read(trackingServiceControllerProvider).persistFinalizedTrip(...)`
-/// between the `TrackingStopping` and `TrackingIdle` transitions. Left
-/// as a documented handoff (NOT a `TODO`) so the code compiles and the
-/// feature can be manually smoke-tested without persistence.
 class TrackingNotifier extends Notifier<TrackingState> {
   StreamSubscription<Map<String, dynamic>?>? _stateSub;
   StreamSubscription<Map<String, dynamic>?>? _finalizeSub;
+  PersistResult? _lastPersistResult;
 
   @override
   TrackingState build() {
@@ -116,12 +142,14 @@ class TrackingNotifier extends Notifier<TrackingState> {
         data.cast<String, Object?>(),
       );
     });
-    _finalizeSub = service.on(kTripFinalizedEvent).listen((data) {
+    _finalizeSub = service.on(kTripFinalizedEvent).listen((data) async {
       if (data == null) return;
       state = const TrackingStopping();
-      // Plan 02-05 hook — persistence goes here. See class doc.
-      // For now we drop straight back to idle so the feature can be
-      // smoke-tested on an emulator before persistence is wired:
+      final trip = FinalizedTripCodec.fromEventMap(data);
+      final result = await ref
+          .read(trackingServiceControllerProvider)
+          .persistFinalizedTrip(trip);
+      _lastPersistResult = result;
       state = const TrackingIdle();
     });
   }
@@ -154,5 +182,55 @@ class TrackingNotifier extends Notifier<TrackingState> {
   Future<void> stop() async {
     if (state is! TrackingActive) return;
     await ref.read(trackingServiceControllerProvider).stop();
+  }
+
+  /// Return the [PersistResult] produced by the most recent
+  /// `trip_finalized` cycle, and clear the slot. The tracking screen
+  /// calls this from a `ref.listen(trackingStateProvider, ...)` when
+  /// the state transitions back to [TrackingIdle] after a save, so it
+  /// can show the D-10 / save / failure snackbar exactly once.
+  ///
+  /// Returns `null` if no persist cycle has completed yet, or if the
+  /// previous result has already been consumed.
+  PersistResult? consumeLastPersistResult() {
+    final result = _lastPersistResult;
+    _lastPersistResult = null;
+    return result;
+  }
+
+  /// Test-only seam used by plan 02-06 widget tests to simulate the
+  /// "trip just finalized with result X" state without driving a real
+  /// service-isolate round trip. MUST NOT be called from production
+  /// code — `very_good_analysis` warns when a non-test file touches a
+  /// `@visibleForTesting` member.
+  ///
+  /// Intentionally named `setLastPersistResultForTesting` (not a
+  /// Dart setter) so grep audits catch every test site and production
+  /// code cannot accidentally write to `_lastPersistResult` via an
+  /// innocuous-looking assignment.
+  @visibleForTesting
+  // A named method (not a Dart setter) is deliberate so audits can
+  // grep for every call site; production code MUST NOT reach into
+  // _lastPersistResult through an innocuous-looking assignment.
+  // ignore: use_setters_to_change_properties
+  void setLastPersistResultForTesting(PersistResult result) {
+    _lastPersistResult = result;
+  }
+}
+
+/// Isolate-boundary codec for [FinalizedTrip] payloads crossing the
+/// `flutter_background_service.invoke(kTripFinalizedEvent, ...)`
+/// channel. The service isolate emits `Map<String, dynamic>` and the
+/// notifier needs `Map<String, Object?>` — this helper is the single
+/// audited cast site, matching the pattern used by
+/// `trackingActiveFromSnapshotMap` for the `kTrackingStateEvent`
+/// payload.
+class FinalizedTripCodec {
+  const FinalizedTripCodec._();
+
+  /// Decode a trip_finalized payload. Delegates to
+  /// [FinalizedTrip.fromMap] after widening the map element type.
+  static FinalizedTrip fromEventMap(Map<String, dynamic> data) {
+    return FinalizedTrip.fromMap(data.cast<String, Object?>());
   }
 }
