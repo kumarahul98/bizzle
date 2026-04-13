@@ -135,47 +135,103 @@ class TrackingNotifier extends Notifier<TrackingState> {
 
   void _attach() {
     final service = FlutterBackgroundService();
-    _stateSub = service.on(kTrackingStateEvent).listen((data) {
-      if (data == null) return;
-      // strict-casts-safe: `trackingActiveFromSnapshotMap` does the
-      // `Map<String, dynamic>` → `Map<String, Object?>` cast through
-      // the audited `_req<T>` helper in `tracking_state.dart`.
-      state = trackingActiveFromSnapshotMap(
-        data.cast<String, Object?>(),
-      );
-    });
-    _finalizeSub = service.on(kTripFinalizedEvent).listen((data) async {
-      if (data == null) return;
-      state = const TrackingStopping();
-      final trip = FinalizedTripCodec.fromEventMap(data);
-      final result = await ref
-          .read(trackingServiceControllerProvider)
-          .persistFinalizedTrip(trip);
-      _lastPersistResult = result;
-      // Defense-in-depth (WR-02): only transition back to idle if the
-      // state is still TrackingStopping. If a concurrent caller (e.g.
-      // a `kTrackingErrorEvent` handler or a programmatic retry) has
-      // already moved the state elsewhere (TrackingError /
-      // TrackingStarting / TrackingActive) we must not clobber it.
-      if (state is TrackingStopping) {
-        state = const TrackingIdle();
-      }
-    });
+    _stateSub = service.on(kTrackingStateEvent).listen(
+      (data) {
+        if (data == null) return;
+        // strict-casts-safe: `trackingActiveFromSnapshotMap` does the
+        // `Map<String, dynamic>` → `Map<String, Object?>` cast through
+        // the audited `_req<T>` helper in `tracking_state.dart`.
+        state = trackingActiveFromSnapshotMap(
+          data.cast<String, Object?>(),
+        );
+      },
+      onError: (Object error, StackTrace stack) {
+        // WR-03: the fbs channel emitted an error (e.g. the background
+        // isolate died abruptly or the platform channel dropped a
+        // message). Without this handler the error would propagate to
+        // the notifier's build zone and be invisible to the UI — the
+        // notifier would stay attached to a dead stream and the
+        // tracking screen would be frozen in TrackingActive forever.
+        //
+        // PII guard (T-02-07): do NOT forward `error.toString()` — it
+        // may contain raw platform diagnostics. Use a stable short
+        // user-facing message instead.
+        _cancelSiblingSubs(except: _stateSub);
+        _lastPersistResult = null;
+        state = TrackingError('Tracking stream failed');
+      },
+    );
+    _finalizeSub = service.on(kTripFinalizedEvent).listen(
+      (data) async {
+        if (data == null) return;
+        state = const TrackingStopping();
+        final trip = FinalizedTripCodec.fromEventMap(data);
+        final result = await ref
+            .read(trackingServiceControllerProvider)
+            .persistFinalizedTrip(trip);
+        _lastPersistResult = result;
+        // Defense-in-depth (WR-02): only transition back to idle if the
+        // state is still TrackingStopping. If a concurrent caller (e.g.
+        // a `kTrackingErrorEvent` handler or a programmatic retry) has
+        // already moved the state elsewhere (TrackingError /
+        // TrackingStarting / TrackingActive) we must not clobber it.
+        if (state is TrackingStopping) {
+          state = const TrackingIdle();
+        }
+      },
+      onError: (Object error, StackTrace stack) {
+        // WR-03: the trip_finalized channel errored mid-persist window.
+        // Cancel siblings so we don't accept further (potentially
+        // inconsistent) snapshots from the dead service, clear any
+        // in-flight persist result, and surface a recoverable error
+        // state so the user can retry.
+        _cancelSiblingSubs(except: _finalizeSub);
+        _lastPersistResult = null;
+        state = TrackingError('Unable to finalize trip');
+      },
+    );
     // WR-01: map the service isolate's `tracking_error` channel to a
     // user-facing TrackingError. The service isolate emits a stable
     // short `reason` tag (PII guard — raw error text may contain
     // lat/lng coordinates per T-02-07). The notifier owns the reason →
     // user-facing message mapping so every supported reason is a
     // deliberate UX choice.
-    _errorSub = service.on(kTrackingErrorEvent).listen((data) {
-      if (data == null) return;
-      final reason = data['reason'];
-      final message = switch (reason) {
-        'position_stream_error' => 'Location unavailable. Tracking stopped.',
-        _ => 'Tracking stopped unexpectedly',
-      };
-      state = TrackingError(message);
-    });
+    _errorSub = service.on(kTrackingErrorEvent).listen(
+      (data) {
+        if (data == null) return;
+        final reason = data['reason'];
+        final message = switch (reason) {
+          'position_stream_error' => 'Location unavailable. Tracking stopped.',
+          _ => 'Tracking stopped unexpectedly',
+        };
+        state = TrackingError(message);
+      },
+      onError: (Object error, StackTrace stack) {
+        _cancelSiblingSubs(except: _errorSub);
+        _lastPersistResult = null;
+        state = TrackingError('Tracking stream failed');
+      },
+    );
+  }
+
+  /// Cancel every fbs subscription except [except]. Used by the
+  /// `onError` handlers (WR-03) to prevent a zombie subscription from
+  /// emitting further events after the notifier has transitioned to
+  /// [TrackingError] — once one channel has errored we cannot trust
+  /// the others to reflect reality.
+  void _cancelSiblingSubs({required StreamSubscription<Object?>? except}) {
+    if (!identical(_stateSub, except)) {
+      unawaited(_stateSub?.cancel());
+      _stateSub = null;
+    }
+    if (!identical(_finalizeSub, except)) {
+      unawaited(_finalizeSub?.cancel());
+      _finalizeSub = null;
+    }
+    if (!identical(_errorSub, except)) {
+      unawaited(_errorSub?.cancel());
+      _errorSub = null;
+    }
   }
 
   /// Ask the background service to start tracking. Transitions the
