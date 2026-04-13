@@ -35,7 +35,7 @@ void main() {
 
   group('TrackingError', () {
     test('carries the supplied message', () {
-      const err = TrackingError('oops');
+      final err = TrackingError('oops');
       expect(err.message, 'oops');
     });
 
@@ -127,7 +127,7 @@ void main() {
       expect(describe(const TrackingStarting()), 'starting');
       expect(describe(active), 'active');
       expect(describe(const TrackingStopping()), 'stopping');
-      expect(describe(const TrackingError('x')), 'error');
+      expect(describe(TrackingError('x')), 'error');
     });
   });
 }
