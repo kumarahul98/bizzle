@@ -152,7 +152,14 @@ class TrackingNotifier extends Notifier<TrackingState> {
           .read(trackingServiceControllerProvider)
           .persistFinalizedTrip(trip);
       _lastPersistResult = result;
-      state = const TrackingIdle();
+      // Defense-in-depth (WR-02): only transition back to idle if the
+      // state is still TrackingStopping. If a concurrent caller (e.g.
+      // a `kTrackingErrorEvent` handler or a programmatic retry) has
+      // already moved the state elsewhere (TrackingError /
+      // TrackingStarting / TrackingActive) we must not clobber it.
+      if (state is TrackingStopping) {
+        state = const TrackingIdle();
+      }
     });
     // WR-01: map the service isolate's `tracking_error` channel to a
     // user-facing TrackingError. The service isolate emits a stable
@@ -172,16 +179,33 @@ class TrackingNotifier extends Notifier<TrackingState> {
   }
 
   /// Ask the background service to start tracking. Transitions the
-  /// state from [TrackingIdle] to [TrackingStarting]; the service
-  /// isolate's first `tracking_state` event flips it to
-  /// [TrackingActive]. If the controller's pre-flight fails (e.g.
-  /// Location Services disabled system-wide), transitions to
+  /// state from [TrackingIdle] (or [TrackingError] — retry path) to
+  /// [TrackingStarting]; the service isolate's first `tracking_state`
+  /// event flips it to [TrackingActive]. If the controller's pre-flight
+  /// fails (e.g. Location Services disabled system-wide), transitions to
   /// [TrackingError] instead.
   ///
-  /// No-op if the state is already [TrackingActive] or
-  /// [TrackingStarting].
+  /// Exhaustive guard over the sealed [TrackingState] variants (WR-02):
+  /// only [TrackingIdle] and [TrackingError] allow a fresh start.
+  /// [TrackingStarting], [TrackingActive], and [TrackingStopping] all
+  /// short-circuit — crucially including [TrackingStopping], which is
+  /// the window while the `trip_finalized` listener's
+  /// [TrackingServiceController.persistFinalizedTrip] is awaiting the
+  /// Drift transaction. A Start re-entry during that window would spawn
+  /// a second tracking session over the first and the outer `_attach`
+  /// listener would later clobber its `TrackingStarting` / [TrackingActive]
+  /// state when it writes [TrackingIdle] on resolution.
   Future<void> start() async {
-    if (state is TrackingActive || state is TrackingStarting) return;
+    switch (state) {
+      case TrackingIdle():
+      case TrackingError():
+        // Fall through to the start sequence below.
+        break;
+      case TrackingStarting():
+      case TrackingActive():
+      case TrackingStopping():
+        return;
+    }
     state = const TrackingStarting();
     final ok = await ref.read(trackingServiceControllerProvider).start();
     if (!ok) {
