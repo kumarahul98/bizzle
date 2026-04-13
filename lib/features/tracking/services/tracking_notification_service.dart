@@ -1,3 +1,13 @@
+// File-level ignore for `unreachable_from_main`: every member of
+// `TrackingNotificationService` is reached indirectly from `main()` via a
+// Riverpod provider closure (`trackingNotificationServiceProvider` → the
+// controller's `_notifications` field → `showRecording` / `dismiss`).
+// `unreachable_from_main` does not follow closures across library
+// boundaries, so it false-positives every instance method here.
+// `initialize` is called from `main()` directly; the others are
+// transitively reached through `TrackingServiceController`.
+// ignore_for_file: unreachable_from_main
+
 // UX-03 foreground notification wrapper for the Phase 2 tracking feature.
 //
 // ## D-14 UNIFICATION CONTRACT (DO NOT DEVIATE)
