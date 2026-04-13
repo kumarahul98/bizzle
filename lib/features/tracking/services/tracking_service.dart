@@ -49,29 +49,27 @@ import 'package:traevy/features/tracking/services/trip_accumulator.dart';
 ///      guard from 02-RESEARCH §8), finalize the trip, emit
 ///      [kTripFinalizedEvent], and call [ServiceInstance.stopSelf].
 ///
-/// Plan 02-05 will add two things to this handler (each marked with an
-/// explicit "Plan 02-05 hook" comment below):
-///
-///   * `setForegroundNotificationInfo` + the flutter_local_notifications
-///     `.show(kTrackingNotificationId, ...)` call so Android collapses
-///     the fbs stock foreground-service notification and our UX-03 Stop
-///     button notification into a single shade entry (D-14).
-///   * A notification-dismiss call on the finalize path so the
-///     notification clears when the trip saves.
+/// On Android the service isolate is promoted to foreground state via
+/// `setAsForegroundService()` so Android keeps it alive across app
+/// suspend/resume. The visible UX-03 notification is shown from the UI
+/// isolate (via `TrackingNotificationService.showRecording()` in
+/// `TrackingServiceController.start()`) — see
+/// `tracking_notification_service.dart`'s file-level comment for why
+/// showing from the UI isolate keeps the foreground response handler
+/// bound to the same plugin state.
 @pragma('vm:entry-point')
 Future<void> trackingServiceOnStart(ServiceInstance service) async {
   // Android-only in Phase 2 per project constraints (iOS is post-v0.1).
   if (service is AndroidServiceInstance) {
-    // Plan 02-05 hook: the stock initial notification title
-    // ("Recording commute") is already set by `configureBackgroundService`
-    // below, but plan 02-05 replaces it with the full UX-03 notification
-    // via:
-    //   await service.setForegroundNotificationInfo(
-    //     title: kTrackingNotificationTitle,
-    //     content: '', // or a short subtitle the plan decides on
-    //   );
-    //   await TrackingNotificationService.showRecording(); // same id
-    // Left empty here so plan 02-05 has an obvious insertion point.
+    await service.setAsForegroundService();
+    // The UI isolate's `showRecording()` will replace this entry via the
+    // D-14 unification contract (same channel id + same notification id).
+    // Setting an empty body here avoids a flash of fbs's default body
+    // text between service-start and the UI isolate's first `show()`.
+    await service.setForegroundNotificationInfo(
+      title: kTrackingNotificationTitle,
+      content: '',
+    );
   }
 
   final accumulator = TripAccumulator(startedAt: DateTime.now().toUtc());
@@ -116,10 +114,13 @@ Future<void> trackingServiceOnStart(ServiceInstance service) async {
     uiTimer?.cancel();
     final trip = accumulator.finalize(DateTime.now().toUtc());
     service.invoke(kTripFinalizedEvent, trip.toMap());
-    // Plan 02-05 hook: dismiss the UX-03 notification here so the
-    // "Recording commute" entry clears from the shade before the UI
-    // isolate's persistence path runs. Something like:
-    //   await TrackingNotificationService.dismissRecording();
+    // The UX-03 notification is dismissed from the UI isolate inside
+    // TrackingServiceController.persistFinalizedTrip — every exit path
+    // of that method calls `_notifications.dismiss()` so the shade
+    // entry is always cleared (T-02-20). We do NOT dismiss from here
+    // because flutter_local_notifications state in the service isolate
+    // is a separate plugin instance from the UI isolate's, and
+    // dismiss() must target the plugin that showed the notification.
     await service.stopSelf();
   });
 }

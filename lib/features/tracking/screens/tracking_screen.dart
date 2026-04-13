@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:traevy/features/tracking/providers/tracking_providers.dart';
 import 'package:traevy/features/tracking/services/tracking_permission_service.dart';
+import 'package:traevy/features/tracking/services/tracking_service_controller.dart';
 import 'package:traevy/features/tracking/state/tracking_state.dart';
 import 'package:traevy/features/tracking/widgets/permission_banner.dart';
 import 'package:traevy/features/tracking/widgets/permission_gate.dart';
@@ -71,6 +72,21 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Surface the D-10 / save / failure snackbar exactly once per
+    // trip_finalized cycle. The notifier transitions
+    // TrackingStopping → TrackingIdle after persistFinalizedTrip runs,
+    // and the PersistResult is stashed in a last-result slot we consume
+    // here. Listening on the provider and consuming on the final edge
+    // into TrackingIdle keeps the snackbar bound to a single state
+    // transition even if the widget rebuilds for unrelated reasons.
+    ref.listen<TrackingState>(trackingStateProvider, (previous, next) {
+      if (previous is TrackingStopping && next is TrackingIdle) {
+        _handlePersistResult(
+          ref.read(trackingStateProvider.notifier).consumeLastPersistResult(),
+        );
+      }
+    });
+
     final status = _permissionStatus;
     if (status == TrackingPermissionStatus.denied ||
         status == TrackingPermissionStatus.permanentlyDenied) {
@@ -95,5 +111,18 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
         ],
       ),
     );
+  }
+
+  void _handlePersistResult(PersistResult? result) {
+    if (result == null || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final text = switch (result) {
+      PersistSaved() => 'Trip saved',
+      PersistDiscardedTooShort() => 'Trip too short to save',
+      PersistFailed(:final error) => 'Unable to save trip: $error',
+    };
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(text)));
   }
 }
