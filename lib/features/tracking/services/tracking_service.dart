@@ -13,19 +13,22 @@
 //   builds, so tree-shaking will silently delete them otherwise
 //   (Pitfall 4 in 02-RESEARCH.md §10).
 //
-// The three event-name constants at the bottom of the file are
-// deliberately NOT in `lib/config/constants.dart`. They are the private
-// coupling contract between this file and
-// `tracking_service_controller.dart` + `tracking_providers.dart`.
-// Surfacing them globally would invite other features to reuse the same
-// strings, which is architecturally wrong — the service isolate's
-// invoke channel is a local protocol, not a cross-feature concept.
+// The three event-name constants (`kTrackingStateEvent`,
+// `kTripFinalizedEvent`, `kStopTrackingEvent`) used to live at the bottom
+// of this file as the private coupling contract between the service
+// isolate and its UI-side wrapper. Plan 02-05 lifted them into
+// `tracking_service_events.dart` so the new
+// `tracking_notification_service.dart` can import `kStopTrackingEvent`
+// (for its Stop action handlers) without pulling in this file's
+// `@pragma('vm:entry-point')` isolate entrypoint. The constants remain
+// feature-local — they are deliberately NOT in `lib/config/constants.dart`.
 
 import 'dart:async';
 
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:traevy/config/constants.dart';
+import 'package:traevy/features/tracking/services/tracking_service_events.dart';
 import 'package:traevy/features/tracking/services/trip_accumulator.dart';
 
 /// flutter_background_service onStart entrypoint. Runs in a background
@@ -169,23 +172,7 @@ Future<void> configureBackgroundService() async {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Service ↔ UI isolate event names.
-//
-// These three constants are intentionally local to this file rather than
-// in `lib/config/constants.dart`. They are the private coupling contract
-// between `tracking_service.dart` (producer) and
-// `tracking_service_controller.dart` + `tracking_providers.dart`
-// (consumers). Exposing them globally would invite unrelated features to
-// reuse the strings, which is architecturally wrong — the invoke channel
-// is a local protocol, not a cross-feature concept.
-// ---------------------------------------------------------------------------
-
-/// Event name for the 1 Hz snapshot stream from service → UI isolate.
-const String kTrackingStateEvent = 'tracking_state';
-
-/// Event name for the finalised trip payload from service → UI isolate.
-const String kTripFinalizedEvent = 'trip_finalized';
-
-/// Event name for the stop command from UI → service isolate.
-const String kStopTrackingEvent = 'stop_tracking';
+// Event-name constants for the service ↔ UI isolate protocol now live in
+// `tracking_service_events.dart` so `tracking_notification_service.dart`
+// can import them without pulling in this file's entrypoint symbols. See
+// that file's doc comment for the rationale.

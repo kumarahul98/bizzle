@@ -1,6 +1,6 @@
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:traevy/features/tracking/services/tracking_service.dart';
+import 'package:traevy/features/tracking/services/tracking_service_events.dart';
 
 /// UI-isolate wrapper around [FlutterBackgroundService]. Thin by design —
 /// all tracking logic (GPS stream, accumulator, 1 Hz snapshots, stop

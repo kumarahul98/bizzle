@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:traevy/features/tracking/services/tracking_permission_service.dart';
-import 'package:traevy/features/tracking/services/tracking_service.dart';
 import 'package:traevy/features/tracking/services/tracking_service_controller.dart';
+import 'package:traevy/features/tracking/services/tracking_service_events.dart';
 import 'package:traevy/features/tracking/state/tracking_state.dart';
 
 /// Riverpod 3.x wiring for the tracking feature.
