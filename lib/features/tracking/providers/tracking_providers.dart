@@ -273,11 +273,22 @@ class TrackingNotifier extends Notifier<TrackingState> {
   /// state is [TrackingActive] — the Stop button is hidden in every
   /// other state, so this is a defensive guard against re-entry.
   ///
-  /// The actual [TrackingStopping] → [TrackingIdle] transition happens
+  /// WR-04 contract: the transition to [TrackingStopping] happens
+  /// SYNCHRONOUSLY at the top of this method, BEFORE any `await`. A
+  /// double-tap on the Stop button lands both taps in the same frame;
+  /// the first tap passes the guard and flips state to
+  /// [TrackingStopping]; the second tap hits the guard and
+  /// short-circuits because state is no longer [TrackingActive]. This
+  /// guarantees `kStopTrackingEvent` is invoked exactly once per Stop
+  /// click even though the service isolate responds asynchronously
+  /// with `kTripFinalizedEvent`.
+  ///
+  /// The final [TrackingStopping] → [TrackingIdle] transition happens
   /// inside the `trip_finalized` listener attached in [_attach], not
   /// here, because the service isolate responds asynchronously.
   Future<void> stop() async {
     if (state is! TrackingActive) return;
+    state = const TrackingStopping();
     await ref.read(trackingServiceControllerProvider).stop();
   }
 

@@ -26,6 +26,7 @@ import 'package:traevy/features/tracking/state/tracking_state.dart';
 class _TestTrackingNotifier extends TrackingNotifier {
   TrackingState initialState = const TrackingIdle();
   int startCallCount = 0;
+  int persistFinalizedTripCallCount = 0;
 
   @override
   TrackingState build() {
@@ -43,9 +44,14 @@ class _TestTrackingNotifier extends TrackingNotifier {
 
   @override
   Future<void> stop() async {
-    // Test notifier never reaches the service isolate — the
-    // TrackingStopping transition is driven manually via [setState] or
-    // [simulateDiscard].
+    // Mirror production: the state transition to TrackingStopping
+    // happens SYNCHRONOUSLY before any await so a double-tap second
+    // invocation short-circuits on the guard (WR-04).
+    // `persistFinalizedTripCallCount` counts how many times the stop
+    // command would have reached the controller-backed persist path.
+    if (state is! TrackingActive) return;
+    state = const TrackingStopping();
+    persistFinalizedTripCallCount++;
   }
 
   /// Deterministically drive the state machine into the post-finalize
@@ -259,6 +265,38 @@ void main() {
       expect(notifier.startCallCount, 1);
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
       expect(find.text('Starting GPS...'), findsOneWidget);
+    });
+
+    testWidgets(
+        'Double-tapping Stop only fires a single persist cycle '
+        '(WR-04 guard)',
+        (tester) async {
+      final notifier = await _pumpTrackingScreen(
+        tester,
+        initialState: TrackingActive(
+          startedAt: DateTime.utc(2026, 4, 12, 8),
+          elapsedSeconds: 60,
+          distanceMeters: 500,
+          currentSpeedKmh: 20,
+          timeMovingSeconds: 60,
+          timeStuckSeconds: 0,
+        ),
+      );
+
+      expect(notifier.persistFinalizedTripCallCount, 0);
+
+      // Two rapid Stop taps with no pump between the button handlers —
+      // simulates the double-tap race where the user's second tap lands
+      // in the same frame, before the service isolate has responded
+      // with trip_finalized. The WR-04 fix makes the Active ->
+      // Stopping transition synchronous inside TrackingNotifier.stop,
+      // so the second tap must short-circuit on the
+      // `state is! TrackingActive` guard.
+      await tester.tap(find.widgetWithText(FilledButton, 'Stop'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Stop'));
+      await tester.pump();
+
+      expect(notifier.persistFinalizedTripCallCount, 1);
     });
 
     testWidgets(
