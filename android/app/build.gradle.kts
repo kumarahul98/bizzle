@@ -7,10 +7,12 @@ plugins {
 
 android {
     namespace = "traevy.traevy"
-    // compileSdk is the SDK headers used at build time. drift_flutter pulls in
-    // jni / jni_flutter which require API 35 headers. Runtime behavior is
-    // governed by targetSdk (34) and minSdk (34), keeping D-08 intact.
-    compileSdk = 35
+    // compileSdk is the SDK headers used at build time. Phase 2 plugins
+    // (flutter_local_notifications 21, geolocator_android, package_info_plus)
+    // require API 36 headers; compileSdk is backward-compatible so bumping it
+    // does not change runtime behavior, which is governed by targetSdk (34)
+    // and minSdk (34), keeping Phase 1 D-08 intact.
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
