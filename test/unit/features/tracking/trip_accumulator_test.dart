@@ -249,7 +249,7 @@ void main() {
               lng: -122.4194,
               speedMs: 20,
               timestamp: start.add(
-                Duration(
+                const Duration(
                   seconds: kTrackingMaxAttributableGapSeconds + 5,
                 ),
               ),
@@ -305,17 +305,16 @@ void main() {
             speedMs: 20,
             timestamp: start,
           ),
+        )
+        ..finalize(start.add(const Duration(seconds: 10)))
+        ..addSample(
+          _pos(
+            lat: 37.7800,
+            lng: -122.4194,
+            speedMs: 20,
+            timestamp: start.add(const Duration(seconds: 5)),
+          ),
         );
-      acc.finalize(start.add(const Duration(seconds: 10)));
-
-      acc.addSample(
-        _pos(
-          lat: 37.7800,
-          lng: -122.4194,
-          speedMs: 20,
-          timestamp: start.add(const Duration(seconds: 5)),
-        ),
-      );
 
       expect(acc.distanceMetersForTest, 0);
       expect(acc.timeMovingSecondsForTest, 0);
