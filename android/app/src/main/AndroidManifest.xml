@@ -34,7 +34,7 @@
             android:name="id.flutter.flutter_background_service.BackgroundService"
             android:foregroundServiceType="location"
             android:exported="false"
-            tools:replace="android:foregroundServiceType"/>
+            tools:replace="android:foregroundServiceType,android:exported"/>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

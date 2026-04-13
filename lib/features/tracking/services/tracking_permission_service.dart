@@ -31,7 +31,7 @@ enum TrackingPermissionStatus {
 ///
 /// Injection seam so unit tests can drive [TrackingPermissionService]
 /// without touching the real plugin. Production default wraps
-/// [Permission.status].
+/// `Permission.status` from `permission_handler`.
 typedef PermissionStatusProbe = Future<PermissionStatus> Function(
   Permission permission,
 );
@@ -40,7 +40,7 @@ typedef PermissionStatusProbe = Future<PermissionStatus> Function(
 ///
 /// Injection seam so unit tests can drive [TrackingPermissionService]
 /// without touching the real plugin. Production default wraps
-/// [Permission.request].
+/// `Permission.request()` from `permission_handler`.
 typedef PermissionRequester = Future<PermissionStatus> Function(
   Permission permission,
 );
