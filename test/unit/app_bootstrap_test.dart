@@ -3,11 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:traevy/app.dart';
 import 'package:traevy/config/theme.dart';
+import 'package:traevy/features/tracking/screens/home_screen.dart';
 
 void main() {
   group('TraevyApp bootstrap', () {
     testWidgets(
-      'pumps inside ProviderScope and renders PlaceholderHome',
+      'pumps inside ProviderScope and renders HomeScreen',
       (tester) async {
         await tester.pumpWidget(
           const ProviderScope(child: TraevyApp()),
@@ -22,10 +23,10 @@ void main() {
         expect(materialApp.darkTheme, darkTheme);
         expect(materialApp.themeMode, ThemeMode.system);
 
-        // PlaceholderHome renders an AppBar title and body text.
-        expect(find.byType(PlaceholderHome), findsOneWidget);
+        // HomeScreen renders an AppBar title and the Start commute CTA.
+        expect(find.byType(HomeScreen), findsOneWidget);
         expect(find.text('Traevy'), findsWidgets);
-        expect(find.text('Traevy Phase 1'), findsOneWidget);
+        expect(find.text('Start commute'), findsOneWidget);
       },
     );
   });
