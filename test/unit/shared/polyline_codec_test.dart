@@ -20,7 +20,7 @@ void main() {
 
     test('produces Google reference output for canonical coordinate set', () {
       // From https://developers.google.com/maps/documentation/utilities/polylinealgorithm
-      const referenceString = r'_p~iF~ps|U_ulLnnqC_mqNvxq`@';
+      const referenceString = '_p~iF~ps|U_ulLnnqC_mqNvxq`@';
 
       final encoded = encodePolyline(const [
         (lat: 38.5, lng: -120.2),
@@ -38,7 +38,7 @@ void main() {
     });
 
     test('round-trips the canonical Google reference string', () {
-      const referenceString = r'_p~iF~ps|U_ulLnnqC_mqNvxq`@';
+      const referenceString = '_p~iF~ps|U_ulLnnqC_mqNvxq`@';
 
       final decoded = decodePolyline(referenceString);
 
