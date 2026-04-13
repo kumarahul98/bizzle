@@ -57,8 +57,8 @@ Plans:
 **UI hint**: yes
 
 Plans:
-- [ ] 02-01: TBD
-- [ ] 02-02: TBD
+- [x] 02-01: TBD
+- [x] 02-02: TBD
 - [ ] 02-03: TBD
 
 ### Phase 3: Trip Management
