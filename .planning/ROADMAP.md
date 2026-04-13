@@ -59,7 +59,7 @@ Plans:
 Plans:
 - [x] 02-01: TBD
 - [x] 02-02: TBD
-- [ ] 02-03: TBD
+- [x] 02-03: TBD
 
 ### Phase 3: Trip Management
 **Goal**: Users can manage their trips -- edit details, delete trips, enter forgotten trips manually, and have direction auto-labeled
