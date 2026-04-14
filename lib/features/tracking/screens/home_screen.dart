@@ -8,10 +8,18 @@ import 'package:traevy/features/tracking/services/tracking_permission_service.da
 ///
 /// Shows the app title, a short subtitle, and a single `Start commute`
 /// CTA. Tapping the CTA probes — but does not request — the current
-/// permission status: if fine location is permanently denied the user
-/// is offered the D-09 settings deep-link dialog, otherwise the user
-/// is navigated to the tracking screen, which runs the full D-07
-/// two-step preflight in its own `initState`.
+/// permission status:
+///
+///   * [TrackingPermissionStatus.permanentlyDenied] → show the D-09
+///     location-settings dialog, do NOT navigate.
+///   * [TrackingPermissionStatus.notificationDenied] → show the UX-03
+///     notification-settings dialog, do NOT navigate. The foreground
+///     notification is a hard requirement for background tracking on
+///     Android 13+, so Start is blocked until the user grants it.
+///   * every other state → navigate to the tracking screen, which
+///     runs the full four-step preflight in its own `initState` and
+///     handles [TrackingPermissionStatus.denied] and
+///     [TrackingPermissionStatus.foregroundOnly] there.
 class HomeScreen extends ConsumerWidget {
   /// Create the home screen.
   const HomeScreen({super.key});
@@ -48,7 +56,23 @@ class HomeScreen extends ConsumerWidget {
     final status = await service.currentStatus();
     if (!context.mounted) return;
     if (status == TrackingPermissionStatus.permanentlyDenied) {
-      await _showSettingsDialog(context, service);
+      await _showSettingsDialog(
+        context,
+        service,
+        title: 'Location permission denied',
+        body: 'Location permission is permanently denied. Open system '
+            'settings to enable it?',
+      );
+      return;
+    }
+    if (status == TrackingPermissionStatus.notificationDenied) {
+      await _showSettingsDialog(
+        context,
+        service,
+        title: 'Notifications required',
+        body: 'Notifications are required to track commutes in the '
+            'background. Open system settings to enable them?',
+      );
       return;
     }
     await Navigator.pushNamed(context, kRouteTracking);
@@ -56,16 +80,15 @@ class HomeScreen extends ConsumerWidget {
 
   Future<void> _showSettingsDialog(
     BuildContext context,
-    TrackingPermissionService service,
-  ) async {
+    TrackingPermissionService service, {
+    required String title,
+    required String body,
+  }) async {
     final shouldOpen = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Location permission denied'),
-        content: const Text(
-          'Location permission is permanently denied. Open system '
-          'settings to enable it?',
-        ),
+        title: Text(title),
+        content: Text(body),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),

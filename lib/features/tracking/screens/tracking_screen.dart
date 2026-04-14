@@ -89,14 +89,22 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
 
     final status = _permissionStatus;
     if (status == TrackingPermissionStatus.denied ||
-        status == TrackingPermissionStatus.permanentlyDenied) {
+        status == TrackingPermissionStatus.permanentlyDenied ||
+        status == TrackingPermissionStatus.notificationDenied) {
+      // UX-03: notificationDenied is a hard block — the persistent
+      // foreground notification cannot be shown on Android 13+ without
+      // POST_NOTIFICATIONS. Route it through PermissionGate with an
+      // Open-settings CTA (the system will not re-prompt after "Don't
+      // allow"). permanentlyDenied already routes to Open-settings;
+      // denied re-runs the preflight to retry the two-step location
+      // dance.
       return Scaffold(
         appBar: AppBar(title: const Text('Tracking')),
         body: PermissionGate(
           status: status!,
-          onGrant: status == TrackingPermissionStatus.permanentlyDenied
-              ? _openSettings
-              : _runPreflight,
+          onGrant: status == TrackingPermissionStatus.denied
+              ? _runPreflight
+              : _openSettings,
         ),
       );
     }
