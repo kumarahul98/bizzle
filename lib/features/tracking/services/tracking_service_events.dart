@@ -43,3 +43,13 @@ const String kStopTrackingEvent = 'stop_tracking';
 /// logging raw platform error text (which may contain PII such as
 /// lat/lng coordinates per T-02-07).
 const String kTrackingErrorEvent = 'tracking_error';
+
+/// Event name for the service-ready signal from service → UI isolate.
+///
+/// The service isolate emits this immediately after
+/// `setAsForegroundService()` completes on Android. The UI isolate uses
+/// it as the trigger to re-post the UX-03 notification with the Stop
+/// action button, overwriting the action-less placeholder that
+/// `startForeground()` posted internally (D-14 race resolution — see
+/// `tracking_notification_service.dart` file comment).
+const String kServiceReadyEvent = 'service_ready';

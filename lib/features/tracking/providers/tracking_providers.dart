@@ -120,6 +120,7 @@ class TrackingNotifier extends Notifier<TrackingState> {
   StreamSubscription<Map<String, dynamic>?>? _stateSub;
   StreamSubscription<Map<String, dynamic>?>? _finalizeSub;
   StreamSubscription<Map<String, dynamic>?>? _errorSub;
+  StreamSubscription<Map<String, dynamic>?>? _readySub;
   PersistResult? _lastPersistResult;
 
   @override
@@ -128,6 +129,7 @@ class TrackingNotifier extends Notifier<TrackingState> {
       unawaited(_stateSub?.cancel());
       unawaited(_finalizeSub?.cancel());
       unawaited(_errorSub?.cancel());
+      unawaited(_readySub?.cancel());
     });
     _attach();
     return const TrackingIdle();
@@ -135,6 +137,29 @@ class TrackingNotifier extends Notifier<TrackingState> {
 
   void _attach() {
     final service = FlutterBackgroundService();
+    // D-14 race resolution: fbs's setAsForegroundService() calls Android's
+    // startForeground(id, notification) internally, replacing our
+    // action-bearing Stop notification with an action-less placeholder.
+    // The service isolate emits kServiceReadyEvent immediately after
+    // setAsForegroundService() completes. We respond by re-posting the
+    // UX-03 notification, which overwrites fbs's placeholder and restores
+    // the Stop button. See tracking_service_events.dart for the full
+    // contract.
+    _readySub = service.on(kServiceReadyEvent).listen(
+      (data) async {
+        try {
+          await ref
+              .read(trackingNotificationServiceProvider)
+              .showRecording();
+        } on Object {
+          // POST_NOTIFICATIONS denied — tracking continues, button absent.
+        }
+      },
+      onError: (Object error, StackTrace stack) {
+        // kServiceReadyEvent channel errored — non-fatal. The notification
+        // may lack the Stop button but tracking is otherwise unaffected.
+      },
+    );
     _stateSub = service.on(kTrackingStateEvent).listen(
       (data) {
         if (data == null) return;
@@ -231,6 +256,10 @@ class TrackingNotifier extends Notifier<TrackingState> {
     if (!identical(_errorSub, except)) {
       unawaited(_errorSub?.cancel());
       _errorSub = null;
+    }
+    if (!identical(_readySub, except)) {
+      unawaited(_readySub?.cancel());
+      _readySub = null;
     }
   }
 

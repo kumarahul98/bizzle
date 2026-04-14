@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "skills": {
+    "dynamodb-table-designer": {
+      "source": "jeremylongshore/claude-code-plugins-plus-skills",
+      "sourceType": "github",
+      "computedHash": "ba201fdacfb28da6a81bf460203f16ad17e3f1c4f49142d0e2da68d2ab1298ef"
+    },
+    "flutter-architecting-apps": {
+      "source": "flutter/skills",
+      "sourceType": "github",
+      "computedHash": "eb8640b807ea631973fa259880abf07d0cb0f26d327da9970e56fbfc95650ada"
+    }
+  }
+}

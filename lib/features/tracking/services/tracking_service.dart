@@ -24,7 +24,9 @@
 // feature-local — they are deliberately NOT in `lib/config/constants.dart`.
 
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:traevy/config/constants.dart';
@@ -62,13 +64,19 @@ Future<void> trackingServiceOnStart(ServiceInstance service) async {
   // Android-only in Phase 2 per project constraints (iOS is post-v0.1).
   if (service is AndroidServiceInstance) {
     await service.setAsForegroundService();
-    // Do NOT call setForegroundNotificationInfo here. The UI isolate
-    // posts an action-bearing notification at kTrackingNotificationId
-    // BEFORE startService() (see TrackingServiceController.start), so
-    // fbs reuses that notification for the foreground state via the
-    // D-14 unification contract. Calling setForegroundNotificationInfo
-    // would unconditionally overwrite the action-bearing notification
-    // with one that has no actions, breaking UX-03's Stop button.
+    // `setAsForegroundService()` calls Android's `startForeground(id,
+    // notification)` internally, which REPLACES whatever notification
+    // flutter_local_notifications previously posted at that id — including
+    // our action-bearing Stop notification from the UI isolate. The
+    // resulting fbs placeholder has no actions, so the Stop button
+    // disappears.
+    //
+    // Fix (D-14 race resolution): signal the UI isolate that
+    // setAsForegroundService has completed. `TrackingNotifier` listens
+    // on `kServiceReadyEvent` and immediately re-posts the action-bearing
+    // notification via `TrackingNotificationService.showRecording()`,
+    // overwriting fbs's placeholder with our Stop-button version.
+    service.invoke(kServiceReadyEvent);
   }
 
   final accumulator = TripAccumulator(startedAt: DateTime.now().toUtc());
@@ -137,6 +145,18 @@ Future<void> trackingServiceOnStart(ServiceInstance service) async {
     await positionSub?.cancel();
     uiTimer?.cancel();
     final trip = accumulator.finalize(DateTime.now().toUtc());
+    // WR-05: if the app is force-stopped before the UI isolate can
+    // receive and persist kTripFinalizedEvent, the trip is lost. Save it
+    // to SharedPreferences so the UI can recover on relaunch.
+    try {
+      const platform = MethodChannel('traevy/tracking');
+      await platform.invokeMethod<void>(
+        'savePendingTrip',
+        jsonEncode(trip.toMap()),
+      );
+    } on Object {
+      // Platform call failed — trip will be lost, but service stops anyway
+    }
     service.invoke(kTripFinalizedEvent, trip.toMap());
     // The UX-03 notification is dismissed from the UI isolate inside
     // TrackingServiceController.persistFinalizedTrip — every exit path
