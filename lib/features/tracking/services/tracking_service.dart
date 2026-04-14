@@ -62,14 +62,13 @@ Future<void> trackingServiceOnStart(ServiceInstance service) async {
   // Android-only in Phase 2 per project constraints (iOS is post-v0.1).
   if (service is AndroidServiceInstance) {
     await service.setAsForegroundService();
-    // The UI isolate's `showRecording()` will replace this entry via the
-    // D-14 unification contract (same channel id + same notification id).
-    // Setting an empty body here avoids a flash of fbs's default body
-    // text between service-start and the UI isolate's first `show()`.
-    await service.setForegroundNotificationInfo(
-      title: kTrackingNotificationTitle,
-      content: '',
-    );
+    // Do NOT call setForegroundNotificationInfo here. The UI isolate
+    // posts an action-bearing notification at kTrackingNotificationId
+    // BEFORE startService() (see TrackingServiceController.start), so
+    // fbs reuses that notification for the foreground state via the
+    // D-14 unification contract. Calling setForegroundNotificationInfo
+    // would unconditionally overwrite the action-bearing notification
+    // with one that has no actions, breaking UX-03's Stop button.
   }
 
   final accumulator = TripAccumulator(startedAt: DateTime.now().toUtc());

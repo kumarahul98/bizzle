@@ -80,17 +80,23 @@ class TrackingServiceController {
     if (!serviceEnabled) {
       return false;
     }
-    final started = await _service.startService();
-    if (started) {
-      try {
-        await _notifications.showRecording();
-      } on Object {
-        // POST_NOTIFICATIONS denied on Android 13+ → tracking still
-        // works, the UX-03 notification is just absent until the user
-        // grants it. Do NOT rethrow (Deviation Rule 4).
-      }
+    // Post the UX-03 notification BEFORE starting the service so the
+    // action-bearing notification exists at kTrackingNotificationId when
+    // fbs's setAsForegroundService promotes the service. This is the
+    // D-14 unification contract — fbs reuses the existing notification
+    // at the same id+channel instead of creating its own action-less
+    // stock notification. Reversing this order would let fbs win the
+    // race and the Stop action button would never appear.
+    //
+    // POST_NOTIFICATIONS denied on Android 13+ → tracking still works,
+    // the UX-03 notification is just absent until the user grants it.
+    // Do NOT rethrow (Deviation Rule 4).
+    try {
+      await _notifications.showRecording();
+    } on Object {
+      // intentionally swallowed — see comment above
     }
-    return started;
+    return _service.startService();
   }
 
   /// Tell the background isolate to stop. The service responds
