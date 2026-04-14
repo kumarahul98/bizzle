@@ -4,8 +4,10 @@ import 'package:traevy/features/tracking/services/tracking_permission_service.da
 
 /// Captures the ordered sequence of Permission values passed through an
 /// injected probe or requester closure, so tests can assert the strict
-/// two-step ordering from D-07 / RESEARCH Pitfall 5: locationWhenInUse MUST
-/// resolve before locationAlways is ever touched.
+/// four-step ordering from D-07 / RESEARCH Pitfall 5 + UX-03:
+/// locationWhenInUse MUST resolve before locationAlways is ever touched,
+/// and notification MUST NEVER be touched until the location dance has
+/// fully resolved to a non-denied state.
 class _CallLog {
   final List<Permission> probeCalls = <Permission>[];
   final List<Permission> requestCalls = <Permission>[];
@@ -50,13 +52,14 @@ PermissionRequester _staticRequester(
 
 void main() {
   group('TrackingPermissionService.preflight', () {
-    test('returns fullyGranted when both permissions are already granted, '
-        'never calling requester', () async {
+    test('returns fullyGranted when all three permissions are already '
+        'granted, never calling requester', () async {
       final log = _CallLog();
       final service = TrackingPermissionService.forTesting(
         probe: _staticProbe(<Permission, PermissionStatus>{
           Permission.locationWhenInUse: PermissionStatus.granted,
           Permission.locationAlways: PermissionStatus.granted,
+          Permission.notification: PermissionStatus.granted,
         }, log),
         requester: _staticRequester(<Permission, PermissionStatus>{}, log),
       );
@@ -69,13 +72,14 @@ void main() {
       expect(log.probeCalls.first, Permission.locationWhenInUse);
     });
 
-    test('returns foregroundOnly when fine is already granted '
-        'and background is denied at request time', () async {
+    test('returns foregroundOnly when fine is already granted, background '
+        'denied at request, and notification already granted', () async {
       final log = _CallLog();
       final service = TrackingPermissionService.forTesting(
         probe: _staticProbe(<Permission, PermissionStatus>{
           Permission.locationWhenInUse: PermissionStatus.granted,
           Permission.locationAlways: PermissionStatus.denied,
+          Permission.notification: PermissionStatus.granted,
         }, log),
         requester: _staticRequester(<Permission, PermissionStatus>{
           Permission.locationAlways: PermissionStatus.denied,
@@ -91,12 +95,14 @@ void main() {
     });
 
     test('returns foregroundOnly when fine is denied then granted on '
-        'request, and background is denied on request', () async {
+        'request, background denied on request, and notification '
+        'already granted', () async {
       final log = _CallLog();
       final service = TrackingPermissionService.forTesting(
         probe: _staticProbe(<Permission, PermissionStatus>{
           Permission.locationWhenInUse: PermissionStatus.denied,
           Permission.locationAlways: PermissionStatus.denied,
+          Permission.notification: PermissionStatus.granted,
         }, log),
         requester: _staticRequester(<Permission, PermissionStatus>{
           Permission.locationWhenInUse: PermissionStatus.granted,
@@ -142,6 +148,17 @@ void main() {
         log.probeCalls.contains(Permission.locationAlways),
         isFalse,
       );
+      // UX-03 ordering guard: notification MUST NOT be touched once
+      // fine has been denied — the user has not agreed to location yet
+      // so we must not escalate to a second permission prompt.
+      expect(
+        log.requestCalls.contains(Permission.notification),
+        isFalse,
+      );
+      expect(
+        log.probeCalls.contains(Permission.notification),
+        isFalse,
+      );
     });
 
     test('returns permanentlyDenied when fine is already permanently denied, '
@@ -158,6 +175,12 @@ void main() {
 
       expect(status, TrackingPermissionStatus.permanentlyDenied);
       expect(log.requestCalls, isEmpty);
+      // UX-03 ordering guard: notification MUST NOT be touched once
+      // fine has resolved permanentlyDenied.
+      expect(
+        log.probeCalls.contains(Permission.notification),
+        isFalse,
+      );
     });
 
     test('returns permanentlyDenied when fine request resolves '
@@ -183,6 +206,15 @@ void main() {
       );
       expect(
         log.probeCalls.contains(Permission.locationAlways),
+        isFalse,
+      );
+      // UX-03 ordering guard: notification must also never be touched.
+      expect(
+        log.requestCalls.contains(Permission.notification),
+        isFalse,
+      );
+      expect(
+        log.probeCalls.contains(Permission.notification),
         isFalse,
       );
     });
@@ -219,6 +251,7 @@ void main() {
         probe: _staticProbe(<Permission, PermissionStatus>{
           Permission.locationWhenInUse: PermissionStatus.denied,
           Permission.locationAlways: PermissionStatus.denied,
+          Permission.notification: PermissionStatus.granted,
         }, log),
         requester: requester,
       );
@@ -231,16 +264,121 @@ void main() {
         Permission.locationAlways,
       ]);
     });
+
+    test('returns notificationDenied when fine + background are granted '
+        'but notification request resolves denied', () async {
+      // UX-03: location is OK, but POST_NOTIFICATIONS denial is a hard
+      // block — the persistent foreground notification cannot be shown
+      // without it on Android 13+.
+      final log = _CallLog();
+      final service = TrackingPermissionService.forTesting(
+        probe: _staticProbe(<Permission, PermissionStatus>{
+          Permission.locationWhenInUse: PermissionStatus.granted,
+          Permission.locationAlways: PermissionStatus.granted,
+          Permission.notification: PermissionStatus.denied,
+        }, log),
+        requester: _staticRequester(<Permission, PermissionStatus>{
+          Permission.notification: PermissionStatus.denied,
+        }, log),
+      );
+
+      final status = await service.preflight();
+
+      expect(status, TrackingPermissionStatus.notificationDenied);
+      // Ordering: notification must be requested AFTER the location
+      // dance has fully resolved.
+      expect(
+        log.requestCalls,
+        <Permission>[Permission.notification],
+      );
+    });
+
+    test('returns notificationDenied when fine granted, background denied, '
+        'and notification denied', () async {
+      // Parallel case to foregroundOnly above, but notification is
+      // denied — UX-03 still hard-blocks even when location is only
+      // partially granted.
+      final log = _CallLog();
+      final service = TrackingPermissionService.forTesting(
+        probe: _staticProbe(<Permission, PermissionStatus>{
+          Permission.locationWhenInUse: PermissionStatus.granted,
+          Permission.locationAlways: PermissionStatus.denied,
+          Permission.notification: PermissionStatus.denied,
+        }, log),
+        requester: _staticRequester(<Permission, PermissionStatus>{
+          Permission.locationAlways: PermissionStatus.denied,
+          Permission.notification: PermissionStatus.denied,
+        }, log),
+      );
+
+      final status = await service.preflight();
+
+      expect(status, TrackingPermissionStatus.notificationDenied);
+      // Strict ordering: notification request comes AFTER the
+      // locationAlways request.
+      final alwaysIdx = log.indexOfFirstRequest(Permission.locationAlways);
+      final notifIdx = log.indexOfFirstRequest(Permission.notification);
+      expect(alwaysIdx, isNonNegative);
+      expect(notifIdx, isNonNegative);
+      expect(alwaysIdx, lessThan(notifIdx));
+    });
+
+    test('returns fullyGranted when notification is already granted on probe, '
+        'without calling notification requester', () async {
+      // Guards against a regression where we always request even when
+      // probe returns granted.
+      final log = _CallLog();
+      final service = TrackingPermissionService.forTesting(
+        probe: _staticProbe(<Permission, PermissionStatus>{
+          Permission.locationWhenInUse: PermissionStatus.granted,
+          Permission.locationAlways: PermissionStatus.granted,
+          Permission.notification: PermissionStatus.granted,
+        }, log),
+        requester: _staticRequester(<Permission, PermissionStatus>{}, log),
+      );
+
+      final status = await service.preflight();
+
+      expect(status, TrackingPermissionStatus.fullyGranted);
+      expect(
+        log.requestCalls.contains(Permission.notification),
+        isFalse,
+      );
+    });
+
+    test('returns fullyGranted when notification is initially denied then '
+        'granted on request', () async {
+      final log = _CallLog();
+      final service = TrackingPermissionService.forTesting(
+        probe: _staticProbe(<Permission, PermissionStatus>{
+          Permission.locationWhenInUse: PermissionStatus.granted,
+          Permission.locationAlways: PermissionStatus.granted,
+          Permission.notification: PermissionStatus.denied,
+        }, log),
+        requester: _staticRequester(<Permission, PermissionStatus>{
+          Permission.notification: PermissionStatus.granted,
+        }, log),
+      );
+
+      final status = await service.preflight();
+
+      expect(status, TrackingPermissionStatus.fullyGranted);
+      expect(
+        log.requestCalls,
+        <Permission>[Permission.notification],
+      );
+    });
   });
 
   group('TrackingPermissionService.currentStatus', () {
-    test('returns fullyGranted when both permissions are granted, '
+    test('returns fullyGranted when all three permissions are granted, '
         'without calling requester', () async {
       final log = _CallLog();
       final service = TrackingPermissionService.forTesting(
         probe: _staticProbe(<Permission, PermissionStatus>{
           Permission.locationWhenInUse: PermissionStatus.granted,
           Permission.locationAlways: PermissionStatus.granted,
+          Permission.notification: PermissionStatus.granted,
         }, log),
         requester: _staticRequester(<Permission, PermissionStatus>{}, log),
       );
@@ -251,13 +389,14 @@ void main() {
       expect(log.requestCalls, isEmpty);
     });
 
-    test('returns foregroundOnly when fine granted but background denied, '
-        'without calling requester', () async {
+    test('returns foregroundOnly when fine granted, background denied, '
+        'and notification granted, without calling requester', () async {
       final log = _CallLog();
       final service = TrackingPermissionService.forTesting(
         probe: _staticProbe(<Permission, PermissionStatus>{
           Permission.locationWhenInUse: PermissionStatus.granted,
           Permission.locationAlways: PermissionStatus.denied,
+          Permission.notification: PermissionStatus.granted,
         }, log),
         requester: _staticRequester(<Permission, PermissionStatus>{}, log),
       );
@@ -268,8 +407,8 @@ void main() {
       expect(log.requestCalls, isEmpty);
     });
 
-    test('returns denied when fine is denied, without calling requester',
-        () async {
+    test('returns denied when fine is denied, without calling requester '
+        'or touching notification', () async {
       final log = _CallLog();
       final service = TrackingPermissionService.forTesting(
         probe: _staticProbe(<Permission, PermissionStatus>{
@@ -282,10 +421,16 @@ void main() {
 
       expect(status, TrackingPermissionStatus.denied);
       expect(log.requestCalls, isEmpty);
+      // UX-03 ordering: notification must not be probed once fine is
+      // denied (mirrors preflight).
+      expect(
+        log.probeCalls.contains(Permission.notification),
+        isFalse,
+      );
     });
 
     test('returns permanentlyDenied when fine is permanently denied, '
-        'without calling requester', () async {
+        'without calling requester or touching notification', () async {
       final log = _CallLog();
       final service = TrackingPermissionService.forTesting(
         probe: _staticProbe(<Permission, PermissionStatus>{
@@ -297,6 +442,52 @@ void main() {
       final status = await service.currentStatus();
 
       expect(status, TrackingPermissionStatus.permanentlyDenied);
+      expect(log.requestCalls, isEmpty);
+      expect(
+        log.probeCalls.contains(Permission.notification),
+        isFalse,
+      );
+    });
+
+    test('returns notificationDenied when location is granted and '
+        'notification is denied, without calling requester', () async {
+      // UX-03: currentStatus must classify a denied notification as
+      // notificationDenied WITHOUT prompting the user (build-time
+      // safety). This test pins the invariant.
+      final log = _CallLog();
+      final service = TrackingPermissionService.forTesting(
+        probe: _staticProbe(<Permission, PermissionStatus>{
+          Permission.locationWhenInUse: PermissionStatus.granted,
+          Permission.locationAlways: PermissionStatus.granted,
+          Permission.notification: PermissionStatus.denied,
+        }, log),
+        requester: _staticRequester(<Permission, PermissionStatus>{}, log),
+      );
+
+      final status = await service.currentStatus();
+
+      expect(status, TrackingPermissionStatus.notificationDenied);
+      expect(log.requestCalls, isEmpty);
+    });
+
+    test('returns notificationDenied when fine granted, background denied, '
+        'and notification denied', () async {
+      // Mirrors the preflight parallel case: foreground-only location
+      // combined with a denied notification still resolves to the
+      // blocking notificationDenied state.
+      final log = _CallLog();
+      final service = TrackingPermissionService.forTesting(
+        probe: _staticProbe(<Permission, PermissionStatus>{
+          Permission.locationWhenInUse: PermissionStatus.granted,
+          Permission.locationAlways: PermissionStatus.denied,
+          Permission.notification: PermissionStatus.denied,
+        }, log),
+        requester: _staticRequester(<Permission, PermissionStatus>{}, log),
+      );
+
+      final status = await service.currentStatus();
+
+      expect(status, TrackingPermissionStatus.notificationDenied);
       expect(log.requestCalls, isEmpty);
     });
   });

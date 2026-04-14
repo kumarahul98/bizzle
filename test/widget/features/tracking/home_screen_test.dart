@@ -30,35 +30,78 @@ typedef _PermissionHarness = ({
 /// returns a callback-recording spy so tests can assert whether
 /// `openSystemSettings` was invoked.
 ///
-/// The mapping from `TrackingPermissionStatus` back to the
-/// `permission_handler` `PermissionStatus` the real service expects
-/// from its probe/requester closures is documented next to each case.
+/// The harness wires a per-permission probe/requester map so that the
+/// four-step dance (locationWhenInUse → locationAlways → notification)
+/// resolves to the intended tracking status with the minimum number of
+/// probe/request calls. The mapping is documented next to each case.
 _PermissionHarness _buildFakePermissionService(
   TrackingPermissionStatus trackingStatus,
 ) {
   var openCount = 0;
-  final PermissionStatus mapped;
+  final Map<Permission, PermissionStatus> probeValues;
+  final Map<Permission, PermissionStatus> requestValues;
   switch (trackingStatus) {
     case TrackingPermissionStatus.fullyGranted:
-      // `currentStatus` probes both fine and background; granting
-      // both produces `fullyGranted` without ever touching the
-      // requester closure.
-      mapped = PermissionStatus.granted;
+      // All three permissions granted on probe — no requests fire.
+      probeValues = <Permission, PermissionStatus>{
+        Permission.locationWhenInUse: PermissionStatus.granted,
+        Permission.locationAlways: PermissionStatus.granted,
+        Permission.notification: PermissionStatus.granted,
+      };
+      requestValues = const <Permission, PermissionStatus>{};
     case TrackingPermissionStatus.foregroundOnly:
-      // A full harness for foregroundOnly would need two different
-      // probe results (granted for fine, denied for background).
-      // HomeScreen treats foregroundOnly exactly like fullyGranted —
-      // it navigates to tracking — so the simpler `granted` probe is
-      // sufficient for HomeScreen's code path.
-      mapped = PermissionStatus.granted;
+      // Fine granted, background denied, notification granted. Test
+      // paths that care about foregroundOnly go through the tracking
+      // screen, not the home screen — HomeScreen treats foregroundOnly
+      // identically to fullyGranted (navigates).
+      probeValues = <Permission, PermissionStatus>{
+        Permission.locationWhenInUse: PermissionStatus.granted,
+        Permission.locationAlways: PermissionStatus.denied,
+        Permission.notification: PermissionStatus.granted,
+      };
+      requestValues = const <Permission, PermissionStatus>{};
     case TrackingPermissionStatus.denied:
-      mapped = PermissionStatus.denied;
+      // Fine denied on probe — currentStatus short-circuits before
+      // touching locationAlways or notification. preflight will call
+      // the requester for locationWhenInUse (still denied).
+      probeValues = <Permission, PermissionStatus>{
+        Permission.locationWhenInUse: PermissionStatus.denied,
+      };
+      requestValues = <Permission, PermissionStatus>{
+        Permission.locationWhenInUse: PermissionStatus.denied,
+      };
     case TrackingPermissionStatus.permanentlyDenied:
-      mapped = PermissionStatus.permanentlyDenied;
+      probeValues = <Permission, PermissionStatus>{
+        Permission.locationWhenInUse: PermissionStatus.permanentlyDenied,
+      };
+      requestValues = const <Permission, PermissionStatus>{};
+    case TrackingPermissionStatus.notificationDenied:
+      // Location dance resolves (fine + background granted) but the
+      // notification probe comes back denied. HomeScreen uses
+      // `currentStatus` which does NOT call the requester, so no
+      // notification request value is needed here.
+      probeValues = <Permission, PermissionStatus>{
+        Permission.locationWhenInUse: PermissionStatus.granted,
+        Permission.locationAlways: PermissionStatus.granted,
+        Permission.notification: PermissionStatus.denied,
+      };
+      requestValues = const <Permission, PermissionStatus>{};
   }
   final service = TrackingPermissionService.forTesting(
-    probe: (_) async => mapped,
-    requester: (_) async => mapped,
+    probe: (permission) async {
+      final result = probeValues[permission];
+      if (result == null) {
+        throw StateError('Unexpected probe call: $permission');
+      }
+      return result;
+    },
+    requester: (permission) async {
+      final result = requestValues[permission];
+      if (result == null) {
+        throw StateError('Unexpected request call: $permission');
+      }
+      return result;
+    },
     opener: () async {
       openCount++;
       return true;
@@ -174,6 +217,54 @@ void main() {
       // Dialog dismissed; still on HomeScreen; still not on the tracking
       // route.
       expect(find.text('Location permission denied'), findsNothing);
+      expect(find.byType(TrackingScreen), findsNothing);
+    });
+
+    testWidgets(
+        'tapping Start with notificationDenied shows the notifications '
+        'dialog and does NOT navigate to the tracking route', (tester) async {
+      // UX-03 gap-closure: POST_NOTIFICATIONS denial is a hard block
+      // because the foreground notification cannot be shown on Android
+      // 13+ without it. HomeScreen must short-circuit Start the same
+      // way it does for permanentlyDenied.
+      final harness = _buildFakePermissionService(
+        TrackingPermissionStatus.notificationDenied,
+      );
+      await _pumpHomeScreen(tester, permissionService: harness.service);
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Start commute'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('Notifications required'), findsOneWidget);
+      expect(
+        find.widgetWithText(FilledButton, 'Open settings'),
+        findsOneWidget,
+      );
+      expect(find.byType(TrackingScreen), findsNothing);
+      expect(harness.openSettingsCalls(), 0);
+    });
+
+    testWidgets(
+        'tapping Open settings in the notifications dialog invokes '
+        'TrackingPermissionService.openSystemSettings', (tester) async {
+      final harness = _buildFakePermissionService(
+        TrackingPermissionStatus.notificationDenied,
+      );
+      await _pumpHomeScreen(tester, permissionService: harness.service);
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Start commute'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('Notifications required'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Open settings'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(harness.openSettingsCalls(), 1);
+      expect(find.text('Notifications required'), findsNothing);
       expect(find.byType(TrackingScreen), findsNothing);
     });
   });
