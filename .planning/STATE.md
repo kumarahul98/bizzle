@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
-status: planning
-stopped_at: Phase 2 context gathered
-last_updated: "2026-04-12T16:17:59.684Z"
-last_activity: 2026-04-12
+status: active
+stopped_at: Phase 2 complete — ready to plan Phase 3
+last_updated: "2026-04-15T00:00:00.000Z"
+last_activity: 2026-04-15
 progress:
   total_phases: 10
-  completed_phases: 1
-  total_plans: 4
-  completed_plans: 4
-  percent: 100
+  completed_phases: 2
+  total_plans: 10
+  completed_plans: 10
+  percent: 20
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-11)
 
 **Core value:** Show people the reality of their commute -- time wasted in traffic and how it changes over time.
-**Current focus:** Phase 1: Foundation
+**Current focus:** Phase 3 (next)
 
 ## Current Position
 
-Phase: 2 of 10 (core tracking)
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-04-12
+Phase: 2 of 10 — COMPLETE (verified 2026-04-15)
+Plan: All plans complete
+Status: Ready to plan Phase 3
+Last activity: 2026-04-15
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [██░░░░░░░░] 20%
 
 ## Performance Metrics
 
@@ -60,21 +60,25 @@ Progress: [░░░░░░░░░░] 0%
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- [Roadmap]: Tracelet package unverified -- may need to swap for geolocator in Phase 2
+- [Phase 2]: Tracelet does not exist — replaced with geolocator ^14.0.2 + flutter_background_service ^5.1.0
+- [Phase 2]: minSdk/targetSdk pinned to 34 (Android 14 only, narrow device coverage for fast MVP)
+- [Phase 2]: Manual Riverpod 3.x providers (no codegen) — drift_dev ^2.32.1 pins analyzer ^10, blocks riverpod_generator ^2.6 which needs analyzer ^9
+- [Phase 2]: D-14 unification — fbs + flutter_local_notifications share same notificationId/channelId so Android shows one shade entry
+- [Phase 2]: showsUserInterface: true on notification Stop action — Android 14 delivers broadcast PendingIntent actions as body taps (actionId=null); Activity PendingIntent required
 - [Roadmap]: Build local-first: phases 1-7 deliver complete app without auth, phases 8-10 add cloud layer
 - [Roadmap]: Trips don't need user_id initially -- populated when auth is added in Phase 8
 
 ### Pending Todos
 
-None yet.
+- Phase 3 backlog: Backlog 999.1 (velocity-jump gate in TripAccumulator)
+- Phase 3 backlog: Backlog 999.2 (app kill + relaunch trip recovery via dart:io file write)
 
 ### Blockers/Concerns
 
-- Tracelet GPS package existence unverified (blocks Phase 2 -- fallback is geolocator ^13.0)
-- GPS speed noise below 10 km/h needs empirical tuning (Phase 2)
+None — Phase 2 is complete.
 
 ## Session Continuity
 
-Last session: 2026-04-12T16:17:59.675Z
-Stopped at: Phase 2 context gathered
-Resume file: .planning/phases/02-core-tracking/02-CONTEXT.md
+Last session: 2026-04-15
+Stopped at: Phase 2 complete — all plans executed, device verified (10/11 pass, 1 deferred), VERIFICATION.md updated
+Resume file: .planning/phases/03-*/03-CONTEXT.md (to be created)

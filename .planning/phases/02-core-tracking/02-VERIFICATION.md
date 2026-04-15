@@ -1,8 +1,8 @@
 ---
 phase: 02-core-tracking
-verified: 2026-04-12T00:00:00Z
-status: human_needed
-score: 5/5 must-haves verified (automated)
+verified: 2026-04-15T00:00:00Z
+status: pass
+score: 5/5 must-haves verified; 10/11 device items pass (1 deferred to Phase 3)
 overrides_applied: 0
 known_warnings:
   - id: WR-01
@@ -100,9 +100,29 @@ human_verification:
 
 **Phase Goal:** Users can record a commute trip from start to stop with background GPS capture, producing a complete trip record with traffic breakdown (moving vs stuck time).
 
-**Verified:** 2026-04-12
-**Status:** human_needed
-**Re-verification:** No — initial verification
+**Verified:** 2026-04-15
+**Status:** PASS
+**Re-verification:** Yes — device verification completed 2026-04-15
+
+## Device Verification Results (2026-04-15)
+
+| # | Test | Result | Notes |
+|---|---|---|---|
+| 1 | Fresh install — all permissions denied | PASS | HomeScreen renders; Start CTA visible |
+| 2 | D-07 two-step permission upgrade | PASS | Fine location → background location flow works |
+| 3 | Background location upgrade on first Start | PASS | PermissionBanner shows for foreground-only |
+| 4 | Live-tile ticking with real GPS | PASS | Duration, distance, speed all update in real time |
+| 5 | D-14 single-entry tripwire | PASS | Exactly one "Recording commute" notification in shade |
+| 6 | In-app Stop persists trip | PASS | Trip row + sync_queue entry written; notification cleared |
+| 7 | D-10 short-trip discard snackbar | PASS | "Trip too short to save" snackbar shown; no row written |
+| 8 | Background survival — home button + screen off | PASS | Foreground service keeps GPS alive; tiles tick on return |
+| 9 | Stop from notification shade | PASS | Requires `showsUserInterface: true` on Android 14 (broadcast PendingIntent delivers actionId=null; Activity PendingIntent delivers correct selectedNotificationAction) |
+| 10 | Kill + relaunch — D-06 no-ghost invariant | PARTIAL | App force-stopped → notification Stop fires → app relaunches in idle state (trip not persisted). Service isolate emits kTripFinalizedEvent but UI isolate is dead. Deferred as Backlog 999.2 (Phase 3). |
+| 11 | Battery optimisation Unrestricted | PASS | Backgrounded survival confirmed |
+
+**Post-verification fixes merged:**
+- `kServiceReadyEvent`: service isolate signals UI after `setAsForegroundService()` so UI re-posts action-bearing notification, overwriting fbs's action-less placeholder (D-14 race).
+- `showsUserInterface: true` on Stop action: Android 14 delivers broadcast actions as body taps (actionId=null). Activity PendingIntent correctly routes to `selectedNotificationAction`.
 
 ## Goal Achievement
 
