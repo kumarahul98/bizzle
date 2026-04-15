@@ -50,7 +50,6 @@
 // foreground response handler bound to the same plugin state that
 // registered it.
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:traevy/config/constants.dart';
@@ -124,9 +123,9 @@ class TrackingNotificationService {
           // tap) rather than selectedNotificationAction, so actionId arrives
           // null and the invoke guard never fires. Using an Activity
           // PendingIntent (showsUserInterface: true) routes through
-          // onNewIntent instead and correctly delivers selectedNotificationAction
-          // with the action id populated, at the cost of briefly foregrounding
-          // the app — acceptable for a Stop action.
+          // onNewIntent instead and correctly delivers
+          // selectedNotificationAction with the action id populated, at the
+          // cost of briefly foregrounding the app — acceptable for a Stop.
           //
           // Do NOT cancel the notification from the action handler;
           // persistFinalizedTrip's dismiss() path is the single place that
@@ -171,12 +170,7 @@ class TrackingNotificationService {
   /// Foreground tap handler. V5 validation (T-02-17): match the exact
   /// Stop action id and ignore everything else.
   void _onForegroundResponse(NotificationResponse response) {
-    debugPrint(
-      '[TNS-FG] response type=${response.notificationResponseType} '
-      'actionId=${response.actionId}',
-    );
     if (response.actionId == kTrackingStopActionId) {
-      debugPrint('[TNS-FG] invoking kStopTrackingEvent');
       FlutterBackgroundService().invoke(kStopTrackingEvent);
     }
   }
@@ -198,12 +192,7 @@ class TrackingNotificationService {
 void trackingNotificationBackgroundHandler(
   NotificationResponse response,
 ) {
-  debugPrint(
-    '[TNS-BG] response type=${response.notificationResponseType} '
-    'actionId=${response.actionId}',
-  );
   if (response.actionId == kTrackingStopActionId) {
-    debugPrint('[TNS-BG] invoking kStopTrackingEvent');
     FlutterBackgroundService().invoke(kStopTrackingEvent);
   }
 }
