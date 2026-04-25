@@ -117,5 +117,100 @@ void main() {
       expect(row.routePolyline, polyline);
       expect(row.direction, kDirectionToHome);
     });
+
+    test('updateTrip only mutates the targeted row (Pitfall 4)', () async {
+      final id1 = uuid.v4();
+      final id2 = uuid.v4();
+      final start = DateTime.utc(2026, 1, 1, 8);
+      final end = DateTime.utc(2026, 1, 1, 9);
+      // Insert two trips
+      await db.tripsDao.insertTrip(TripsCompanion.insert(
+        id: id1,
+        startTime: start,
+        endTime: end,
+        durationSeconds: 3600,
+        distanceMeters: 1000,
+        direction: kDirectionToOffice,
+        timeMovingSeconds: 3000,
+        timeStuckSeconds: 600,
+        isManualEntry: const Value(false),
+      ));
+      await db.tripsDao.insertTrip(TripsCompanion.insert(
+        id: id2,
+        startTime: start,
+        endTime: end,
+        durationSeconds: 3600,
+        distanceMeters: 2000,
+        direction: kDirectionToOffice,
+        timeMovingSeconds: 3000,
+        timeStuckSeconds: 600,
+        isManualEntry: const Value(false),
+      ));
+      // Update only id1
+      await db.tripsDao.updateTrip(TripsCompanion(
+        id: Value(id1),
+        direction: const Value(kDirectionToHome),
+        updatedAt: Value(DateTime.now().toUtc()),
+      ));
+      final summaries = await db.tripsDao.watchAllSummaries().first;
+      final s1 = summaries.firstWhere((s) => s.id == id1);
+      final s2 = summaries.firstWhere((s) => s.id == id2);
+      expect(s1.direction, kDirectionToHome);
+      expect(s2.direction, kDirectionToOffice); // unchanged
+    });
+
+    test('deleteTrip removes only the targeted row', () async {
+      final id1 = uuid.v4();
+      final id2 = uuid.v4();
+      final start = DateTime.utc(2026, 1, 1, 8);
+      final end = DateTime.utc(2026, 1, 1, 9);
+      await db.tripsDao.insertTrip(TripsCompanion.insert(
+        id: id1,
+        startTime: start,
+        endTime: end,
+        durationSeconds: 3600,
+        distanceMeters: 1000,
+        direction: kDirectionToOffice,
+        timeMovingSeconds: 3000,
+        timeStuckSeconds: 600,
+        isManualEntry: const Value(false),
+      ));
+      await db.tripsDao.insertTrip(TripsCompanion.insert(
+        id: id2,
+        startTime: start,
+        endTime: end,
+        durationSeconds: 3600,
+        distanceMeters: 2000,
+        direction: kDirectionToOffice,
+        timeMovingSeconds: 3000,
+        timeStuckSeconds: 600,
+        isManualEntry: const Value(false),
+      ));
+      await db.tripsDao.deleteTrip(id1);
+      final summaries = await db.tripsDao.watchAllSummaries().first;
+      expect(summaries, hasLength(1));
+      expect(summaries.single.id, id2);
+    });
+
+    test('manual entry insert has isManualEntry=true, distanceMeters=0.0',
+        () async {
+      final id = uuid.v4();
+      final start = DateTime.utc(2026, 3, 15);
+      final end = start.add(const Duration(minutes: 45));
+      await db.tripsDao.insertTrip(TripsCompanion.insert(
+        id: id,
+        startTime: start,
+        endTime: end,
+        durationSeconds: 2700,
+        distanceMeters: 0,
+        direction: kDirectionToOffice,
+        timeMovingSeconds: 0,
+        timeStuckSeconds: 0,
+        isManualEntry: const Value(true),
+      ));
+      final summaries = await db.tripsDao.watchAllSummaries().first;
+      expect(summaries.single.isManualEntry, isTrue);
+      expect(summaries.single.distanceMeters, 0.0);
+    });
   });
 }
