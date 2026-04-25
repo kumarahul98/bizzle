@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:traevy/config/routes.dart';
 import 'package:traevy/features/tracking/providers/tracking_providers.dart';
 import 'package:traevy/features/tracking/services/tracking_permission_service.dart';
+import 'package:traevy/features/trips/providers/trip_management_providers.dart';
 
 /// Phase 2 minimal home screen (D-13).
 ///
@@ -60,7 +61,8 @@ class HomeScreen extends ConsumerWidget {
         context,
         service,
         title: 'Location permission denied',
-        body: 'Location permission is permanently denied. Open system '
+        body:
+            'Location permission is permanently denied. Open system '
             'settings to enable it?',
       );
       return;
@@ -70,7 +72,8 @@ class HomeScreen extends ConsumerWidget {
         context,
         service,
         title: 'Notifications required',
-        body: 'Notifications are required to track commutes in the '
+        body:
+            'Notifications are required to track commutes in the '
             'background. Open system settings to enable them?',
       );
       return;
@@ -103,6 +106,60 @@ class HomeScreen extends ConsumerWidget {
     );
     if (shouldOpen ?? false) {
       await service.openSystemSettings();
+    }
+  }
+
+  /// Show a delete confirmation dialog and call
+  /// [TripManagementNotifier.deleteTrip] on confirmation.
+  ///
+  /// Two-step guard (T-03-14): user must tap the destructive 'Delete'
+  /// button explicitly; dialog dismissal (back tap, outside tap) is
+  /// treated as cancel via `confirmed ?? false`.
+  ///
+  /// Called from trip cards in Phase 4.
+  Future<void> handleDeleteTrip(
+    BuildContext context,
+    WidgetRef ref,
+    String tripId,
+  ) async {
+    final colorScheme = Theme.of(context).colorScheme;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete trip?'),
+        content: const Text('This trip will be permanently removed.'),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: colorScheme.error,
+              foregroundColor: colorScheme.onError,
+            ),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (!context.mounted) return; // Pitfall 1: always check after await
+    if (confirmed ?? false) {
+      await ref.read(tripManagementProvider.notifier).deleteTrip(tripId);
+      if (!context.mounted) return;
+      final state = ref.read(tripManagementProvider);
+      if (state is TripManagementSaved) {
+        ref.read(tripManagementProvider.notifier).reset();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Trip deleted')),
+        );
+      } else if (state is TripManagementError) {
+        ref.read(tripManagementProvider.notifier).reset();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Couldn't delete the trip. Try again.")),
+        );
+      }
     }
   }
 }
