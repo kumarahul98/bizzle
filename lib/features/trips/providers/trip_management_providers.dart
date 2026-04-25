@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/database.dart';
 import 'package:traevy/database/providers.dart';
+import 'package:uuid/uuid.dart';
 
 /// Finite state for trip edit, delete, and manual-entry operations.
 ///
@@ -111,6 +112,51 @@ class TripManagementNotifier extends Notifier<TripManagementState> {
     }
   }
 
+  /// Insert a manually entered trip (no GPS data).
+  ///
+  /// D-10: the trip is saved with `isManualEntry`=true,
+  /// `routePolyline`='' (empty string), `distanceMeters`=0.0,
+  /// `timeMovingSeconds`=0, `timeStuckSeconds`=0.
+  ///
+  /// [startTimeUtc] MUST be UTC midnight of the chosen local date:
+  /// `DateTime(year, month, day).toUtc()` — Pitfall 6 mitigation.
+  /// [endTimeUtc] = startTimeUtc + duration.
+  /// [direction] is pre-computed by the sheet using
+  /// `DirectionLabelService`.
+  Future<void> insertManualTrip({
+    required DateTime startTimeUtc,
+    required DateTime endTimeUtc,
+    required String direction,
+  }) async {
+    state = const TripManagementSaving();
+    try {
+      final db = ref.read(appDatabaseProvider);
+      final tripsDao = ref.read(tripsDaoProvider);
+      final syncDao = ref.read(syncQueueDaoProvider);
+      final tripId = const Uuid().v4();
+      await db.transaction(() async {
+        await tripsDao.insertTrip(
+          TripsCompanion.insert(
+            id: tripId,
+            startTime: startTimeUtc,
+            endTime: endTimeUtc,
+            durationSeconds: endTimeUtc.difference(startTimeUtc).inSeconds,
+            distanceMeters: 0,
+            routePolyline: const Value(''),
+            direction: direction,
+            timeMovingSeconds: 0,
+            timeStuckSeconds: 0,
+            isManualEntry: const Value(true),
+          ),
+        );
+        await syncDao.enqueueCreate(tripId);
+      });
+      state = const TripManagementSaved();
+    } on Object catch (e) {
+      state = TripManagementError(e.toString());
+    }
+  }
+
   /// Reset to `TripManagementIdle` after the caller has consumed
   /// `TripManagementSaved` or `TripManagementError`.
   void reset() => state = const TripManagementIdle();
@@ -125,3 +171,23 @@ tripManagementProvider =
       TripManagementNotifier.new,
       name: 'tripManagementProvider',
     );
+
+/// Parse a `HH:MM` duration string.
+///
+/// Returns null for any of: malformed input, non-numeric segments,
+/// hours outside 0-23, minutes outside 0-59. Returns a `Duration`
+/// for valid input in the range 0:00 to 23:59.
+///
+/// Exported from this file so `manual_entry_sheet.dart` can import
+/// it alongside the notifier without a separate utility import.
+Duration? parseHhMm(String input) {
+  final parts = input.trim().split(':');
+  if (parts.length != 2) return null;
+  final hours = int.tryParse(parts[0]);
+  final minutes = int.tryParse(parts[1]);
+  if (hours == null || minutes == null) return null;
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+    return null;
+  }
+  return Duration(hours: hours, minutes: minutes);
+}

@@ -90,12 +90,16 @@ void main() {
       'startTime is UTC midnight of chosen local date (Pitfall 6)',
       () async {
         // D-10: start = midnight local → UTC; Pitfall 6 mitigation.
-        // DateTime(y, m, d).toUtc() produces UTC midnight for
-        // UTC+0 environments (test isolation).
+        // Build the UTC midnight value the sheet would pass in:
+        //   DateTime(y, m, d).toUtc()
+        // Then assert the stored timestamp equals the same epoch ms,
+        // confirming that midnight-of-day was preserved through the
+        // Drift round-trip (Drift stores as epoch ms; the .isUtc flag
+        // is not preserved through SQLite serialisation but the epoch
+        // value is).
         final localDate = DateTime(2026, 4, 25);
         final startUtc = localDate.toUtc();
-        final endUtc =
-            startUtc.add(const Duration(minutes: 30));
+        final endUtc = startUtc.add(const Duration(minutes: 30));
 
         await container
             .read(tripManagementProvider.notifier)
@@ -107,7 +111,12 @@ void main() {
 
         final summaries =
             await db.tripsDao.watchAllSummaries().first;
-        expect(summaries.single.startTime.isUtc, isTrue);
+        // Verify epoch milliseconds match — proves the UTC midnight
+        // value was stored correctly regardless of the .isUtc flag.
+        expect(
+          summaries.single.startTime.millisecondsSinceEpoch,
+          startUtc.millisecondsSinceEpoch,
+        );
       },
     );
   });
