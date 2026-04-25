@@ -17,12 +17,16 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [ ] **TRACK-01**: User can start and stop commute recording with a single tap
 - [ ] **TRACK-02**: GPS captures location in background while screen is off via foreground service
-- [ ] **TRACK-03**: Trip direction auto-labeled (morning = to_office, evening = to_home) with editable override
+- [x] **TRACK-03
+**: Trip direction auto-labeled (morning = to_office, evening = to_home) with editable override
 - [ ] **TRACK-04**: Each trip records start/end time, duration, distance, and encoded route polyline
 - [ ] **TRACK-05**: Per-trip traffic breakdown: time moving vs time stuck (speed < 10 km/h threshold)
-- [ ] **TRACK-06**: User can edit trip details (direction label, adjust times)
-- [ ] **TRACK-07**: User can delete a trip with confirmation dialog
-- [ ] **TRACK-08**: User can manually enter a forgotten trip (date, duration, direction — no GPS data)
+- [x] **TRACK-06
+**: User can edit trip details (direction label, adjust times)
+- [x] **TRACK-07
+**: User can delete a trip with confirmation dialog
+- [x] **TRACK-08
+**: User can manually enter a forgotten trip (date, duration, direction — no GPS data)
 
 ### Trip History
 
