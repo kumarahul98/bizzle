@@ -70,12 +70,15 @@ Plans:
   2. User can edit a trip's direction label and adjust start/end times
   3. User can delete a trip after confirming via dialog
   4. User can manually enter a forgotten trip with date, duration, and direction (no GPS data)
-**Plans**: TBD
+**Plans**: 5 plans
 **UI hint**: yes
 
 Plans:
-- [ ] 03-01: TBD
-- [ ] 03-02: TBD
+- [ ] 03-01-PLAN.md — DAO extensions (updateTrip, deleteTrip), DirectionLabelService, Wave 0 test stubs
+- [ ] 03-02-PLAN.md — TripManagementNotifier (edit + delete), wire DirectionLabelService into tracking controller
+- [ ] 03-03-PLAN.md — insertManualTrip, parseHhMm, DirectionBackfillProvider, app startup wiring
+- [ ] 03-04-PLAN.md — EditTripSheet widget, delete confirmation on home screen
+- [ ] 03-05-PLAN.md — ManualEntrySheet widget, [+] FAB on home screen
 
 ### Phase 4: Trip History
 **Goal**: Users can browse and review all past commutes through list, calendar, and map views
@@ -196,7 +199,7 @@ Note: Phases 1-7 deliver the complete local-first experience without any authent
 |-------|----------------|--------|-----------|
 | 1. Foundation | 0/4 | Not started | - |
 | 2. Core Tracking | 0/3 | Not started | - |
-| 3. Trip Management | 0/2 | Not started | - |
+| 3. Trip Management | 0/5 | Not started | - |
 | 4. Trip History | 0/2 | Not started | - |
 | 5. Stats & Analytics | 0/2 | Not started | - |
 | 6. Dashboard | 0/1 | Not started | - |
