@@ -80,9 +80,9 @@ class TripsDao extends DatabaseAccessor<AppDatabase> with _$TripsDaoMixin {
     final query = select(trips)
       ..orderBy([
         (t) => OrderingTerm(
-              expression: t.startTime,
-              mode: OrderingMode.desc,
-            ),
+          expression: t.startTime,
+          mode: OrderingMode.desc,
+        ),
       ]);
     return query.map(_toSummary).watch();
   }
@@ -93,8 +93,7 @@ class TripsDao extends DatabaseAccessor<AppDatabase> with _$TripsDaoMixin {
   /// list or aggregate contexts — use `watchAllSummaries()` instead so
   /// the polyline does not flow through UI code unnecessarily.
   Future<TripRow?> findById(String id) {
-    return (select(trips)..where((t) => t.id.equals(id)))
-        .getSingleOrNull();
+    return (select(trips)..where((t) => t.id.equals(id))).getSingleOrNull();
   }
 
   /// Insert a new trip. Callers construct a `TripsCompanion.insert(...)`
@@ -104,15 +103,41 @@ class TripsDao extends DatabaseAccessor<AppDatabase> with _$TripsDaoMixin {
     return into(trips).insert(companion);
   }
 
+  /// Update the trip identified by `companion.id.value`. Only columns
+  /// wrapped in `Value(...)` are touched; `Value.absent()` leaves the
+  /// column unchanged. Callers must always pass
+  /// `updatedAt: Value(DateTime.now().toUtc())`.
+  ///
+  /// Pitfall 4 mitigation: the WHERE clause is set explicitly via
+  /// `..where((t) => t.id.equals(companion.id.value))`. The `companion.id`
+  /// field is used only for the filter — it is not written to the row.
+  /// Never use `update(trips).replace(row)` for partial updates.
+  Future<void> updateTrip(TripsCompanion companion) {
+    return (update(
+      trips,
+    )..where((t) => t.id.equals(companion.id.value))).write(companion);
+  }
+
+  /// Delete the trip with [id].
+  ///
+  /// D-08: this method MUST be called exclusively inside an
+  /// `appDatabase.transaction()` that also calls
+  /// `SyncQueueDao.enqueueDelete` — never as a standalone call.
+  /// The transaction ensures both the local delete and the sync-queue
+  /// tombstone are atomic.
+  Future<void> deleteTrip(String id) {
+    return (delete(trips)..where((t) => t.id.equals(id))).go();
+  }
+
   TripSummary _toSummary(TripRow r) => TripSummary(
-        id: r.id,
-        startTime: r.startTime,
-        endTime: r.endTime,
-        durationSeconds: r.durationSeconds,
-        distanceMeters: r.distanceMeters,
-        direction: r.direction,
-        timeMovingSeconds: r.timeMovingSeconds,
-        timeStuckSeconds: r.timeStuckSeconds,
-        isManualEntry: r.isManualEntry,
-      );
+    id: r.id,
+    startTime: r.startTime,
+    endTime: r.endTime,
+    durationSeconds: r.durationSeconds,
+    distanceMeters: r.distanceMeters,
+    direction: r.direction,
+    timeMovingSeconds: r.timeMovingSeconds,
+    timeStuckSeconds: r.timeStuckSeconds,
+    isManualEntry: r.isManualEntry,
+  );
 }
