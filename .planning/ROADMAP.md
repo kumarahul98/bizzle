@@ -74,11 +74,11 @@ Plans:
 **UI hint**: yes
 
 Plans:
-- [ ] 03-01-PLAN.md — DAO extensions (updateTrip, deleteTrip), DirectionLabelService, Wave 0 test stubs
-- [ ] 03-02-PLAN.md — TripManagementNotifier (edit + delete), wire DirectionLabelService into tracking controller
-- [ ] 03-03-PLAN.md — insertManualTrip, parseHhMm, DirectionBackfillProvider, app startup wiring
-- [ ] 03-04-PLAN.md — EditTripSheet widget, delete confirmation on home screen
-- [ ] 03-05-PLAN.md — ManualEntrySheet widget, [+] FAB on home screen
+- [x] 03-01-PLAN.md — DAO extensions (updateTrip, deleteTrip), DirectionLabelService, Wave 0 test stubs
+- [x] 03-02-PLAN.md — TripManagementNotifier (edit + delete), wire DirectionLabelService into tracking controller
+- [x] 03-03-PLAN.md — insertManualTrip, parseHhMm, DirectionBackfillProvider, app startup wiring
+- [x] 03-04-PLAN.md — EditTripSheet widget, delete confirmation on home screen
+- [x] 03-05-PLAN.md — ManualEntrySheet widget, [+] FAB on home screen
 
 ### Phase 4: Trip History
 **Goal**: Users can browse and review all past commutes through list, calendar, and map views
