@@ -84,6 +84,7 @@ void main() {
         tripsDao: db.tripsDao,
         syncQueueDao: db.syncQueueDao,
         notifications: notifications,
+        userPreferencesDao: db.userPreferencesDao,
       );
     });
 
@@ -144,7 +145,8 @@ void main() {
         final summaries = await db.tripsDao.watchAllSummaries().first;
         expect(summaries, hasLength(1));
         expect(summaries.single.id, 'trip-saved-1');
-        expect(summaries.single.direction, kDirectionUnknown);
+        // Phase 3 D-06: direction is now labeled at save time, never unknown.
+        expect(summaries.single.direction, isNot(kDirectionUnknown));
         expect(summaries.single.durationSeconds, 120);
         expect(summaries.single.distanceMeters, 800);
         expect(summaries.single.timeMovingSeconds, 120);
@@ -177,6 +179,7 @@ void main() {
           tripsDao: db.tripsDao,
           syncQueueDao: throwingDao,
           notifications: notifications,
+          userPreferencesDao: db.userPreferencesDao,
         );
         final trip = _buildTrip(
           durationSeconds: 180,
@@ -193,6 +196,31 @@ void main() {
         expect(pending, isEmpty);
         // dismiss still called even on failure (T-02-20).
         expect(notifications.dismissCalls, 1);
+      },
+    );
+
+    test(
+      'persisted trip direction is not kDirectionUnknown after Phase 3 '
+      '(D-06)',
+      () async {
+        // No user_preferences row → getOrDefault() returns defaults
+        // (morningCutoffHour = 12). _buildTrip uses startTime
+        // DateTime.utc(2026, 4, 12, 8), which is 08:00 UTC. With a
+        // UTC+0 local timezone hour 8 < 12 → kDirectionToOffice.
+        // In any timezone where the local hour is < 12, the same label
+        // applies. The test asserts the invariant: direction is never
+        // kDirectionUnknown.
+        final trip = _buildTrip(
+          durationSeconds: 120,
+          distanceMeters: 800,
+          id: 'trip-direction-check',
+        );
+
+        final result = await controller.persistFinalizedTrip(trip);
+
+        expect(result, isA<PersistSaved>());
+        final summaries = await db.tripsDao.watchAllSummaries().first;
+        expect(summaries.single.direction, isNot(kDirectionUnknown));
       },
     );
   });

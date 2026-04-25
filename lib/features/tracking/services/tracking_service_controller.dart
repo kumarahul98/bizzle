@@ -4,10 +4,12 @@ import 'package:geolocator/geolocator.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/daos/sync_queue_dao.dart';
 import 'package:traevy/database/daos/trips_dao.dart';
+import 'package:traevy/database/daos/user_preferences_dao.dart';
 import 'package:traevy/database/database.dart';
 import 'package:traevy/features/tracking/services/tracking_notification_service.dart';
 import 'package:traevy/features/tracking/services/tracking_service_events.dart';
 import 'package:traevy/features/tracking/state/finalized_trip.dart';
+import 'package:traevy/features/trips/services/direction_label_service.dart';
 
 /// UI-isolate wrapper around [FlutterBackgroundService]. Thin by design —
 /// all tracking logic (GPS stream, accumulator, 1 Hz snapshots, stop
@@ -38,17 +40,20 @@ class TrackingServiceController {
     required TripsDao tripsDao,
     required SyncQueueDao syncQueueDao,
     required TrackingNotificationService notifications,
-  })  : _service = service,
-        _database = database,
-        _tripsDao = tripsDao,
-        _syncQueueDao = syncQueueDao,
-        _notifications = notifications;
+    required UserPreferencesDao userPreferencesDao,
+  }) : _service = service,
+       _database = database,
+       _tripsDao = tripsDao,
+       _syncQueueDao = syncQueueDao,
+       _notifications = notifications,
+       _userPreferencesDao = userPreferencesDao;
 
   final FlutterBackgroundService _service;
   final AppDatabase _database;
   final TripsDao _tripsDao;
   final SyncQueueDao _syncQueueDao;
   final TrackingNotificationService _notifications;
+  final UserPreferencesDao _userPreferencesDao;
 
   /// Start the background tracking service. Returns `true` if the
   /// service was asked to start (`FlutterBackgroundService.startService`
@@ -127,11 +132,11 @@ class TrackingServiceController {
   ///     failure (T-02-20 — the notification must never outlive the
   ///     tracking session).
   ///
-  /// Direction is set to [kDirectionUnknown]; Phase 3 backfills the
-  /// real value from `start_time`. The `userId` column defaults to
-  /// [kDefaultUserId] at the DB level (D-02), so we do not set it here.
-  /// The `sync_queue` row has `payload = null` (D-13) — the sync engine
-  /// re-reads the fresh trip row at sync time.
+  /// Direction is labeled at save time using [DirectionLabelService] and the
+  /// morning cutoff from user preferences (D-06). The `userId` column
+  /// defaults to [kDefaultUserId] at the DB level (D-02), so we do not set
+  /// it here. The `sync_queue` row has `payload = null` (D-13) — the sync
+  /// engine re-reads the fresh trip row at sync time.
   Future<PersistResult> persistFinalizedTrip(FinalizedTrip trip) async {
     if (trip.durationSeconds < kMinTripDurationSeconds ||
         trip.distanceMeters < kMinTripDistanceMeters) {
@@ -139,6 +144,15 @@ class TrackingServiceController {
       return const PersistDiscardedTooShort();
     }
     try {
+      // Phase 3 D-06: label at save time using the cutoff from user prefs.
+      // startTime is UTC from the accumulator; convert to local for the rule
+      // (Pitfall 2).
+      final prefs = await _userPreferencesDao.getOrDefault();
+      const labeler = DirectionLabelService();
+      final direction = labeler.label(
+        trip.startTime.toLocal(),
+        prefs.morningCutoffHour,
+      );
       await _database.transaction(() async {
         await _tripsDao.insertTrip(
           TripsCompanion.insert(
@@ -147,7 +161,7 @@ class TrackingServiceController {
             endTime: trip.endTime,
             durationSeconds: trip.durationSeconds,
             distanceMeters: trip.distanceMeters,
-            direction: kDirectionUnknown,
+            direction: direction,
             timeMovingSeconds: trip.timeMovingSeconds,
             timeStuckSeconds: trip.timeStuckSeconds,
             routePolyline: Value<String?>(trip.encodedPolyline),
