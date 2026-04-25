@@ -20,7 +20,7 @@ void main() {
       );
     });
 
-    test('hour after morning cutoff but before evening cutoff returns kDirectionToHome',
+    test('hour between morning and evening cutoff returns kDirectionToHome',
         () {
       expect(
         labeler.label(DateTime(2026, 1, 1, 15), 12, 18),
@@ -45,7 +45,7 @@ void main() {
     test('midnight (hour 0) with default cutoffs returns kDirectionToOffice',
         () {
       expect(
-        labeler.label(DateTime(2026, 1, 1, 0), 12, 18),
+        labeler.label(DateTime(2026), 12, 18),
         kDirectionToOffice,
       );
     });
