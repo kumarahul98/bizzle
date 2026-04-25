@@ -68,7 +68,7 @@ class _EditTripSheetState extends ConsumerState<EditTripSheet> {
       ).toUtc();
       setState(() {
         _startTimeUtc = updated;
-        _timeError = _endTimeUtc.isBefore(_startTimeUtc)
+        _timeError = !_endTimeUtc.isAfter(_startTimeUtc)
             ? 'End time must be after start time.'
             : null;
       });
@@ -92,7 +92,7 @@ class _EditTripSheetState extends ConsumerState<EditTripSheet> {
       ).toUtc();
       setState(() {
         _endTimeUtc = updated;
-        _timeError = updated.isBefore(_startTimeUtc)
+        _timeError = !updated.isAfter(_startTimeUtc)
             ? 'End time must be after start time.'
             : null;
       });
