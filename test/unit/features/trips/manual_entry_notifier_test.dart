@@ -8,8 +8,8 @@ import 'package:traevy/features/trips/providers/trip_management_providers.dart';
 
 void main() {
   group('parseHhMm', () {
-    test('0:00 returns zero duration', () {
-      expect(parseHhMm('0:00'), const Duration());
+    test('0:00 returns null (zero duration is not a valid trip)', () {
+      expect(parseHhMm('0:00'), isNull);
     });
 
     test('23:59 returns max valid duration', () {

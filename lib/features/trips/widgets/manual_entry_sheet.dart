@@ -81,7 +81,7 @@ class _ManualEntrySheetState extends ConsumerState<ManualEntrySheet> {
       if (value.trim().isEmpty) {
         _durationError = 'Enter a duration like 0:45.';
       } else if (result == null) {
-        _durationError = 'Use HH:MM format between 0:00 and 23:59.';
+        _durationError = 'Use HH:MM format between 0:01 and 23:59.';
       } else {
         _durationError = null;
       }

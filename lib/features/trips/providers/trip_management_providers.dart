@@ -175,8 +175,8 @@ tripManagementProvider =
 /// Parse a `HH:MM` duration string.
 ///
 /// Returns null for any of: malformed input, non-numeric segments,
-/// hours outside 0-23, minutes outside 0-59. Returns a `Duration`
-/// for valid input in the range 0:00 to 23:59.
+/// hours outside 0-23, minutes outside 0-59, or a zero duration (0:00).
+/// Returns a `Duration` for valid input in the range 0:01 to 23:59.
 ///
 /// Exported from this file so `manual_entry_sheet.dart` can import
 /// it alongside the notifier without a separate utility import.
@@ -189,5 +189,7 @@ Duration? parseHhMm(String input) {
   if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
     return null;
   }
-  return Duration(hours: hours, minutes: minutes);
+  final duration = Duration(hours: hours, minutes: minutes);
+  if (duration == Duration.zero) return null;
+  return duration;
 }
