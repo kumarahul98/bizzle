@@ -38,6 +38,7 @@ final FutureProvider<void> directionBackfillProvider = FutureProvider<void>(
         final direction = labeler.label(
           trip.startTime.toLocal(), // Pitfall 2: convert before label
           prefs.morningCutoffHour,
+          prefs.eveningCutoffHour,
         );
         await tripsDao.updateTrip(
           TripsCompanion(

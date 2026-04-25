@@ -152,6 +152,7 @@ class TrackingServiceController {
       final direction = labeler.label(
         trip.startTime.toLocal(),
         prefs.morningCutoffHour,
+        prefs.eveningCutoffHour,
       );
       await _database.transaction(() async {
         await _tripsDao.insertTrip(

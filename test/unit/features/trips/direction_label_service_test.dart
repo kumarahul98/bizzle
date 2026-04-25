@@ -6,31 +6,46 @@ void main() {
   group('DirectionLabelService', () {
     const labeler = DirectionLabelService();
 
-    test('hour before cutoff returns kDirectionToOffice', () {
+    test('hour before morning cutoff returns kDirectionToOffice', () {
       expect(
-        labeler.label(DateTime(2026, 1, 1, 7), 12),
+        labeler.label(DateTime(2026, 1, 1, 7), 12, 18),
         kDirectionToOffice,
       );
     });
 
-    test('hour equal to cutoff returns kDirectionToHome', () {
+    test('hour equal to morning cutoff returns kDirectionToHome', () {
       expect(
-        labeler.label(DateTime(2026, 1, 1, 12), 12),
+        labeler.label(DateTime(2026, 1, 1, 12), 12, 18),
         kDirectionToHome,
       );
     });
 
-    test('hour after cutoff returns kDirectionToHome', () {
-      expect(
-        labeler.label(DateTime(2026, 1, 1, 18), 12),
-        kDirectionToHome,
-      );
-    });
-
-    test('midnight (hour 0) with default cutoff returns kDirectionToOffice',
+    test('hour after morning cutoff but before evening cutoff returns kDirectionToHome',
         () {
       expect(
-        labeler.label(DateTime(2026, 1, 1, 0), 12),
+        labeler.label(DateTime(2026, 1, 1, 15), 12, 18),
+        kDirectionToHome,
+      );
+    });
+
+    test('hour equal to evening cutoff returns kDirectionToHome', () {
+      expect(
+        labeler.label(DateTime(2026, 1, 1, 18), 12, 18),
+        kDirectionToHome,
+      );
+    });
+
+    test('hour after evening cutoff returns kDirectionToHome', () {
+      expect(
+        labeler.label(DateTime(2026, 1, 1, 20), 12, 18),
+        kDirectionToHome,
+      );
+    });
+
+    test('midnight (hour 0) with default cutoffs returns kDirectionToOffice',
+        () {
+      expect(
+        labeler.label(DateTime(2026, 1, 1, 0), 12, 18),
         kDirectionToOffice,
       );
     });
@@ -40,19 +55,28 @@ void main() {
       // Represents 00:00 UTC = 05:30 IST — caller passes toLocal() result.
       // The labeler receives the local DateTime and applies the cutoff rule.
       final localMorning = DateTime(2026, 1, 1, 5, 30); // local
-      expect(labeler.label(localMorning, 12), kDirectionToOffice);
+      expect(labeler.label(localMorning, 12, 18), kDirectionToOffice);
     });
 
-    test('custom cutoff: hour 6, start at 5 → kDirectionToOffice', () {
+    test('custom morning cutoff: hour 6, start at 5 → kDirectionToOffice', () {
       expect(
-        labeler.label(DateTime(2026, 1, 1, 5), 6),
+        labeler.label(DateTime(2026, 1, 1, 5), 6, 18),
         kDirectionToOffice,
       );
     });
 
-    test('custom cutoff: hour 6, start at 6 → kDirectionToHome', () {
+    test('custom morning cutoff: hour 6, start at 6 → kDirectionToHome', () {
       expect(
-        labeler.label(DateTime(2026, 1, 1, 6), 6),
+        labeler.label(DateTime(2026, 1, 1, 6), 6, 18),
+        kDirectionToHome,
+      );
+    });
+
+    test('same morning and evening cutoff: hour equal returns kDirectionToHome',
+        () {
+      // When both cutoffs are 12 (the default), hour >= 12 → to_home.
+      expect(
+        labeler.label(DateTime(2026, 1, 1, 12), 12, 12),
         kDirectionToHome,
       );
     });

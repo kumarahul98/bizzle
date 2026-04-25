@@ -54,6 +54,7 @@ class _ManualEntrySheetState extends ConsumerState<ManualEntrySheet> {
     final defaultDirection = labeler.label(
       DateTime.now(), // already local
       kDefaultDirectionCutoffHour,
+      kDefaultDirectionCutoffHour,
     );
     _direction = _toEnum(defaultDirection);
   }

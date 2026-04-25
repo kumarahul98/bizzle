@@ -2,8 +2,8 @@ import 'package:traevy/config/constants.dart';
 
 /// Stateless direction-labeling utility.
 ///
-/// Takes `startTimeLocal` already converted to device-local time and
-/// `morningCutoffHour` from the user preferences morning cutoff setting.
+/// Takes `startTimeLocal` already converted to device-local time,
+/// `morningCutoffHour`, and `eveningCutoffHour` from user preferences.
 /// Returns [kDirectionToOffice] or [kDirectionToHome].
 ///
 /// No Riverpod, no async — construct inline wherever needed. The const
@@ -13,16 +13,23 @@ class DirectionLabelService {
   /// Create a direction label service.
   const DirectionLabelService();
 
-  /// Apply the morning-cutoff rule (D-04).
+  /// Apply the two-cutoff labeling rule (D-04).
   ///
   /// [startTimeLocal] MUST already be in local time —
   /// call `startTime.toLocal()` at every call site (Pitfall 2).
   ///
-  /// `startTimeLocal.hour < morningCutoffHour` → [kDirectionToOffice]
-  /// `startTimeLocal.hour >= morningCutoffHour` → [kDirectionToHome]
-  String label(DateTime startTimeLocal, int morningCutoffHour) {
-    return startTimeLocal.hour < morningCutoffHour
-        ? kDirectionToOffice
-        : kDirectionToHome;
+  /// `hour < morningCutoffHour`  → [kDirectionToOffice]
+  /// `hour >= eveningCutoffHour` → [kDirectionToHome]
+  /// Between the two cutoffs     → [kDirectionToHome] (ambiguous; default)
+  String label(
+    DateTime startTimeLocal,
+    int morningCutoffHour,
+    int eveningCutoffHour,
+  ) {
+    final hour = startTimeLocal.hour;
+    if (hour < morningCutoffHour) return kDirectionToOffice;
+    if (hour >= eveningCutoffHour) return kDirectionToHome;
+    // Between the two cutoffs: ambiguous — default to to_home.
+    return kDirectionToHome;
   }
 }
