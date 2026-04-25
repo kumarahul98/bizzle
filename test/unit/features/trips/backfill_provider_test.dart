@@ -63,16 +63,18 @@ void main() {
     test(
       'updates kDirectionUnknown trips with labeled direction',
       () async {
-        // 08:00 UTC — hour < 12 → kDirectionToOffice
-        // 18:00 UTC — hour >= 12 → kDirectionToHome
-        // (toLocal() in UTC test env preserves hours)
+        // Use local-time constructors so toLocal() preserves the hour
+        // regardless of the host timezone. hour=8 < 12 → kDirectionToOffice;
+        // hour=18 >= 12 → kDirectionToHome. (Pitfall 2 context note.)
+        final morningLocal = DateTime(2026, 4, 25, 8);
+        final eveningLocal = DateTime(2026, 4, 25, 18);
         await insertTrip(
           direction: kDirectionUnknown,
-          startTime: DateTime.utc(2026, 4, 25, 8),
+          startTime: morningLocal,
         );
         await insertTrip(
           direction: kDirectionUnknown,
-          startTime: DateTime.utc(2026, 4, 25, 18),
+          startTime: eveningLocal,
         );
 
         await container.read(directionBackfillProvider.future);
@@ -86,14 +88,12 @@ void main() {
         final morning = summaries.firstWhere(
           (s) =>
               s.startTime.millisecondsSinceEpoch ==
-              DateTime.utc(2026, 4, 25, 8)
-                  .millisecondsSinceEpoch,
+              morningLocal.millisecondsSinceEpoch,
         );
         final evening = summaries.firstWhere(
           (s) =>
               s.startTime.millisecondsSinceEpoch ==
-              DateTime.utc(2026, 4, 25, 18)
-                  .millisecondsSinceEpoch,
+              eveningLocal.millisecondsSinceEpoch,
         );
         expect(morning.direction, kDirectionToOffice);
         expect(evening.direction, kDirectionToHome);
@@ -103,13 +103,15 @@ void main() {
     test(
       'leaves already-labeled trips unchanged',
       () async {
+        final morningLocal = DateTime(2026, 4, 25, 8);
+        final eveningLocal = DateTime(2026, 4, 25, 18);
         final labeledId = await insertTrip(
           direction: kDirectionToOffice,
-          startTime: DateTime.utc(2026, 4, 25, 8),
+          startTime: morningLocal,
         );
         await insertTrip(
           direction: kDirectionUnknown,
-          startTime: DateTime.utc(2026, 4, 25, 18),
+          startTime: eveningLocal,
         );
 
         await container.read(directionBackfillProvider.future);
@@ -132,11 +134,11 @@ void main() {
       () async {
         await insertTrip(
           direction: kDirectionUnknown,
-          startTime: DateTime.utc(2026, 4, 25, 8),
+          startTime: DateTime(2026, 4, 25, 8),
         );
         await insertTrip(
           direction: kDirectionUnknown,
-          startTime: DateTime.utc(2026, 4, 25, 18),
+          startTime: DateTime(2026, 4, 25, 18),
         );
 
         await container.read(directionBackfillProvider.future);
@@ -155,7 +157,7 @@ void main() {
       () async {
         await insertTrip(
           direction: kDirectionToOffice,
-          startTime: DateTime.utc(2026, 4, 25, 8),
+          startTime: DateTime(2026, 4, 25, 8),
         );
 
         await container.read(directionBackfillProvider.future);

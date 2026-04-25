@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:traevy/config/routes.dart';
 import 'package:traevy/config/theme.dart';
+import 'package:traevy/features/tracking/providers/backfill_provider.dart';
 import 'package:traevy/features/tracking/screens/home_screen.dart';
 
 /// Root widget for the Traevy app.
@@ -8,12 +10,23 @@ import 'package:traevy/features/tracking/screens/home_screen.dart';
 /// Owns the `MaterialApp` wiring (title, light/dark themes, named
 /// routes, and the home screen). Phase 2 mounts [HomeScreen] as the
 /// root — the minimal Start commute CTA per D-13.
-class TraevyApp extends StatelessWidget {
+///
+/// Phase 3 (D-05): `TraevyApp` is a `ConsumerWidget` so it can call
+/// `ref.watch(directionBackfillProvider)` to trigger the one-shot
+/// background backfill on app startup. The UI does not block on the
+/// result — the provider is void and runs asynchronously.
+class TraevyApp extends ConsumerWidget {
   /// Create the root app widget.
   const TraevyApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Consume the backfill provider so it fires exactly once at startup.
+    // Riverpod keepAlive ensures it does not re-run on rebuild (Pitfall 5).
+    // The UI does not await or block on the result — it is void and runs
+    // in the background.
+    ref.watch(directionBackfillProvider);
+
     return MaterialApp(
       title: 'Traevy',
       theme: lightTheme,
