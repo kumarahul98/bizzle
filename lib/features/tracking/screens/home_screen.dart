@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:traevy/config/routes.dart';
 import 'package:traevy/features/tracking/providers/tracking_providers.dart';
 import 'package:traevy/features/tracking/services/tracking_permission_service.dart';
+import 'package:traevy/features/tracking/state/tracking_state.dart';
 import 'package:traevy/features/trips/providers/trip_management_providers.dart';
+import 'package:traevy/features/trips/widgets/manual_entry_sheet.dart';
 
 /// Phase 2 minimal home screen (D-13).
 ///
@@ -27,8 +29,18 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final trackingState = ref.watch(trackingStateProvider);
+    final isTracking = trackingState is TrackingActive;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Traevy')),
+      floatingActionButton: isTracking
+          ? null
+          : FloatingActionButton(
+              onPressed: () => _handleAddManualTrip(context, ref),
+              tooltip: 'Add missed commute',
+              child: const Icon(Icons.add),
+            ),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -50,6 +62,24 @@ class HomeScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  /// Open the manual entry bottom sheet so the user can record a forgotten
+  /// commute.
+  ///
+  /// D-09: FAB is hidden while tracking is active (T-03-20).
+  Future<void> _handleAddManualTrip(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (sheetContext) => const ManualEntrySheet(),
+    );
+    if (!context.mounted) return; // Pitfall 1: always check after await
   }
 
   Future<void> _handleStart(BuildContext context, WidgetRef ref) async {

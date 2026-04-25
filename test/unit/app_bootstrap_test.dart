@@ -7,7 +7,20 @@ import 'package:traevy/config/theme.dart';
 import 'package:traevy/database/database.dart';
 import 'package:traevy/database/providers.dart';
 import 'package:traevy/features/tracking/providers/backfill_provider.dart';
+import 'package:traevy/features/tracking/providers/tracking_providers.dart';
 import 'package:traevy/features/tracking/screens/home_screen.dart';
+import 'package:traevy/features/tracking/state/tracking_state.dart';
+
+/// Minimal stub notifier that skips fbs initialisation.
+///
+/// HomeScreen.build watches trackingStateProvider (FAB visibility gate).
+/// The real TrackingNotifier.build calls FlutterBackgroundService.on,
+/// which throws on non-Android/iOS platforms. This subclass returns
+/// TrackingIdle immediately so the test host never touches the channel.
+class _IdleTrackingNotifier extends TrackingNotifier {
+  @override
+  TrackingState build() => const TrackingIdle();
+}
 
 void main() {
   group('TraevyApp bootstrap', () {
@@ -30,9 +43,8 @@ void main() {
               userPreferencesDaoProvider.overrideWithValue(
                 db.userPreferencesDao,
               ),
-              directionBackfillProvider.overrideWith(
-                (_) async {},
-              ),
+              directionBackfillProvider.overrideWith((_) async {}),
+              trackingStateProvider.overrideWith(_IdleTrackingNotifier.new),
             ],
             child: const TraevyApp(),
           ),
