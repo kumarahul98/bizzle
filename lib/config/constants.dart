@@ -225,7 +225,7 @@ const double kTripDetailMapHeight = 256;
 /// CARTO tiles are free for non-commercial use and require no API key.
 /// OSM public tiles are blocked for unregistered apps.
 const String kMapTileUrl =
-    'https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}.png';
+    'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png';
 
 /// Subdomains for the CARTO tile server.
 const List<String> kMapTileSubdomains = <String>['a', 'b', 'c', 'd'];
