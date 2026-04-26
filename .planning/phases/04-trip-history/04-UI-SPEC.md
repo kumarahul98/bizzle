@@ -98,6 +98,8 @@ All values resolved from `Theme.of(context).colorScheme.*` — no hex literals i
 
 ### 1. History List Screen (`lib/features/trips/screens/history_screen.dart`)
 
+**Primary visual anchor:** The departure time (`bodyLarge`) on each trip card — the first thing a user scans when reviewing their history. All other card elements (direction icon, duration, chip) are visually subordinate to it.
+
 **Layout:**
 - `Scaffold` with `AppBar(title: Text('History'))`.
 - AppBar trailing action: toggle icon button switching between list and calendar views. Icon: `Icons.calendar_month_outlined` when in list view (tapping opens calendar), `Icons.list_rounded` when in calendar view (tapping returns to list). No SegmentedButton in AppBar — icon is sufficient.
@@ -234,8 +236,8 @@ Scaffold
 | Trip options sheet: delete action | "Delete trip" |
 | Delete confirmation dialog title | "Delete trip?" |
 | Delete confirmation dialog body | "This trip will be permanently removed." |
-| Delete confirmation: cancel button | "Cancel" |
-| Delete confirmation: confirm button | "Delete" |
+| Delete confirmation: cancel button | "Keep trip" |
+| Delete confirmation: confirm button | "Delete trip" |
 | Delete success snackbar | "Trip deleted" |
 | Delete error snackbar | "Couldn't delete the trip. Try again." |
 | Edit success snackbar | "Trip updated" |
