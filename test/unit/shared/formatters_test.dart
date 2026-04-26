@@ -1,54 +1,62 @@
-// Wave 0 stub tests for shared formatting utilities (HIST-01, HIST-03).
+// Unit tests for shared formatting utilities (HIST-01, HIST-03).
 //
-// These stubs compile and pass immediately (via markTestSkipped) so the test
-// runner stays green before the production code exists. Wave 1 implements
-// `formatDuration`, `formatDistance`, and `decodedToLatLng` in
-// lib/shared/utils/formatters.dart, then Wave 2 fills these stubs with real
-// assertions and the production import.
-//
-// Do NOT import the production module from this stub — it does not exist
-// yet and importing it would fail compilation. The latlong2 import for the
-// decodedToLatLng tests is also deferred to Wave 1, when latlong2 is added
-// as a dependency.
+// These tests assert the behaviour of `formatDuration`, `formatDistance`,
+// and `decodedToLatLng`. The decodedToLatLng reference polyline string is
+// the canonical Google Polyline Algorithm Format example, lifted from
+// test/unit/shared/polyline_codec_test.dart so any divergence between the
+// codec and the LatLng adapter shows up here.
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:traevy/shared/utils/formatters.dart';
 
 void main() {
   group('formatDuration', () {
     test('formatDuration(0) returns "0 min"', () {
-      markTestSkipped('Wave 1: implement formatDuration first');
+      expect(formatDuration(0), equals('0 min'));
     });
 
     test('formatDuration(2700) returns "45 min" (under 60 min)', () {
-      markTestSkipped('Wave 1: implement formatDuration first');
+      expect(formatDuration(2700), equals('45 min'));
     });
 
     test('formatDuration(3600) returns "1h 00min" (exactly 60 min)', () {
-      markTestSkipped('Wave 1: implement formatDuration first');
+      expect(formatDuration(3600), equals('1h 00min'));
     });
 
     test('formatDuration(4320) returns "1h 12min" (over 60 min)', () {
-      markTestSkipped('Wave 1: implement formatDuration first');
+      expect(formatDuration(4320), equals('1h 12min'));
     });
   });
 
   group('formatDistance', () {
     test('formatDistance(0) returns "0.0 km"', () {
-      markTestSkipped('Wave 1: implement formatDistance first');
+      expect(formatDistance(0), equals('0.0 km'));
     });
 
     test('formatDistance(12400) returns "12.4 km"', () {
-      markTestSkipped('Wave 1: implement formatDistance first');
+      expect(formatDistance(12400), equals('12.4 km'));
     });
   });
 
   group('decodedToLatLng', () {
     test("decodedToLatLng('') returns empty list", () {
-      markTestSkipped('Wave 1: implement decodedToLatLng first');
+      expect(decodedToLatLng(''), isEmpty);
     });
 
     test('decodedToLatLng with valid polyline returns correct LatLng list', () {
-      markTestSkipped('Wave 1: implement decodedToLatLng first');
+      // Canonical Google polyline reference — same string used in
+      // polyline_codec_test.dart. Decodes to three known coordinates.
+      const referenceString = '_p~iF~ps|U_ulLnnqC_mqNvxq`@';
+
+      final result = decodedToLatLng(referenceString);
+
+      expect(result.length, equals(3));
+      expect(result[0].latitude, closeTo(38.5, 1e-5));
+      expect(result[0].longitude, closeTo(-120.2, 1e-5));
+      expect(result[1].latitude, closeTo(40.7, 1e-5));
+      expect(result[1].longitude, closeTo(-120.95, 1e-5));
+      expect(result[2].latitude, closeTo(43.252, 1e-5));
+      expect(result[2].longitude, closeTo(-126.453, 1e-5));
     });
   });
 }
