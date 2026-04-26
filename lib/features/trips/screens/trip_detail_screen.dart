@@ -324,7 +324,9 @@ class _MapView extends StatelessWidget {
         ),
         children: <Widget>[
           TileLayer(
-            urlTemplate: kMapTileUrl,
+            urlTemplate: Theme.of(context).brightness == Brightness.dark
+                ? kMapTileUrlDark
+                : kMapTileUrlLight,
             subdomains: kMapTileSubdomains,
             userAgentPackageName: kMapUserAgentPackageName,
           ),
