@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:traevy/features/tracking/providers/tracking_providers.dart';
 import 'package:traevy/features/tracking/services/tracking_permission_service.dart';
 import 'package:traevy/features/tracking/services/tracking_service_controller.dart';
@@ -43,6 +44,10 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
     await ref.read(trackingPermissionServiceProvider).openSystemSettings();
   }
 
+  Future<void> _openDeviceLocationSettings() async {
+    await Geolocator.openLocationSettings();
+  }
+
   Widget _buildBody(TrackingState state) {
     return switch (state) {
       TrackingIdle() => TrackingIdleLayout(
@@ -66,7 +71,7 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
       TrackingError(:final message) => TrackingErrorLayout(
         message: message,
         onRetry: () => ref.read(trackingStateProvider.notifier).start(),
-        onOpenSettings: _openSettings,
+        onOpenSettings: _openDeviceLocationSettings,
       ),
     };
   }
