@@ -107,12 +107,15 @@ Plans:
   3. User can identify their best and worst commute day of the week
   4. User can view a 4-week trend line chart showing commute duration over time
   5. User can see a weekly total of time wasted stuck in traffic
-**Plans**: TBD
+**Plans**: 5 plans
 **UI hint**: yes
 
 Plans:
-- [ ] 05-01: TBD
-- [ ] 05-02: TBD
+- [ ] 05-01-PLAN.md — pubspec fl_chart 1.2.0, Phase 5 constants, kRouteStats constant, StatsSummary class + computeStatsSummary stub, RED unit tests for STAT-01..05 + D-10 + Pitfall 1/4
+- [ ] 05-02-PLAN.md — Implement computeStatsSummary single-pass body (GREEN), create derived statsSummaryProvider via whenData
+- [ ] 05-03-PLAN.md — StatsCard wrapper + WeekMonthTotalsCard + DirectionAveragesCard + TrafficWasteCard (4 simple cards)
+- [ ] 05-04-PLAN.md — BestWorstDayCard (chips with locale-derived labels + a11y) + TrendChartCard (fl_chart 1.x LineChart with 4 week labels)
+- [ ] 05-05-PLAN.md — StatsScreen + register kRouteStats in kAppRoutes + 'View stats' OutlinedButton on home + widget tests
 
 ### Phase 6: Dashboard
 **Goal**: Users land on a home screen that immediately shows today's commutes and a weekly summary at a glance
@@ -203,7 +206,7 @@ Note: Phases 1-7 deliver the complete local-first experience without any authent
 | 2. Core Tracking | 0/3 | Not started | - |
 | 3. Trip Management | 0/5 | Not started | - |
 | 4. Trip History | 0/4 | Not started | - |
-| 5. Stats & Analytics | 0/2 | Not started | - |
+| 5. Stats & Analytics | 0/5 | Not started | - |
 | 6. Dashboard | 0/1 | Not started | - |
 | 7. Polish & Notifications | 0/2 | Not started | - |
 | 8. Authentication | 0/2 | Not started | - |
