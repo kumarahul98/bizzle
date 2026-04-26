@@ -17,6 +17,9 @@ const String kRouteHistory = '/history';
 /// Trip detail screen route (HIST-03). Argument: tripId (String).
 const String kRouteTripDetail = '/trip-detail';
 
+/// Stats screen route (Phase 5, D-02). Argument: none.
+const String kRouteStats = '/stats';
+
 /// App-level named routes.
 ///
 /// The map is declared `final` instead of `const` because Dart 3.11

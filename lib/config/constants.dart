@@ -236,3 +236,75 @@ const List<String> kMapTileSubdomains = <String>['a', 'b', 'c', 'd'];
 
 /// User-agent package name sent with tile requests.
 const String kMapUserAgentPackageName = 'traevy.traevy';
+
+// ---------------------------------------------------------------------------
+// Phase 5: Stats & Analytics
+// ---------------------------------------------------------------------------
+
+/// Number of calendar days covered by the trend chart (D-07).
+const int kStatsTrendWindowDays = 28;
+
+/// Number of week labels shown on the trend chart x-axis (D-08).
+const int kStatsTrendWeekCount = 4;
+
+/// Height (logical pixels) of the trend chart plot area (UI-SPEC spacing
+/// exception). Multiple of 4.
+const double kStatsTrendChartHeight = 192;
+
+/// AppBar title for the stats screen (UI-SPEC §Copywriting Contract).
+const String kStatsAppBarTitle = 'Stats';
+
+/// Label for the "View stats" button on the home screen (D-02).
+const String kStatsHomeButtonLabel = 'View stats';
+
+/// Label for the weekly total row on the totals card (STAT-01).
+const String kStatsCardWeekLabel = 'This week';
+
+/// Label for the monthly total row on the totals card (STAT-01).
+const String kStatsCardMonthLabel = 'This month';
+
+/// Helper text under the weekly total clarifying D-03 week boundary.
+const String kStatsCardWeekHelper = 'Mon–Sun';
+
+/// Heading for the direction averages card (STAT-02).
+const String kStatsCardDirectionTitle = 'Average commute';
+
+/// Label for the to-office average row (STAT-02).
+const String kStatsCardToOfficeLabel = 'To office';
+
+/// Label for the to-home average row (STAT-02).
+const String kStatsCardToHomeLabel = 'To home';
+
+/// Heading for the best/worst day card (STAT-03).
+const String kStatsCardBestWorstTitle = 'Day of the week';
+
+/// Tooltip / a11y label on the best-day chip (STAT-03).
+const String kStatsCardBestLabel = 'Best';
+
+/// Tooltip / a11y label on the worst-day chip (STAT-03).
+const String kStatsCardWorstLabel = 'Worst';
+
+/// Heading for the trend chart card (STAT-04).
+const String kStatsCardTrendTitle = '4-week trend';
+
+/// Label for the trailing x-axis tick (current week, D-08).
+const String kStatsCardTrendXAxisCurrent = 'This week';
+
+/// Prefix for the first three x-axis ticks ("Week 1", "Week 2", "Week 3";
+/// D-08).
+const String kStatsCardTrendXAxisPrefix = 'Week ';
+
+/// Heading for the traffic waste card (STAT-05).
+const String kStatsCardTrafficTitle = 'Stuck in traffic';
+
+/// Helper text under the traffic waste duration (STAT-05, this-week scope).
+const String kStatsCardTrafficHelper = 'This week';
+
+/// Em-dash placeholder rendered in card value slots when no trips qualify
+/// (D-10). Single character U+2014.
+const String kStatsEmptyPlaceholder = '—';
+
+/// User-facing message rendered when the stats StreamProvider is in an
+/// error state. RESEARCH.md §"Open question 2" Option A — no retry hint
+/// because there is no RefreshIndicator in Phase 5.
+const String kStatsErrorMessage = 'Could not load stats.';
