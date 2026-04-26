@@ -220,3 +220,15 @@ const String kTripDetailNotFound = 'Trip not found.';
 
 /// Height (logical pixels) of the map widget on the trip detail screen (D-06).
 const double kTripDetailMapHeight = 256;
+
+/// CARTO Dark Matter tile URL used for the trip detail map preview.
+/// CARTO tiles are free for non-commercial use and require no API key.
+/// OSM public tiles are blocked for unregistered apps.
+const String kMapTileUrl =
+    'https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}.png';
+
+/// Subdomains for the CARTO tile server.
+const List<String> kMapTileSubdomains = <String>['a', 'b', 'c', 'd'];
+
+/// User-agent package name sent with tile requests.
+const String kMapUserAgentPackageName = 'traevy.traevy';

@@ -324,8 +324,9 @@ class _MapView extends StatelessWidget {
         ),
         children: <Widget>[
           TileLayer(
-            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-            userAgentPackageName: 'com.traevy.app',
+            urlTemplate: kMapTileUrl,
+            subdomains: kMapTileSubdomains,
+            userAgentPackageName: kMapUserAgentPackageName,
           ),
           PolylineLayer(
             polylines: <Polyline>[
@@ -338,7 +339,7 @@ class _MapView extends StatelessWidget {
           ),
           const RichAttributionWidget(
             attributions: <SourceAttribution>[
-              TextSourceAttribution('OpenStreetMap contributors'),
+              TextSourceAttribution('© CARTO, © OpenStreetMap contributors'),
             ],
           ),
         ],
