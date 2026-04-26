@@ -88,12 +88,14 @@ Plans:
   1. User can scroll through past commutes organized by day in a list view
   2. User can switch to a calendar view and tap a date to see that day's trips
   3. User can tap any trip to see its route drawn on a map with full details (duration, distance, traffic breakdown)
-**Plans**: TBD
+**Plans**: 4 plans
 **UI hint**: yes
 
 Plans:
-- [ ] 04-01: TBD
-- [ ] 04-02: TBD
+- [ ] 04-01-PLAN.md — Wave 0 test stubs (history_grouping_test, formatters_test, history_screen_test, trip_detail_screen_test)
+- [ ] 04-02-PLAN.md — Packages + constants + routes + formatters.dart + history_providers.dart + trip_actions.dart + home screen "View history" button
+- [ ] 04-03-PLAN.md — HistoryScreen (list + calendar toggle), TripCard widget, HIST-01/HIST-02 tests
+- [ ] 04-04-PLAN.md — TripDetailScreen (map + stats), HIST-03 and formatters tests
 
 ### Phase 5: Stats & Analytics
 **Goal**: Users can see the reality of their commute through weekly/monthly totals, direction-split averages, best/worst days, trends, and traffic waste
@@ -200,7 +202,7 @@ Note: Phases 1-7 deliver the complete local-first experience without any authent
 | 1. Foundation | 0/4 | Not started | - |
 | 2. Core Tracking | 0/3 | Not started | - |
 | 3. Trip Management | 0/5 | Not started | - |
-| 4. Trip History | 0/2 | Not started | - |
+| 4. Trip History | 0/4 | Not started | - |
 | 5. Stats & Analytics | 0/2 | Not started | - |
 | 6. Dashboard | 0/1 | Not started | - |
 | 7. Polish & Notifications | 0/2 | Not started | - |
