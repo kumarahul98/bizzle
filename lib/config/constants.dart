@@ -188,3 +188,35 @@ const double kTrackingMaxAcceptableAccuracyMeters = 30;
 ///
 /// See `.planning/phases/02-core-tracking/02-RESEARCH.md` §6.
 const int kTrackingMaxAttributableGapSeconds = 30;
+
+// ---------------------------------------------------------------------------
+// Phase 4: Trip History
+// ---------------------------------------------------------------------------
+
+/// Date header label for today's date group in the history list (D-03).
+const String kHistoryDateToday = 'Today';
+
+/// Date header label for yesterday's date group in the history list (D-03).
+const String kHistoryDateYesterday = 'Yesterday';
+
+/// Empty-state heading shown when the user has no trips (HIST-01).
+const String kHistoryEmptyHeading = 'No trips yet';
+
+/// Empty-state body shown when the user has no trips (HIST-01).
+const String kHistoryEmptyBody = 'Start a commute to see your history here.';
+
+/// Empty-state body shown when calendar date has no trips (HIST-02).
+const String kHistoryCalendarEmptyDate = 'No trips on this day.';
+
+/// Placeholder shown in calendar sub-list when no date is selected (HIST-02).
+const String kHistoryCalendarNoSelection = 'Tap a date to see trips.';
+
+/// Badge text on the trip detail screen for manually-entered trips (D-05).
+const String kManualEntryBadge = 'Manually entered — no route recorded';
+
+/// Error message on the trip detail screen when findById returns null
+/// (HIST-03).
+const String kTripDetailNotFound = 'Trip not found.';
+
+/// Height (logical pixels) of the map widget on the trip detail screen (D-06).
+const double kTripDetailMapHeight = 256;
