@@ -46,10 +46,11 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
   Widget _buildBody(TrackingState state) {
     return switch (state) {
       TrackingIdle() => TrackingIdleLayout(
-          onStart: () => ref.read(trackingStateProvider.notifier).start(),
-        ),
-      TrackingStarting() =>
-        const TrackingStatusLayout(label: 'Starting GPS...'),
+        onStart: () => ref.read(trackingStateProvider.notifier).start(),
+      ),
+      TrackingStarting() => const TrackingStatusLayout(
+        label: 'Starting GPS...',
+      ),
       TrackingActive(
         :final elapsedSeconds,
         :final distanceMeters,
@@ -61,12 +62,12 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
           currentSpeedKmh: currentSpeedKmh,
           onStop: () => ref.read(trackingStateProvider.notifier).stop(),
         ),
-      TrackingStopping() =>
-        const TrackingStatusLayout(label: 'Saving trip...'),
+      TrackingStopping() => const TrackingStatusLayout(label: 'Saving trip...'),
       TrackingError(:final message) => TrackingErrorLayout(
-          message: message,
-          onRetry: () => ref.read(trackingStateProvider.notifier).start(),
-        ),
+        message: message,
+        onRetry: () => ref.read(trackingStateProvider.notifier).start(),
+        onOpenSettings: _openSettings,
+      ),
     };
   }
 
