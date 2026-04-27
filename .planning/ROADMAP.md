@@ -125,11 +125,14 @@ Plans:
   1. Dashboard is the first screen when opening the app, showing today's recorded trips
   2. A weekly summary card displays total commute time and traffic time for the current week
   3. User can start a new trip directly from the dashboard (FAB or prominent button)
-**Plans**: TBD
+**Plans**: 4 plans
 **UI hint**: yes
 
 Plans:
-- [ ] 06-01: TBD
+- [ ] 06-01-PLAN.md — Wave 0 test scaffolding: dashboard_providers_test.dart (unit) + dashboard_screen_test.dart (widget, migrated from home_screen_test.dart)
+- [ ] 06-02-PLAN.md — Phase 6 constants block in constants.dart + todaysTripSummariesProvider in dashboard_providers.dart
+- [ ] 06-03-PLAN.md — WeeklySummaryCard + InProgressCard + TodayTripsSection widget files
+- [ ] 06-04-PLAN.md — DashboardScreen + app.dart wiring + HomeScreen deletion + app_test/app_bootstrap_test migration + full suite GREEN
 
 ### Phase 7: Polish & Notifications
 **Goal**: App feels complete with dark mode support and proactive notifications for summaries and reminders
@@ -207,7 +210,7 @@ Note: Phases 1-7 deliver the complete local-first experience without any authent
 | 3. Trip Management | 0/5 | Not started | - |
 | 4. Trip History | 0/4 | Not started | - |
 | 5. Stats & Analytics | 0/5 | Not started | - |
-| 6. Dashboard | 0/1 | Not started | - |
+| 6. Dashboard | 0/4 | Not started | - |
 | 7. Polish & Notifications | 0/2 | Not started | - |
 | 8. Authentication | 0/2 | Not started | - |
 | 9. Backend Infrastructure | 0/2 | Not started | - |
