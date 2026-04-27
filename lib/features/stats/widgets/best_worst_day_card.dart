@@ -16,7 +16,10 @@ class BestWorstDayCard extends StatelessWidget {
   const BestWorstDayCard({
     required this.weekdayAverages,
     super.key,
-  });
+  }) : assert(
+         weekdayAverages.length >= 5,
+         'weekdayAverages must have at least 5 entries (Mon–Fri)',
+       );
 
   /// Average duration in seconds per weekday indexed by
   /// `DateTime.weekday - 1` (0 = Mon … 6 = Sun). Indices 5–6 always null.
@@ -48,6 +51,11 @@ class BestWorstDayCard extends StatelessWidget {
         worstAvg = avg;
         worstIdx = i;
       }
+    }
+    // Tie case: when all non-null weekdays share the same average, drop
+    // worstIdx so no chip is wrongly marked as worst.
+    if (bestIdx != null && worstIdx != null && bestAvg == worstAvg) {
+      worstIdx = null;
     }
     // Single-weekday case: drop worstIdx so chip renders only as best.
     if (bestIdx != null && bestIdx == worstIdx) {
