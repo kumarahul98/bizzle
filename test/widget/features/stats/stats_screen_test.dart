@@ -106,19 +106,22 @@ void main() {
     testWidgets(
       'renders weekly duration when trips exist',
       (tester) async {
-        // A 30-minute trip -> WeekMonthTotalsCard renders '30 min'
-        // (formatDuration contract from Phase 4 formatters.dart).
-        // Use a fixed local date so the trip lands inside the current
-        // Mon–Sun week regardless of the test runner's clock — pick
-        // "now" inside the same week as the trip via DateTime.now()
-        // since the provider re-evaluates against DateTime.now() each
-        // emission. This test is therefore time-sensitive: assert
-        // that the 'Mon–Sun' helper text is present (proves the
-        // WeekMonthTotalsCard rendered without error).
-        final today = DateTime.now();
-        final trip = _trip(today);
-        await tester.pumpWidget(buildScreen(trips: <TripSummary>[trip]));
+        // Pin trip to the current Monday at 08:00 so it is guaranteed
+        // in-week relative to any test-runner date, avoiding spurious
+        // failures at week boundaries (Sunday 23:59 → Monday 00:00).
+        final now = DateTime.now();
+        final monday = now.subtract(
+          Duration(days: now.weekday - DateTime.monday),
+        );
+        final pinnedTrip = _trip(
+          DateTime(monday.year, monday.month, monday.day, 8),
+          durationSeconds: 1800,
+        );
+        await tester.pumpWidget(buildScreen(trips: <TripSummary>[pinnedTrip]));
         await tester.pump();
+        // Assert the trip was counted: no empty placeholder and the
+        // Mon–Sun helper text is present.
+        expect(find.text(kStatsEmptyPlaceholder), findsNothing);
         expect(find.text(kStatsCardWeekHelper), findsOneWidget);
       },
     );
