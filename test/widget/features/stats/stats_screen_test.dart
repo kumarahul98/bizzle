@@ -115,7 +115,7 @@ void main() {
         );
         final pinnedTrip = _trip(
           DateTime(monday.year, monday.month, monday.day, 8),
-          durationSeconds: 1800,
+          durationSeconds: 3600,
         );
         await tester.pumpWidget(buildScreen(trips: <TripSummary>[pinnedTrip]));
         await tester.pump();

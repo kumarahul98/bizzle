@@ -111,7 +111,7 @@ class TrendChartCard extends StatelessWidget {
                       color: colorScheme.primary,
                     ),
                   ),
-                  belowBarData: BarAreaData(show: false),
+                  belowBarData: BarAreaData(),
                 ),
               ],
             ),
