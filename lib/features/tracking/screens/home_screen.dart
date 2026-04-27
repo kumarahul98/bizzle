@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:traevy/config/constants.dart';
 import 'package:traevy/config/routes.dart';
 import 'package:traevy/features/tracking/providers/tracking_providers.dart';
 import 'package:traevy/features/tracking/services/tracking_permission_service.dart';
@@ -65,6 +66,15 @@ class HomeScreen extends ConsumerWidget {
               child: OutlinedButton(
                 onPressed: () => Navigator.pushNamed(context, kRouteHistory),
                 child: const Text('View history'),
+              ),
+            ),
+            const SizedBox(height: 12),
+            FractionallySizedBox(
+              widthFactor: 0.7,
+              child: OutlinedButton(
+                onPressed: () =>
+                    Navigator.pushNamed(context, kRouteStats),
+                child: const Text(kStatsHomeButtonLabel),
               ),
             ),
           ],
