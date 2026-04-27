@@ -557,20 +557,20 @@ This phase has no security-sensitive surfaces. No authentication, no network cal
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Weekly summary trip count scope (D-06 ambiguity)**
+1. **Weekly summary trip count scope (D-06 ambiguity)** — RESOLVED: today's count per D-06 literal
    - What we know: D-06 says "plus a client-side count of today's trips from the filtered list" — this literally means today's count from `todaysTripSummariesProvider`.
    - What's unclear: Showing "2 trips" in a card titled "This week" is misleading if the user had 5 trips this week but only 2 today.
-   - Recommendation: Implement as today's count (verbatim per D-06). If it looks wrong during review, escalate to the user. A week-count could be derived from `statsSummaryProvider.weekTotalSeconds > 0` and a separate filter, but that is out-of-scope unless user requests it.
+   - Resolution: Implement as today's count (verbatim per D-06). If it looks wrong during review, escalate to the user. A week-count could be derived from `statsSummaryProvider.weekTotalSeconds > 0` and a separate filter, but that is out-of-scope unless user requests it.
 
-2. **Manual entry placement (D-08, Claude's discretion)**
+2. **Manual entry placement (D-08, Claude's discretion)** — RESOLVED: AppBar trailing IconButton
    - What we know: D-08 says exact placement is Claude's discretion; options listed are long-press FAB, AppBar action, or tracking screen.
-   - Recommendation: Implement as an AppBar trailing `IconButton` (edit/add icon). This avoids gesture conflicts with FAB's primary action and is discoverable without long-press. The `_handleAddManualTrip` method is unchanged.
+   - Resolution: Implement as an AppBar trailing `IconButton` (edit/add icon). This avoids gesture conflicts with FAB's primary action and is discoverable without long-press. The `_handleAddManualTrip` method is unchanged.
 
-3. **Greeting text in AppBar (Claude's discretion)**
+3. **Greeting text in AppBar (Claude's discretion)** — RESOLVED: DateFormat date string
    - What we know: No user name available (auth is Phase 8). Date-only greeting or generic "Traevy" are both acceptable per D-02.
-   - Recommendation: Show today's date formatted as `DateFormat('EEE, d MMM').format(DateTime.now())` (e.g. "Sun, 27 Apr"). This gives the screen immediate informational value without a user name.
+   - Resolution: Show today's date formatted as `DateFormat('EEE, d MMM').format(DateTime.now())` (e.g. "Sun, 27 Apr"). This gives the screen immediate informational value without a user name.
 
 ---
 
