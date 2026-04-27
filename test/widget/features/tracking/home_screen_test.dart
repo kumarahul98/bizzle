@@ -2,12 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:traevy/config/constants.dart';
 import 'package:traevy/config/routes.dart';
+import 'package:traevy/database/daos/trips_dao.dart';
+import 'package:traevy/features/stats/screens/stats_screen.dart';
 import 'package:traevy/features/tracking/providers/tracking_providers.dart';
 import 'package:traevy/features/tracking/screens/home_screen.dart';
 import 'package:traevy/features/tracking/screens/tracking_screen.dart';
 import 'package:traevy/features/tracking/services/tracking_permission_service.dart';
 import 'package:traevy/features/tracking/state/tracking_state.dart';
+import 'package:traevy/features/trips/providers/history_providers.dart';
 
 /// Minimal test-only `TrackingNotifier` used exclusively by the
 /// HomeScreen navigation test. The real notifier wires fbs stream
@@ -267,5 +271,64 @@ void main() {
       expect(find.text('Notifications required'), findsNothing);
       expect(find.byType(TrackingScreen), findsNothing);
     });
+
+    testWidgets(
+      'renders the View stats OutlinedButton with the locked label',
+      (tester) async {
+        final harness = _buildFakePermissionService(
+          TrackingPermissionStatus.fullyGranted,
+        );
+        await _pumpHomeScreen(tester, permissionService: harness.service);
+
+        expect(
+          find.widgetWithText(OutlinedButton, kStatsHomeButtonLabel),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'tapping View stats navigates to the stats route',
+      (tester) async {
+        // Override allTripSummariesProvider so the StatsScreen we
+        // navigate INTO can render without touching Drift. Without
+        // this override, ref.watch(allTripSummariesProvider) on the
+        // pushed StatsScreen would attempt to watch the real
+        // tripsDaoProvider, which is not overridden here.
+        final harness = _buildFakePermissionService(
+          TrackingPermissionStatus.fullyGranted,
+        );
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              trackingPermissionServiceProvider
+                  .overrideWithValue(harness.service),
+              trackingStateProvider.overrideWith(_IdleTrackingNotifier.new),
+              allTripSummariesProvider.overrideWith(
+                (ref) => const Stream<List<TripSummary>>.empty(),
+              ),
+            ],
+            child: MaterialApp(
+              home: const HomeScreen(),
+              routes: kAppRoutes,
+            ),
+          ),
+        );
+        await tester.pump();
+
+        await tester.tap(
+          find.widgetWithText(OutlinedButton, kStatsHomeButtonLabel),
+        );
+        // Pump once for the Navigator push microtask, then advance time
+        // past the fl_chart LineChart draw animation (which never fully
+        // settles under pumpAndSettle). Two seconds is well past the
+        // default 150 ms fl_chart animation duration.
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 2));
+
+        expect(find.byType(StatsScreen), findsOneWidget);
+        expect(find.byType(HomeScreen), findsNothing);
+      },
+    );
   });
 }

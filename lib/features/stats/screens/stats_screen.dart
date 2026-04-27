@@ -17,7 +17,12 @@ const double _kBottomSafeArea = 32;
 /// Watches [statsSummaryProvider] and dispatches via `AsyncValue.when`:
 /// - `loading` -> centered [CircularProgressIndicator]
 /// - `error`   -> centered error message text
-/// - `data`    -> [ListView] of 5 stat cards in the order locked by D-01
+/// - `data`    -> scrollable [Column] of 5 stat cards in the order
+///               locked by D-01
+///
+/// Uses [SingleChildScrollView] + [Column] (not [ListView]) so all 5
+/// cards are always built regardless of viewport height — avoids lazy
+/// virtualisation on a fixed-length list and keeps widget tests simple.
 ///
 /// Empty input is handled at the per-card level (D-10): every card
 /// renders a `—` placeholder in its value slot when no qualifying
@@ -32,36 +37,38 @@ class StatsScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text(kStatsAppBarTitle)),
       body: asyncStats.when(
-        data: (stats) => ListView(
+        data: (stats) => SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(
             _kHorizontalPadding,
             _kHorizontalPadding,
             _kHorizontalPadding,
             _kBottomSafeArea,
           ),
-          children: <Widget>[
-            WeekMonthTotalsCard(
-              weekTotalSeconds: stats.weekTotalSeconds,
-              monthTotalSeconds: stats.monthTotalSeconds,
-            ),
-            const SizedBox(height: _kCardGap),
-            DirectionAveragesCard(
-              toOfficeAvgSeconds: stats.toOfficeAvgSeconds,
-              toHomeAvgSeconds: stats.toHomeAvgSeconds,
-            ),
-            const SizedBox(height: _kCardGap),
-            BestWorstDayCard(
-              weekdayAverages: stats.weekdayAverages,
-            ),
-            const SizedBox(height: _kCardGap),
-            TrendChartCard(
-              dailyTotalsLast28Days: stats.dailyTotalsLast28Days,
-            ),
-            const SizedBox(height: _kCardGap),
-            TrafficWasteCard(
-              weekStuckSeconds: stats.weekStuckSeconds,
-            ),
-          ],
+          child: Column(
+            children: <Widget>[
+              WeekMonthTotalsCard(
+                weekTotalSeconds: stats.weekTotalSeconds,
+                monthTotalSeconds: stats.monthTotalSeconds,
+              ),
+              const SizedBox(height: _kCardGap),
+              DirectionAveragesCard(
+                toOfficeAvgSeconds: stats.toOfficeAvgSeconds,
+                toHomeAvgSeconds: stats.toHomeAvgSeconds,
+              ),
+              const SizedBox(height: _kCardGap),
+              BestWorstDayCard(
+                weekdayAverages: stats.weekdayAverages,
+              ),
+              const SizedBox(height: _kCardGap),
+              TrendChartCard(
+                dailyTotalsLast28Days: stats.dailyTotalsLast28Days,
+              ),
+              const SizedBox(height: _kCardGap),
+              TrafficWasteCard(
+                weekStuckSeconds: stats.weekStuckSeconds,
+              ),
+            ],
+          ),
         ),
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => const Center(
