@@ -308,3 +308,39 @@ const String kStatsEmptyPlaceholder = '—';
 /// error state. RESEARCH.md §"Open question 2" Option A — no retry hint
 /// because there is no RefreshIndicator in Phase 5.
 const String kStatsErrorMessage = 'Could not load stats.';
+
+// ---------------------------------------------------------------------------
+// Phase 6: Dashboard
+// ---------------------------------------------------------------------------
+
+/// FAB label when tracking is idle (D-03).
+const String kDashboardFabIdleLabel = 'Start commute';
+
+/// FAB label when tracking is active (D-03).
+const String kDashboardFabActiveLabel = 'Go to tracking';
+
+/// Section heading above today's trip list (D-02).
+const String kDashboardTodaySectionLabel = 'Today';
+
+/// Empty-state label shown when no trips exist today (D-05).
+const String kDashboardEmptyStateLabel = 'No commutes yet today';
+
+/// Error-state label shown when the trips provider is in an error state.
+const String kDashboardErrorMessage = 'Could not load trips.';
+
+/// In-progress card title label (D-04).
+const String kDashboardInProgressLabel = 'In progress';
+
+/// Weekly summary card title label (D-06).
+const String kDashboardWeeklySummaryTitle = 'This week';
+
+/// Weekly summary traffic row label (D-06, Claude's discretion).
+const String kDashboardInTrafficLabel = 'In traffic';
+
+/// Trip count label when today has exactly one trip (D-06 pluralization).
+const String kDashboardTripCountSingular = '1 trip';
+
+/// Trip count label template when today has multiple trips.
+/// Build the full string at call site: '$count trips'
+/// using [kDashboardTripCountPlural] as the suffix.
+const String kDashboardTripCountPlural = 'trips';
