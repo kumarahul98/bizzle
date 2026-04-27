@@ -2,14 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:traevy/config/routes.dart';
 import 'package:traevy/config/theme.dart';
+import 'package:traevy/features/dashboard/screens/dashboard_screen.dart';
 import 'package:traevy/features/tracking/providers/backfill_provider.dart';
-import 'package:traevy/features/tracking/screens/home_screen.dart';
 
 /// Root widget for the Traevy app.
 ///
 /// Owns the `MaterialApp` wiring (title, light/dark themes, named
-/// routes, and the home screen). Phase 2 mounts [HomeScreen] as the
-/// root — the minimal Start commute CTA per D-13.
+/// routes, and the home screen). Phase 6 mounts [DashboardScreen] as the
+/// app root — the full dashboard UI with weekly summary and today's trips
+/// per UX-01.
 ///
 /// Phase 3 (D-05): `TraevyApp` is a `ConsumerWidget` so it can call
 /// `ref.watch(directionBackfillProvider)` to trigger the one-shot
@@ -37,7 +38,7 @@ class TraevyApp extends ConsumerWidget {
       // ignore: avoid_redundant_argument_values
       themeMode: ThemeMode.system,
       routes: kAppRoutes,
-      home: const HomeScreen(),
+      home: const DashboardScreen(),
     );
   }
 }
