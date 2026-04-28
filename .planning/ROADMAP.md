@@ -143,12 +143,14 @@ Plans:
   2. User receives a weekly push notification summarizing their commute totals
   3. User can enable a tracking reminder notification at their usual departure time
   4. Theme preference persists across app restarts via user_preferences table
-**Plans**: TBD
+**Plans**: 4 plans
 **UI hint**: yes
 
 Plans:
-- [ ] 07-01: TBD
-- [ ] 07-02: TBD
+- [ ] 07-01-PLAN.md — Phase 7 constants (kDarkModeLight, kDarkModeDark, all notification constants) + Drift schema v2 migration (weeklyNotificationEnabled) + AndroidManifest USE_EXACT_ALARM + timezone dep
+- [ ] 07-02-PLAN.md — Wave 0 test scaffold: settings_screen_test.dart (RadioListTile rows, gear icon navigation, reminder visibility)
+- [ ] 07-03-PLAN.md — UserPreferencesDao.watch() + userPreferenceProvider StreamProvider + NotificationService (zonedSchedule) + TraevyApp dynamic themeMode + main.dart bootstrap
+- [ ] 07-04-PLAN.md — SettingsScreen (Appearance + Notifications sections) + Dashboard gear icon + routes wiring + ManualEntrySheet bug fix (traffic/distance fields) + stats_service exclusion fix
 
 ### Phase 8: Authentication
 **Goal**: Users can sign in with Google, exchange tokens with Cognito, and have their identity linked to existing local trip data
@@ -211,7 +213,7 @@ Note: Phases 1-7 deliver the complete local-first experience without any authent
 | 4. Trip History | 0/4 | Not started | - |
 | 5. Stats & Analytics | 0/5 | Not started | - |
 | 6. Dashboard | 0/4 | Not started | - |
-| 7. Polish & Notifications | 0/2 | Not started | - |
+| 7. Polish & Notifications | 0/4 | Not started | - |
 | 8. Authentication | 0/2 | Not started | - |
 | 9. Backend Infrastructure | 0/2 | Not started | - |
 | 10. Sync Engine | 0/2 | Not started | - |
