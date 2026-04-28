@@ -142,6 +142,7 @@ class DashboardScreen extends ConsumerWidget {
       );
       return;
     }
+    if (!context.mounted) return;
     await Navigator.pushNamed(context, kRouteTracking);
   }
 
