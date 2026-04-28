@@ -341,3 +341,43 @@ const String kDashboardTripCountSingular = '1 trip';
 /// Build the full string at call site: '$count trips'
 /// using [kDashboardTripCountPlural] as the suffix.
 const String kDashboardTripCountPlural = 'trips';
+
+/// Tooltip for the manual-entry icon button in the dashboard AppBar (D-07).
+const String kDashboardAddTripTooltip = 'Add trip manually';
+
+/// Dialog title shown when location permission is permanently denied (D-03).
+const String kDashboardPermDeniedTitle = 'Location permission denied';
+
+/// Dialog body shown when location permission is permanently denied (D-03).
+const String kDashboardPermDeniedBody =
+    'Location permission is permanently denied. Open system '
+    'settings to enable it?';
+
+/// Dialog title shown when notification permission is denied (D-03).
+const String kDashboardNotifDeniedTitle = 'Notifications required';
+
+/// Dialog body shown when notification permission is denied (D-03).
+const String kDashboardNotifDeniedBody =
+    'Notifications are required to track commutes in the '
+    'background. Open system settings to enable them?';
+
+/// Generic cancel action label used in confirmation dialogs.
+const String kDialogCancel = 'Cancel';
+
+/// Open-settings action label used in permission dialogs (D-03).
+const String kDialogOpenSettings = 'Open settings';
+
+/// Delete-trip confirmation dialog title (T-03-14).
+const String kTripDeleteDialogTitle = 'Delete trip?';
+
+/// Delete-trip confirmation dialog body (T-03-14).
+const String kTripDeleteDialogBody = 'This trip will be permanently removed.';
+
+/// Destructive confirm label on the delete-trip dialog (T-03-14).
+const String kTripDeleteConfirm = 'Delete';
+
+/// Snackbar message shown after a trip is successfully deleted (D-08).
+const String kTripDeletedSnackbar = 'Trip deleted';
+
+/// Snackbar message shown when a trip deletion fails (D-08).
+const String kTripDeleteErrorSnackbar = "Couldn't delete the trip. Try again.";

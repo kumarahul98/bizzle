@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:traevy/config/constants.dart';
 import 'package:traevy/features/trips/providers/trip_management_providers.dart';
 
 /// Show a delete confirmation dialog and call
@@ -20,12 +21,12 @@ Future<void> handleDeleteTrip(
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (dialogContext) => AlertDialog(
-      title: const Text('Delete trip?'),
-      content: const Text('This trip will be permanently removed.'),
+      title: const Text(kTripDeleteDialogTitle),
+      content: const Text(kTripDeleteDialogBody),
       actions: <Widget>[
         TextButton(
           onPressed: () => Navigator.of(dialogContext).pop(false),
-          child: const Text('Cancel'),
+          child: const Text(kDialogCancel),
         ),
         FilledButton(
           style: FilledButton.styleFrom(
@@ -33,7 +34,7 @@ Future<void> handleDeleteTrip(
             foregroundColor: colorScheme.onError,
           ),
           onPressed: () => Navigator.of(dialogContext).pop(true),
-          child: const Text('Delete'),
+          child: const Text(kTripDeleteConfirm),
         ),
       ],
     ),
@@ -46,13 +47,13 @@ Future<void> handleDeleteTrip(
     if (state is TripManagementSaved) {
       ref.read(tripManagementProvider.notifier).reset();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Trip deleted')),
+        const SnackBar(content: Text(kTripDeletedSnackbar)),
       );
     } else if (state is TripManagementError) {
       ref.read(tripManagementProvider.notifier).reset();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Couldn't delete the trip. Try again."),
+          content: Text(kTripDeleteErrorSnackbar),
         ),
       );
     }

@@ -49,7 +49,7 @@ class DashboardScreen extends ConsumerWidget {
         actions: <Widget>[
           IconButton(
             icon: const Icon(Icons.add),
-            tooltip: 'Add trip manually',
+            tooltip: kDashboardAddTripTooltip,
             onPressed: () => _handleAddManualTrip(context, ref),
           ),
           IconButton(
@@ -124,10 +124,8 @@ class DashboardScreen extends ConsumerWidget {
       await _showSettingsDialog(
         context,
         service,
-        title: 'Location permission denied',
-        body:
-            'Location permission is permanently denied. Open system '
-            'settings to enable it?',
+        title: kDashboardPermDeniedTitle,
+        body: kDashboardPermDeniedBody,
       );
       return;
     }
@@ -135,10 +133,8 @@ class DashboardScreen extends ConsumerWidget {
       await _showSettingsDialog(
         context,
         service,
-        title: 'Notifications required',
-        body:
-            'Notifications are required to track commutes in the '
-            'background. Open system settings to enable them?',
+        title: kDashboardNotifDeniedTitle,
+        body: kDashboardNotifDeniedBody,
       );
       return;
     }
@@ -160,11 +156,11 @@ class DashboardScreen extends ConsumerWidget {
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
+            child: const Text(kDialogCancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Open settings'),
+            child: const Text(kDialogOpenSettings),
           ),
         ],
       ),
