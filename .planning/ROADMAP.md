@@ -17,7 +17,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 3: Trip Management** - Edit, delete, manual entry, and direction labeling
 - [ ] **Phase 4: Trip History** - Daily log, calendar view, and route map detail
 - [ ] **Phase 5: Stats & Analytics** - Commute stats, traffic totals, trends, and charts
-- [ ] **Phase 6: Dashboard** - Home screen with today's trips and weekly summary
+- [x] **Phase 6: Dashboard** - Home screen with today's trips and weekly summary ✓ 2026-04-28
 - [ ] **Phase 7: Polish & Notifications** - Dark mode, tracking reminders, and summary notifications
 - [ ] **Phase 8: Authentication** - Google Sign-In with Cognito federation and onboarding flow
 - [ ] **Phase 9: Backend Infrastructure** - AWS SAM stack with Lambda endpoints and DynamoDB
@@ -129,10 +129,10 @@ Plans:
 **UI hint**: yes
 
 Plans:
-- [ ] 06-01-PLAN.md — Wave 0 test scaffolding: dashboard_providers_test.dart (unit) + dashboard_screen_test.dart (widget, migrated from home_screen_test.dart)
-- [ ] 06-02-PLAN.md — Phase 6 constants block in constants.dart + todaysTripSummariesProvider in dashboard_providers.dart
-- [ ] 06-03-PLAN.md — WeeklySummaryCard + InProgressCard + TodayTripsSection widget files
-- [ ] 06-04-PLAN.md — DashboardScreen + app.dart wiring + HomeScreen deletion + app_test/app_bootstrap_test migration + full suite GREEN
+- [x] 06-01-PLAN.md — Wave 0 test scaffolding: dashboard_providers_test.dart (unit) + dashboard_screen_test.dart (widget, migrated from home_screen_test.dart)
+- [x] 06-02-PLAN.md — Phase 6 constants block in constants.dart + todaysTripSummariesProvider in dashboard_providers.dart
+- [x] 06-03-PLAN.md — WeeklySummaryCard + InProgressCard + TodayTripsSection widget files
+- [x] 06-04-PLAN.md — DashboardScreen + app.dart wiring + HomeScreen deletion + app_test/app_bootstrap_test migration + full suite GREEN
 
 ### Phase 7: Polish & Notifications
 **Goal**: App feels complete with dark mode support and proactive notifications for summaries and reminders
