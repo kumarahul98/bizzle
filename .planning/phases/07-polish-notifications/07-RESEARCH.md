@@ -595,17 +595,17 @@ await _plugin.cancel(id: kWeeklySummaryNotificationId);
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Weekly notification body: live data vs fixed text**
+1. **Weekly notification body: live data vs fixed text** — RESOLVED: accept staleness, use direct DAO query at schedule time
    - What we know: `statsSummaryProvider` computes `weekTotalSeconds` and `weekStuckSeconds` from Drift. `formatDuration()` is available.
    - What's unclear: The notification body is composed at schedule time (app start / settings toggle). The body becomes stale as trips accumulate during the week. The notification fires Sunday 6pm with Monday-morning data.
-   - Recommendation: Accept staleness — schedule with best-effort data at enable time. This is standard behavior for summary notifications. The user sees "approximately correct" totals. If D-06 staleness is unacceptable, the notification body must be dynamically generated at fire time (requires `onDidReceiveNotificationResponse` or a background task — out of scope per D-08 simplicity).
+   - **RESOLVED:** Accept staleness — schedule with best-effort data at enable time using a direct DAO query (not Riverpod, which is unavailable at app-startup before `runApp`). This is standard behavior for summary notifications. See Plan 03 `NotificationService._buildWeeklyBody()`.
 
-2. **`SchedulingService` vs extending `TrackingNotificationService`**
+2. **`SchedulingService` vs extending `TrackingNotificationService`** — RESOLVED: separate `NotificationService` class
    - What we know: D-14 says "initialize new channels alongside the tracking channel" with no restriction on class structure.
    - What's unclear: CONTEXT.md leaves this as Claude's discretion.
-   - Recommendation: Create a new `lib/notifications/notification_service.dart` (`NotificationService` class) for the two Phase 7 channels. Reasons: (1) `TrackingNotificationService` has a complex D-14 unification comment that must not be disturbed; (2) the new service has different responsibilities (scheduled alarms vs. ongoing foreground); (3) CLAUDE.md mandates single-concern modules.
+   - **RESOLVED:** Create a new `lib/notifications/notification_service.dart` (`NotificationService` class) for the two Phase 7 channels. Reasons: (1) `TrackingNotificationService` has a complex D-14 unification comment that must not be disturbed; (2) the new service has different responsibilities (scheduled alarms vs. ongoing foreground); (3) CLAUDE.md mandates single-concern modules. See Plan 03.
 
 ---
 
