@@ -5,15 +5,17 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:traevy/app.dart';
 import 'package:traevy/config/theme.dart';
 import 'package:traevy/database/database.dart';
+import 'package:traevy/database/daos/trips_dao.dart';
 import 'package:traevy/database/providers.dart';
+import 'package:traevy/features/dashboard/screens/dashboard_screen.dart';
 import 'package:traevy/features/tracking/providers/backfill_provider.dart';
 import 'package:traevy/features/tracking/providers/tracking_providers.dart';
-import 'package:traevy/features/tracking/screens/home_screen.dart';
 import 'package:traevy/features/tracking/state/tracking_state.dart';
+import 'package:traevy/features/trips/providers/history_providers.dart';
 
 /// Minimal stub notifier that skips fbs initialisation.
 ///
-/// HomeScreen.build watches trackingStateProvider (FAB visibility gate).
+/// DashboardScreen.build watches trackingStateProvider (FAB mode gate).
 /// The real TrackingNotifier.build calls FlutterBackgroundService.on,
 /// which throws on non-Android/iOS platforms. This subclass returns
 /// TrackingIdle immediately so the test host never touches the channel.
@@ -25,7 +27,7 @@ class _IdleTrackingNotifier extends TrackingNotifier {
 void main() {
   group('TraevyApp bootstrap', () {
     testWidgets(
-      'pumps inside ProviderScope and renders HomeScreen',
+      'pumps inside ProviderScope and renders DashboardScreen',
       (tester) async {
         // Override appDatabaseProvider with an in-memory DB so the
         // widget test does not open a real file-based database, and
@@ -45,10 +47,18 @@ void main() {
               ),
               directionBackfillProvider.overrideWith((_) async {}),
               trackingStateProvider.overrideWith(_IdleTrackingNotifier.new),
+              // DashboardScreen watches allTripSummariesProvider via
+              // todaysTripSummariesProvider — override to avoid Drift I/O.
+              allTripSummariesProvider.overrideWith(
+                (ref) => const Stream<List<TripSummary>>.empty(),
+              ),
             ],
             child: const TraevyApp(),
           ),
         );
+        // Two pumps: resolve the stream emission and settle initial frame.
+        await tester.pump();
+        await tester.pump();
 
         // MaterialApp is configured with the expected title and themes.
         final materialApp = tester.widget<MaterialApp>(
@@ -59,9 +69,8 @@ void main() {
         expect(materialApp.darkTheme, darkTheme);
         expect(materialApp.themeMode, ThemeMode.system);
 
-        // HomeScreen renders an AppBar title and the Start commute CTA.
-        expect(find.byType(HomeScreen), findsOneWidget);
-        expect(find.text('Traevy'), findsWidgets);
+        // Phase 6 mounts DashboardScreen as the app root (UX-01).
+        expect(find.byType(DashboardScreen), findsOneWidget);
         expect(find.text('Start commute'), findsOneWidget);
       },
     );

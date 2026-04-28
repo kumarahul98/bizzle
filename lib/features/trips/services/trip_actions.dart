@@ -9,7 +9,7 @@ import 'package:traevy/features/trips/providers/trip_management_providers.dart';
 /// button explicitly; dialog dismissal is treated as cancel via
 /// `confirmed ?? false`.
 ///
-/// Reused by HomeScreen and HistoryScreen trip cards (D-08).
+/// Reused by DashboardScreen and HistoryScreen trip cards (D-08).
 /// Pitfall 7 mitigation: context.mounted is checked after every await.
 Future<void> handleDeleteTrip(
   BuildContext context,

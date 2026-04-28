@@ -254,9 +254,6 @@ const double kStatsTrendChartHeight = 192;
 /// AppBar title for the stats screen (UI-SPEC §Copywriting Contract).
 const String kStatsAppBarTitle = 'Stats';
 
-/// Label for the "View stats" button on the home screen (D-02).
-const String kStatsHomeButtonLabel = 'View stats';
-
 /// Label for the weekly total row on the totals card (STAT-01).
 const String kStatsCardWeekLabel = 'This week';
 

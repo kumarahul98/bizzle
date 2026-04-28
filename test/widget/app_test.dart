@@ -5,17 +5,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:traevy/app.dart';
 import 'package:traevy/database/database.dart';
 import 'package:traevy/database/providers.dart';
+import 'package:traevy/database/daos/trips_dao.dart';
+import 'package:traevy/features/dashboard/screens/dashboard_screen.dart';
 import 'package:traevy/features/tracking/providers/backfill_provider.dart';
 import 'package:traevy/features/tracking/providers/tracking_providers.dart';
-import 'package:traevy/features/tracking/screens/home_screen.dart';
 import 'package:traevy/features/tracking/state/tracking_state.dart';
+import 'package:traevy/features/trips/providers/history_providers.dart';
 
 /// Minimal stub notifier that skips fbs initialisation.
 ///
 /// The real [TrackingNotifier.build] calls FlutterBackgroundService.on,
 /// which throws on non-Android/iOS platforms (the test host). This
 /// subclass short-circuits [build] to [TrackingIdle] so widget tests
-/// that render [HomeScreen] never touch the platform channel.
+/// that render [DashboardScreen] never touch the platform channel.
 class _IdleTrackingNotifier extends TrackingNotifier {
   @override
   TrackingState build() => const TrackingIdle();
@@ -23,13 +25,11 @@ class _IdleTrackingNotifier extends TrackingNotifier {
 
 void main() {
   testWidgets(
-    'TraevyApp builds under ProviderScope and shows HomeScreen',
+    'TraevyApp builds under ProviderScope and shows DashboardScreen',
     (tester) async {
-      // HomeScreen.build now watches trackingStateProvider (FAB
-      // visibility gate). Override with _IdleTrackingNotifier so the
-      // test host never touches the fbs platform channel. Also override
-      // the DB and directionBackfillProvider to avoid file I/O and
-      // pending timers in fake_async (same pattern as app_bootstrap_test).
+      // DashboardScreen.build watches trackingStateProvider, allTripSummariesProvider
+      // (via todaysTripSummariesProvider), and statsSummaryProvider.
+      // Override all providers to avoid file I/O and platform channel calls.
       final db = AppDatabase(NativeDatabase.memory());
       addTearDown(db.close);
 
@@ -44,23 +44,30 @@ void main() {
             ),
             directionBackfillProvider.overrideWith((_) async {}),
             trackingStateProvider.overrideWith(_IdleTrackingNotifier.new),
+            // DashboardScreen watches allTripSummariesProvider via
+            // todaysTripSummariesProvider — override to avoid Drift I/O.
+            allTripSummariesProvider.overrideWith(
+              (ref) => const Stream<List<TripSummary>>.empty(),
+            ),
           ],
           child: const TraevyApp(),
         ),
       );
-      await tester.pumpAndSettle();
+      // Two pumps: resolve the stream emission and settle initial frame.
+      // pumpAndSettle cannot be used here because statsSummaryProvider
+      // is in loading state (stream.empty() never emits) which keeps
+      // CircularProgressIndicator animating indefinitely.
+      await tester.pump();
+      await tester.pump();
 
       // Root widget tree is a MaterialApp — proves the wiring through
       // ProviderScope reached TraevyApp without throwing.
       expect(find.byType(MaterialApp), findsOneWidget);
 
-      // Phase 2 mounts HomeScreen as the root.
-      expect(find.byType(HomeScreen), findsOneWidget);
+      // Phase 6 mounts DashboardScreen as the app root (UX-01).
+      expect(find.byType(DashboardScreen), findsOneWidget);
 
-      // AppBar title uses 'Traevy' and body exposes the Start commute
-      // CTA. 'Traevy' appears both in the AppBar and the MaterialApp
-      // title chrome, so use findsWidgets instead of findsOneWidget.
-      expect(find.text('Traevy'), findsWidgets);
+      // FAB shows the idle label — confirms DashboardScreen rendered fully.
       expect(find.text('Start commute'), findsOneWidget);
     },
   );
