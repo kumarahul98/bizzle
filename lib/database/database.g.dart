@@ -1433,6 +1433,21 @@ class $UserPreferencesTable extends UserPreferences
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _weeklyNotificationEnabledMeta =
+      const VerificationMeta('weeklyNotificationEnabled');
+  @override
+  late final GeneratedColumn<bool> weeklyNotificationEnabled =
+      GeneratedColumn<bool>(
+        'weekly_notification_enabled',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("weekly_notification_enabled" IN (0, 1))',
+        ),
+        defaultValue: const Constant(false),
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1443,6 +1458,7 @@ class $UserPreferencesTable extends UserPreferences
     reminderEnabled,
     reminderTime,
     weekendReminder,
+    weeklyNotificationEnabled,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1516,6 +1532,15 @@ class $UserPreferencesTable extends UserPreferences
         ),
       );
     }
+    if (data.containsKey('weekly_notification_enabled')) {
+      context.handle(
+        _weeklyNotificationEnabledMeta,
+        weeklyNotificationEnabled.isAcceptableOrUnknown(
+          data['weekly_notification_enabled']!,
+          _weeklyNotificationEnabledMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1557,6 +1582,10 @@ class $UserPreferencesTable extends UserPreferences
         DriftSqlType.bool,
         data['${effectivePrefix}weekend_reminder'],
       )!,
+      weeklyNotificationEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}weekly_notification_enabled'],
+      )!,
     );
   }
 
@@ -1595,6 +1624,12 @@ class UserPreferencesRow extends DataClass
 
   /// True if the reminder should also fire on Saturday and Sunday.
   final bool weekendReminder;
+
+  /// True if the user has opted into the weekly commute summary notification.
+  ///
+  /// Default false so no notification fires until the user enables it.
+  /// Added by schema migration v1 → v2 (D-07, D-13).
+  final bool weeklyNotificationEnabled;
   const UserPreferencesRow({
     required this.id,
     required this.userId,
@@ -1604,6 +1639,7 @@ class UserPreferencesRow extends DataClass
     required this.reminderEnabled,
     this.reminderTime,
     required this.weekendReminder,
+    required this.weeklyNotificationEnabled,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1618,6 +1654,9 @@ class UserPreferencesRow extends DataClass
       map['reminder_time'] = Variable<String>(reminderTime);
     }
     map['weekend_reminder'] = Variable<bool>(weekendReminder);
+    map['weekly_notification_enabled'] = Variable<bool>(
+      weeklyNotificationEnabled,
+    );
     return map;
   }
 
@@ -1633,6 +1672,7 @@ class UserPreferencesRow extends DataClass
           ? const Value.absent()
           : Value(reminderTime),
       weekendReminder: Value(weekendReminder),
+      weeklyNotificationEnabled: Value(weeklyNotificationEnabled),
     );
   }
 
@@ -1650,6 +1690,9 @@ class UserPreferencesRow extends DataClass
       reminderEnabled: serializer.fromJson<bool>(json['reminderEnabled']),
       reminderTime: serializer.fromJson<String?>(json['reminderTime']),
       weekendReminder: serializer.fromJson<bool>(json['weekendReminder']),
+      weeklyNotificationEnabled: serializer.fromJson<bool>(
+        json['weeklyNotificationEnabled'],
+      ),
     );
   }
   @override
@@ -1664,6 +1707,9 @@ class UserPreferencesRow extends DataClass
       'reminderEnabled': serializer.toJson<bool>(reminderEnabled),
       'reminderTime': serializer.toJson<String?>(reminderTime),
       'weekendReminder': serializer.toJson<bool>(weekendReminder),
+      'weeklyNotificationEnabled': serializer.toJson<bool>(
+        weeklyNotificationEnabled,
+      ),
     };
   }
 
@@ -1676,6 +1722,7 @@ class UserPreferencesRow extends DataClass
     bool? reminderEnabled,
     Value<String?> reminderTime = const Value.absent(),
     bool? weekendReminder,
+    bool? weeklyNotificationEnabled,
   }) => UserPreferencesRow(
     id: id ?? this.id,
     userId: userId ?? this.userId,
@@ -1685,6 +1732,8 @@ class UserPreferencesRow extends DataClass
     reminderEnabled: reminderEnabled ?? this.reminderEnabled,
     reminderTime: reminderTime.present ? reminderTime.value : this.reminderTime,
     weekendReminder: weekendReminder ?? this.weekendReminder,
+    weeklyNotificationEnabled:
+        weeklyNotificationEnabled ?? this.weeklyNotificationEnabled,
   );
   UserPreferencesRow copyWithCompanion(UserPreferencesCompanion data) {
     return UserPreferencesRow(
@@ -1706,6 +1755,9 @@ class UserPreferencesRow extends DataClass
       weekendReminder: data.weekendReminder.present
           ? data.weekendReminder.value
           : this.weekendReminder,
+      weeklyNotificationEnabled: data.weeklyNotificationEnabled.present
+          ? data.weeklyNotificationEnabled.value
+          : this.weeklyNotificationEnabled,
     );
   }
 
@@ -1719,7 +1771,8 @@ class UserPreferencesRow extends DataClass
           ..write('eveningCutoffHour: $eveningCutoffHour, ')
           ..write('reminderEnabled: $reminderEnabled, ')
           ..write('reminderTime: $reminderTime, ')
-          ..write('weekendReminder: $weekendReminder')
+          ..write('weekendReminder: $weekendReminder, ')
+          ..write('weeklyNotificationEnabled: $weeklyNotificationEnabled')
           ..write(')'))
         .toString();
   }
@@ -1734,6 +1787,7 @@ class UserPreferencesRow extends DataClass
     reminderEnabled,
     reminderTime,
     weekendReminder,
+    weeklyNotificationEnabled,
   );
   @override
   bool operator ==(Object other) =>
@@ -1746,7 +1800,8 @@ class UserPreferencesRow extends DataClass
           other.eveningCutoffHour == this.eveningCutoffHour &&
           other.reminderEnabled == this.reminderEnabled &&
           other.reminderTime == this.reminderTime &&
-          other.weekendReminder == this.weekendReminder);
+          other.weekendReminder == this.weekendReminder &&
+          other.weeklyNotificationEnabled == this.weeklyNotificationEnabled);
 }
 
 class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
@@ -1758,6 +1813,7 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
   final Value<bool> reminderEnabled;
   final Value<String?> reminderTime;
   final Value<bool> weekendReminder;
+  final Value<bool> weeklyNotificationEnabled;
   const UserPreferencesCompanion({
     this.id = const Value.absent(),
     this.userId = const Value.absent(),
@@ -1767,6 +1823,7 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
     this.reminderEnabled = const Value.absent(),
     this.reminderTime = const Value.absent(),
     this.weekendReminder = const Value.absent(),
+    this.weeklyNotificationEnabled = const Value.absent(),
   });
   UserPreferencesCompanion.insert({
     this.id = const Value.absent(),
@@ -1777,6 +1834,7 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
     this.reminderEnabled = const Value.absent(),
     this.reminderTime = const Value.absent(),
     this.weekendReminder = const Value.absent(),
+    this.weeklyNotificationEnabled = const Value.absent(),
   });
   static Insertable<UserPreferencesRow> custom({
     Expression<int>? id,
@@ -1787,6 +1845,7 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
     Expression<bool>? reminderEnabled,
     Expression<String>? reminderTime,
     Expression<bool>? weekendReminder,
+    Expression<bool>? weeklyNotificationEnabled,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -1797,6 +1856,8 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
       if (reminderEnabled != null) 'reminder_enabled': reminderEnabled,
       if (reminderTime != null) 'reminder_time': reminderTime,
       if (weekendReminder != null) 'weekend_reminder': weekendReminder,
+      if (weeklyNotificationEnabled != null)
+        'weekly_notification_enabled': weeklyNotificationEnabled,
     });
   }
 
@@ -1809,6 +1870,7 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
     Value<bool>? reminderEnabled,
     Value<String?>? reminderTime,
     Value<bool>? weekendReminder,
+    Value<bool>? weeklyNotificationEnabled,
   }) {
     return UserPreferencesCompanion(
       id: id ?? this.id,
@@ -1819,6 +1881,8 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
       reminderEnabled: reminderEnabled ?? this.reminderEnabled,
       reminderTime: reminderTime ?? this.reminderTime,
       weekendReminder: weekendReminder ?? this.weekendReminder,
+      weeklyNotificationEnabled:
+          weeklyNotificationEnabled ?? this.weeklyNotificationEnabled,
     );
   }
 
@@ -1849,6 +1913,11 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
     if (weekendReminder.present) {
       map['weekend_reminder'] = Variable<bool>(weekendReminder.value);
     }
+    if (weeklyNotificationEnabled.present) {
+      map['weekly_notification_enabled'] = Variable<bool>(
+        weeklyNotificationEnabled.value,
+      );
+    }
     return map;
   }
 
@@ -1862,7 +1931,8 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
           ..write('eveningCutoffHour: $eveningCutoffHour, ')
           ..write('reminderEnabled: $reminderEnabled, ')
           ..write('reminderTime: $reminderTime, ')
-          ..write('weekendReminder: $weekendReminder')
+          ..write('weekendReminder: $weekendReminder, ')
+          ..write('weeklyNotificationEnabled: $weeklyNotificationEnabled')
           ..write(')'))
         .toString();
   }
@@ -2522,6 +2592,7 @@ typedef $$UserPreferencesTableCreateCompanionBuilder =
       Value<bool> reminderEnabled,
       Value<String?> reminderTime,
       Value<bool> weekendReminder,
+      Value<bool> weeklyNotificationEnabled,
     });
 typedef $$UserPreferencesTableUpdateCompanionBuilder =
     UserPreferencesCompanion Function({
@@ -2533,6 +2604,7 @@ typedef $$UserPreferencesTableUpdateCompanionBuilder =
       Value<bool> reminderEnabled,
       Value<String?> reminderTime,
       Value<bool> weekendReminder,
+      Value<bool> weeklyNotificationEnabled,
     });
 
 class $$UserPreferencesTableFilterComposer
@@ -2581,6 +2653,11 @@ class $$UserPreferencesTableFilterComposer
 
   ColumnFilters<bool> get weekendReminder => $composableBuilder(
     column: $table.weekendReminder,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get weeklyNotificationEnabled => $composableBuilder(
+    column: $table.weeklyNotificationEnabled,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -2633,6 +2710,11 @@ class $$UserPreferencesTableOrderingComposer
     column: $table.weekendReminder,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get weeklyNotificationEnabled => $composableBuilder(
+    column: $table.weeklyNotificationEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$UserPreferencesTableAnnotationComposer
@@ -2675,6 +2757,11 @@ class $$UserPreferencesTableAnnotationComposer
 
   GeneratedColumn<bool> get weekendReminder => $composableBuilder(
     column: $table.weekendReminder,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get weeklyNotificationEnabled => $composableBuilder(
+    column: $table.weeklyNotificationEnabled,
     builder: (column) => column,
   );
 }
@@ -2724,6 +2811,7 @@ class $$UserPreferencesTableTableManager
                 Value<bool> reminderEnabled = const Value.absent(),
                 Value<String?> reminderTime = const Value.absent(),
                 Value<bool> weekendReminder = const Value.absent(),
+                Value<bool> weeklyNotificationEnabled = const Value.absent(),
               }) => UserPreferencesCompanion(
                 id: id,
                 userId: userId,
@@ -2733,6 +2821,7 @@ class $$UserPreferencesTableTableManager
                 reminderEnabled: reminderEnabled,
                 reminderTime: reminderTime,
                 weekendReminder: weekendReminder,
+                weeklyNotificationEnabled: weeklyNotificationEnabled,
               ),
           createCompanionCallback:
               ({
@@ -2744,6 +2833,7 @@ class $$UserPreferencesTableTableManager
                 Value<bool> reminderEnabled = const Value.absent(),
                 Value<String?> reminderTime = const Value.absent(),
                 Value<bool> weekendReminder = const Value.absent(),
+                Value<bool> weeklyNotificationEnabled = const Value.absent(),
               }) => UserPreferencesCompanion.insert(
                 id: id,
                 userId: userId,
@@ -2753,6 +2843,7 @@ class $$UserPreferencesTableTableManager
                 reminderEnabled: reminderEnabled,
                 reminderTime: reminderTime,
                 weekendReminder: weekendReminder,
+                weeklyNotificationEnabled: weeklyNotificationEnabled,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

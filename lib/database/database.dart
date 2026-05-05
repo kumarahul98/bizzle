@@ -36,7 +36,7 @@ class AppDatabase extends _$AppDatabase {
       : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -48,9 +48,16 @@ class AppDatabase extends _$AppDatabase {
           // fresh-install reads and complicates future migrations.
         },
         onUpgrade: (m, from, to) async {
-          // No upgrades yet at schemaVersion 1. Every future schema
-          // bump MUST add a branch here AND a dart run drift_dev schema
-          // dump snapshot under drift_schemas/.
+          if (from < 2) {
+            // D-13: adds weeklyNotificationEnabled boolean column to
+            // user_preferences. Default false provided by
+            // withDefault(const Constant(false)) in the table definition
+            // — existing rows get false automatically.
+            await m.addColumn(
+              userPreferences,
+              userPreferences.weeklyNotificationEnabled,
+            );
+          }
         },
         beforeOpen: (details) async {
           // Phase 1 has no foreign keys, but turning the pragma on now

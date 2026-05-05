@@ -44,6 +44,7 @@ void main() {
         reminderEnabled: true,
         reminderTime: '08:30',
         weekendReminder: true,
+        weeklyNotificationEnabled: true,
       );
 
       await db.userPreferencesDao.upsert(updated);
@@ -66,6 +67,7 @@ void main() {
         reminderEnabled: true,
         reminderTime: '08:30',
         weekendReminder: true,
+        weeklyNotificationEnabled: true,
       );
       const second = UserPreferencesValue(
         userId: kDefaultUserId,
@@ -75,6 +77,7 @@ void main() {
         reminderEnabled: false,
         reminderTime: null,
         weekendReminder: false,
+        weeklyNotificationEnabled: false,
       );
 
       await db.userPreferencesDao.upsert(first);

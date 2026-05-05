@@ -29,6 +29,7 @@ class UserPreferencesValue {
     required this.reminderEnabled,
     required this.reminderTime,
     required this.weekendReminder,
+    required this.weeklyNotificationEnabled,
   });
 
   /// The defaults used the first time the user launches the app —
@@ -40,7 +41,8 @@ class UserPreferencesValue {
         eveningCutoffHour = kDefaultDirectionCutoffHour,
         reminderEnabled = false,
         reminderTime = null,
-        weekendReminder = false;
+        weekendReminder = false,
+        weeklyNotificationEnabled = false;
 
   /// Owning user placeholder (Phase 8 replaces with Cognito sub).
   final String userId;
@@ -62,6 +64,9 @@ class UserPreferencesValue {
 
   /// True if the reminder should also fire on Saturday and Sunday.
   final bool weekendReminder;
+
+  /// True if weekly summary notification is enabled (D-07, D-13).
+  final bool weeklyNotificationEnabled;
 }
 
 /// Data-access object for the single-row user_preferences table.
@@ -97,6 +102,7 @@ class UserPreferencesDao extends DatabaseAccessor<AppDatabase>
       reminderEnabled: row.reminderEnabled,
       reminderTime: row.reminderTime,
       weekendReminder: row.weekendReminder,
+      weeklyNotificationEnabled: row.weeklyNotificationEnabled,
     );
   }
 
@@ -115,6 +121,8 @@ class UserPreferencesDao extends DatabaseAccessor<AppDatabase>
         reminderEnabled: Value<bool>(value.reminderEnabled),
         reminderTime: Value<String?>(value.reminderTime),
         weekendReminder: Value<bool>(value.weekendReminder),
+        weeklyNotificationEnabled:
+            Value<bool>(value.weeklyNotificationEnabled),
       ),
     );
   }

@@ -48,6 +48,13 @@ class UserPreferences extends Table {
   BoolColumn get weekendReminder =>
       boolean().withDefault(const Constant(false))();
 
+  /// True if the user has opted into the weekly commute summary notification.
+  ///
+  /// Default false so no notification fires until the user enables it.
+  /// Added by schema migration v1 → v2 (D-07, D-13).
+  BoolColumn get weeklyNotificationEnabled =>
+      boolean().withDefault(const Constant(false))();
+
   @override
   Set<Column<Object>> get primaryKey => {id};
 }
