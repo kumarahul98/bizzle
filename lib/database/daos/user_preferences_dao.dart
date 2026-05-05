@@ -106,6 +106,35 @@ class UserPreferencesDao extends DatabaseAccessor<AppDatabase>
     );
   }
 
+  /// Reactive stream of the user's preferences row.
+  ///
+  /// Emits [UserPreferencesValue.defaults()] when the row is absent (first
+  /// launch). Uses `watchSingleOrNull` — not `watchSingle` — because the
+  /// row is absent until the user first changes a setting (D-04 "no seed
+  /// row" contract). `watchSingle` would emit an error for a missing row;
+  /// `watchSingleOrNull` emits null which maps cleanly to defaults.
+  ///
+  /// See D-04 in `.planning/phases/07-polish-notifications/07-CONTEXT.md`.
+  Stream<UserPreferencesValue> watch() {
+    return (select(userPreferences)
+          ..where((p) => p.id.equals(_kUserPreferencesId)))
+        .watchSingleOrNull()
+        .map(
+          (row) => row == null
+              ? const UserPreferencesValue.defaults()
+              : UserPreferencesValue(
+                  userId: row.userId,
+                  darkMode: row.darkMode,
+                  morningCutoffHour: row.morningCutoffHour,
+                  eveningCutoffHour: row.eveningCutoffHour,
+                  reminderEnabled: row.reminderEnabled,
+                  reminderTime: row.reminderTime,
+                  weekendReminder: row.weekendReminder,
+                  weeklyNotificationEnabled: row.weeklyNotificationEnabled,
+                ),
+        );
+  }
+
   /// Write [value] as the single preferences row. If no row exists the
   /// first call inserts it; subsequent calls update it in place. The
   /// `id` column is forced to `_kUserPreferencesId` so there is never
