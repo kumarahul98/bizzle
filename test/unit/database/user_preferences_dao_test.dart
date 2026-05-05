@@ -89,5 +89,43 @@ void main() {
       expect(read.reminderEnabled, isFalse);
       expect(read.reminderTime, isNull);
     });
+
+    test(
+        'watch() emits UserPreferencesValue.defaults() when no row exists '
+        '(first launch)', () async {
+      final value = await db.userPreferencesDao.watch().first;
+
+      expect(value.userId, kDefaultUserId);
+      expect(value.darkMode, kDarkModeSystem);
+      expect(value.morningCutoffHour, kDefaultDirectionCutoffHour);
+      expect(value.eveningCutoffHour, kDefaultDirectionCutoffHour);
+      expect(value.reminderEnabled, isFalse);
+      expect(value.reminderTime, isNull);
+      expect(value.weekendReminder, isFalse);
+      expect(value.weeklyNotificationEnabled, isFalse);
+    });
+
+    test('watch() emits updated value after upsert()', () async {
+      const updated = UserPreferencesValue(
+        userId: kDefaultUserId,
+        darkMode: 'dark',
+        morningCutoffHour: 9,
+        eveningCutoffHour: 17,
+        reminderEnabled: true,
+        reminderTime: '08:30',
+        weekendReminder: true,
+        weeklyNotificationEnabled: true,
+      );
+
+      await db.userPreferencesDao.upsert(updated);
+      final value = await db.userPreferencesDao.watch().first;
+
+      expect(value.darkMode, 'dark');
+      expect(value.morningCutoffHour, 9);
+      expect(value.reminderEnabled, isTrue);
+      expect(value.reminderTime, '08:30');
+      expect(value.weekendReminder, isTrue);
+      expect(value.weeklyNotificationEnabled, isTrue);
+    });
   });
 }
