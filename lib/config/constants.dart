@@ -381,3 +381,140 @@ const String kTripDeletedSnackbar = 'Trip deleted';
 
 /// Snackbar message shown when a trip deletion fails (D-08).
 const String kTripDeleteErrorSnackbar = "Couldn't delete the trip. Try again.";
+
+// ---------------------------------------------------------------------------
+// Phase 7: Polish & Notifications
+// ---------------------------------------------------------------------------
+
+/// `user_preferences.dark_mode` literal: force light mode.
+///
+/// See D-03 in `.planning/phases/07-polish-notifications/07-CONTEXT.md`.
+const String kDarkModeLight = 'light';
+
+/// `user_preferences.dark_mode` literal: force dark mode.
+///
+/// See D-03 in `.planning/phases/07-polish-notifications/07-CONTEXT.md`.
+const String kDarkModeDark = 'dark';
+
+/// AppBar title for the Settings screen.
+///
+/// See D-01 in `.planning/phases/07-polish-notifications/07-CONTEXT.md`.
+const String kSettingsAppBarTitle = 'Settings';
+
+/// Tooltip for the gear IconButton in the Dashboard AppBar (D-01).
+///
+/// See D-01 in `.planning/phases/07-polish-notifications/07-CONTEXT.md`.
+const String kSettingsTooltip = 'Settings';
+
+/// Settings screen Appearance section header.
+const String kSettingsAppearanceSectionTitle = 'Appearance';
+
+/// Settings screen Notifications section header.
+const String kSettingsNotificationsSectionTitle = 'Notifications';
+
+/// RadioListTile label for the System-default dark mode option.
+const String kSettingsDarkModeSystemLabel = 'System default';
+
+/// RadioListTile label for the forced-light dark mode option.
+const String kSettingsDarkModeLightLabel = 'Light';
+
+/// RadioListTile label for the forced-dark dark mode option.
+const String kSettingsDarkModeDarkLabel = 'Dark';
+
+/// SwitchListTile title for the weekly summary notification toggle.
+///
+/// See D-07 in `.planning/phases/07-polish-notifications/07-CONTEXT.md`.
+const String kSettingsWeeklySummaryLabel = 'Weekly summary';
+
+/// SwitchListTile subtitle clarifying when the weekly summary fires.
+///
+/// See D-05 in `.planning/phases/07-polish-notifications/07-CONTEXT.md`.
+const String kSettingsWeeklySummarySubtitle = 'Every Sunday at 6 PM';
+
+/// SwitchListTile title for the daily tracking reminder toggle.
+///
+/// See D-09 in `.planning/phases/07-polish-notifications/07-CONTEXT.md`.
+const String kSettingsReminderLabel = 'Daily reminder';
+
+/// ListTile title for the reminder time picker row.
+///
+/// See D-10 in `.planning/phases/07-polish-notifications/07-CONTEXT.md`.
+const String kSettingsReminderTimeLabel = 'Reminder time';
+
+/// SwitchListTile title for the weekend reminder toggle.
+///
+/// See D-10 in `.planning/phases/07-polish-notifications/07-CONTEXT.md`.
+const String kSettingsWeekendReminderLabel = 'Include weekends';
+
+/// Error state body text shown when the userPreferenceProvider is in error.
+const String kSettingsErrorMessage = 'Could not load settings.';
+
+/// Android notification channel ID for the weekly commute summary.
+///
+/// See D-14 in `.planning/phases/07-polish-notifications/07-CONTEXT.md`.
+const String kWeeklySummaryChannelId = 'weekly_summary';
+
+/// Android notification channel display name for the weekly summary.
+const String kWeeklySummaryChannelName = 'Weekly Summary';
+
+/// Android notification channel description for the weekly summary.
+const String kWeeklySummaryChannelDescription =
+    'Weekly commute summary delivered every Sunday evening';
+
+/// Android notification channel ID for the daily commute reminder.
+///
+/// See D-14 in `.planning/phases/07-polish-notifications/07-CONTEXT.md`.
+const String kReminderChannelId = 'commute_reminder';
+
+/// Android notification channel display name for the daily reminder.
+const String kReminderChannelName = 'Commute Reminder';
+
+/// Android notification channel description for the daily reminder.
+const String kReminderChannelDescription =
+    'Daily reminder to start recording your commute';
+
+/// flutter_local_notifications ID for the weekly summary notification.
+///
+/// See D-05, D-06 in `.planning/phases/07-polish-notifications/07-CONTEXT.md`.
+const int kWeeklySummaryNotificationId = 10;
+
+/// Base flutter_local_notifications ID for the daily reminder.
+///
+/// Weekday-only mode uses IDs [kReminderNotificationId] through
+/// [kReminderNotificationId] + 4 (Mon=20, Tue=21, Wed=22, Thu=23, Fri=24).
+/// Cancel the full range 20–24 before rescheduling.
+///
+/// See D-12 in `.planning/phases/07-polish-notifications/07-CONTEXT.md`.
+const int kReminderNotificationId = 20;
+
+/// Weekly summary notification title.
+///
+/// See D-06 in `.planning/phases/07-polish-notifications/07-CONTEXT.md`.
+const String kWeeklySummaryNotificationTitle = 'Your week in commute';
+
+/// Weekly summary notification body template.
+///
+/// Replace both %s tokens at schedule time:
+/// `String.fromEnvironment` is NOT used — substitute via explicit
+/// string interpolation: `'$total total, $stuck in traffic'`.
+///
+/// See D-06 in `.planning/phases/07-polish-notifications/07-CONTEXT.md`.
+const String kWeeklySummaryNotificationBodyTemplate =
+    '%s total, %s in traffic';
+
+/// Weekly summary notification body when no trips were recorded.
+///
+/// See D-06 in `.planning/phases/07-polish-notifications/07-CONTEXT.md`.
+const String kWeeklySummaryNotificationBodyEmpty =
+    'No commutes recorded this week';
+
+/// Daily reminder notification title.
+///
+/// See D-11 in `.planning/phases/07-polish-notifications/07-CONTEXT.md`.
+const String kReminderNotificationTitle = 'Time to track your commute';
+
+/// Daily reminder notification body.
+///
+/// See D-11 in `.planning/phases/07-polish-notifications/07-CONTEXT.md`.
+const String kReminderNotificationBody =
+    'Tap to start recording your commute';

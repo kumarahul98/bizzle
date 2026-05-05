@@ -50,6 +50,7 @@ dependencies:
   # riverpod_generator agree on an analyzer major. See
   # lib/database/providers.dart for context.
   table_calendar: ^3.1.3
+  timezone: ^0.11.0
   uuid: ^4.5.3
 
 dev_dependencies:

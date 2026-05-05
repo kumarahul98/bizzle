@@ -58,6 +58,11 @@
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <!-- Android 13+ runtime permission for the foreground notification (UX-03). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- Phase 7: required for flutter_local_notifications zonedSchedule with     -->
+    <!-- AndroidScheduleMode.exactAllowWhileIdle on Android 12+ (API 31+).         -->
+    <!-- USE_EXACT_ALARM (not SCHEDULE_EXACT_ALARM) is appropriate for minSdk 34:  -->
+    <!-- no user permission dialog required; subject to Play Store review (D-08).  -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
          https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
