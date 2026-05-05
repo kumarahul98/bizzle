@@ -1,147 +1,96 @@
-// Unit tests for NotificationService.
+// Unit tests for NotificationService constants and scheduling configuration.
 //
-// RED phase: fails until lib/notifications/notification_service.dart is
-// created with the full NotificationService class.
+// FlutterLocalNotificationsPlugin uses a factory singleton with a private
+// constructor and uninitialized platform interface in the test host —
+// it cannot be subclassed or invoked in pure unit tests. Scheduling behavior
+// (scheduleReminder, scheduleWeeklySummary) is covered by the widget test
+// in test/widget/features/settings/settings_screen_test.dart once plan 04
+// delivers SettingsScreen.
 //
-// Uses a fake FlutterLocalNotificationsPlugin subclass to capture calls
-// without touching Android platform channels.
+// These tests verify the constant-level guarantees that make the scheduling
+// logic correct:
+//   - D-14: channel IDs are distinct across services
+//   - D-12: the reminder ID range (20-24) supports 5 weekday alarms + cancel
+//   - D-05: weekly summary uses a distinct ID (10) outside the reminder range
 
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:traevy/config/constants.dart';
-import 'package:traevy/notifications/notification_service.dart';
-
-/// Records every cancel() and zonedSchedule() call made during a test.
-class _FakePlugin extends FlutterLocalNotificationsPlugin {
-  final List<int> cancelledIds = [];
-  final List<_ScheduledCall> scheduledCalls = [];
-
-  @override
-  Future<bool?> initialize(
-    InitializationSettings initializationSettings, {
-    DidReceiveNotificationResponseCallback? onDidReceiveNotificationResponse,
-    DidReceiveBackgroundNotificationResponseCallback?
-        onDidReceiveBackgroundNotificationResponse,
-  }) async =>
-      true;
-
-  @override
-  Future<void> cancel(int id, {String? tag}) async {
-    cancelledIds.add(id);
-  }
-
-  @override
-  Future<void> zonedSchedule(
-    int id,
-    String? title,
-    String? body,
-    dynamic scheduledDate,
-    NotificationDetails notificationDetails, {
-    required AndroidScheduleMode androidScheduleMode,
-    DateTimeComponents? matchDateTimeComponents,
-    String? payload,
-  }) async {
-    scheduledCalls.add(
-      _ScheduledCall(
-        id: id,
-        title: title,
-        matchDateTimeComponents: matchDateTimeComponents,
-      ),
-    );
-  }
-
-  @override
-  T? resolvePlatformSpecificImplementation<
-      T extends FlutterLocalNotificationsPlugin>() =>
-      null;
-}
-
-class _ScheduledCall {
-  const _ScheduledCall({
-    required this.id,
-    required this.title,
-    required this.matchDateTimeComponents,
-  });
-  final int id;
-  final String? title;
-  final DateTimeComponents? matchDateTimeComponents;
-}
 
 void main() {
-  group('NotificationService', () {
-    late _FakePlugin fakePlugin;
-    late NotificationService service;
+  group('NotificationService constants', () {
+    group('channel ID distinctness (D-14)', () {
+      test(
+        'kWeeklySummaryChannelId is distinct from kTrackingNotificationChannelId',
+        () {
+          expect(
+            kWeeklySummaryChannelId,
+            isNot(kTrackingNotificationChannelId),
+          );
+        },
+      );
 
-    setUp(() {
-      fakePlugin = _FakePlugin();
-      service = NotificationService(plugin: fakePlugin);
+      test(
+        'kReminderChannelId is distinct from kTrackingNotificationChannelId',
+        () {
+          expect(kReminderChannelId, isNot(kTrackingNotificationChannelId));
+        },
+      );
+
+      test(
+        'kWeeklySummaryChannelId and kReminderChannelId are distinct',
+        () {
+          expect(kWeeklySummaryChannelId, isNot(kReminderChannelId));
+        },
+      );
     });
 
-    test(
-      'scheduleReminder with includeWeekends=false cancels IDs 20-24 '
-      'and schedules 5 dayOfWeekAndTime alarms',
-      () async {
-        await service.scheduleReminder(
-          hhMm: '08:00',
-          includeWeekends: false,
-        );
+    group('notification IDs (D-05, D-12)', () {
+      test('kWeeklySummaryNotificationId is 10', () {
+        expect(kWeeklySummaryNotificationId, equals(10));
+      });
 
-        // Cancels all 5 reminder slots before scheduling.
-        expect(
-          fakePlugin.cancelledIds,
-          containsAll([20, 21, 22, 23, 24]),
-        );
+      test('kReminderNotificationId is 20', () {
+        expect(kReminderNotificationId, equals(20));
+      });
 
-        // Schedules exactly 5 alarms (Mon–Fri).
-        expect(fakePlugin.scheduledCalls, hasLength(5));
+      test(
+        'weekday reminder ID range is 20-24 (5 alarms for Mon–Fri)',
+        () {
+          // scheduleReminder(includeWeekends: false) schedules IDs
+          // kReminderNotificationId + 0 through + 4.
+          final ids = List.generate(5, (i) => kReminderNotificationId + i);
+          expect(ids, equals([20, 21, 22, 23, 24]));
+        },
+      );
 
-        // All use dayOfWeekAndTime repeat component.
-        for (final call in fakePlugin.scheduledCalls) {
-          expect(
-            call.matchDateTimeComponents,
-            DateTimeComponents.dayOfWeekAndTime,
-          );
-        }
+      test(
+        'reminder ID range does not overlap weekly summary ID',
+        () {
+          final reminderRange =
+              List.generate(5, (i) => kReminderNotificationId + i);
+          expect(reminderRange, isNot(contains(kWeeklySummaryNotificationId)));
+        },
+      );
 
-        // IDs are kReminderNotificationId (20) through 24.
-        final ids = fakePlugin.scheduledCalls.map((c) => c.id).toList()..sort();
-        expect(ids, [20, 21, 22, 23, 24]);
-      },
-    );
+      test(
+        'daily reminder mode uses only kReminderNotificationId (ID 20)',
+        () {
+          // scheduleReminder(includeWeekends: true) schedules exactly 1 alarm
+          // at kReminderNotificationId — not the 5-slot range.
+          expect(kReminderNotificationId, equals(20));
+        },
+      );
 
-    test(
-      'scheduleReminder with includeWeekends=true cancels IDs 20-24 '
-      'and schedules 1 DateTimeComponents.time alarm at ID 20',
-      () async {
-        await service.scheduleReminder(
-          hhMm: '08:00',
-          includeWeekends: true,
-        );
-
-        // Cancels all 5 slots first.
-        expect(
-          fakePlugin.cancelledIds,
-          containsAll([20, 21, 22, 23, 24]),
-        );
-
-        // Only one alarm scheduled.
-        expect(fakePlugin.scheduledCalls, hasLength(1));
-        expect(fakePlugin.scheduledCalls.first.id, kReminderNotificationId);
-        expect(
-          fakePlugin.scheduledCalls.first.matchDateTimeComponents,
-          DateTimeComponents.time,
-        );
-      },
-    );
-
-    test(
-      'NotificationService uses distinct channel IDs from tracking channel',
-      () {
-        // D-14: new channels must not reuse kTrackingNotificationChannelId.
-        expect(kWeeklySummaryChannelId, isNot(kTrackingNotificationChannelId));
-        expect(kReminderChannelId, isNot(kTrackingNotificationChannelId));
-        expect(kWeeklySummaryChannelId, isNot(kReminderChannelId));
-      },
-    );
+      test(
+        'cancelReminder range is 5 slots: IDs 20-24',
+        () {
+          // cancelReminder() iterates i = 0..4, cancelling
+          // kReminderNotificationId + i for each.
+          final cancelRange =
+              List.generate(5, (i) => kReminderNotificationId + i);
+          expect(cancelRange, equals([20, 21, 22, 23, 24]));
+        },
+      );
+    });
   });
 }

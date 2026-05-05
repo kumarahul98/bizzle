@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:traevy/app.dart';
+import 'package:traevy/database/daos/user_preferences_dao.dart';
 import 'package:traevy/database/database.dart';
-import 'package:traevy/database/providers.dart';
 import 'package:traevy/database/daos/trips_dao.dart';
+import 'package:traevy/database/providers.dart';
 import 'package:traevy/features/dashboard/screens/dashboard_screen.dart';
+import 'package:traevy/features/settings/providers/settings_providers.dart';
 import 'package:traevy/features/tracking/providers/backfill_provider.dart';
 import 'package:traevy/features/tracking/providers/tracking_providers.dart';
 import 'package:traevy/features/tracking/state/tracking_state.dart';
@@ -48,6 +50,12 @@ void main() {
             // todaysTripSummariesProvider — override to avoid Drift I/O.
             allTripSummariesProvider.overrideWith(
               (ref) => const Stream<List<TripSummary>>.empty(),
+            ),
+            // TraevyApp now watches userPreferenceProvider (D-04 dynamic
+            // themeMode). Override with a completed stream so Drift's
+            // stream-close timer does not remain pending after test teardown.
+            userPreferenceProvider.overrideWith(
+              (ref) => Stream.value(const UserPreferencesValue.defaults()),
             ),
           ],
           child: const TraevyApp(),
