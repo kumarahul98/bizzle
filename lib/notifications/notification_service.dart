@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:traevy/config/constants.dart';
@@ -49,6 +50,9 @@ class NotificationService {
           includeWeekends: prefs.weekendReminder,
         );
       }
+    } on Exception catch (e, s) {
+      // Log and continue — a bad preferences row must never crash startup.
+      debugPrint('NotificationService.initialize: $e\n$s');
     } finally {
       await db.close();
     }
@@ -119,8 +123,17 @@ class NotificationService {
     }
 
     final parts = hhMm.split(':');
-    final hour = int.parse(parts[0]);
-    final minute = int.parse(parts[1]);
+    if (parts.length != 2) return; // guard malformed input
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null ||
+        minute == null ||
+        hour < 0 ||
+        hour > 23 ||
+        minute < 0 ||
+        minute > 59) {
+      return; // silently skip rather than crash
+    }
 
     if (includeWeekends) {
       // Single daily reminder — fires every day at the given time.
