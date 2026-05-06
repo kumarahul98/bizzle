@@ -62,6 +62,11 @@ class DashboardScreen extends ConsumerWidget {
             tooltip: 'Stats',
             onPressed: () => Navigator.pushNamed(context, kRouteStats),
           ),
+          IconButton(
+            icon: const Icon(Icons.settings),
+            tooltip: kSettingsTooltip,
+            onPressed: () => Navigator.pushNamed(context, kRouteSettings),
+          ),
         ],
       ),
       body: SingleChildScrollView(

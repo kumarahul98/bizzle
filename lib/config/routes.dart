@@ -1,4 +1,5 @@
 import 'package:flutter/widgets.dart';
+import 'package:traevy/features/settings/screens/settings_screen.dart';
 import 'package:traevy/features/stats/screens/stats_screen.dart';
 import 'package:traevy/features/tracking/screens/tracking_screen.dart';
 import 'package:traevy/features/trips/screens/history_screen.dart';
@@ -33,6 +34,7 @@ final Map<String, WidgetBuilder> kAppRoutes = <String, WidgetBuilder>{
   kRouteTracking: (BuildContext context) => const TrackingScreen(),
   kRouteHistory: (BuildContext context) => const HistoryScreen(),
   kRouteStats: (BuildContext context) => const StatsScreen(),
+  kRouteSettings: (BuildContext context) => const SettingsScreen(),
   kRouteTripDetail: (BuildContext context) {
     final tripId = ModalRoute.of(context)!.settings.arguments! as String;
     return TripDetailScreen(tripId: tripId);

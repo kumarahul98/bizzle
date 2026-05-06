@@ -14,10 +14,43 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/config/routes.dart';
+import 'package:traevy/database/daos/trips_dao.dart';
 import 'package:traevy/database/daos/user_preferences_dao.dart';
 import 'package:traevy/features/dashboard/screens/dashboard_screen.dart';
 import 'package:traevy/features/settings/providers/settings_providers.dart';
 import 'package:traevy/features/settings/screens/settings_screen.dart';
+import 'package:traevy/features/stats/providers/stats_providers.dart';
+import 'package:traevy/features/stats/services/stats_service.dart';
+import 'package:traevy/features/tracking/providers/tracking_providers.dart';
+import 'package:traevy/features/tracking/state/tracking_state.dart';
+import 'package:traevy/features/trips/providers/history_providers.dart';
+
+// ---------------------------------------------------------------------------
+// Fakes
+// ---------------------------------------------------------------------------
+
+/// Minimal no-op TrackingNotifier for widget tests.
+///
+/// The real notifier wires flutter_background_service streams that crash on
+/// the test host; this subclass short-circuits build() to avoid that.
+class _IdleTrackingNotifier extends TrackingNotifier {
+  @override
+  TrackingState build() => const TrackingIdle();
+}
+
+StatsSummary _makeStatsSummary() => const StatsSummary(
+      weekTotalSeconds: 0,
+      weekStuckSeconds: 0,
+      monthTotalSeconds: 0,
+      toOfficeAvgSeconds: null,
+      toHomeAvgSeconds: null,
+      weekdayAverages: <int?>[null, null, null, null, null, null, null],
+      dailyTotalsLast28Days: <int>[
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      ],
+      hasAnyTrips: false,
+    );
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -32,7 +65,7 @@ Future<void> _pumpSettingsScreen(
 }) async {
   await tester.pumpWidget(
     ProviderScope(
-      overrides: <Override>[
+      overrides: [
         userPreferenceProvider.overrideWith(
           (ref) => Stream<UserPreferencesValue>.value(prefs),
         ),
@@ -46,10 +79,25 @@ Future<void> _pumpSettingsScreen(
 }
 
 /// Pump a [DashboardScreen] with routes wired so gear icon navigation works.
+///
+/// Overrides all providers that touch platform plugins or real Drift I/O so
+/// the test isolate does not crash on the non-Android host.
 Future<void> _pumpDashboardWithRoutes(WidgetTester tester) async {
   await tester.pumpWidget(
     ProviderScope(
-      overrides: <Override>[
+      overrides: [
+        // Prevent flutter_background_service crash on test host.
+        trackingStateProvider.overrideWith(_IdleTrackingNotifier.new),
+        // Avoid real Drift I/O for trip list.
+        allTripSummariesProvider.overrideWith(
+          (ref) => Stream<List<TripSummary>>.value(const <TripSummary>[]),
+        ),
+        // Avoid real stats computation.
+        statsSummaryProvider.overrideWith(
+          (ref) => AsyncValue<StatsSummary>.data(_makeStatsSummary()),
+        ),
+        // Provide user preferences for the dynamic themeMode in TraevyApp
+        // and for SettingsScreen after navigation.
         userPreferenceProvider.overrideWith(
           (ref) => Stream<UserPreferencesValue>.value(
             const UserPreferencesValue.defaults(),
