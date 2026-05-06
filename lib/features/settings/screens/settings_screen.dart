@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/daos/user_preferences_dao.dart';
-import 'package:traevy/database/database.dart';
 import 'package:traevy/database/providers.dart';
 import 'package:traevy/features/settings/providers/settings_providers.dart';
 import 'package:traevy/notifications/notification_service.dart';
@@ -267,12 +266,9 @@ Future<void> _toggleWeeklySummary(
       .upsert(_copyPrefs(prefs, weeklyNotificationEnabled: value));
   final service = NotificationService();
   if (value) {
-    final db = AppDatabase();
-    try {
-      await service.scheduleWeeklySummary(db);
-    } finally {
-      await db.close();
-    }
+    // Use the Riverpod-managed DB instance — no second connection opened.
+    final db = ref.read(appDatabaseProvider);
+    await service.scheduleWeeklySummary(db);
   } else {
     await service.cancelWeeklySummary();
   }
