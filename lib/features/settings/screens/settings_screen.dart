@@ -75,6 +75,31 @@ Widget _sectionHeader(BuildContext context, String label) {
   );
 }
 
+/// Build a copy of [prefs] with every field explicit, with named params
+/// overriding specific fields.
+///
+/// All upsert callers pass every field to prevent accidental zeroing
+/// (T-07-04-01 mitigation). This helper centralises the copy pattern.
+UserPreferencesValue _copyPrefs(
+  UserPreferencesValue prefs, {
+  String? darkMode,
+  bool? reminderEnabled,
+  String? reminderTime,
+  bool? weekendReminder,
+  bool? weeklyNotificationEnabled,
+}) =>
+    UserPreferencesValue(
+      userId: prefs.userId,
+      darkMode: darkMode ?? prefs.darkMode,
+      morningCutoffHour: prefs.morningCutoffHour,
+      eveningCutoffHour: prefs.eveningCutoffHour,
+      reminderEnabled: reminderEnabled ?? prefs.reminderEnabled,
+      reminderTime: reminderTime ?? prefs.reminderTime,
+      weekendReminder: weekendReminder ?? prefs.weekendReminder,
+      weeklyNotificationEnabled:
+          weeklyNotificationEnabled ?? prefs.weeklyNotificationEnabled,
+    );
+
 /// Appearance section: 3 RadioListTile rows for System/Light/Dark theme.
 ///
 /// Tapping a row calls UserPreferencesDao.upsert immediately — theme
@@ -94,7 +119,13 @@ class _AppearanceSection extends StatelessWidget {
     return RadioGroup<String>(
       groupValue: prefs.darkMode,
       onChanged: (value) {
-        if (value != null) unawaited(_setDarkMode(value));
+        if (value != null) {
+          unawaited(
+            ref.read(userPreferencesDaoProvider).upsert(
+                  _copyPrefs(prefs, darkMode: value),
+                ),
+          );
+        }
       },
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -116,21 +147,6 @@ class _AppearanceSection extends StatelessWidget {
       ),
     );
   }
-
-  Future<void> _setDarkMode(String value) {
-    return ref.read(userPreferencesDaoProvider).upsert(
-          UserPreferencesValue(
-            userId: prefs.userId,
-            darkMode: value,
-            morningCutoffHour: prefs.morningCutoffHour,
-            eveningCutoffHour: prefs.eveningCutoffHour,
-            reminderEnabled: prefs.reminderEnabled,
-            reminderTime: prefs.reminderTime,
-            weekendReminder: prefs.weekendReminder,
-            weeklyNotificationEnabled: prefs.weeklyNotificationEnabled,
-          ),
-        );
-  }
 }
 
 /// Notifications section: weekly summary toggle + reminder subsection.
@@ -138,10 +154,7 @@ class _AppearanceSection extends StatelessWidget {
 /// Weekly summary toggle (D-07): schedules Sunday 6pm notification via
 /// NotificationService.scheduleWeeklySummary on enable.
 ///
-/// Reminder subsection (D-10): SwitchListTile enable/disable, time picker
-/// ListTile (tap → showTimePicker), weekend SwitchListTile. Time row and
-/// weekend toggle use AnimatedOpacity (0.38 disabled, 1.0 enabled, 200ms)
-/// and enabled: reminderEnabled so they are non-interactive when off.
+/// Reminder subsection (D-10): delegated to [_ReminderRows].
 class _NotificationsSection extends StatelessWidget {
   const _NotificationsSection({required this.prefs, required this.ref});
 
@@ -153,8 +166,6 @@ class _NotificationsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final formattedTime = _formattedReminderTime();
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -164,168 +175,167 @@ class _NotificationsSection extends StatelessWidget {
           subtitle: const Text(kSettingsWeeklySummarySubtitle),
           value: prefs.weeklyNotificationEnabled,
           onChanged: (value) =>
-              _toggleWeeklySummary(ref.read(userPreferencesDaoProvider), value),
+              unawaited(_toggleWeeklySummary(ref, prefs, value)),
         ),
         const Divider(indent: 16, endIndent: 16),
         SwitchListTile(
           title: const Text(kSettingsReminderLabel),
           value: prefs.reminderEnabled,
           onChanged: (value) =>
-              _toggleReminder(ref.read(userPreferencesDaoProvider), value),
+              unawaited(_toggleReminder(ref, prefs, value)),
         ),
+        _ReminderRows(prefs: prefs, ref: ref),
+      ],
+    );
+  }
+}
+
+/// Reminder time row and weekend toggle, with AnimatedOpacity transitions.
+///
+/// Both rows remain in the widget tree (no Visibility) so layout height
+/// stays consistent when reminder is toggled on/off (D-10 UI-SPEC).
+/// Opacity 0.38 matches Material 3 disabled-state spec.
+class _ReminderRows extends StatelessWidget {
+  const _ReminderRows({required this.prefs, required this.ref});
+
+  /// Current user preferences.
+  final UserPreferencesValue prefs;
+
+  /// Riverpod ref from the parent ConsumerWidget.
+  final WidgetRef ref;
+
+  @override
+  Widget build(BuildContext context) {
+    final formattedTime = _formatReminderTime(prefs.reminderTime);
+    final enabled = prefs.reminderEnabled;
+    return Column(
+      children: <Widget>[
         AnimatedOpacity(
-          opacity: prefs.reminderEnabled ? _kEnabledOpacity : _kDisabledOpacity,
+          opacity: enabled ? _kEnabledOpacity : _kDisabledOpacity,
           duration: _kOpacityDuration,
           child: Semantics(
-            label: prefs.reminderEnabled
+            label: enabled
                 ? 'Reminder time, currently $formattedTime, tap to change'
                 : 'Reminder time, disabled',
-            excludeSemantics: !prefs.reminderEnabled,
+            excludeSemantics: !enabled,
             child: ListTile(
               leading: const Icon(Icons.access_time),
               title: const Text(kSettingsReminderTimeLabel),
               subtitle: Text(formattedTime),
-              enabled: prefs.reminderEnabled,
-              onTap: () => _pickTime(
-                context,
-                ref.read(userPreferencesDaoProvider),
-              ),
+              enabled: enabled,
+              onTap: () => unawaited(_pickTime(context, ref, prefs)),
             ),
           ),
         ),
         AnimatedOpacity(
-          opacity: prefs.reminderEnabled ? _kEnabledOpacity : _kDisabledOpacity,
+          opacity: enabled ? _kEnabledOpacity : _kDisabledOpacity,
           duration: _kOpacityDuration,
           child: SwitchListTile(
             title: const Text(kSettingsWeekendReminderLabel),
             value: prefs.weekendReminder,
-            onChanged: prefs.reminderEnabled
-                ? (value) => _toggleWeekend(
-                      ref.read(userPreferencesDaoProvider),
-                      value,
-                    )
+            onChanged: enabled
+                ? (value) => unawaited(_toggleWeekend(ref, prefs, value))
                 : null,
           ),
         ),
       ],
     );
   }
+}
 
-  /// Format the stored HH:mm string for display (e.g., '08:00' → '8:00 AM').
-  String _formattedReminderTime() {
-    final time = prefs.reminderTime;
-    if (time == null) return '—';
+// ---------------------------------------------------------------------------
+// Action helpers (top-level so they are shared without subclassing)
+// ---------------------------------------------------------------------------
+
+/// Format HH:mm string for display (e.g., '08:00' → '8:00 AM').
+String _formatReminderTime(String? time) {
+  if (time == null) return '—';
+  try {
+    return DateFormat.jm().format(DateFormat('HH:mm').parse(time));
+  } on FormatException {
+    return time;
+  }
+}
+
+Future<void> _toggleWeeklySummary(
+  WidgetRef ref,
+  UserPreferencesValue prefs,
+  bool value,
+) async {
+  await ref
+      .read(userPreferencesDaoProvider)
+      .upsert(_copyPrefs(prefs, weeklyNotificationEnabled: value));
+  final service = NotificationService();
+  if (value) {
+    final db = AppDatabase();
     try {
-      return DateFormat.jm().format(DateFormat('HH:mm').parse(time));
-    } on FormatException {
-      return time;
+      await service.scheduleWeeklySummary(db);
+    } finally {
+      await db.close();
     }
+  } else {
+    await service.cancelWeeklySummary();
   }
+}
 
-  Future<void> _toggleWeeklySummary(
-    UserPreferencesDao dao,
-    bool value,
-  ) async {
-    await dao.upsert(
-      UserPreferencesValue(
-        userId: prefs.userId,
-        darkMode: prefs.darkMode,
-        morningCutoffHour: prefs.morningCutoffHour,
-        eveningCutoffHour: prefs.eveningCutoffHour,
-        reminderEnabled: prefs.reminderEnabled,
-        reminderTime: prefs.reminderTime,
-        weekendReminder: prefs.weekendReminder,
-        weeklyNotificationEnabled: value,
-      ),
-    );
-    final service = NotificationService();
-    if (value) {
-      final db = AppDatabase();
-      try {
-        await service.scheduleWeeklySummary(db);
-      } finally {
-        await db.close();
-      }
-    } else {
-      await service.cancelWeeklySummary();
-    }
-  }
-
-  Future<void> _toggleReminder(UserPreferencesDao dao, bool value) async {
-    await dao.upsert(
-      UserPreferencesValue(
-        userId: prefs.userId,
-        darkMode: prefs.darkMode,
-        morningCutoffHour: prefs.morningCutoffHour,
-        eveningCutoffHour: prefs.eveningCutoffHour,
-        reminderEnabled: value,
-        reminderTime: prefs.reminderTime,
-        weekendReminder: prefs.weekendReminder,
-        weeklyNotificationEnabled: prefs.weeklyNotificationEnabled,
-      ),
-    );
-    final service = NotificationService();
-    if (value && prefs.reminderTime != null) {
-      await service.scheduleReminder(
-        hhMm: prefs.reminderTime!,
-        includeWeekends: prefs.weekendReminder,
-      );
-    } else {
-      await service.cancelReminder();
-    }
-  }
-
-  Future<void> _pickTime(BuildContext context, UserPreferencesDao dao) async {
-    final parts = (prefs.reminderTime ?? '08:00').split(':');
-    final initial = TimeOfDay(
-      hour: int.tryParse(parts[0]) ?? 8,
-      minute: int.tryParse(parts[1]) ?? 0,
-    );
-    if (!context.mounted) return;
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: initial,
-    );
-    if (picked == null) return;
-    final hhMm =
-        '${picked.hour.toString().padLeft(2, '0')}:'
-        '${picked.minute.toString().padLeft(2, '0')}';
-    await dao.upsert(
-      UserPreferencesValue(
-        userId: prefs.userId,
-        darkMode: prefs.darkMode,
-        morningCutoffHour: prefs.morningCutoffHour,
-        eveningCutoffHour: prefs.eveningCutoffHour,
-        reminderEnabled: prefs.reminderEnabled,
-        reminderTime: hhMm,
-        weekendReminder: prefs.weekendReminder,
-        weeklyNotificationEnabled: prefs.weeklyNotificationEnabled,
-      ),
-    );
-    if (!prefs.reminderEnabled) return;
-    await NotificationService().scheduleReminder(
-      hhMm: hhMm,
+Future<void> _toggleReminder(
+  WidgetRef ref,
+  UserPreferencesValue prefs,
+  bool value,
+) async {
+  await ref
+      .read(userPreferencesDaoProvider)
+      .upsert(_copyPrefs(prefs, reminderEnabled: value));
+  final service = NotificationService();
+  if (value && prefs.reminderTime != null) {
+    await service.scheduleReminder(
+      hhMm: prefs.reminderTime!,
       includeWeekends: prefs.weekendReminder,
     );
+  } else {
+    await service.cancelReminder();
   }
+}
 
-  Future<void> _toggleWeekend(UserPreferencesDao dao, bool value) async {
-    await dao.upsert(
-      UserPreferencesValue(
-        userId: prefs.userId,
-        darkMode: prefs.darkMode,
-        morningCutoffHour: prefs.morningCutoffHour,
-        eveningCutoffHour: prefs.eveningCutoffHour,
-        reminderEnabled: prefs.reminderEnabled,
-        reminderTime: prefs.reminderTime,
-        weekendReminder: value,
-        weeklyNotificationEnabled: prefs.weeklyNotificationEnabled,
-      ),
-    );
-    if (!prefs.reminderEnabled || prefs.reminderTime == null) return;
-    await NotificationService().scheduleReminder(
-      hhMm: prefs.reminderTime!,
-      includeWeekends: value,
-    );
-  }
+Future<void> _pickTime(
+  BuildContext context,
+  WidgetRef ref,
+  UserPreferencesValue prefs,
+) async {
+  final parts = (prefs.reminderTime ?? '08:00').split(':');
+  final initial = TimeOfDay(
+    hour: int.tryParse(parts[0]) ?? 8,
+    minute: int.tryParse(parts[1]) ?? 0,
+  );
+  if (!context.mounted) return;
+  final picked = await showTimePicker(
+    context: context,
+    initialTime: initial,
+  );
+  if (picked == null) return;
+  final hhMm = '${picked.hour.toString().padLeft(2, '0')}:'
+      '${picked.minute.toString().padLeft(2, '0')}';
+  await ref
+      .read(userPreferencesDaoProvider)
+      .upsert(_copyPrefs(prefs, reminderTime: hhMm));
+  if (!prefs.reminderEnabled) return;
+  await NotificationService().scheduleReminder(
+    hhMm: hhMm,
+    includeWeekends: prefs.weekendReminder,
+  );
+}
+
+Future<void> _toggleWeekend(
+  WidgetRef ref,
+  UserPreferencesValue prefs,
+  bool value,
+) async {
+  await ref
+      .read(userPreferencesDaoProvider)
+      .upsert(_copyPrefs(prefs, weekendReminder: value));
+  if (!prefs.reminderEnabled || prefs.reminderTime == null) return;
+  await NotificationService().scheduleReminder(
+    hhMm: prefs.reminderTime!,
+    includeWeekends: value,
+  );
 }
