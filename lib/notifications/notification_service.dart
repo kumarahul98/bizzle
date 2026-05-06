@@ -42,7 +42,9 @@ class NotificationService {
     try {
       final prefs = await db.userPreferencesDao.getOrDefault();
       if (prefs.weeklyNotificationEnabled) {
-        await _scheduleWeeklySummaryFromDb(db);
+        // Reuse the public method so there is one canonical scheduling path.
+        // Body is built from current DB data on every app start (WR-01).
+        await scheduleWeeklySummary(db);
       }
       if (prefs.reminderEnabled && prefs.reminderTime != null) {
         await scheduleReminder(
@@ -229,27 +231,6 @@ class NotificationService {
     }
     return '${formatDuration(weekTotalSeconds)} total, '
         '${formatDuration(weekStuckSeconds)} in traffic';
-  }
-
-  /// Schedule weekly summary using the temporary DB instance in [initialize].
-  Future<void> _scheduleWeeklySummaryFromDb(AppDatabase db) async {
-    await cancelWeeklySummary();
-    final body = await _buildWeeklyBody(db);
-    await _plugin.zonedSchedule(
-      id: kWeeklySummaryNotificationId,
-      title: kWeeklySummaryNotificationTitle,
-      body: body,
-      scheduledDate: _nextSunday6pm(),
-      notificationDetails: const NotificationDetails(
-        android: AndroidNotificationDetails(
-          kWeeklySummaryChannelId,
-          kWeeklySummaryChannelName,
-          channelDescription: kWeeklySummaryChannelDescription,
-        ),
-      ),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
-    );
   }
 
   NotificationDetails _reminderDetails() => const NotificationDetails(
