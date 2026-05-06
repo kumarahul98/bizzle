@@ -18,7 +18,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 4: Trip History** - Daily log, calendar view, and route map detail
 - [ ] **Phase 5: Stats & Analytics** - Commute stats, traffic totals, trends, and charts
 - [x] **Phase 6: Dashboard** - Home screen with today's trips and weekly summary ✓ 2026-04-28
-- [ ] **Phase 7: Polish & Notifications** - Dark mode, tracking reminders, and summary notifications
+- [x] **Phase 7: Polish & Notifications** - Dark mode, tracking reminders, and summary notifications ✓ 2026-04-28
 - [ ] **Phase 8: Authentication** - Google Sign-In with Cognito federation and onboarding flow
 - [ ] **Phase 9: Backend Infrastructure** - AWS SAM stack with Lambda endpoints and DynamoDB
 - [ ] **Phase 10: Sync Engine** - One-way sync queue and cloud restore flow
@@ -147,10 +147,10 @@ Plans:
 **UI hint**: yes
 
 Plans:
-- [ ] 07-01-PLAN.md — Phase 7 constants (kDarkModeLight, kDarkModeDark, all notification constants) + Drift schema v2 migration (weeklyNotificationEnabled) + AndroidManifest USE_EXACT_ALARM + timezone dep
-- [ ] 07-02-PLAN.md — Wave 0 test scaffold: settings_screen_test.dart (RadioListTile rows, gear icon navigation, reminder visibility)
-- [ ] 07-03-PLAN.md — UserPreferencesDao.watch() + userPreferenceProvider StreamProvider + NotificationService (zonedSchedule) + TraevyApp dynamic themeMode + main.dart bootstrap
-- [ ] 07-04-PLAN.md — SettingsScreen (Appearance + Notifications sections) + Dashboard gear icon + routes wiring + ManualEntrySheet bug fix (traffic/distance fields) + stats_service exclusion fix
+- [x] 07-01-PLAN.md — Phase 7 constants (kDarkModeLight, kDarkModeDark, all notification constants) + Drift schema v2 migration (weeklyNotificationEnabled) + AndroidManifest USE_EXACT_ALARM + timezone dep
+- [x] 07-02-PLAN.md — Wave 0 test scaffold: settings_screen_test.dart (RadioListTile rows, gear icon navigation, reminder visibility)
+- [x] 07-03-PLAN.md — UserPreferencesDao.watch() + userPreferenceProvider StreamProvider + NotificationService (zonedSchedule) + TraevyApp dynamic themeMode + main.dart bootstrap
+- [x] 07-04-PLAN.md — SettingsScreen (Appearance + Notifications sections) + Dashboard gear icon + routes wiring + ManualEntrySheet bug fix (traffic/distance fields) + stats_service exclusion fix
 
 ### Phase 8: Authentication
 **Goal**: Users can sign in with Google, exchange tokens with Cognito, and have their identity linked to existing local trip data
