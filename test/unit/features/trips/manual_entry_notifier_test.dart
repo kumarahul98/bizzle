@@ -81,7 +81,8 @@ void main() {
         expect(summaries, hasLength(1));
         expect(summaries.single.isManualEntry, isTrue);
         expect(summaries.single.distanceMeters, 0.0);
-        expect(summaries.single.timeMovingSeconds, 0);
+        // When no traffic time provided, timeMovingSeconds = durationSeconds
+        expect(summaries.single.timeMovingSeconds, 2700); // 45 min
         expect(summaries.single.timeStuckSeconds, 0);
       },
     );

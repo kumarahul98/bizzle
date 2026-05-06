@@ -175,14 +175,15 @@ class _ManualEntrySheetState extends ConsumerState<ManualEntrySheet> {
     final durationText = _durationController.text;
     final isFormValid = parseHhMm(durationText) != null;
 
-    return Padding(
-      padding: EdgeInsets.only(
-        left: _kFieldGap,
-        right: _kFieldGap,
-        bottom: MediaQuery.of(context).viewInsets.bottom + _kFieldGap,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+    return SingleChildScrollView(
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: _kFieldGap,
+          right: _kFieldGap,
+          bottom: MediaQuery.of(context).viewInsets.bottom + _kFieldGap,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           const SizedBox(height: _kSectionGap),
@@ -305,6 +306,7 @@ class _ManualEntrySheetState extends ConsumerState<ManualEntrySheet> {
           const SizedBox(height: _kFieldGap),
         ],
       ),
+    ),
     );
   }
 }
