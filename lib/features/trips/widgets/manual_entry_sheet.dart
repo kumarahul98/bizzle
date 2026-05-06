@@ -27,9 +27,13 @@ String _toConstant(_TripDirection d) =>
 ///
 /// D-09: invoked from the home screen FAB via [showModalBottomSheet]
 /// (not a named route).
-/// D-10: saved with isManualEntry=true, distanceMeters=0, timeMovingSeconds=0,
-///       timeStuckSeconds=0, routePolyline=''.
+/// D-10: saved with isManualEntry=true, routePolyline=''.
 /// D-11: HH:MM validation via parseHhMm; Save is disabled until valid.
+///
+/// Optional fields: "Time in traffic (HH:MM)" and "Distance (km)".
+/// When left blank both default to 0. When filled, they are passed to
+/// [TripManagementNotifier.insertManualTrip] so the stats service can
+/// include the manual trip's traffic data.
 class ManualEntrySheet extends ConsumerStatefulWidget {
   /// Create the manual entry sheet.
   const ManualEntrySheet({super.key});
@@ -41,7 +45,10 @@ class ManualEntrySheet extends ConsumerStatefulWidget {
 class _ManualEntrySheetState extends ConsumerState<ManualEntrySheet> {
   DateTime _selectedDate = DateTime.now();
   final TextEditingController _durationController = TextEditingController();
+  final TextEditingController _trafficController = TextEditingController();
+  final TextEditingController _distanceController = TextEditingController();
   String? _durationError;
+  String? _trafficError;
   late _TripDirection _direction;
 
   @override
@@ -62,6 +69,8 @@ class _ManualEntrySheetState extends ConsumerState<ManualEntrySheet> {
   @override
   void dispose() {
     _durationController.dispose();
+    _trafficController.dispose();
+    _distanceController.dispose();
     super.dispose();
   }
 
@@ -89,12 +98,42 @@ class _ManualEntrySheetState extends ConsumerState<ManualEntrySheet> {
     });
   }
 
+  /// Validate the optional traffic field (blank is valid; non-blank must
+  /// be a parseable HH:MM duration).
+  void _validateTraffic(String value) {
+    if (value.trim().isEmpty) {
+      setState(() => _trafficError = null);
+      return;
+    }
+    final result = parseHhMm(value);
+    setState(() {
+      _trafficError =
+          result == null ? 'Use HH:MM format (e.g. 0:15).' : null;
+    });
+  }
+
   Future<void> _save() async {
     final duration = parseHhMm(_durationController.text);
     if (duration == null) {
       _validateDuration(_durationController.text);
       return;
     }
+
+    // Parse optional traffic field.
+    final trafficText = _trafficController.text.trim();
+    final trafficDuration = trafficText.isEmpty ? null : parseHhMm(trafficText);
+    if (trafficText.isNotEmpty && trafficDuration == null) {
+      _validateTraffic(trafficText);
+      return;
+    }
+    final timeStuckSeconds = trafficDuration?.inSeconds ?? 0;
+
+    // Parse optional distance field.
+    final distanceText = _distanceController.text.trim();
+    final distanceKm =
+        distanceText.isEmpty ? 0.0 : (double.tryParse(distanceText) ?? 0.0);
+    final distanceMeters = distanceKm * 1000;
+
     // Pitfall 6: build local midnight then convert to UTC.
     final startUtc = DateTime(
       _selectedDate.year,
@@ -103,12 +142,12 @@ class _ManualEntrySheetState extends ConsumerState<ManualEntrySheet> {
     ).toUtc();
     final endUtc = startUtc.add(duration);
 
-    await ref
-        .read(tripManagementProvider.notifier)
-        .insertManualTrip(
+    await ref.read(tripManagementProvider.notifier).insertManualTrip(
           startTimeUtc: startUtc,
           endTimeUtc: endUtc,
           direction: _toConstant(_direction),
+          timeStuckSeconds: timeStuckSeconds,
+          distanceMeters: distanceMeters,
         );
     if (!mounted) return; // Pitfall 1
     final state = ref.read(tripManagementProvider);
@@ -149,6 +188,7 @@ class _ManualEntrySheetState extends ConsumerState<ManualEntrySheet> {
           const SizedBox(height: _kSectionGap),
           Text('Add missed commute', style: textTheme.titleLarge),
           const SizedBox(height: _kFieldGap),
+          // Date field
           Text('Date', style: textTheme.labelLarge),
           const SizedBox(height: _kLabelGap),
           OutlinedButton.icon(
@@ -157,6 +197,7 @@ class _ManualEntrySheetState extends ConsumerState<ManualEntrySheet> {
             label: Text(dateFormat.format(_selectedDate)),
           ),
           const SizedBox(height: _kFieldGap),
+          // Duration field (required)
           Text('Duration (HH:MM)', style: textTheme.labelLarge),
           const SizedBox(height: _kLabelGap),
           TextField(
@@ -176,6 +217,48 @@ class _ManualEntrySheetState extends ConsumerState<ManualEntrySheet> {
             onChanged: _validateDuration,
           ),
           const SizedBox(height: _kFieldGap),
+          // Traffic field (optional)
+          Text(
+            'Time in traffic (optional, HH:MM)',
+            style: textTheme.labelLarge,
+          ),
+          const SizedBox(height: _kLabelGap),
+          TextField(
+            controller: _trafficController,
+            enabled: !isSaving,
+            keyboardType: TextInputType.datetime,
+            inputFormatters: <TextInputFormatter>[
+              FilteringTextInputFormatter.allow(RegExp('[0-9:]')),
+            ],
+            maxLength: 5,
+            decoration: InputDecoration(
+              hintText: '0:15',
+              filled: true,
+              errorText: _trafficError,
+              counterText: '',
+            ),
+            onChanged: _validateTraffic,
+          ),
+          const SizedBox(height: _kFieldGap),
+          // Distance field (optional)
+          Text('Distance (optional, km)', style: textTheme.labelLarge),
+          const SizedBox(height: _kLabelGap),
+          TextField(
+            controller: _distanceController,
+            enabled: !isSaving,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: <TextInputFormatter>[
+              FilteringTextInputFormatter.allow(RegExp('[0-9.]')),
+            ],
+            maxLength: 6,
+            decoration: const InputDecoration(
+              hintText: '12.5',
+              filled: true,
+              counterText: '',
+            ),
+          ),
+          const SizedBox(height: _kFieldGap),
+          // Direction field
           Text('Direction', style: textTheme.labelLarge),
           const SizedBox(height: _kLabelGap),
           SegmentedButton<_TripDirection>(

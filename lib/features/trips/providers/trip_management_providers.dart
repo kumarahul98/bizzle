@@ -114,19 +114,24 @@ class TripManagementNotifier extends Notifier<TripManagementState> {
 
   /// Insert a manually entered trip (no GPS data).
   ///
-  /// D-10: the trip is saved with `isManualEntry`=true,
-  /// `routePolyline`='' (empty string), `distanceMeters`=0.0,
-  /// `timeMovingSeconds`=0, `timeStuckSeconds`=0.
+  /// D-10: the trip is saved with `isManualEntry`=true and
+  /// `routePolyline`='' (empty string). [timeStuckSeconds] and
+  /// [distanceMeters] default to 0 when the user left those fields blank.
   ///
   /// [startTimeUtc] MUST be UTC midnight of the chosen local date:
   /// `DateTime(year, month, day).toUtc()` — Pitfall 6 mitigation.
   /// [endTimeUtc] = startTimeUtc + duration.
   /// [direction] is pre-computed by the sheet using
   /// `DirectionLabelService`.
+  ///
+  /// [timeStuckSeconds] is clamped to the range [0, durationSeconds] to
+  /// prevent impossible values. [distanceMeters] is clamped to ≥ 0.
   Future<void> insertManualTrip({
     required DateTime startTimeUtc,
     required DateTime endTimeUtc,
     required String direction,
+    int timeStuckSeconds = 0,
+    double distanceMeters = 0,
   }) async {
     state = const TripManagementSaving();
     try {
@@ -134,18 +139,22 @@ class TripManagementNotifier extends Notifier<TripManagementState> {
       final tripsDao = ref.read(tripsDaoProvider);
       final syncDao = ref.read(syncQueueDaoProvider);
       final tripId = const Uuid().v4();
+      final durationSeconds = endTimeUtc.difference(startTimeUtc).inSeconds;
+      // Clamp inputs to valid ranges (T-07-04-03 / T-07-04-04 mitigations).
+      final clampedStuck = timeStuckSeconds.clamp(0, durationSeconds);
+      final clampedDistance = distanceMeters < 0 ? 0.0 : distanceMeters;
       await db.transaction(() async {
         await tripsDao.insertTrip(
           TripsCompanion.insert(
             id: tripId,
             startTime: startTimeUtc,
             endTime: endTimeUtc,
-            durationSeconds: endTimeUtc.difference(startTimeUtc).inSeconds,
-            distanceMeters: 0,
+            durationSeconds: durationSeconds,
+            distanceMeters: clampedDistance,
             routePolyline: const Value(''),
             direction: direction,
-            timeMovingSeconds: 0,
-            timeStuckSeconds: 0,
+            timeMovingSeconds: durationSeconds - clampedStuck,
+            timeStuckSeconds: clampedStuck,
             isManualEntry: const Value(true),
           ),
         );

@@ -120,8 +120,14 @@ StatsSummary computeStatsSummary(List<TripSummary> trips, DateTime now) {
     // Week (D-03) — STAT-01 weekly + STAT-05 traffic waste accumulators.
     if (!local.isBefore(weekStart) && local.isBefore(weekEnd)) {
       weekTotalSeconds += trip.durationSeconds;
-      // D-05: manual entries excluded ONLY from traffic waste.
-      if (!trip.isManualEntry) {
+      // D-05 (refined): exclude manual trips from traffic waste ONLY when
+      // the user left both traffic and distance fields blank (both zero).
+      // Manual trips where the user entered traffic or distance data are
+      // included so their real-world commute time registers in the stats.
+      final isBlankManualEntry = trip.isManualEntry &&
+          trip.timeStuckSeconds == 0 &&
+          trip.distanceMeters == 0;
+      if (!isBlankManualEntry) {
         weekStuckSeconds += trip.timeStuckSeconds;
       }
     }
