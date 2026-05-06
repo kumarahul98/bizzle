@@ -79,11 +79,16 @@ Widget _sectionHeader(BuildContext context, String label) {
 ///
 /// All upsert callers pass every field to prevent accidental zeroing
 /// (T-07-04-01 mitigation). This helper centralises the copy pattern.
+///
+/// [reminderTime] supports three states:
+///   - omitted (default [_UnsetSentinel]): keep [prefs.reminderTime] unchanged.
+///   - non-null String: set to that value.
+///   - explicit `null`: clear the field to null.
 UserPreferencesValue _copyPrefs(
   UserPreferencesValue prefs, {
   String? darkMode,
   bool? reminderEnabled,
-  String? reminderTime,
+  Object? reminderTime = const _UnsetSentinel(),
   bool? weekendReminder,
   bool? weeklyNotificationEnabled,
 }) =>
@@ -93,11 +98,21 @@ UserPreferencesValue _copyPrefs(
       morningCutoffHour: prefs.morningCutoffHour,
       eveningCutoffHour: prefs.eveningCutoffHour,
       reminderEnabled: reminderEnabled ?? prefs.reminderEnabled,
-      reminderTime: reminderTime ?? prefs.reminderTime,
+      reminderTime: reminderTime is _UnsetSentinel
+          ? prefs.reminderTime
+          : reminderTime as String?,
       weekendReminder: weekendReminder ?? prefs.weekendReminder,
       weeklyNotificationEnabled:
           weeklyNotificationEnabled ?? prefs.weeklyNotificationEnabled,
     );
+
+/// Private sentinel type used as default value for [_copyPrefs] reminderTime.
+///
+/// Using a dedicated type (rather than a bare Object instance) makes
+/// `identical` checks unnecessary and allows a clean `is` type test.
+class _UnsetSentinel {
+  const _UnsetSentinel();
+}
 
 /// Appearance section: 3 RadioListTile rows for System/Light/Dark theme.
 ///
