@@ -303,11 +303,11 @@ Future<void> _pickTime(
     hour: int.tryParse(parts[0]) ?? 8,
     minute: int.tryParse(parts[1]) ?? 0,
   );
-  if (!context.mounted) return;
   final picked = await showTimePicker(
     context: context,
     initialTime: initial,
   );
+  if (!context.mounted) return; // Guard AFTER the async gap.
   if (picked == null) return;
   final hhMm = '${picked.hour.toString().padLeft(2, '0')}:'
       '${picked.minute.toString().padLeft(2, '0')}';
