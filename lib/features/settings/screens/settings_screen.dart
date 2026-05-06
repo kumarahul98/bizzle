@@ -81,7 +81,7 @@ Widget _sectionHeader(BuildContext context, String label) {
 /// (T-07-04-01 mitigation). This helper centralises the copy pattern.
 ///
 /// [reminderTime] supports three states:
-///   - omitted (default [_UnsetSentinel]): keep [prefs.reminderTime] unchanged.
+///   - omitted (sentinel default): keep [prefs.reminderTime] unchanged.
 ///   - non-null String: set to that value.
 ///   - explicit `null`: clear the field to null.
 UserPreferencesValue _copyPrefs(
