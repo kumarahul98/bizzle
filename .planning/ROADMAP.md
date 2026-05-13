@@ -12,11 +12,11 @@ Deliver an offline-first Android commute tracker that records GPS trips, compute
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Foundation** - Drift database schema, project scaffold, and config constants
-- [ ] **Phase 2: Core Tracking** - GPS recording with background service and trip processing
-- [ ] **Phase 3: Trip Management** - Edit, delete, manual entry, and direction labeling
-- [ ] **Phase 4: Trip History** - Daily log, calendar view, and route map detail
-- [ ] **Phase 5: Stats & Analytics** - Commute stats, traffic totals, trends, and charts
+- [x] **Phase 1: Foundation** - Drift database schema, project scaffold, and config constants
+- [x] **Phase 2: Core Tracking** - GPS recording with background service and trip processing
+- [x] **Phase 3: Trip Management** - Edit, delete, manual entry, and direction labeling
+- [x] **Phase 4: Trip History** - Daily log, calendar view, and route map detail
+- [x] **Phase 5: Stats & Analytics** - Commute stats, traffic totals, trends, and charts
 - [x] **Phase 6: Dashboard** - Home screen with today's trips and weekly summary ✓ 2026-04-28
 - [x] **Phase 7: Polish & Notifications** - Dark mode, tracking reminders, and summary notifications ✓ 2026-04-28
 - [ ] **Phase 8: Authentication** - Google Sign-In with Cognito federation and onboarding flow
