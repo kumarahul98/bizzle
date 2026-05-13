@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-11)
 
 **Core value:** Show people the reality of their commute -- time wasted in traffic and how it changes over time.
-**Current focus: Phase 06 — dashboard
+**Current focus:** Phase 08 — Authentication (next to plan)
 
 ## Current Position
 
-Phase: 06 (dashboard) — COMPLETE ✓
+Phase: 07 (polish-notifications) — COMPLETE ✓
 Plan: 4 of 4
-Status: Ready for Phase 07
-Last activity: 2026-04-28 -- Phase 06 complete
+Status: Ready for Phase 08
+Last activity: 2026-04-28 -- Phase 07 complete
 
-Progress: [██████░░░░] 60%
+Progress: [███████░░░] 70%
 
 ## Performance Metrics
 
