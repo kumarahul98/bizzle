@@ -15,6 +15,7 @@ import 'package:traevy/config/routes.dart';
 import 'package:traevy/config/theme.dart';
 import 'package:traevy/database/daos/trips_dao.dart';
 import 'package:traevy/features/dashboard/screens/dashboard_screen.dart';
+import 'package:traevy/features/dashboard/widgets/empty_slot_row.dart';
 import 'package:traevy/features/dashboard/widgets/hero_record_card.dart';
 import 'package:traevy/features/dashboard/widgets/home_header.dart';
 import 'package:traevy/features/dashboard/widgets/in_progress_card.dart';
@@ -257,7 +258,8 @@ void main() {
       expect(find.byType(InProgressCard), findsNothing);
     });
 
-    testWidgets('shows empty state text when no trips today', (tester) async {
+    testWidgets('shows EmptySlotRow placeholders when no trips today',
+        (tester) async {
       final harness =
           _buildFakePermissionService(TrackingPermissionStatus.fullyGranted);
       await _pumpDashboardScreen(
@@ -265,7 +267,9 @@ void main() {
         permissionService: harness.service,
       );
 
-      expect(find.text(kDashboardEmptyStateLabel), findsOneWidget);
+      // TodaySection (08-04) shows EmptySlotRow placeholders for empty
+      // state, not the legacy text label.
+      expect(find.byType(EmptySlotRow), findsWidgets);
     });
 
     testWidgets('shows TripRowCard for each trip today', (tester) async {

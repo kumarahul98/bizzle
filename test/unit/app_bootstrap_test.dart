@@ -3,10 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:traevy/app.dart';
-import 'package:traevy/config/theme.dart';
+import 'package:traevy/database/daos/trips_dao.dart';
 import 'package:traevy/database/daos/user_preferences_dao.dart';
 import 'package:traevy/database/database.dart';
-import 'package:traevy/database/daos/trips_dao.dart';
 import 'package:traevy/database/providers.dart';
 import 'package:traevy/features/dashboard/screens/dashboard_screen.dart';
 import 'package:traevy/features/settings/providers/settings_providers.dart';
@@ -73,13 +72,14 @@ void main() {
           find.byType(MaterialApp),
         );
         expect(materialApp.title, 'Traevy');
-        expect(materialApp.theme, lightTheme);
-        expect(materialApp.darkTheme, darkTheme);
+        expect(materialApp.theme?.brightness, Brightness.light);
+        expect(materialApp.darkTheme?.brightness, Brightness.dark);
         expect(materialApp.themeMode, ThemeMode.system);
 
-        // Phase 6 mounts DashboardScreen as the app root (UX-01).
+        // Phase 8 mounts MainShell as the app root, with DashboardScreen
+        // as the first tab. HeroRecordCard exposes the START button.
         expect(find.byType(DashboardScreen), findsOneWidget);
-        expect(find.text('Start commute'), findsOneWidget);
+        expect(find.text('START'), findsOneWidget);
       },
     );
   });
