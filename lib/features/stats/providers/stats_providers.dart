@@ -27,11 +27,11 @@ import 'package:traevy/features/trips/providers/history_providers.dart';
 ///     [computeStatsSummary] directly with a pinned [DateTime].
 final Provider<AsyncValue<StatsSummary>> statsSummaryProvider =
     Provider<AsyncValue<StatsSummary>>(
-  (ref) {
-    final asyncTrips = ref.watch(allTripSummariesProvider);
-    return asyncTrips.whenData(
-      (trips) => computeStatsSummary(trips, DateTime.now()),
+      (ref) {
+        final asyncTrips = ref.watch(allTripSummariesProvider);
+        return asyncTrips.whenData(
+          (trips) => computeStatsSummary(trips, DateTime.now()),
+        );
+      },
+      name: 'statsSummaryProvider',
     );
-  },
-  name: 'statsSummaryProvider',
-);

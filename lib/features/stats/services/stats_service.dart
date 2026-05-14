@@ -109,8 +109,10 @@ StatsSummary computeStatsSummary(List<TripSummary> trips, DateTime now) {
   };
   final weekdayTotals = List<int>.filled(7, 0); // index = weekday - 1
   final weekdayCounts = List<int>.filled(7, 0);
-  final dailyTotalsLast28 =
-      List<int>.filled(kStatsTrendWindowDays, 0); // index 0 = today
+  final dailyTotalsLast28 = List<int>.filled(
+    kStatsTrendWindowDays,
+    0,
+  ); // index 0 = today
 
   // ---- Single pass ----
   for (final trip in trips) {
@@ -124,7 +126,8 @@ StatsSummary computeStatsSummary(List<TripSummary> trips, DateTime now) {
       // the user left both traffic and distance fields blank (both zero).
       // Manual trips where the user entered traffic or distance data are
       // included so their real-world commute time registers in the stats.
-      final isBlankManualEntry = trip.isManualEntry &&
+      final isBlankManualEntry =
+          trip.isManualEntry &&
           trip.timeStuckSeconds == 0 &&
           trip.distanceMeters == 0;
       if (!isBlankManualEntry) {
