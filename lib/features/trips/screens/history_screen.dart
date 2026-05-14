@@ -2,31 +2,31 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:traevy/config/constants.dart';
+import 'package:traevy/config/routes.dart';
+import 'package:traevy/config/theme.dart';
 import 'package:traevy/database/daos/trips_dao.dart';
 import 'package:traevy/features/trips/providers/history_providers.dart';
-import 'package:traevy/features/trips/widgets/trip_card.dart';
+import 'package:traevy/features/trips/widgets/history_view_toggle.dart';
+import 'package:traevy/features/trips/widgets/manual_entry_sheet.dart';
+import 'package:traevy/features/trips/widgets/trip_section_card.dart';
+import 'package:traevy/shared/utils/formatters.dart';
+import 'package:traevy/shared/widgets/trip_row_card.dart';
 
-// Layout constants — multiples of 4 per UI-SPEC, with the date-header
-// 40dp exception (UI-SPEC second exception).
-const double _kHorizontalPadding = 16;
+// Layout constants — multiples of 4 per UI-SPEC.
+const double _kHorizontalPadding = 20;
 const double _kEmptyIconSize = 64;
 const double _kEmptyHeadingGap = 24;
 const double _kEmptyBodyGap = 8;
-const double _kDateHeaderHeight = 40;
 
 /// Trip history screen (HIST-01, HIST-02).
 ///
-/// Two view modes toggled by an AppBar icon:
-///   - List view: [CustomScrollView] with sticky [SliverPersistentHeader]
-///     date headers and [SliverList] of [TripCard] per group.
-///   - Calendar view: [TableCalendar] on top, divider, then a filtered
-///     [ListView] of [TripCard] for the selected day.
+/// Two view modes toggled by a pill [HistoryViewToggle] and a calendar icon:
+///   - List view: [ListView] of [TripSectionCard] per date group.
+///   - Calendar view: [TableCalendar] with token-driven colours + filtered
+///     trip list for the selected day.
 ///
-/// Data comes from [allTripSummariesProvider] — a [StreamProvider] that
-/// watches the Drift `trips` table. Both views share the same
-/// `_groupedTrips` map computed once per `data` branch, satisfying
-/// Pitfall 5 (single Map lookup keeps the calendar `eventLoader` O(1))
-/// and threat T-04-03-03.
+/// No AppBar — the screen lives inside the MainShell navigation and renders
+/// its own 'Trips' title row with icon buttons.
 class HistoryScreen extends ConsumerStatefulWidget {
   /// Create the history screen.
   const HistoryScreen({super.key});
@@ -35,18 +35,20 @@ class HistoryScreen extends ConsumerStatefulWidget {
   ConsumerState<HistoryScreen> createState() => _HistoryScreenState();
 }
 
-enum _ViewMode { list, calendar }
-
 class _HistoryScreenState extends ConsumerState<HistoryScreen> {
-  _ViewMode _viewMode = _ViewMode.list;
+  HistoryView _view = HistoryView.list;
   DateTime? _selectedDay;
   DateTime _focusedDay = DateTime.now();
 
-  void _toggleViewMode() {
+  void _onViewChanged(HistoryView view) {
+    setState(() => _view = view);
+  }
+
+  void _toggleCalendar() {
     setState(() {
-      _viewMode = _viewMode == _ViewMode.list
-          ? _ViewMode.calendar
-          : _ViewMode.list;
+      _view = _view == HistoryView.calendar
+          ? HistoryView.list
+          : HistoryView.calendar;
     });
   }
 
@@ -61,70 +63,177 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     });
   }
 
+  Future<void> _showManualEntry() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (_) => const ManualEntrySheet(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final asyncTrips = ref.watch(allTripSummariesProvider);
-    final isCalendar = _viewMode == _ViewMode.calendar;
+    final textTheme = Theme.of(context).textTheme;
+    final bgColor = Theme.of(context).scaffoldBackgroundColor;
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('History'),
-        actions: <Widget>[
-          IconButton(
-            icon: Icon(
-              isCalendar ? Icons.list_rounded : Icons.calendar_month_outlined,
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            // Title row.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                _kHorizontalPadding,
+                16,
+                _kHorizontalPadding,
+                0,
+              ),
+              child: Row(
+                children: <Widget>[
+                  Text('Trips', style: textTheme.titleLarge),
+                  const Spacer(),
+                  // Calendar toggle icon button — 36dp surface circle.
+                  _IconCircleButton(
+                    onTap: _toggleCalendar,
+                    // surfaceContainer maps to t.surface in buildLightTheme.
+                    backgroundColor: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainer,
+                    icon: Icons.calendar_today_rounded,
+                    iconColor: Theme.of(context).colorScheme.onSurface,
+                  ),
+                  const SizedBox(width: 8),
+                  // Add trip icon button — 36dp text-bg circle.
+                  _IconCircleButton(
+                    onTap: _showManualEntry,
+                    backgroundColor: Theme.of(context).colorScheme.onSurface,
+                    icon: Icons.add_rounded,
+                    iconColor: bgColor,
+                  ),
+                ],
+              ),
             ),
-            tooltip: isCalendar ? 'Switch to list' : 'Switch to calendar',
-            onPressed: _toggleViewMode,
-          ),
-        ],
+            const SizedBox(height: 12),
+            // View toggle pill.
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: _kHorizontalPadding,
+              ),
+              child: HistoryViewToggle(
+                selectedView: _view,
+                onChanged: _onViewChanged,
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Body.
+            Expanded(
+              child: asyncTrips.when(
+                data: (trips) {
+                  final grouped = groupTripsByDate(trips);
+                  if (_view == HistoryView.calendar) {
+                    return _CalendarBody(
+                      groupedTrips: grouped,
+                      selectedDay: _selectedDay,
+                      focusedDay: _focusedDay,
+                      onDaySelected: _onDaySelected,
+                    );
+                  }
+                  if (trips.isEmpty) return const _EmptyState();
+                  return _ListBody(
+                    groupedTrips: grouped,
+                    onTripTap: (trip) => Navigator.pushNamed(
+                      context,
+                      kRouteTripDetail,
+                      arguments: trip.id,
+                    ),
+                  );
+                },
+                loading: () => const Center(
+                  child: CircularProgressIndicator(),
+                ),
+                error: (error, _) => Center(
+                  child: Text('Error loading trips: $error'),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
-      body: asyncTrips.when(
-        data: (trips) {
-          final grouped = groupTripsByDate(trips);
-          if (isCalendar) {
-            return _CalendarBody(
-              groupedTrips: grouped,
-              selectedDay: _selectedDay,
-              focusedDay: _focusedDay,
-              onDaySelected: _onDaySelected,
-            );
-          }
-          if (trips.isEmpty) return const _EmptyState();
-          return _ListBody(groupedTrips: grouped);
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(child: Text('Error loading trips: $error')),
+    );
+  }
+}
+
+/// 36dp circle icon button used in the title row.
+class _IconCircleButton extends StatelessWidget {
+  const _IconCircleButton({
+    required this.onTap,
+    required this.backgroundColor,
+    required this.icon,
+    required this.iconColor,
+  });
+
+  final VoidCallback onTap;
+  final Color backgroundColor;
+  final IconData icon;
+  final Color iconColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, size: 18, color: iconColor),
       ),
     );
   }
 }
 
 class _ListBody extends StatelessWidget {
-  const _ListBody({required this.groupedTrips});
+  const _ListBody({
+    required this.groupedTrips,
+    required this.onTripTap,
+  });
 
   final Map<DateTime, List<TripSummary>> groupedTrips;
+  final ValueChanged<TripSummary> onTripTap;
+
+  String _totalLabel(List<TripSummary> trips) {
+    final totalSeconds = trips.fold<int>(
+      0,
+      (sum, t) => sum + t.durationSeconds,
+    );
+    return formatDuration(totalSeconds);
+  }
 
   @override
   Widget build(BuildContext context) {
     final dates = groupedTrips.keys.toList(growable: false);
-    final slivers = <Widget>[];
-    for (final date in dates) {
-      slivers
-        ..add(
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: _DateHeaderDelegate(label: formatDateHeader(date)),
-          ),
-        )
-        ..add(
-          SliverList.list(
-            children: <Widget>[
-              for (final trip in groupedTrips[date]!) TripCard(summary: trip),
-            ],
-          ),
+    return ListView.separated(
+      padding: EdgeInsets.zero,
+      itemCount: dates.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 16),
+      itemBuilder: (context, index) {
+        final date = dates[index];
+        final trips = groupedTrips[date]!;
+        final label = formatDateHeader(date);
+        return TripSectionCard(
+          dateLabel: label,
+          totalLabel: _totalLabel(trips),
+          trips: trips,
+          onTripTap: onTripTap,
         );
-    }
-    return CustomScrollView(slivers: slivers);
+      },
+    );
   }
 }
 
@@ -148,10 +257,11 @@ class _CalendarBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final tokens = Theme.of(context).extension<TraevyTokensExt>()!;
     final textTheme = Theme.of(context).textTheme;
     final lastDay = DateTime.now();
     final selected = selectedDay;
+    final bgColor = Theme.of(context).scaffoldBackgroundColor;
     return Column(
       children: <Widget>[
         TableCalendar<TripSummary>(
@@ -163,18 +273,32 @@ class _CalendarBody extends StatelessWidget {
           onDaySelected: onDaySelected,
           headerStyle: const HeaderStyle(formatButtonVisible: false),
           calendarStyle: CalendarStyle(
+            // Pitfall 10: calendar colours use tokens, not colorScheme.primary.
             markerDecoration: BoxDecoration(
-              color: colorScheme.primary,
+              color: tokens.accent,
               shape: BoxShape.circle,
             ),
             selectedDecoration: BoxDecoration(
-              color: colorScheme.primary,
+              // tokens.text maps to colorScheme.onSurface in buildLightTheme.
+              color: Theme.of(context).colorScheme.onSurface,
               shape: BoxShape.circle,
             ),
             todayDecoration: BoxDecoration(
-              color: colorScheme.primaryContainer,
+              color: tokens.accentBg,
               shape: BoxShape.circle,
             ),
+            todayTextStyle: TraevyFonts.ui(
+              size: 14,
+              weight: FontWeight.w600,
+              color: tokens.accent,
+            ),
+            selectedTextStyle: TraevyFonts.ui(
+              size: 14,
+              weight: FontWeight.w600,
+              color: bgColor,
+            ),
+            defaultTextStyle: textTheme.bodyMedium!,
+            weekendTextStyle: textTheme.bodyMedium!,
             markersMaxCount: 1,
           ),
         ),
@@ -232,7 +356,16 @@ class _CalendarSubList extends StatelessWidget {
     }
     return ListView(
       children: <Widget>[
-        for (final trip in trips) TripCard(summary: trip),
+        for (int i = 0; i < trips.length; i++)
+          TripRowCard(
+            direction: trips[i].direction,
+            startTime: trips[i].startTime,
+            endTime: trips[i].endTime,
+            durationSeconds: trips[i].durationSeconds,
+            distanceMeters: trips[i].distanceMeters,
+            stuckSeconds: trips[i].timeStuckSeconds,
+            showDivider: i < trips.length - 1,
+          ),
       ],
     );
   }
@@ -243,7 +376,7 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final tokens = Theme.of(context).extension<TraevyTokensExt>()!;
     final textTheme = Theme.of(context).textTheme;
     return Center(
       child: Padding(
@@ -254,7 +387,7 @@ class _EmptyState extends StatelessWidget {
             Icon(
               Icons.route_outlined,
               size: _kEmptyIconSize,
-              color: colorScheme.onSurfaceVariant,
+              color: tokens.textMuted,
             ),
             const SizedBox(height: _kEmptyHeadingGap),
             Text(kHistoryEmptyHeading, style: textTheme.titleMedium),
@@ -267,39 +400,6 @@ class _EmptyState extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _DateHeaderDelegate extends SliverPersistentHeaderDelegate {
-  const _DateHeaderDelegate({required this.label});
-
-  final String label;
-
-  @override
-  double get minExtent => _kDateHeaderHeight;
-
-  @override
-  double get maxExtent => _kDateHeaderHeight;
-
-  @override
-  bool shouldRebuild(_DateHeaderDelegate oldDelegate) =>
-      oldDelegate.label != label;
-
-  @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    return Container(
-      height: _kDateHeaderHeight,
-      color: colorScheme.surfaceContainerHighest,
-      padding: const EdgeInsets.symmetric(horizontal: _kHorizontalPadding),
-      alignment: Alignment.centerLeft,
-      child: Text(label, style: textTheme.titleMedium),
     );
   }
 }

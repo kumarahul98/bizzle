@@ -94,8 +94,7 @@ Future<void> trackingServiceOnStart(ServiceInstance service) async {
     intervalDuration: kTrackingSampleInterval,
   );
 
-  positionSub = Geolocator.getPositionStream(locationSettings: settings)
-      .listen(
+  positionSub = Geolocator.getPositionStream(locationSettings: settings).listen(
     (position) {
       // Race guard: a position can still arrive after the stop handler
       // has started but before `positionSub?.cancel()` returns. The

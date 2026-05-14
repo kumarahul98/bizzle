@@ -179,6 +179,7 @@ Future<void> _pumpDashboardScreen(
         // buildLightTheme() includes TraevyTokensExt — required by
         // HomeHeader, HeroRecordCard, TodaySection, WeekLossCard.
         theme: buildLightTheme(),
+        darkTheme: buildDarkTheme(),
         home: const DashboardScreen(),
         routes: kAppRoutes,
       ),
@@ -188,6 +189,8 @@ Future<void> _pumpDashboardScreen(
 }
 
 void main() {
+  setUpAll(TestWidgetsFlutterBinding.ensureInitialized);
+
   group('DashboardScreen', () {
     // ------------------------------------------------------------------
     // Layout assertions — Phase 8 Traevy design
@@ -254,7 +257,18 @@ void main() {
       expect(find.byType(InProgressCard), findsNothing);
     });
 
-    testWidgets('shows TripCard for each trip today', (tester) async {
+    testWidgets('shows empty state text when no trips today', (tester) async {
+      final harness =
+          _buildFakePermissionService(TrackingPermissionStatus.fullyGranted);
+      await _pumpDashboardScreen(
+        tester,
+        permissionService: harness.service,
+      );
+
+      expect(find.text(kDashboardEmptyStateLabel), findsOneWidget);
+    });
+
+    testWidgets('shows TripRowCard for each trip today', (tester) async {
       final harness =
           _buildFakePermissionService(TrackingPermissionStatus.fullyGranted);
       await _pumpDashboardScreen(

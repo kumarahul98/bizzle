@@ -54,18 +54,20 @@ enum TrackingPermissionStatus {
 /// Injection seam so unit tests can drive [TrackingPermissionService]
 /// without touching the real plugin. Production default wraps
 /// `Permission.status` from `permission_handler`.
-typedef PermissionStatusProbe = Future<PermissionStatus> Function(
-  Permission permission,
-);
+typedef PermissionStatusProbe =
+    Future<PermissionStatus> Function(
+      Permission permission,
+    );
 
 /// Prompts the user for a [Permission] and returns the resolved status.
 ///
 /// Injection seam so unit tests can drive [TrackingPermissionService]
 /// without touching the real plugin. Production default wraps
 /// `Permission.request()` from `permission_handler`.
-typedef PermissionRequester = Future<PermissionStatus> Function(
-  Permission permission,
-);
+typedef PermissionRequester =
+    Future<PermissionStatus> Function(
+      Permission permission,
+    );
 
 /// Opens the system's app-settings page. Injection seam so unit tests can
 /// observe [TrackingPermissionService.openSystemSettings] without touching
@@ -111,9 +113,9 @@ class TrackingPermissionService {
   /// reference (static tear-off or top-level function), so callers can use
   /// `const TrackingPermissionService()` in provider graphs.
   const TrackingPermissionService()
-      : _probe = _defaultProbe,
-        _request = _defaultRequest,
-        _openSettings = openAppSettings;
+    : _probe = _defaultProbe,
+      _request = _defaultRequest,
+      _openSettings = openAppSettings;
 
   /// Test-only constructor. Accepts closures so unit tests can inject
   /// deterministic permission states without implementing an interface.
@@ -122,9 +124,9 @@ class TrackingPermissionService {
     required PermissionStatusProbe probe,
     required PermissionRequester requester,
     SettingsOpener? opener,
-  })  : _probe = probe,
-        _request = requester,
-        _openSettings = opener ?? openAppSettings;
+  }) : _probe = probe,
+       _request = requester,
+       _openSettings = opener ?? openAppSettings;
 
   final PermissionStatusProbe _probe;
   final PermissionRequester _request;
