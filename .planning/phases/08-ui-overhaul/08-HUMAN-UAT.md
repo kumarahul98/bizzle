@@ -52,15 +52,20 @@ blocked: 0
   reason: "User design feedback (2026-05-15): dashboard START currently navigates to a separate TrackingScreen that lands in IDLE state with a redundant second 'Start' button. User wants the entire commute flow consolidated into the dashboard — hero card transforms into the active recording view, no navigation, and the rest of the dashboard remains accessible during an active commute. TrackingScreen as a separate destination should likely be removed (or repurposed) since the hero will absorb all of its active-state UI."
   severity: major
   test: 1
-  artifacts: []
+  artifacts:
+    - .planning/debug/hero-start-double-tap.md
   missing: []
   design_change: true
   scope_note: "This supersedes Phase 8 Plan 04's two-screen flow. UI-SPEC §3 (Active Recording) needs an addendum specifying the dashboard-resident active-state layout."
+  root_cause: "DashboardScreen._handleStart (lib/features/dashboard/screens/dashboard_screen.dart:58-82) only navigates with Navigator.pushNamed(kRouteTracking) — never calls ref.read(trackingStateProvider.notifier).start(). The agent's recommended Path A (also call .start() before navigating) is superseded by the user's redesign request: collapse the active-recording UI into HeroRecordCard, remove the navigation, and treat TrackingScreen as deep-link-only or remove entirely."
 
 - truth: "Tracking screen SPEED tile reflects current instantaneous speed (drops to 0 when stationary)"
   status: failed
   reason: "User reported: SPEED tile stuck at 42 km/h after finishing the drive instead of dropping to 0 when stationary; observed mid-recording (00:03:29 elapsed, 3.25km, 42km/h, 19s stuck) — suggests speed sample not refreshed or last-non-zero value cached"
   severity: major
   test: 4
-  artifacts: []
+  artifacts:
+    - .planning/debug/active-speed-tile-stale.md
   missing: []
+  root_cause: "TripAccumulator.snapshot() at lib/features/tracking/services/trip_accumulator.dart:196 emits currentSpeedMs: _lastAccepted?.speed ?? 0 with NO freshness check. The 1Hz UI snapshot timer (tracking_service.dart:131-137) keeps republishing the same _lastAccepted value indefinitely when GPS samples stop arriving (Android throttles emissions when stationary, and the 30m accuracy gate at trip_accumulator.dart:135 drops stationary low-accuracy samples). NOT a Phase 8 regression — pre-existing producer bug. UI path (CurrentSpeedTile → TrackingTilesRow → TrackingActiveLayout) is a transparent passthrough."
+  fix_direction: "Add _lastAcceptedAt timestamp to TripAccumulator (set when _lastAccepted = p in addSample). In snapshot(now), emit currentSpeedMs: 0 when now - _lastAcceptedAt > kTrackingSpeedFreshnessWindow (suggested 6s = 2× kTrackingSampleInterval). Optional defensive distance cross-check: if cumulative distance hasn't moved for the window, force speed to 0 even when a sample reports non-zero (handles Android sticky-speed). Add unit tests for sample-then-silence → 0, sample-then-zero → 0, sample-then-silence-under-window → preserved."
