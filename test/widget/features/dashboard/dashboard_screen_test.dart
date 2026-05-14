@@ -14,6 +14,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/config/routes.dart';
+import 'package:traevy/config/theme.dart';
 import 'package:traevy/database/daos/trips_dao.dart';
 import 'package:traevy/features/dashboard/screens/dashboard_screen.dart';
 import 'package:traevy/features/dashboard/widgets/in_progress_card.dart';
@@ -25,7 +26,7 @@ import 'package:traevy/features/tracking/screens/tracking_screen.dart';
 import 'package:traevy/features/tracking/services/tracking_permission_service.dart';
 import 'package:traevy/features/tracking/state/tracking_state.dart';
 import 'package:traevy/features/trips/providers/history_providers.dart';
-import 'package:traevy/features/trips/widgets/trip_card.dart';
+import 'package:traevy/shared/widgets/trip_row_card.dart';
 import 'package:uuid/uuid.dart';
 
 /// Minimal test-only `TrackingNotifier` used exclusively by the
@@ -200,6 +201,8 @@ Future<void> _pumpDashboardScreen(
         ),
       ],
       child: MaterialApp(
+        theme: buildLightTheme(),
+        darkTheme: buildDarkTheme(),
         home: const DashboardScreen(),
         routes: kAppRoutes,
       ),
@@ -209,6 +212,8 @@ Future<void> _pumpDashboardScreen(
 }
 
 void main() {
+  setUpAll(TestWidgetsFlutterBinding.ensureInitialized);
+
   group('DashboardScreen', () {
     testWidgets('renders DashboardScreen as app root', (tester) async {
       final harness =
@@ -271,7 +276,7 @@ void main() {
       expect(find.text(kDashboardEmptyStateLabel), findsOneWidget);
     });
 
-    testWidgets('shows TripCard for each trip today', (tester) async {
+    testWidgets('shows TripRowCard for each trip today', (tester) async {
       final harness =
           _buildFakePermissionService(TrackingPermissionStatus.fullyGranted);
       await _pumpDashboardScreen(
@@ -280,7 +285,7 @@ void main() {
         todayTrips: [_makeToday()],
       );
 
-      expect(find.byType(TripCard), findsOneWidget);
+      expect(find.byType(TripRowCard), findsOneWidget);
     });
 
     testWidgets('AppBar has history icon button', (tester) async {

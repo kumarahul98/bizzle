@@ -4,7 +4,7 @@ import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/daos/trips_dao.dart';
 import 'package:traevy/features/dashboard/widgets/in_progress_card.dart';
 import 'package:traevy/features/tracking/state/tracking_state.dart';
-import 'package:traevy/features/trips/widgets/trip_card.dart';
+import 'package:traevy/shared/widgets/trip_row_card.dart';
 
 // Spacing constant — multiples of 4 per UI-SPEC.
 const double _kSectionLabelGapBelow = 8;
@@ -12,7 +12,7 @@ const double _kSectionLabelGapBelow = 8;
 /// Renders the "Today" section of the dashboard.
 ///
 /// Shows the [InProgressCard] when tracking is active, a flat list of
-/// [TripCard]s for completed trips, or an empty-state message when no
+/// [TripRowCard]s for completed trips, or an empty-state message when no
 /// trips exist today and tracking is idle.
 class TodayTripsSection extends StatelessWidget {
   /// Create the today trips section.
@@ -65,7 +65,16 @@ class TodayTripsSection extends StatelessWidget {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               children: <Widget>[
-                for (final trip in trips) TripCard(summary: trip),
+                for (int i = 0; i < trips.length; i++)
+                  TripRowCard(
+                    direction: trips[i].direction,
+                    startTime: trips[i].startTime,
+                    endTime: trips[i].endTime,
+                    durationSeconds: trips[i].durationSeconds,
+                    distanceMeters: trips[i].distanceMeters,
+                    stuckSeconds: trips[i].timeStuckSeconds,
+                    showDivider: i < trips.length - 1,
+                  ),
               ],
             ),
         ],
