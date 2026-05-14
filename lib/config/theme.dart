@@ -5,6 +5,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:traevy/config/constants.dart';
 import 'package:traevy/config/theme_extension.dart';
 
 // Re-export so callers that import only theme.dart also get TraevyTokensExt.
@@ -163,6 +164,14 @@ class TraevyTokens {
 }
 
 // ---------------------------------------------------------------------------
+// Shared UI constants derived from design tokens
+// ---------------------------------------------------------------------------
+
+/// Shadow color for toggle knob and elevated pill components — 20% opaque
+/// black, matching the UI-SPEC §8 TraevyToggle BoxShadow contract.
+const Color kTraevyKnobShadow = Color(0x33000000);
+
+// ---------------------------------------------------------------------------
 // TraevyFonts — TextStyle factory helpers
 // ---------------------------------------------------------------------------
 
@@ -196,7 +205,8 @@ class TraevyFonts {
     Color? color,
     double letterSpacing = 0,
     double? height,
-  }) => GoogleFonts.inter(
+  }) => TextStyle(
+    fontFamily: kFontUI,
     fontSize: size,
     fontWeight: weight,
     color: color,
@@ -215,7 +225,8 @@ class TraevyFonts {
     FontWeight weight = FontWeight.w400,
     Color? color,
     double letterSpacing = 0,
-  }) => GoogleFonts.jetBrainsMono(
+  }) => TextStyle(
+    fontFamily: kFontMono,
     fontSize: size,
     fontWeight: weight,
     color: color,
