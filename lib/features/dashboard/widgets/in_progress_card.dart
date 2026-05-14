@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/config/routes.dart';
+import 'package:traevy/config/theme.dart';
 import 'package:traevy/features/tracking/state/tracking_state.dart';
 import 'package:traevy/shared/utils/formatters.dart';
 
@@ -22,19 +23,23 @@ class InProgressCard extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
     final elapsed = formatDuration(active.elapsedSeconds);
-    final distanceKm =
-        (active.distanceMeters / 1000).toStringAsFixed(1);
+    final distanceKm = (active.distanceMeters / 1000).toStringAsFixed(1);
+
+    // Phase 8 IndexedStack — Review HIGH #1.
+    final tokens = Theme.of(context).extension<TraevyTokensExt>()!;
 
     return Semantics(
       label: 'Commute in progress, elapsed: $elapsed',
       child: InkWell(
         onTap: () => Navigator.of(context).pushNamed(kRouteTracking),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         child: Card(
-          color: colorScheme.surfaceContainerLow,
+          // Pitfall 9: use tokens.bgElev instead of surfaceContainerLow.
+          color: tokens.bgElev,
           shape: RoundedRectangleBorder(
             side: BorderSide(color: colorScheme.primary, width: 4),
-            borderRadius: BorderRadius.circular(12),
+            // Pitfall 4: radius updated from 12 to 16.
+            borderRadius: BorderRadius.circular(16),
           ),
           child: Padding(
             padding: const EdgeInsets.all(16),

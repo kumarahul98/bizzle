@@ -3,15 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/config/routes.dart';
 import 'package:traevy/config/theme.dart';
-import 'package:traevy/features/dashboard/screens/dashboard_screen.dart';
 import 'package:traevy/features/settings/providers/settings_providers.dart';
+import 'package:traevy/features/shell/main_shell.dart';
 import 'package:traevy/features/tracking/providers/backfill_provider.dart';
 
 /// Root widget for the Traevy app.
 ///
 /// Owns the [MaterialApp] wiring including dynamic [ThemeMode] driven by
-/// [userPreferenceProvider] (D-04, UX-02). The [DashboardScreen] is the
-/// app root — Phase 6 mounts it as the app home.
+/// [userPreferenceProvider] (D-04, UX-02). Phase 8 mounts [MainShell] as the
+/// app root — a 4-tab bottom-navigation shell replacing the direct
+/// DashboardScreen mount.
 ///
 /// Phase 3 (D-05): [TraevyApp] is a [ConsumerWidget] so it can call
 /// `ref.watch(directionBackfillProvider)` to trigger the one-shot
@@ -43,7 +44,7 @@ class TraevyApp extends ConsumerWidget {
       darkTheme: buildDarkTheme(),
       themeMode: themeMode,
       routes: kAppRoutes,
-      home: const DashboardScreen(),
+      home: const MainShell(),
     );
   }
 
