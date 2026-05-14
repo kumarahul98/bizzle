@@ -499,8 +499,7 @@ const String kWeeklySummaryNotificationTitle = 'Your week in commute';
 /// string interpolation: `'$total total, $stuck in traffic'`.
 ///
 /// See D-06 in `.planning/phases/07-polish-notifications/07-CONTEXT.md`.
-const String kWeeklySummaryNotificationBodyTemplate =
-    '%s total, %s in traffic';
+const String kWeeklySummaryNotificationBodyTemplate = '%s total, %s in traffic';
 
 /// Weekly summary notification body when no trips were recorded.
 ///
@@ -516,5 +515,50 @@ const String kReminderNotificationTitle = 'Time to track your commute';
 /// Daily reminder notification body.
 ///
 /// See D-11 in `.planning/phases/07-polish-notifications/07-CONTEXT.md`.
-const String kReminderNotificationBody =
-    'Tap to start recording your commute';
+const String kReminderNotificationBody = 'Tap to start recording your commute';
+
+// ---------------------------------------------------------------------------
+// Phase 8 — UI Overhaul (Traevy design system)
+// ---------------------------------------------------------------------------
+
+/// Font family name for all UI text (body copy, labels, buttons, headings).
+/// Resolved via the `google_fonts` package — see pubspec.yaml.
+///
+/// Design token source: Typography block in
+/// `.planning/phases/08-ui-overhaul/08-CONTEXT.md`.
+const String kFontUI = 'Inter';
+
+/// Font family name for all numeric / monospace data displays (duration,
+/// distance, speed, time, percentages).
+/// Resolved via the `google_fonts` package — see pubspec.yaml.
+///
+/// Design token source: Typography block in
+/// `.planning/phases/08-ui-overhaul/08-CONTEXT.md`.
+const String kFontMono = 'JetBrainsMono';
+
+/// Placeholder display name shown in the header before the user signs in
+/// (Phase 9 populates this from Cognito profile).
+///
+/// Design token source: Specifics block in
+/// `.planning/phases/08-ui-overhaul/08-CONTEXT.md`.
+const String kPlaceholderUserName = 'Traveller';
+
+/// Single-character placeholder initial for the user avatar before sign-in.
+///
+/// Design token source: Specifics block in
+/// `.planning/phases/08-ui-overhaul/08-CONTEXT.md`.
+const String kPlaceholderUserInitial = 'T';
+
+/// Short brand mark rendered in the `TraevyLogoMark` widget header — "tv" in
+/// JetBrains Mono 700. Never use this as the canonical app name; use
+/// `kBrandFullName` for that.
+///
+/// Design token source: Specifics block in
+/// `.planning/phases/08-ui-overhaul/08-CONTEXT.md`.
+const String kBrandShortName = 'tv';
+
+/// Full brand name used in headings and accessibility labels.
+///
+/// Design token source: Specifics block in
+/// `.planning/phases/08-ui-overhaul/08-CONTEXT.md`.
+const String kBrandFullName = 'Traevy';
