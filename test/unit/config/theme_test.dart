@@ -10,6 +10,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:traevy/config/theme.dart';
 
 void main() {
+  // buildLightTheme/buildDarkTheme call GoogleFonts.interTextTheme which needs
+  // the Flutter binding initialized even in unit tests.
+  setUpAll(TestWidgetsFlutterBinding.ensureInitialized);
+
   group('buildLightTheme', () {
     late ThemeData theme;
 
