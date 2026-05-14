@@ -29,7 +29,9 @@ class TraevyApp extends ConsumerWidget {
     // D-04: watch user preferences for instant dark mode switching.
     // Falls back to ThemeMode.system while the stream initialises or
     // if the DB is unavailable.
-    final themeMode = ref.watch(userPreferenceProvider).when(
+    final themeMode = ref
+        .watch(userPreferenceProvider)
+        .when(
           data: (prefs) => _toThemeMode(prefs.darkMode),
           loading: () => ThemeMode.system,
           error: (e, s) => ThemeMode.system,
@@ -37,8 +39,8 @@ class TraevyApp extends ConsumerWidget {
 
     return MaterialApp(
       title: 'Traevy',
-      theme: lightTheme,
-      darkTheme: darkTheme,
+      theme: buildLightTheme(),
+      darkTheme: buildDarkTheme(),
       themeMode: themeMode,
       routes: kAppRoutes,
       home: const DashboardScreen(),

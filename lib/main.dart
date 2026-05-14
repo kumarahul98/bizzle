@@ -32,6 +32,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:traevy/app.dart';
 import 'package:traevy/features/tracking/services/tracking_notification_service.dart';
@@ -40,6 +41,10 @@ import 'package:traevy/notifications/notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Disable google_fonts runtime network fetching — fonts are bundled in
+  // assets/fonts/ as TTF files. Must be set before any GoogleFonts call.
+  // See Pitfall 2 in .planning/phases/08-ui-overhaul/08-RESEARCH.md.
+  GoogleFonts.config.allowRuntimeFetching = false;
   tz.initializeTimeZones(); // Must be before any TZDateTime use.
   await TrackingNotificationService().initialize();
   // Registers weekly summary + commute reminder channels.

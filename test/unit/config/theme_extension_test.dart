@@ -247,14 +247,19 @@ void main() {
 }
 
 /// Stub ThemeExtension used to test lerp's type-guard behaviour.
-/// When `lerp` receives a non-`TraevyTokensExt` other, it must return `this`.
-class _StubThemeExtension extends ThemeExtension<_StubThemeExtension> {
+///
+/// Extends `ThemeExtension<TraevyTokensExt>` (not `TraevyTokensExt` itself)
+/// so it satisfies the `lerp` parameter type while still failing the
+/// `other is! TraevyTokensExt` guard — confirming that `lerp` returns `this`
+/// when the other extension is the wrong concrete type.
+class _StubThemeExtension extends ThemeExtension<TraevyTokensExt> {
   @override
-  ThemeExtension<_StubThemeExtension> copyWith() => _StubThemeExtension();
+  ThemeExtension<TraevyTokensExt> copyWith() => _StubThemeExtension();
 
   @override
-  ThemeExtension<_StubThemeExtension> lerp(
-    covariant ThemeExtension<_StubThemeExtension>? other,
+  ThemeExtension<TraevyTokensExt> lerp(
+    covariant ThemeExtension<TraevyTokensExt>? other,
     double t,
-  ) => this;
+  ) =>
+      this;
 }
