@@ -130,15 +130,15 @@ class FinalizedTrip {
 
   @override
   int get hashCode => Object.hash(
-        id,
-        startTime,
-        endTime,
-        durationSeconds,
-        distanceMeters,
-        timeMovingSeconds,
-        timeStuckSeconds,
-        encodedPolyline,
-      );
+    id,
+    startTime,
+    endTime,
+    durationSeconds,
+    distanceMeters,
+    timeMovingSeconds,
+    timeStuckSeconds,
+    encodedPolyline,
+  );
 }
 
 /// Typed required-key lookup helper. Keeps `strict-casts: true` happy by

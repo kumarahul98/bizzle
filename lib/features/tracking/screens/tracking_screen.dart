@@ -60,11 +60,13 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
         :final elapsedSeconds,
         :final distanceMeters,
         :final currentSpeedKmh,
+        :final timeStuckSeconds,
       ) =>
         TrackingActiveLayout(
           elapsedSeconds: elapsedSeconds,
           distanceMeters: distanceMeters,
           currentSpeedKmh: currentSpeedKmh,
+          timeStuckSeconds: timeStuckSeconds,
           onStop: () => ref.read(trackingStateProvider.notifier).stop(),
         ),
       TrackingStopping() => const TrackingStatusLayout(label: 'Saving trip...'),
@@ -115,8 +117,10 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
       );
     }
     final trackingState = ref.watch(trackingStateProvider);
+    // Active state: RecordingHeader replaces the AppBar — no AppBar rendered.
+    final isActive = trackingState is TrackingActive;
     return Scaffold(
-      appBar: AppBar(title: const Text('Tracking')),
+      appBar: isActive ? null : AppBar(title: const Text('Tracking')),
       body: Column(
         children: <Widget>[
           if (status == TrackingPermissionStatus.foregroundOnly)

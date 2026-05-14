@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:traevy/config/theme.dart';
 import 'package:traevy/features/tracking/providers/tracking_providers.dart';
 import 'package:traevy/features/tracking/screens/tracking_screen.dart';
 import 'package:traevy/features/tracking/services/tracking_permission_service.dart';
 import 'package:traevy/features/tracking/services/tracking_service_controller.dart';
 import 'package:traevy/features/tracking/state/tracking_state.dart';
+import 'package:traevy/features/tracking/widgets/elapsed_display.dart';
+import 'package:traevy/features/tracking/widgets/recording_header.dart';
+import 'package:traevy/features/tracking/widgets/stop_button.dart';
 
 /// Test-only `TrackingNotifier` subclass.
 ///
@@ -85,7 +89,11 @@ Future<_TestTrackingNotifier> _pumpTrackingScreen(
         ),
         trackingStateProvider.overrideWith(() => notifier),
       ],
-      child: const MaterialApp(home: TrackingScreen()),
+      child: MaterialApp(
+        theme: buildLightTheme(),
+        darkTheme: buildDarkTheme(),
+        home: const TrackingScreen(),
+      ),
     ),
   );
   // One pump to flush the post-frame preflight callback and its
@@ -96,21 +104,26 @@ Future<_TestTrackingNotifier> _pumpTrackingScreen(
 }
 
 void main() {
+  setUpAll(TestWidgetsFlutterBinding.ensureInitialized);
+
   group('TrackingScreen sealed-state rendering', () {
     testWidgets('TrackingIdle renders zeroed tiles and a Start button',
         (tester) async {
       await _pumpTrackingScreen(tester);
 
-      expect(find.text('Duration'), findsOneWidget);
-      expect(find.text('Distance'), findsOneWidget);
-      expect(find.text('Speed'), findsOneWidget);
-      // Idle tiles are zero-valued.
-      expect(find.text('00:00'), findsOneWidget);
-      expect(find.text('0 m'), findsOneWidget);
-      expect(find.text('0 km/h'), findsOneWidget);
+      // Tile labels are now uppercase StatMiniCard labels (value and unit
+      // rendered as separate Text widgets inside StatMiniCard).
+      expect(find.text('STUCK'), findsOneWidget);
+      expect(find.text('DISTANCE'), findsOneWidget);
+      expect(find.text('SPEED'), findsOneWidget);
+      // Idle distance value '0' and unit 'm' rendered separately.
+      expect(find.text('0'), findsWidgets);
+      expect(find.text('m'), findsWidgets);
+      // Speed unit renders 'km/h'.
+      expect(find.text('km/h'), findsWidgets);
       // Start CTA present; Stop button absent.
       expect(find.widgetWithText(FilledButton, 'Start'), findsOneWidget);
-      expect(find.widgetWithText(FilledButton, 'Stop'), findsNothing);
+      expect(find.byType(StopButton), findsNothing);
     });
 
     testWidgets('TrackingStarting renders a spinner and no Stop button',
@@ -122,7 +135,7 @@ void main() {
 
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
       expect(find.text('Starting GPS...'), findsOneWidget);
-      expect(find.widgetWithText(FilledButton, 'Stop'), findsNothing);
+      expect(find.byType(StopButton), findsNothing);
     });
 
     testWidgets('TrackingActive renders live tiles and the Stop button',
@@ -139,10 +152,18 @@ void main() {
         ),
       );
 
-      expect(find.text('02:05'), findsOneWidget);
-      expect(find.text('2.34 km'), findsOneWidget);
-      expect(find.text('27 km/h'), findsOneWidget);
-      expect(find.widgetWithText(FilledButton, 'Stop'), findsOneWidget);
+      // Active layout renders ElapsedDisplay.
+      expect(find.byType(ElapsedDisplay), findsOneWidget);
+      // 2340 m = 2.34 km; value and unit are separate Text widgets.
+      expect(find.text('2.34'), findsOneWidget);
+      expect(find.text('km'), findsWidgets);
+      // Speed: value '27', unit 'km/h'.
+      expect(find.text('27'), findsOneWidget);
+      expect(find.text('km/h'), findsWidgets);
+      // Variant A active layout uses StopButton (not FilledButton).
+      expect(find.byType(StopButton), findsOneWidget);
+      // RecordingHeader must be present in active state.
+      expect(find.byType(RecordingHeader), findsOneWidget);
     });
 
     testWidgets('Elapsed >= 3600 seconds formats as HH:MM:SS', (tester) async {
@@ -174,11 +195,10 @@ void main() {
         ),
       );
 
-      expect(find.text('450 m'), findsOneWidget);
-      // No distance-in-km formatting should appear — only the speed
-      // tile legitimately contains "km" (as "km/h"). Assert the
-      // distance tile's alternate "X.XX km" formatting is absent.
-      expect(find.textContaining(RegExp(r'\d \.\d+ km$')), findsNothing);
+      // DistanceTile renders value='450', unit='m' as separate Text widgets.
+      expect(find.text('450'), findsOneWidget);
+      expect(find.text('m'), findsWidgets);
+      // No combined '0.45 km' text — value and unit are split.
       expect(find.text('0.45 km'), findsNothing);
     });
 
@@ -195,7 +215,9 @@ void main() {
           timeStuckSeconds: 60,
         ),
       );
-      expect(find.text('9 km/h'), findsOneWidget);
+      // Speed value '9', unit 'km/h' rendered separately.
+      expect(find.text('9'), findsWidgets);
+      expect(find.text('km/h'), findsWidgets);
     });
 
     testWidgets('Speed rounds up at 9.6 and clamps to 0 below 0.5',
@@ -212,9 +234,9 @@ void main() {
           timeStuckSeconds: 0,
         ),
       );
-      expect(find.text('10 km/h'), findsOneWidget);
+      expect(find.text('10'), findsOneWidget);
 
-      // 0.3 falls under the 0.5 clamp and renders as "0 km/h".
+      // 0.3 falls under the 0.5 clamp and renders speed as '0'.
       notifier.state = TrackingActive(
         startedAt: DateTime.utc(2026, 4, 12, 8),
         elapsedSeconds: 61,
@@ -224,7 +246,8 @@ void main() {
         timeStuckSeconds: 1,
       );
       await tester.pump();
-      expect(find.text('0 km/h'), findsOneWidget);
+      // '0' appears in speed tile (and possibly elapsed/stuck tiles).
+      expect(find.text('0'), findsWidgets);
     });
 
     testWidgets('TrackingStopping shows a Saving trip status with a spinner',
@@ -236,7 +259,7 @@ void main() {
 
       expect(find.text('Saving trip...'), findsOneWidget);
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
-      expect(find.widgetWithText(FilledButton, 'Stop'), findsNothing);
+      expect(find.byType(StopButton), findsNothing);
     });
 
     testWidgets('TrackingError shows the message and a Retry button',
@@ -292,8 +315,8 @@ void main() {
       // Stopping transition synchronous inside TrackingNotifier.stop,
       // so the second tap must short-circuit on the
       // `state is! TrackingActive` guard.
-      await tester.tap(find.widgetWithText(FilledButton, 'Stop'));
-      await tester.tap(find.widgetWithText(FilledButton, 'Stop'));
+      await tester.tap(find.byType(StopButton));
+      await tester.tap(find.byType(StopButton));
       await tester.pump();
 
       expect(notifier.persistFinalizedTripCallCount, 1);

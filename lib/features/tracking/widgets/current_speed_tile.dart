@@ -1,18 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:traevy/shared/widgets/stat_mini_card.dart';
 
-/// Live speed tile shown on the tracking screen (D-12).
+/// Live speed tile shown on the active tracking screen (Variant A).
 ///
-/// Renders the latest accepted GPS sample's speed in kilometers per
-/// hour as a whole number. Values under `0.5` km/h render as `0 km/h`
-/// to avoid the `-0` display edge case that surfaces when the
-/// accumulator is stationary but geolocator reports a sub-millimeter
-/// negative residual.
+/// Thin adapter over [StatMiniCard] — preserves the public `speedKmh`
+/// constructor so existing widget-test `find.byType(CurrentSpeedTile)` calls
+/// continue to resolve. Tone switches to `moving` when speed ≥ 10 km/h,
+/// otherwise `stuck`.
 ///
-/// The conversion from `Position.speed` (m/s) to km/h happens exactly
-/// once, inside `trackingActiveFromSnapshotMap` — this tile only
-/// renders the already-converted value.
+/// See: `.planning/phases/08-ui-overhaul/08-UI-SPEC.md` §4 Active Recording.
 class CurrentSpeedTile extends StatelessWidget {
-  /// Create a new tile displaying [speedKmh].
+  /// Creates a [CurrentSpeedTile] displaying [speedKmh].
   const CurrentSpeedTile({required this.speedKmh, super.key});
 
   /// Current speed in kilometers per hour.
@@ -20,30 +18,21 @@ class CurrentSpeedTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text('Speed', style: theme.textTheme.labelMedium),
-            const SizedBox(height: 4),
-            Text(
-              _formatSpeed(speedKmh),
-              style: theme.textTheme.displaySmall,
-            ),
-          ],
-        ),
-      ),
+    final tone = speedKmh >= 10
+        ? StatMiniCardTone.moving
+        : StatMiniCardTone.stuck;
+    return StatMiniCard(
+      label: 'SPEED',
+      value: _formatSpeed(speedKmh),
+      unit: 'km/h',
+      tone: tone,
     );
   }
 }
 
-/// Format [kmh] as `X km/h` (rounded). Sub-0.5 values render as `0 km/h`
-/// to avoid the `-0` edge case from floating-point residuals while the
-/// trip is stationary.
+/// Format [kmh] as `X` (integer, rounded). Sub-0.5 values render as `0`
+/// to avoid the `-0` edge case from floating-point residuals.
 String _formatSpeed(double kmh) {
-  if (kmh < 0.5) return '0 km/h';
-  return '${kmh.round()} km/h';
+  if (kmh < 0.5) return '0';
+  return '${kmh.round()}';
 }

@@ -83,8 +83,7 @@ class TrackingNotificationService {
   /// factory — `flutter_local_notifications` treats repeat `initialize`
   /// calls as idempotent.
   Future<void> initialize() async {
-    const androidInit =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
     const initSettings = InitializationSettings(android: androidInit);
     await _plugin.initialize(
       settings: initSettings,
@@ -138,8 +137,7 @@ class TrackingNotificationService {
     await _plugin.show(
       id: kTrackingNotificationId,
       title: kTrackingNotificationTitle,
-      notificationDetails:
-          const NotificationDetails(android: androidDetails),
+      notificationDetails: const NotificationDetails(android: androidDetails),
       payload: 'tracking_active',
     );
   }
@@ -162,8 +160,10 @@ class TrackingNotificationService {
       enableVibration: false,
       showBadge: false,
     );
-    final android = _plugin.resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>();
+    final android = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
     await android?.createNotificationChannel(channel);
   }
 

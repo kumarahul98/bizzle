@@ -41,17 +41,17 @@ class PermissionGate extends StatelessWidget {
   Widget build(BuildContext context) {
     final (String title, String buttonLabel) = switch (status) {
       TrackingPermissionStatus.permanentlyDenied => (
-          'Location permission permanently denied',
-          'Open settings',
-        ),
+        'Location permission permanently denied',
+        'Open settings',
+      ),
       TrackingPermissionStatus.notificationDenied => (
-          'Notifications are required to track commutes in the background',
-          'Open settings',
-        ),
+        'Notifications are required to track commutes in the background',
+        'Open settings',
+      ),
       TrackingPermissionStatus.denied => (
-          'Traevy needs location to record your commute',
-          'Grant location',
-        ),
+        'Traevy needs location to record your commute',
+        'Grant location',
+      ),
       TrackingPermissionStatus.fullyGranted ||
       TrackingPermissionStatus.foregroundOnly =>
         // PermissionGate is only rendered for blocking states; the
