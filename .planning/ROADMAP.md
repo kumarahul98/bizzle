@@ -166,14 +166,26 @@ Plans:
   6. Stats screen shows the hero traffic-loss number, donut chart, 28-day TrendBars, and WeekdayChart
   7. Settings screen uses grouped section rows (Account, Recording, Notifications, Appearance) with consistent toggle and chevron components
   8. All screens pass flutter analyze with zero warnings
-**Plans**: TBD
+**Plans**: 7 plans
 **UI hint**: yes
 
 Plans:
-- [ ] 08-01: TBD
-- [ ] 08-02: TBD
-- [ ] 08-03: TBD
-- [ ] 08-04: TBD
+**Wave 1**
+- [ ] 08-01-PLAN.md — Pubspec + Inter/JetBrainsMono font assets + Phase 8 constants + flutter_test_config + Wave 0 RED tests
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 08-02-PLAN.md — TraevyTokens + TraevyTokensExt + TraevyFonts + buildLightTheme/buildDarkTheme + main.dart fetch-disable + app.dart wire
+
+**Wave 3** *(blocked on Wave 2 completion)*
+- [ ] 08-03-PLAN.md — Six shared Traevy widgets (StuckBar, TripRowCard, SectionLabel, TraevyToggle, StatMiniCard, TraevyLogoMark)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+- [ ] 08-04-PLAN.md — MainShell + Riverpod tab index + app.dart home → MainShell + Dashboard restyle (HomeHeader, HeroRecordCard, TodaySection, WeekLossCard) + Pitfall 7 test updates
+- [ ] 08-05-PLAN.md — Tracking Variant A restyle + History screen (HistoryViewToggle, TripSectionCard) + trip_card.dart deletion + table_calendar token colours
+- [ ] 08-06-PLAN.md — Trip Detail restyle (TrafficInsightCard, TripTimeline) + Stats screen (TrafficLossHero, DonutCard, TrendBarsCard, WeekdayChartCard) + delete 5 legacy stats cards
+
+**Wave 5** *(blocked on Wave 4 completion)*
+- [ ] 08-07-PLAN.md — Settings restyle (SettingsSection, SettingsRow, AccountRow, TraevyToggle wiring) + Onboarding scaffold + kRouteOnboarding registration
 
 ### Phase 9: Authentication
 **Goal**: Users can sign in with Google, exchange tokens with Cognito, and have their identity linked to existing local trip data
