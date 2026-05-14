@@ -4,8 +4,8 @@ milestone: v0.1
 milestone_name: milestone
 status: executing
 stopped_at: context exhaustion at 90% (2026-04-27)
-last_updated: "2026-05-14T12:39:24.614Z"
-last_activity: 2026-05-14 -- Phase 8 planning complete
+last_updated: "2026-05-14T15:55:32.817Z"
+last_activity: 2026-05-14 -- Phase 08 execution started
 progress:
   total_phases: 11
   completed_phases: 7
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-11)
 
 **Core value:** Show people the reality of their commute -- time wasted in traffic and how it changes over time.
-**Current focus:** Phase 08 — Authentication (next to plan)
+**Current focus:** Phase 08 — ui-overhaul
 
 ## Current Position
 
-Phase: 07 (polish-notifications) — COMPLETE ✓
-Plan: 4 of 4
-Status: Ready to execute
-Last activity: 2026-05-14 -- Phase 8 planning complete
+Phase: 08 (ui-overhaul) — EXECUTING
+Plan: 1 of 7
+Status: Executing Phase 08
+Last activity: 2026-05-14 -- Phase 08 execution started
 
 Progress: [███████░░░] 70%
 
