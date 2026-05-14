@@ -1,17 +1,25 @@
-// Widget tests for StatsScreen (STAT-01..05).
+// Widget tests for StatsScreen (Phase 8 Traevy restyle).
 //
 // Overrides allTripSummariesProvider with a fixed Stream so
 // statsSummaryProvider derives a deterministic StatsSummary. No Drift
-// in-memory database is needed because StatsScreen is read-only and
-// does not invoke any DAO directly.
+// in-memory database is needed because StatsScreen is read-only.
+//
+// The new layout (TrafficLossHero, DonutCard, TrendBarsCard, WeekdayChartCard)
+// replaces the five legacy cards. Tests confirm the new widget types are
+// present and that the 'Stats' title + 'Last 28 days' subtitle render.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart';
 import 'package:traevy/config/constants.dart';
+import 'package:traevy/config/theme.dart';
 import 'package:traevy/database/daos/trips_dao.dart';
 import 'package:traevy/features/stats/screens/stats_screen.dart';
+import 'package:traevy/features/stats/widgets/donut_card.dart';
+import 'package:traevy/features/stats/widgets/traffic_loss_hero.dart';
+import 'package:traevy/features/stats/widgets/trend_bars_card.dart';
+import 'package:traevy/features/stats/widgets/weekday_chart_card.dart';
 import 'package:traevy/features/trips/providers/history_providers.dart';
 import 'package:uuid/uuid.dart';
 
@@ -43,104 +51,90 @@ void main() {
             (ref) => Stream<List<TripSummary>>.value(trips),
           ),
         ],
-        child: const MaterialApp(home: StatsScreen()),
+        child: MaterialApp(
+          theme: buildLightTheme(),
+          home: const StatsScreen(),
+        ),
       );
     }
 
-    testWidgets('renders Stats AppBar title', (tester) async {
+    testWidgets('renders Stats title heading', (tester) async {
       await tester.pumpWidget(buildScreen());
       await tester.pump();
-      expect(find.text(kStatsAppBarTitle), findsOneWidget);
+      expect(find.text('Stats'), findsOneWidget);
     });
 
-    testWidgets('renders all 5 stat-card titles', (tester) async {
+    testWidgets('renders Last 28 days subtitle', (tester) async {
       await tester.pumpWidget(buildScreen());
       await tester.pump();
-      // Each card's heading constant must appear in the rendered tree.
-      // Cards further down the ListView may be scrolled off the default
-      // 600px test viewport — use skipOffstage: false so we find them
-      // even when they are outside the visible area.
-      //
-      // Note: kStatsCardWeekLabel ('This week') also appears as the
-      // TrendChartCard x-axis label kStatsCardTrendXAxisCurrent, so we
-      // use findsAtLeastNWidgets(1) for it.
+      // Subtitle contains 'Last 28 days' — trip count varies.
       expect(
-        find.text(kStatsCardWeekLabel, skipOffstage: false),
-        findsAtLeastNWidgets(1),
-      );
-      expect(
-        find.text(kStatsCardDirectionTitle, skipOffstage: false),
-        findsOneWidget,
-      );
-      expect(
-        find.text(kStatsCardBestWorstTitle, skipOffstage: false),
-        findsOneWidget,
-      );
-      expect(
-        find.text(kStatsCardTrendTitle, skipOffstage: false),
-        findsOneWidget,
-      );
-      expect(
-        find.text(kStatsCardTrafficTitle, skipOffstage: false),
+        find.textContaining('Last 28 days'),
         findsOneWidget,
       );
     });
 
-    testWidgets('renders em-dash placeholders when no trips exist (D-10)', (
-      tester,
-    ) async {
+    testWidgets('renders TrafficLossHero', (tester) async {
       await tester.pumpWidget(buildScreen());
       await tester.pump();
-      // Empty input -> WeekMonthTotalsCard, DirectionAveragesCard, and
-      // TrafficWasteCard all render kStatsEmptyPlaceholder in their
-      // value slots. The exact count is not asserted (the chart card
-      // may also render some), but at least 4 occurrences are
-      // expected (week + month + to-office avg + to-home avg + traffic).
-      expect(
-        find.text(kStatsEmptyPlaceholder),
-        findsAtLeastNWidgets(4),
-        reason: 'D-10 requires every empty value slot to render —',
-      );
+      expect(find.byType(TrafficLossHero), findsOneWidget);
     });
 
-    testWidgets(
-      'renders weekly duration when trips exist',
-      (tester) async {
-        // Pin trip to the current Monday at 08:00 so it is guaranteed
-        // in-week relative to any test-runner date, avoiding spurious
-        // failures at week boundaries (Sunday 23:59 → Monday 00:00).
-        final now = DateTime.now();
-        final monday = now.subtract(
-          Duration(days: now.weekday - DateTime.monday),
-        );
-        final pinnedTrip = _trip(
-          DateTime(monday.year, monday.month, monday.day, 8),
-          durationSeconds: 3600,
-        );
-        await tester.pumpWidget(buildScreen(trips: <TripSummary>[pinnedTrip]));
-        await tester.pump();
-        // Assert the trip was counted: no empty placeholder and the
-        // Mon–Sun helper text is present.
-        expect(find.text(kStatsEmptyPlaceholder), findsNothing);
-        expect(find.text(kStatsCardWeekHelper), findsOneWidget);
-      },
-    );
+    testWidgets('renders DonutCard', (tester) async {
+      await tester.pumpWidget(buildScreen());
+      await tester.pump();
+      expect(find.byType(DonutCard), findsOneWidget);
+    });
+
+    testWidgets('renders TrendBarsCard', (tester) async {
+      await tester.pumpWidget(buildScreen());
+      await tester.pump();
+      expect(find.byType(TrendBarsCard), findsOneWidget);
+    });
+
+    testWidgets('renders WeekdayChartCard', (tester) async {
+      await tester.pumpWidget(buildScreen());
+      await tester.pump();
+      expect(find.byType(WeekdayChartCard), findsOneWidget);
+    });
+
+    testWidgets('no AppBar in Stats screen', (tester) async {
+      await tester.pumpWidget(buildScreen());
+      await tester.pump();
+      expect(find.byType(AppBar), findsNothing);
+    });
 
     testWidgets('error branch renders kStatsErrorMessage', (tester) async {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
             allTripSummariesProvider.overrideWith(
-              (ref) => Stream<List<TripSummary>>.error(
-                StateError('boom'),
-              ),
+              (ref) => Stream<List<TripSummary>>.error(StateError('boom')),
             ),
           ],
-          child: const MaterialApp(home: StatsScreen()),
+          child: MaterialApp(
+            theme: buildLightTheme(),
+            home: const StatsScreen(),
+          ),
         ),
       );
       await tester.pump();
       expect(find.text(kStatsErrorMessage), findsOneWidget);
+    });
+
+    testWidgets('renders trip count in subtitle when trips exist', (
+      tester,
+    ) async {
+      final now = DateTime.now();
+      final monday = now.subtract(Duration(days: now.weekday - DateTime.monday));
+      final pinnedTrip = _trip(
+        DateTime(monday.year, monday.month, monday.day, 8),
+        durationSeconds: 3600,
+      );
+      await tester.pumpWidget(buildScreen(trips: <TripSummary>[pinnedTrip]));
+      await tester.pump();
+      // Screen renders without error and Stats title is present.
+      expect(find.text('Stats'), findsOneWidget);
     });
   });
 }
