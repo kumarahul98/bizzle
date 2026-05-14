@@ -40,10 +40,12 @@ result: pass
 
 total: 5
 passed: 3
-issues: 2
+issues: 3
 pending: 0
 skipped: 0
 blocked: 0
+
+> Note: 3rd issue raised after UAT closed (notification design); appended to Gaps below.
 
 ## Gaps
 
@@ -69,3 +71,25 @@ blocked: 0
   missing: []
   root_cause: "TripAccumulator.snapshot() at lib/features/tracking/services/trip_accumulator.dart:196 emits currentSpeedMs: _lastAccepted?.speed ?? 0 with NO freshness check. The 1Hz UI snapshot timer (tracking_service.dart:131-137) keeps republishing the same _lastAccepted value indefinitely when GPS samples stop arriving (Android throttles emissions when stationary, and the 30m accuracy gate at trip_accumulator.dart:135 drops stationary low-accuracy samples). NOT a Phase 8 regression — pre-existing producer bug. UI path (CurrentSpeedTile → TrackingTilesRow → TrackingActiveLayout) is a transparent passthrough."
   fix_direction: "Add _lastAcceptedAt timestamp to TripAccumulator (set when _lastAccepted = p in addSample). In snapshot(now), emit currentSpeedMs: 0 when now - _lastAcceptedAt > kTrackingSpeedFreshnessWindow (suggested 6s = 2× kTrackingSampleInterval). Optional defensive distance cross-check: if cumulative distance hasn't moved for the window, force speed to 0 even when a sample reports non-zero (handles Android sticky-speed). Add unit tests for sample-then-silence → 0, sample-then-zero → 0, sample-then-silence-under-window → preserved."
+
+- truth: "Active commute notification matches the Traevy spec: rounded Traevy badge avatar, RECORDING dot+REC pill, 'Recording your commute to <direction>' title, mono stat line ('22:14 elapsed · 4.1 km · 4m stuck'), and OPEN + STOP action buttons."
+  status: failed
+  reason: "User reported (2026-05-15) with design screenshot: the active recording notification we ship is the basic Phase 7 foreground-service notification — not the polished Traevy notification design with the rounded avatar, REC pill, mono stat row, and OPEN/STOP actions. Phase 8 did not include notification redesign in any of its 7 plans (notification work was deferred from the Plan 04/05 scope)."
+  severity: minor
+  test: 1
+  artifacts: []
+  missing:
+    - "Traevy-styled notification layout (Android NotificationCompat.Builder customisation or a custom notification layout XML)"
+    - "Mono-typography stat line — JetBrains Mono is not available to native Android notification text; must be drawn via custom RemoteViews or accept system font fallback"
+    - "Notification action buttons — 'STOP' wired to TrackingNotifier.stop(), 'OPEN' wired to launching the app"
+    - "Live-update cadence — notification text must refresh on each tracking snapshot (1Hz today)"
+
+- truth: "App remains fully usable while a commute is recording — user can scroll the dashboard, swap to Trips/Stats/Settings tabs, and view trip history without interrupting the active recording."
+  status: pending
+  reason: "User design directive (2026-05-15) — explicit acceptance criterion attached to gap 1 (single-screen recording). Once HeroRecordCard absorbs the active state, the rest of MainShell's NavigationBar (Trips, Stats, Settings) and the dashboard scroll view (TodaySection, WeekLossCard) MUST stay interactive while TrackingActive. No navigation lock, no full-screen takeover."
+  severity: major
+  test: 1
+  artifacts: []
+  missing: []
+  acceptance_for: gap_1
+  scope_note: "Pure design constraint — no separate implementation. Verified by manual testing during 08-08 execution."
