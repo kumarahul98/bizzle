@@ -47,13 +47,15 @@ blocked: 0
 
 ## Gaps
 
-- truth: "Tapping START on dashboard hero card starts recording and shows tracking screen in active state (elapsed timer + Stop button)"
+- truth: "Tapping START on the dashboard hero starts the commute IN PLACE — the hero card expands to show the active recording UI (RECORDING badge + direction label + ELAPSED timer + DISTANCE/SPEED/STUCK tiles + Stop and save button) without navigating to a separate screen. The rest of the dashboard (TodaySection, WeekLossCard) stays usable underneath so the user can keep using the app while a commute is running."
   status: failed
-  reason: "User reported: dashboard START button navigates to tracking screen but lands in IDLE state with another 'Start' button, requiring a second tap to actually start recording"
+  reason: "User design feedback (2026-05-15): dashboard START currently navigates to a separate TrackingScreen that lands in IDLE state with a redundant second 'Start' button. User wants the entire commute flow consolidated into the dashboard — hero card transforms into the active recording view, no navigation, and the rest of the dashboard remains accessible during an active commute. TrackingScreen as a separate destination should likely be removed (or repurposed) since the hero will absorb all of its active-state UI."
   severity: major
   test: 1
   artifacts: []
   missing: []
+  design_change: true
+  scope_note: "This supersedes Phase 8 Plan 04's two-screen flow. UI-SPEC §3 (Active Recording) needs an addendum specifying the dashboard-resident active-state layout."
 
 - truth: "Tracking screen SPEED tile reflects current instantaneous speed (drops to 0 when stationary)"
   status: failed
