@@ -154,8 +154,9 @@ void main() {
       final id = const Uuid().v4();
       final start = DateTime.utc(2026, 1, 1, 18);
       final end = DateTime.utc(2026, 1, 1, 18, 47);
-      // Minimal valid encoded polyline: one point at (0,0).
-      const encoded = '_ibE_seK';
+      // Two-point encoded polyline: (38.5,-120.2) → (40.7,-120.95).
+      // A single-point polyline causes CameraFit to throw (zero-area bounds).
+      const encoded = '_p~iF~ps|U_ulLnnqC';
       await db.tripsDao.insertTrip(
         TripsCompanion.insert(
           id: id,
