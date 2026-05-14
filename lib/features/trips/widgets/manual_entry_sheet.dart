@@ -107,8 +107,7 @@ class _ManualEntrySheetState extends ConsumerState<ManualEntrySheet> {
     }
     final result = parseHhMm(value);
     setState(() {
-      _trafficError =
-          result == null ? 'Use HH:MM format (e.g. 0:15).' : null;
+      _trafficError = result == null ? 'Use HH:MM format (e.g. 0:15).' : null;
     });
   }
 
@@ -130,8 +129,9 @@ class _ManualEntrySheetState extends ConsumerState<ManualEntrySheet> {
 
     // Parse optional distance field.
     final distanceText = _distanceController.text.trim();
-    final distanceKm =
-        distanceText.isEmpty ? 0.0 : (double.tryParse(distanceText) ?? 0.0);
+    final distanceKm = distanceText.isEmpty
+        ? 0.0
+        : (double.tryParse(distanceText) ?? 0.0);
     final distanceMeters = distanceKm * 1000;
 
     // Pitfall 6: build local midnight then convert to UTC.
@@ -142,7 +142,9 @@ class _ManualEntrySheetState extends ConsumerState<ManualEntrySheet> {
     ).toUtc();
     final endUtc = startUtc.add(duration);
 
-    await ref.read(tripManagementProvider.notifier).insertManualTrip(
+    await ref
+        .read(tripManagementProvider.notifier)
+        .insertManualTrip(
           startTimeUtc: startUtc,
           endTimeUtc: endUtc,
           direction: _toConstant(_direction),
@@ -184,129 +186,131 @@ class _ManualEntrySheetState extends ConsumerState<ManualEntrySheet> {
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          const SizedBox(height: _kSectionGap),
-          Text('Add missed commute', style: textTheme.titleLarge),
-          const SizedBox(height: _kFieldGap),
-          // Date field
-          Text('Date', style: textTheme.labelLarge),
-          const SizedBox(height: _kLabelGap),
-          OutlinedButton.icon(
-            onPressed: isSaving ? null : _pickDate,
-            icon: const Icon(Icons.calendar_today),
-            label: Text(dateFormat.format(_selectedDate)),
-          ),
-          const SizedBox(height: _kFieldGap),
-          // Duration field (required)
-          Text('Duration (HH:MM)', style: textTheme.labelLarge),
-          const SizedBox(height: _kLabelGap),
-          TextField(
-            controller: _durationController,
-            enabled: !isSaving,
-            keyboardType: TextInputType.datetime,
-            inputFormatters: <TextInputFormatter>[
-              FilteringTextInputFormatter.allow(RegExp('[0-9:]')),
-            ],
-            maxLength: 5,
-            decoration: InputDecoration(
-              hintText: '0:45',
-              filled: true,
-              errorText: _durationError,
-              counterText: '', // hide the maxLength counter
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const SizedBox(height: _kSectionGap),
+            Text('Add missed commute', style: textTheme.titleLarge),
+            const SizedBox(height: _kFieldGap),
+            // Date field
+            Text('Date', style: textTheme.labelLarge),
+            const SizedBox(height: _kLabelGap),
+            OutlinedButton.icon(
+              onPressed: isSaving ? null : _pickDate,
+              icon: const Icon(Icons.calendar_today),
+              label: Text(dateFormat.format(_selectedDate)),
             ),
-            onChanged: _validateDuration,
-          ),
-          const SizedBox(height: _kFieldGap),
-          // Traffic field (optional)
-          Text(
-            'Time in traffic (optional, HH:MM)',
-            style: textTheme.labelLarge,
-          ),
-          const SizedBox(height: _kLabelGap),
-          TextField(
-            controller: _trafficController,
-            enabled: !isSaving,
-            keyboardType: TextInputType.datetime,
-            inputFormatters: <TextInputFormatter>[
-              FilteringTextInputFormatter.allow(RegExp('[0-9:]')),
-            ],
-            maxLength: 5,
-            decoration: InputDecoration(
-              hintText: '0:15',
-              filled: true,
-              errorText: _trafficError,
-              counterText: '',
+            const SizedBox(height: _kFieldGap),
+            // Duration field (required)
+            Text('Duration (HH:MM)', style: textTheme.labelLarge),
+            const SizedBox(height: _kLabelGap),
+            TextField(
+              controller: _durationController,
+              enabled: !isSaving,
+              keyboardType: TextInputType.datetime,
+              inputFormatters: <TextInputFormatter>[
+                FilteringTextInputFormatter.allow(RegExp('[0-9:]')),
+              ],
+              maxLength: 5,
+              decoration: InputDecoration(
+                hintText: '0:45',
+                filled: true,
+                errorText: _durationError,
+                counterText: '', // hide the maxLength counter
+              ),
+              onChanged: _validateDuration,
             ),
-            onChanged: _validateTraffic,
-          ),
-          const SizedBox(height: _kFieldGap),
-          // Distance field (optional)
-          Text('Distance (optional, km)', style: textTheme.labelLarge),
-          const SizedBox(height: _kLabelGap),
-          TextField(
-            controller: _distanceController,
-            enabled: !isSaving,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            inputFormatters: <TextInputFormatter>[
-              FilteringTextInputFormatter.allow(RegExp('[0-9.]')),
-            ],
-            maxLength: 6,
-            decoration: const InputDecoration(
-              hintText: '12.5',
-              filled: true,
-              counterText: '',
+            const SizedBox(height: _kFieldGap),
+            // Traffic field (optional)
+            Text(
+              'Time in traffic (optional, HH:MM)',
+              style: textTheme.labelLarge,
             ),
-          ),
-          const SizedBox(height: _kFieldGap),
-          // Direction field
-          Text('Direction', style: textTheme.labelLarge),
-          const SizedBox(height: _kLabelGap),
-          SegmentedButton<_TripDirection>(
-            segments: const <ButtonSegment<_TripDirection>>[
-              ButtonSegment(
-                value: _TripDirection.toOffice,
-                label: Text('To office'),
+            const SizedBox(height: _kLabelGap),
+            TextField(
+              controller: _trafficController,
+              enabled: !isSaving,
+              keyboardType: TextInputType.datetime,
+              inputFormatters: <TextInputFormatter>[
+                FilteringTextInputFormatter.allow(RegExp('[0-9:]')),
+              ],
+              maxLength: 5,
+              decoration: InputDecoration(
+                hintText: '0:15',
+                filled: true,
+                errorText: _trafficError,
+                counterText: '',
               ),
-              ButtonSegment(
-                value: _TripDirection.toHome,
-                label: Text('To home'),
+              onChanged: _validateTraffic,
+            ),
+            const SizedBox(height: _kFieldGap),
+            // Distance field (optional)
+            Text('Distance (optional, km)', style: textTheme.labelLarge),
+            const SizedBox(height: _kLabelGap),
+            TextField(
+              controller: _distanceController,
+              enabled: !isSaving,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
               ),
-            ],
-            selected: <_TripDirection>{_direction},
-            showSelectedIcon: false,
-            onSelectionChanged: isSaving
-                ? null
-                : (s) => setState(() => _direction = s.first),
-          ),
-          const SizedBox(height: _kSectionGap),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: <Widget>[
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Cancel'),
+              inputFormatters: <TextInputFormatter>[
+                FilteringTextInputFormatter.allow(RegExp('[0-9.]')),
+              ],
+              maxLength: 6,
+              decoration: const InputDecoration(
+                hintText: '12.5',
+                filled: true,
+                counterText: '',
               ),
-              const SizedBox(width: _kButtonGap),
-              FilledButton(
-                onPressed: (isSaving || !isFormValid) ? null : _save,
-                child: isSaving
-                    ? SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: colorScheme.onPrimary,
-                        ),
-                      )
-                    : const Text('Save'),
-              ),
-            ],
-          ),
-          const SizedBox(height: _kFieldGap),
-        ],
+            ),
+            const SizedBox(height: _kFieldGap),
+            // Direction field
+            Text('Direction', style: textTheme.labelLarge),
+            const SizedBox(height: _kLabelGap),
+            SegmentedButton<_TripDirection>(
+              segments: const <ButtonSegment<_TripDirection>>[
+                ButtonSegment(
+                  value: _TripDirection.toOffice,
+                  label: Text('To office'),
+                ),
+                ButtonSegment(
+                  value: _TripDirection.toHome,
+                  label: Text('To home'),
+                ),
+              ],
+              selected: <_TripDirection>{_direction},
+              showSelectedIcon: false,
+              onSelectionChanged: isSaving
+                  ? null
+                  : (s) => setState(() => _direction = s.first),
+            ),
+            const SizedBox(height: _kSectionGap),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancel'),
+                ),
+                const SizedBox(width: _kButtonGap),
+                FilledButton(
+                  onPressed: (isSaving || !isFormValid) ? null : _save,
+                  child: isSaving
+                      ? SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: colorScheme.onPrimary,
+                          ),
+                        )
+                      : const Text('Save'),
+                ),
+              ],
+            ),
+            const SizedBox(height: _kFieldGap),
+          ],
+        ),
       ),
-    ),
     );
   }
 }
