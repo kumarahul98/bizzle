@@ -10,17 +10,17 @@ import 'package:traevy/features/trips/providers/history_providers.dart';
 /// upstream provider.
 final Provider<AsyncValue<List<TripSummary>>> todaysTripSummariesProvider =
     Provider<AsyncValue<List<TripSummary>>>(
-  (ref) {
-    final asyncTrips = ref.watch(allTripSummariesProvider);
-    return asyncTrips.whenData((trips) {
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
-      return trips.where((trip) {
-        final local = trip.startTime.toLocal();
-        final date = DateTime(local.year, local.month, local.day);
-        return date == today;
-      }).toList();
-    });
-  },
-  name: 'todaysTripSummariesProvider',
-);
+      (ref) {
+        final asyncTrips = ref.watch(allTripSummariesProvider);
+        return asyncTrips.whenData((trips) {
+          final now = DateTime.now();
+          final today = DateTime(now.year, now.month, now.day);
+          return trips.where((trip) {
+            final local = trip.startTime.toLocal();
+            final date = DateTime(local.year, local.month, local.day);
+            return date == today;
+          }).toList();
+        });
+      },
+      name: 'todaysTripSummariesProvider',
+    );
