@@ -19,9 +19,10 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 5: Stats & Analytics** - Commute stats, traffic totals, trends, and charts
 - [x] **Phase 6: Dashboard** - Home screen with today's trips and weekly summary ✓ 2026-04-28
 - [x] **Phase 7: Polish & Notifications** - Dark mode, tracking reminders, and summary notifications ✓ 2026-04-28
-- [ ] **Phase 8: Authentication** - Google Sign-In with Cognito federation and onboarding flow
-- [ ] **Phase 9: Backend Infrastructure** - AWS SAM stack with Lambda endpoints and DynamoDB
-- [ ] **Phase 10: Sync Engine** - One-way sync queue and cloud restore flow
+- [ ] **Phase 8: UI Overhaul** - Full visual redesign to Traevy design system (Inter + JetBrains Mono, oklch colour tokens, calm & spacious layout)
+- [ ] **Phase 9: Authentication** - Google Sign-In with Cognito federation and onboarding flow
+- [ ] **Phase 10: Backend Infrastructure** - AWS SAM stack with Lambda endpoints and DynamoDB
+- [ ] **Phase 11: Sync Engine** - One-way sync queue and cloud restore flow
 
 ## Phase Details
 
@@ -152,7 +153,29 @@ Plans:
 - [x] 07-03-PLAN.md — UserPreferencesDao.watch() + userPreferenceProvider StreamProvider + NotificationService (zonedSchedule) + TraevyApp dynamic themeMode + main.dart bootstrap
 - [x] 07-04-PLAN.md — SettingsScreen (Appearance + Notifications sections) + Dashboard gear icon + routes wiring + ManualEntrySheet bug fix (traffic/distance fields) + stats_service exclusion fix
 
-### Phase 8: Authentication
+### Phase 8: UI Overhaul
+**Goal**: Every screen is redesigned to the Traevy design system — new colour tokens, Inter + JetBrains Mono typography, calm spacious layout, and pointed traffic-loss copy — while leaving all business logic untouched
+**Depends on**: Phase 7
+**Requirements**: UX-01, UX-02, UX-04, UX-05
+**Success Criteria** (what must be TRUE):
+  1. All screens use the Traevy oklch colour tokens (light and dark variants) with no hardcoded legacy colours remaining
+  2. JetBrains Mono is used for all numeric/tabular data; Inter for all UI copy
+  3. Home screen shows the hero circular START button, today's trips list, and "You lost Xh Xm to traffic this week" card
+  4. Active recording screen shows elapsed timer, distance/speed/stuck stat cards, and mini map with a "Stop and save" button
+  5. History screen has "Trips" title, List/Calendar pill toggle, and date-grouped TripRow cards
+  6. Stats screen shows the hero traffic-loss number, donut chart, 28-day TrendBars, and WeekdayChart
+  7. Settings screen uses grouped section rows (Account, Recording, Notifications, Appearance) with consistent toggle and chevron components
+  8. All screens pass flutter analyze with zero warnings
+**Plans**: TBD
+**UI hint**: yes
+
+Plans:
+- [ ] 08-01: TBD
+- [ ] 08-02: TBD
+- [ ] 08-03: TBD
+- [ ] 08-04: TBD
+
+### Phase 9: Authentication
 **Goal**: Users can sign in with Google, exchange tokens with Cognito, and have their identity linked to existing local trip data
 **Depends on**: Phase 1
 **Requirements**: AUTH-01, AUTH-02, AUTH-03, BACK-01
@@ -165,12 +188,12 @@ Plans:
 **UI hint**: yes
 
 Plans:
-- [ ] 08-01: TBD
-- [ ] 08-02: TBD
+- [ ] 09-01: TBD
+- [ ] 09-02: TBD
 
-### Phase 9: Backend Infrastructure
+### Phase 10: Backend Infrastructure
 **Goal**: AWS serverless backend is deployed with three working API endpoints protected by Cognito authorization
-**Depends on**: Phase 8
+**Depends on**: Phase 9
 **Requirements**: BACK-02, BACK-03, BACK-04
 **Success Criteria** (what must be TRUE):
   1. POST /trips/sync endpoint accepts a batch of trips and writes them to DynamoDB
@@ -180,12 +203,12 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 09-01: TBD
-- [ ] 09-02: TBD
+- [ ] 10-01: TBD
+- [ ] 10-02: TBD
 
-### Phase 10: Sync Engine
+### Phase 11: Sync Engine
 **Goal**: Trips automatically sync from Drift to DynamoDB in the background, and users can restore from cloud backup
-**Depends on**: Phase 9
+**Depends on**: Phase 10
 **Requirements**: SYNC-02, SYNC-03
 **Success Criteria** (what must be TRUE):
   1. After saving a trip, a sync queue entry is created and processed in the background when online
@@ -195,15 +218,15 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 10-01: TBD
-- [ ] 10-02: TBD
+- [ ] 11-01: TBD
+- [ ] 11-02: TBD
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10 -> 11
 
-Note: Phases 1-7 deliver the complete local-first experience without any authentication or cloud dependency. Phases 8-10 layer on auth, backend, and sync after the core app is fully functional.
+Note: Phases 1-7 deliver the complete local-first experience without any authentication or cloud dependency. Phase 8 redesigns the UI to the Traevy design system. Phases 9-11 layer on auth, backend, and sync after the core app is fully functional and polished.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -214,6 +237,7 @@ Note: Phases 1-7 deliver the complete local-first experience without any authent
 | 5. Stats & Analytics | 0/5 | Not started | - |
 | 6. Dashboard | 0/4 | Not started | - |
 | 7. Polish & Notifications | 0/4 | Not started | - |
-| 8. Authentication | 0/2 | Not started | - |
-| 9. Backend Infrastructure | 0/2 | Not started | - |
-| 10. Sync Engine | 0/2 | Not started | - |
+| 8. UI Overhaul | 0/4 | Not started | - |
+| 9. Authentication | 0/2 | Not started | - |
+| 10. Backend Infrastructure | 0/2 | Not started | - |
+| 11. Sync Engine | 0/2 | Not started | - |
