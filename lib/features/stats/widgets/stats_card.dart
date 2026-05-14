@@ -1,56 +1,59 @@
 import 'package:flutter/material.dart';
+import 'package:traevy/config/theme.dart';
+import 'package:traevy/shared/widgets/section_label.dart';
 
 // Spacing constants — multiples of 4 per UI-SPEC.
-const double _kCardPadding = 16;
-const double _kTitleBodyGap = 8;
+const double _kCardPadding = 20;
+const double _kTitleBodyGap = 12;
 
-/// Reusable Material 3 card wrapper for every Phase 5 stat card.
+/// Thin bgElev card wrapper for Phase 8 stats cards.
 ///
-/// Renders a [Card] with `surfaceContainerLow` background (matching
-/// `TripCard`), 16px padding, the [title] in `titleMedium`, and the
-/// caller-provided [child] below.
+/// Renders a Container with tokens.bgElev background, 16dp radius,
+/// tokens.border border, 20dp padding, and an optional title
+/// rendered as a SectionLabel above the child.
 ///
-/// Cards are read-only (UI-SPEC §Interaction) — no `InkWell`, no
-/// `onTap`, no ripple.
+/// Cards are read-only — no InkWell or onTap.
 class StatsCard extends StatelessWidget {
   /// Construct a stats card.
   ///
-  /// [title] is rendered as `titleMedium` (16sp w600) at the top of
-  /// the card. [child] occupies the rest of the card body.
+  /// When [title] is non-null, it renders as a [SectionLabel] above
+  /// the [child] with [_kTitleBodyGap] between them.
   const StatsCard({
-    required this.title,
     required this.child,
+    this.title,
+    this.padding,
     super.key,
   });
 
-  /// Card heading text. Comes from a Phase 5 string constant.
-  final String title;
+  /// Optional card heading rendered as a [SectionLabel].
+  final String? title;
 
-  /// Body slot — typically a Column of value + helper rows.
+  /// Body slot — typically a Column of value rows or a chart.
   final Widget child;
+
+  /// Override the default [_kCardPadding] on all sides.
+  final EdgeInsets? padding;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    return Card(
-      color: colorScheme.surfaceContainerLow,
-      child: Padding(
-        padding: const EdgeInsets.all(_kCardPadding),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(
-              title,
-              style: textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: _kTitleBodyGap),
-            child,
-          ],
-        ),
+    final tokens = Theme.of(context).extension<TraevyTokensExt>()!;
+    return Container(
+      padding: padding ?? const EdgeInsets.all(_kCardPadding),
+      decoration: BoxDecoration(
+        color: tokens.bgElev,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: tokens.border),
       ),
+      child: title != null
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                SectionLabel(text: title!),
+                const SizedBox(height: _kTitleBodyGap),
+                child,
+              ],
+            )
+          : child,
     );
   }
 }
