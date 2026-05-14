@@ -25,6 +25,12 @@ const String kRouteStats = '/stats';
 /// Settings screen route (Phase 7, D-01).
 const String kRouteSettings = '/settings';
 
+/// Onboarding screen route (D-08; screen registered in Plan 07).
+///
+/// Reserved here so the route name is available app-wide before
+/// the OnboardingScreen builder is wired in Plan 07.
+const String kRouteOnboarding = '/onboarding';
+
 /// App-level named routes.
 ///
 /// The map is declared `final` instead of `const` because Dart 3.11

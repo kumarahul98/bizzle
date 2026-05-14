@@ -3,12 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:traevy/app.dart';
+import 'package:traevy/database/daos/trips_dao.dart';
 import 'package:traevy/database/daos/user_preferences_dao.dart';
 import 'package:traevy/database/database.dart';
-import 'package:traevy/database/daos/trips_dao.dart';
 import 'package:traevy/database/providers.dart';
-import 'package:traevy/features/dashboard/screens/dashboard_screen.dart';
 import 'package:traevy/features/settings/providers/settings_providers.dart';
+import 'package:traevy/features/shell/main_shell.dart';
 import 'package:traevy/features/tracking/providers/backfill_provider.dart';
 import 'package:traevy/features/tracking/providers/tracking_providers.dart';
 import 'package:traevy/features/tracking/state/tracking_state.dart';
@@ -19,7 +19,8 @@ import 'package:traevy/features/trips/providers/history_providers.dart';
 /// The real [TrackingNotifier.build] calls FlutterBackgroundService.on,
 /// which throws on non-Android/iOS platforms (the test host). This
 /// subclass short-circuits [build] to [TrackingIdle] so widget tests
-/// that render [DashboardScreen] never touch the platform channel.
+/// that render DashboardScreen inside [MainShell] never touch the
+/// platform channel.
 class _IdleTrackingNotifier extends TrackingNotifier {
   @override
   TrackingState build() => const TrackingIdle();
@@ -27,10 +28,10 @@ class _IdleTrackingNotifier extends TrackingNotifier {
 
 void main() {
   testWidgets(
-    'TraevyApp builds under ProviderScope and shows DashboardScreen',
+    'TraevyApp builds under ProviderScope and shows MainShell with NavigationBar',
     (tester) async {
-      // DashboardScreen.build watches trackingStateProvider, allTripSummariesProvider
-      // (via todaysTripSummariesProvider), and statsSummaryProvider.
+      // MainShell mounts DashboardScreen, which watches trackingStateProvider,
+      // allTripSummariesProvider, and statsSummaryProvider.
       // Override all providers to avoid file I/O and platform channel calls.
       final db = AppDatabase(NativeDatabase.memory());
       addTearDown(db.close);
@@ -72,11 +73,15 @@ void main() {
       // ProviderScope reached TraevyApp without throwing.
       expect(find.byType(MaterialApp), findsOneWidget);
 
-      // Phase 6 mounts DashboardScreen as the app root (UX-01).
-      expect(find.byType(DashboardScreen), findsOneWidget);
+      // Phase 8 mounts MainShell as the app root (UX-01).
+      expect(find.byType(MainShell), findsOneWidget);
 
-      // FAB shows the idle label — confirms DashboardScreen rendered fully.
-      expect(find.text('Start commute'), findsOneWidget);
+      // NavigationBar with four destinations confirms the shell rendered.
+      expect(find.byType(NavigationBar), findsOneWidget);
+      expect(find.text('Today'), findsOneWidget);
+      expect(find.text('Trips'), findsOneWidget);
+      expect(find.text('Stats'), findsOneWidget);
+      expect(find.text('Settings'), findsOneWidget);
     },
   );
 }
