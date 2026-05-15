@@ -160,6 +160,34 @@ const String kTrackingStopActionId = 'stop_tracking';
 /// See D-14 in `.planning/phases/02-core-tracking/02-CONTEXT.md`.
 const String kTrackingStopActionLabel = 'Stop';
 
+/// Action id for the Open button on the recording notification (08-10).
+/// Tapping OPEN brings the app to the foreground via an Activity
+/// PendingIntent — same effect as tapping the notification body.
+const String kTrackingOpenActionId = 'open_app';
+
+/// User-facing label for the Open action button (08-10).
+const String kTrackingOpenActionLabel = 'Open';
+
+/// iOS notification category id for the active-commute notification (08-10).
+/// Categories define which actions appear when the notification is expanded
+/// on iOS. Matches the Android action set (Open + Stop) so the cross-platform
+/// `flutter_local_notifications` API surfaces the same UX on both platforms.
+const String kTrackingNotificationCategoryId = 'traevy_recording';
+
+/// Title template for the active-commute notification (08-10). The
+/// `{direction}` token is substituted with the auto-labelled direction
+/// ('To office' / 'To home') at show/update time.
+const String kTrackingNotificationTitleTemplate =
+    'Recording your commute to {direction}';
+
+/// Body template for the active-commute notification (08-10). Tokens are
+/// substituted with formatted live values on every snapshot:
+///   - {elapsed} → '22:14'
+///   - {km}      → '4.1'
+///   - {stuck}   → '4m'
+const String kTrackingNotificationBodyTemplate =
+    '● REC  {elapsed} elapsed · {km} km · {stuck} stuck';
+
 /// GPS sampling interval — balances battery vs fidelity for a typical
 /// 30-minute commute. Passed to the geolocator position stream settings.
 ///

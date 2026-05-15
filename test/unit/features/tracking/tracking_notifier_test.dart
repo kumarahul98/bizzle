@@ -3,6 +3,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/database.dart';
 import 'package:traevy/features/tracking/providers/tracking_providers.dart';
 import 'package:traevy/features/tracking/services/tracking_notification_service.dart';
@@ -73,7 +74,12 @@ class _NoopNotifications implements TrackingNotificationService {
   Future<void> dismiss() async {}
 
   @override
-  Future<void> showRecording() async {}
+  Future<void> showRecording({
+    int elapsedSeconds = 0,
+    double distanceMeters = 0,
+    int timeStuckSeconds = 0,
+    String direction = kDirectionToOffice,
+  }) async {}
 
   @override
   Future<void> initialize() async {}

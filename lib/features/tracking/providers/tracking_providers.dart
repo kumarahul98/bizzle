@@ -170,8 +170,27 @@ class TrackingNotifier extends Notifier<TrackingState> {
             // strict-casts-safe: `trackingActiveFromSnapshotMap` does the
             // `Map<String, dynamic>` → `Map<String, Object?>` cast through
             // the audited `_req<T>` helper in `tracking_state.dart`.
-            state = trackingActiveFromSnapshotMap(
+            final next = trackingActiveFromSnapshotMap(
               data.cast<String, Object?>(),
+            );
+            state = next;
+            // 08-10: refresh the foreground notification with live values
+            // on every snapshot. showRecording() is idempotent on the
+            // shared (channelId, notificationId); calling it here
+            // overwrites the existing notification's title/body without
+            // re-triggering sound/vibration (`onlyAlertOnce: true`).
+            unawaited(
+              ref
+                  .read(trackingNotificationServiceProvider)
+                  .showRecording(
+                    elapsedSeconds: next.elapsedSeconds,
+                    distanceMeters: next.distanceMeters,
+                    timeStuckSeconds: next.timeStuckSeconds,
+                  )
+                  .catchError((Object _) {
+                // POST_NOTIFICATIONS denied or platform channel error —
+                // tracking continues, notification just doesn't refresh.
+              }),
             );
           },
           onError: (Object error, StackTrace stack) {
