@@ -120,6 +120,10 @@ class TripAccumulator {
   final String _tripId;
 
   Position? _lastAccepted;
+  // Timestamp of the most-recently accepted sample. Used by snapshot() to
+  // decide whether _lastAccepted.speed is still fresh enough to surface as
+  // currentSpeedMs. Set wherever _lastAccepted is set.
+  DateTime? _lastAcceptedAt;
   double _distanceMeters = 0;
   int _timeMovingSeconds = 0;
   int _timeStuckSeconds = 0;
@@ -137,6 +141,7 @@ class TripAccumulator {
     final prev = _lastAccepted;
     if (prev == null) {
       _lastAccepted = p;
+      _lastAcceptedAt = p.timestamp;
       _samples.add(p);
       return;
     }
@@ -148,6 +153,7 @@ class TripAccumulator {
       // counters — T-02-05 tampering guard.
       _samples.add(p);
       _lastAccepted = p;
+      _lastAcceptedAt = p.timestamp;
       return;
     }
     final deltaSec = deltaMillis / 1000.0;
@@ -181,19 +187,31 @@ class TripAccumulator {
     }
 
     _lastAccepted = p;
+    _lastAcceptedAt = p.timestamp;
     _samples.add(p);
   }
 
   /// Project the current accumulator state into a [TripSnapshot] for
   /// streaming to the UI isolate.
+  ///
+  /// `currentSpeedMs` is gated on `kTrackingSpeedFreshnessWindow`: when the
+  /// most-recent accepted sample is older than the window, the snapshot
+  /// reports speed 0. This prevents the SPEED tile from "sticking" at the
+  /// last in-motion value when the device stops emitting fresh GPS samples
+  /// (Android throttles emissions when stationary, and the 30 m accuracy
+  /// gate drops stationary low-accuracy samples). Diagnosed in
+  /// `.planning/debug/active-speed-tile-stale.md`.
   TripSnapshot snapshot(DateTime now) {
+    final lastAt = _lastAcceptedAt;
+    final isFresh = lastAt != null &&
+        now.difference(lastAt) <= kTrackingSpeedFreshnessWindow;
     return TripSnapshot(
       startedAt: startedAt,
       elapsedSeconds: now.difference(startedAt).inSeconds,
       distanceMeters: _distanceMeters,
       timeMovingSeconds: _timeMovingSeconds,
       timeStuckSeconds: _timeStuckSeconds,
-      currentSpeedMs: _lastAccepted?.speed ?? 0,
+      currentSpeedMs: isFresh ? (_lastAccepted?.speed ?? 0) : 0,
     );
   }
 

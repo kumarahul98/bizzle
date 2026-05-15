@@ -189,6 +189,18 @@ const double kTrackingMaxAcceptableAccuracyMeters = 30;
 /// See `.planning/phases/02-core-tracking/02-RESEARCH.md` §6.
 const int kTrackingMaxAttributableGapSeconds = 30;
 
+/// How fresh `_lastAccepted.speed` must be for `TripAccumulator.snapshot`
+/// to surface it as `currentSpeedMs`. Older than this and the snapshot
+/// reports 0 so the SPEED tile decays correctly when the device stops
+/// emitting fresh GPS samples (Android throttles emissions when stationary
+/// and the 30m accuracy gate drops stationary low-accuracy samples).
+///
+/// 6s = 2× `kTrackingSampleInterval` so a single dropped sample does not
+/// flip the tile to 0 prematurely, but two consecutive dropped samples
+/// (or stationary throttling) will. See
+/// `.planning/debug/active-speed-tile-stale.md` for full diagnosis.
+const Duration kTrackingSpeedFreshnessWindow = Duration(seconds: 6);
+
 // ---------------------------------------------------------------------------
 // Phase 4: Trip History
 // ---------------------------------------------------------------------------

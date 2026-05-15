@@ -205,6 +205,58 @@ void main() {
     );
   });
 
+  group('TripAccumulator.snapshot() — speed freshness (gap 08-02)', () {
+    // SPEED tile must drop to 0 when the device stops emitting fresh GPS
+    // samples. See `.planning/debug/active-speed-tile-stale.md`.
+
+    test('returns last accepted speed when within freshness window', () {
+      final acc = TripAccumulator(startedAt: start);
+      final t0 = start.add(const Duration(seconds: 5));
+      acc.addSample(_pos(lat: 0, lng: 0, speedMs: 12, timestamp: t0));
+
+      // Half the freshness window has passed — sample is still fresh.
+      final now = t0.add(kTrackingSpeedFreshnessWindow ~/ 2);
+      final snap = acc.snapshot(now);
+
+      expect(snap.currentSpeedMs, 12);
+    });
+
+    test('decays to 0 when last sample is older than the freshness window',
+        () {
+      final acc = TripAccumulator(startedAt: start);
+      final t0 = start.add(const Duration(seconds: 5));
+      acc.addSample(_pos(lat: 0, lng: 0, speedMs: 12, timestamp: t0));
+
+      // Window + 1s has passed without any new sample.
+      final now = t0
+          .add(kTrackingSpeedFreshnessWindow)
+          .add(const Duration(seconds: 1));
+      final snap = acc.snapshot(now);
+
+      expect(snap.currentSpeedMs, 0);
+    });
+
+    test('reflects fresh zero-speed sample immediately', () {
+      final acc = TripAccumulator(startedAt: start);
+      final t0 = start.add(const Duration(seconds: 5));
+      acc.addSample(_pos(lat: 0, lng: 0, speedMs: 12, timestamp: t0));
+
+      // 4 seconds later (within window) a 0-speed sample arrives.
+      final t1 = t0.add(const Duration(seconds: 4));
+      acc.addSample(_pos(lat: 0, lng: 0, speedMs: 0, timestamp: t1));
+      final snap = acc.snapshot(t1);
+
+      expect(snap.currentSpeedMs, 0);
+    });
+
+    test('reports 0 when no sample has been accepted yet', () {
+      final acc = TripAccumulator(startedAt: start);
+      final snap = acc.snapshot(start.add(const Duration(seconds: 1)));
+
+      expect(snap.currentSpeedMs, 0);
+    });
+  });
+
   group('TripAccumulator.addSample() — gates', () {
     test('drops sample with accuracy > threshold', () {
       final acc = TripAccumulator(startedAt: start)
