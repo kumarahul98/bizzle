@@ -2,7 +2,6 @@ import 'package:flutter/widgets.dart';
 import 'package:traevy/features/onboarding/screens/onboarding_screen.dart';
 import 'package:traevy/features/settings/screens/settings_screen.dart';
 import 'package:traevy/features/stats/screens/stats_screen.dart';
-import 'package:traevy/features/tracking/screens/tracking_screen.dart';
 import 'package:traevy/features/trips/screens/history_screen.dart';
 import 'package:traevy/features/trips/screens/trip_detail_screen.dart';
 
@@ -10,9 +9,6 @@ import 'package:traevy/features/trips/screens/trip_detail_screen.dart';
 /// CTA. Bound via `MaterialApp.home` directly because it is always the
 /// first route, so it does not need an entry in [kAppRoutes].
 const String kRouteHome = '/';
-
-/// Live tracking screen route (D-12).
-const String kRouteTracking = '/tracking';
 
 /// Trip history screen route (D-02).
 const String kRouteHistory = '/history';
@@ -38,7 +34,6 @@ const String kRouteOnboarding = '/onboarding';
 /// rejects `const` maps whose values are tear-off [WidgetBuilder]
 /// closures — this is a language constraint, not a lint violation.
 final Map<String, WidgetBuilder> kAppRoutes = <String, WidgetBuilder>{
-  kRouteTracking: (BuildContext context) => const TrackingScreen(),
   kRouteHistory: (BuildContext context) => const HistoryScreen(),
   kRouteStats: (BuildContext context) => const StatsScreen(),
   kRouteSettings: (BuildContext context) => const SettingsScreen(),

@@ -1,14 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:traevy/config/constants.dart';
-import 'package:traevy/config/routes.dart';
 import 'package:traevy/features/dashboard/widgets/hero_record_card.dart';
 import 'package:traevy/features/dashboard/widgets/home_header.dart';
 import 'package:traevy/features/dashboard/widgets/today_section.dart';
 import 'package:traevy/features/dashboard/widgets/week_loss_card.dart';
 import 'package:traevy/features/tracking/providers/tracking_providers.dart';
 import 'package:traevy/features/tracking/services/tracking_permission_service.dart';
-import 'package:traevy/features/tracking/state/tracking_state.dart';
 
 /// The dashboard home screen — the app root showing today's trips and
 /// a weekly traffic loss card at a glance (UX-01).
@@ -25,7 +25,6 @@ class DashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final trackingState = ref.watch(trackingStateProvider);
-    final isTracking = trackingState is TrackingActive;
 
     return Scaffold(
       body: SafeArea(
@@ -37,7 +36,6 @@ class DashboardScreen extends ConsumerWidget {
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: HeroRecordCard(
-                  isTracking: isTracking,
                   onStart: () => _handleStart(context, ref),
                 ),
               ),
@@ -78,7 +76,11 @@ class DashboardScreen extends ConsumerWidget {
       return;
     }
     if (!context.mounted) return;
-    await Navigator.pushNamed(context, kRouteTracking);
+    // Fire-and-forget: TrackingNotifier.start() flips state to TrackingStarting
+    // synchronously; HeroRecordCard reflects the transition in place — no
+    // navigation. Awaiting would block the dashboard for foreground-service
+    // spin-up. See .planning/debug/hero-start-double-tap.md.
+    unawaited(ref.read(trackingStateProvider.notifier).start());
   }
 
   Future<void> _showSettingsDialog(

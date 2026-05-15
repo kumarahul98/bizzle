@@ -24,7 +24,6 @@ import 'package:traevy/features/dashboard/widgets/week_loss_card.dart';
 import 'package:traevy/features/stats/providers/stats_providers.dart';
 import 'package:traevy/features/stats/services/stats_service.dart';
 import 'package:traevy/features/tracking/providers/tracking_providers.dart';
-import 'package:traevy/features/tracking/screens/tracking_screen.dart';
 import 'package:traevy/features/tracking/services/tracking_permission_service.dart';
 import 'package:traevy/features/tracking/state/tracking_state.dart';
 import 'package:traevy/features/trips/providers/history_providers.dart';
@@ -301,13 +300,13 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      // Dialog is present; tracking route is NOT.
+      // Dialog is present; in-place hero remained on the dashboard.
       expect(find.text('Location permission denied'), findsOneWidget);
       expect(
         find.widgetWithText(FilledButton, 'Open settings'),
         findsOneWidget,
       );
-      expect(find.byType(TrackingScreen), findsNothing);
+      expect(find.byType(DashboardScreen), findsOneWidget);
       expect(harness.openSettingsCalls(), 0);
     });
 
@@ -328,28 +327,57 @@ void main() {
         find.widgetWithText(FilledButton, 'Open settings'),
         findsOneWidget,
       );
-      expect(find.byType(TrackingScreen), findsNothing);
+      expect(find.byType(DashboardScreen), findsOneWidget);
       expect(harness.openSettingsCalls(), 0);
     });
 
     testWidgets(
-        'tapping START when idle with fullyGranted navigates to tracking screen',
-        (tester) async {
-      final harness =
-          _buildFakePermissionService(TrackingPermissionStatus.fullyGranted);
-      await _pumpDashboardScreen(tester, permissionService: harness.service);
+      'tapping START when idle with fullyGranted invokes notifier.start() '
+      '(no navigation — recording transitions in place)',
+      (tester) async {
+        final harness = _buildFakePermissionService(
+          TrackingPermissionStatus.fullyGranted,
+        );
+        // Capture .start() invocations on the stub notifier.
+        final startCalls = <int>[];
+        await _pumpDashboardScreen(
+          tester,
+          permissionService: harness.service,
+          trackingNotifierFactory: () =>
+              _StartCallNotifier(onStart: () => startCalls.add(1)),
+        );
 
-      expect(find.byType(TrackingScreen), findsNothing);
+        expect(find.byType(DashboardScreen), findsOneWidget);
 
-      await tester.tap(find.text('START'));
-      // Two pumps: one for the async currentStatus() microtask, one for
-      // the Navigator.pushNamed route transition frame.
-      await tester.pump();
-      await tester.pump();
-      await tester.pumpAndSettle();
+        await tester.tap(find.text('START'));
+        // Two pumps: one for the async currentStatus() microtask, one for
+        // the synchronous TrackingStarting state flip + rebuild.
+        await tester.pump();
+        await tester.pump();
 
-      expect(find.byType(TrackingScreen), findsOneWidget);
-      expect(find.byType(DashboardScreen), findsNothing);
-    });
+        expect(startCalls.length, 1);
+        // Dashboard stays mounted — no navigation.
+        expect(find.byType(DashboardScreen), findsOneWidget);
+      },
+    );
   });
+}
+
+/// Test-only notifier that records .start() invocations without spinning
+/// up the foreground service. The hero card transitions through
+/// TrackingStarting → TrackingActive on the real path; for this test we
+/// only need to confirm the dashboard called notifier.start() exactly once.
+class _StartCallNotifier extends TrackingNotifier {
+  _StartCallNotifier({required this.onStart});
+
+  final VoidCallback onStart;
+
+  @override
+  TrackingState build() => const TrackingIdle();
+
+  @override
+  Future<void> start() async {
+    onStart();
+    state = const TrackingStarting();
+  }
 }
