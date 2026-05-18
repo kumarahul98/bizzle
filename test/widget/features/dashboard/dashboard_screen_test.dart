@@ -14,6 +14,7 @@ import 'package:traevy/config/constants.dart';
 import 'package:traevy/config/routes.dart';
 import 'package:traevy/config/theme.dart';
 import 'package:traevy/database/daos/trips_dao.dart';
+import 'package:traevy/database/daos/user_preferences_dao.dart';
 import 'package:traevy/features/dashboard/screens/dashboard_screen.dart';
 import 'package:traevy/features/dashboard/widgets/empty_slot_row.dart';
 import 'package:traevy/features/dashboard/widgets/hero_record_card.dart';
@@ -21,6 +22,7 @@ import 'package:traevy/features/dashboard/widgets/home_header.dart';
 import 'package:traevy/features/dashboard/widgets/in_progress_card.dart';
 import 'package:traevy/features/dashboard/widgets/today_section.dart';
 import 'package:traevy/features/dashboard/widgets/week_loss_card.dart';
+import 'package:traevy/features/settings/providers/settings_providers.dart';
 import 'package:traevy/features/stats/providers/stats_providers.dart';
 import 'package:traevy/features/stats/services/stats_service.dart';
 import 'package:traevy/features/tracking/providers/tracking_providers.dart';
@@ -98,7 +100,10 @@ _PermissionHarness _buildFakePermissionService(
         Permission.locationAlways: PermissionStatus.granted,
         Permission.notification: PermissionStatus.denied,
       };
-      requestValues = const <Permission, PermissionStatus>{};
+      // preflight() re-requests when the probe returns denied.
+      requestValues = <Permission, PermissionStatus>{
+        Permission.notification: PermissionStatus.denied,
+      };
   }
   final service = TrackingPermissionService.forTesting(
     probe: (permission) async {
@@ -173,6 +178,14 @@ Future<void> _pumpDashboardScreen(
         ),
         statsSummaryProvider.overrideWith(
           (ref) => AsyncValue<StatsSummary>.data(_makeStatsSummary()),
+        ),
+        // HeroRecordCard reads user prefs to derive direction. Override with
+        // a closed stream of defaults so Drift's underlying stream-close
+        // timer doesn't leak past widget disposal.
+        userPreferenceProvider.overrideWith(
+          (ref) => Stream<UserPreferencesValue>.value(
+            const UserPreferencesValue.defaults(),
+          ),
         ),
       ],
       child: MaterialApp(

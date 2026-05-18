@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/config/theme.dart';
+import 'package:traevy/features/settings/providers/settings_providers.dart';
 import 'package:traevy/features/tracking/providers/tracking_providers.dart';
 import 'package:traevy/features/tracking/services/tracking_service_controller.dart';
 import 'package:traevy/features/tracking/state/tracking_state.dart';
@@ -12,6 +13,7 @@ import 'package:traevy/features/tracking/widgets/stop_button.dart';
 import 'package:traevy/features/tracking/widgets/tracking_error_layout.dart';
 import 'package:traevy/features/tracking/widgets/tracking_status_layout.dart';
 import 'package:traevy/features/tracking/widgets/tracking_tiles_row.dart';
+import 'package:traevy/features/trips/services/direction_label_service.dart';
 import 'package:traevy/shared/widgets/section_label.dart';
 
 const double _kButtonDiameter = 124;
@@ -81,6 +83,7 @@ class HeroRecordCard extends ConsumerWidget {
             label: 'Starting GPS...',
           ),
           TrackingActive(
+            :final startedAt,
             :final elapsedSeconds,
             :final distanceMeters,
             :final currentSpeedKmh,
@@ -91,6 +94,7 @@ class HeroRecordCard extends ConsumerWidget {
               distanceMeters: distanceMeters,
               currentSpeedKmh: currentSpeedKmh,
               timeStuckSeconds: timeStuckSeconds,
+              direction: _resolveDirection(ref, startedAt),
               onStop: () => ref.read(trackingStateProvider.notifier).stop(),
             ),
           TrackingStopping() => const TrackingStatusLayout(
@@ -103,6 +107,23 @@ class HeroRecordCard extends ConsumerWidget {
           ),
         },
       ),
+    );
+  }
+
+  /// Derive the direction label using the user's morning/evening cutoff
+  /// preferences and the trip's start time (local). Falls back to the
+  /// schema default cutoff when prefs haven't loaded yet so the very
+  /// first frame after Start doesn't render the wrong direction.
+  static String _resolveDirection(WidgetRef ref, DateTime startedAt) {
+    final prefs = ref.watch(userPreferenceProvider).asData?.value;
+    final morning =
+        prefs?.morningCutoffHour ?? kDefaultDirectionCutoffHour;
+    final evening =
+        prefs?.eveningCutoffHour ?? kDefaultDirectionCutoffHour;
+    return const DirectionLabelService().label(
+      startedAt.toLocal(),
+      morning,
+      evening,
     );
   }
 
@@ -200,6 +221,7 @@ class _HeroActive extends StatelessWidget {
     required this.distanceMeters,
     required this.currentSpeedKmh,
     required this.timeStuckSeconds,
+    required this.direction,
     required this.onStop,
   });
 
@@ -207,14 +229,18 @@ class _HeroActive extends StatelessWidget {
   final double distanceMeters;
   final double currentSpeedKmh;
   final int timeStuckSeconds;
+  final String direction;
   final VoidCallback onStop;
+
+  String get _directionLabel =>
+      direction == kDirectionToHome ? 'To home' : 'To office';
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        const RecordingHeader(directionLabel: 'To office'),
+        RecordingHeader(directionLabel: _directionLabel),
         const SizedBox(height: 16),
         ElapsedDisplay(durationSeconds: elapsedSeconds),
         const SizedBox(height: 24),

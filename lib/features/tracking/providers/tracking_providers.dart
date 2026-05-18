@@ -3,13 +3,16 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/providers.dart';
+import 'package:traevy/features/settings/providers/settings_providers.dart';
 import 'package:traevy/features/tracking/services/tracking_notification_service.dart';
 import 'package:traevy/features/tracking/services/tracking_permission_service.dart';
 import 'package:traevy/features/tracking/services/tracking_service_controller.dart';
 import 'package:traevy/features/tracking/services/tracking_service_events.dart';
 import 'package:traevy/features/tracking/state/finalized_trip.dart';
 import 'package:traevy/features/tracking/state/tracking_state.dart';
+import 'package:traevy/features/trips/services/direction_label_service.dart';
 
 /// Riverpod 3.x wiring for the tracking feature.
 ///
@@ -122,6 +125,14 @@ class TrackingNotifier extends Notifier<TrackingState> {
   StreamSubscription<Map<String, dynamic>?>? _errorSub;
   StreamSubscription<Map<String, dynamic>?>? _readySub;
   PersistResult? _lastPersistResult;
+  // Notification refresh throttle (08-10 review HIGH #5). The 1 Hz snapshot
+  // rate would call showRecording() ~2700 times on a 45-min trip, all of
+  // which round-trip through the platform channel. onlyAlertOnce mutes the
+  // sound but not the IPC. Throttle to once per
+  // [kTrackingNotificationRefreshInterval] so a 45-min trip drops to ~270
+  // calls instead. Reset on stop so the next trip's first snapshot lands
+  // immediately.
+  DateTime? _lastNotificationUpdateAt;
 
   @override
   TrackingState build() {
@@ -174,24 +185,7 @@ class TrackingNotifier extends Notifier<TrackingState> {
               data.cast<String, Object?>(),
             );
             state = next;
-            // 08-10: refresh the foreground notification with live values
-            // on every snapshot. showRecording() is idempotent on the
-            // shared (channelId, notificationId); calling it here
-            // overwrites the existing notification's title/body without
-            // re-triggering sound/vibration (`onlyAlertOnce: true`).
-            unawaited(
-              ref
-                  .read(trackingNotificationServiceProvider)
-                  .showRecording(
-                    elapsedSeconds: next.elapsedSeconds,
-                    distanceMeters: next.distanceMeters,
-                    timeStuckSeconds: next.timeStuckSeconds,
-                  )
-                  .catchError((Object _) {
-                // POST_NOTIFICATIONS denied or platform channel error —
-                // tracking continues, notification just doesn't refresh.
-              }),
-            );
+            _maybeRefreshNotification(next);
           },
           onError: (Object error, StackTrace stack) {
             // WR-03: the fbs channel emitted an error (e.g. the background
@@ -265,6 +259,42 @@ class TrackingNotifier extends Notifier<TrackingState> {
             state = TrackingError('Tracking stream failed');
           },
         );
+  }
+
+  /// Refresh the foreground notification, throttled to once per
+  /// [kTrackingNotificationRefreshInterval]. Resolves the trip's direction
+  /// from the user's morning/evening cutoff prefs so the notification title
+  /// and body match the in-app hero (review HIGH #2/3).
+  void _maybeRefreshNotification(TrackingActive active) {
+    final now = DateTime.now();
+    final last = _lastNotificationUpdateAt;
+    if (last != null &&
+        now.difference(last) < kTrackingNotificationRefreshInterval) {
+      return;
+    }
+    _lastNotificationUpdateAt = now;
+    final prefs = ref.read(userPreferenceProvider).asData?.value;
+    final morning = prefs?.morningCutoffHour ?? kDefaultDirectionCutoffHour;
+    final evening = prefs?.eveningCutoffHour ?? kDefaultDirectionCutoffHour;
+    final direction = const DirectionLabelService().label(
+      active.startedAt.toLocal(),
+      morning,
+      evening,
+    );
+    unawaited(
+      ref
+          .read(trackingNotificationServiceProvider)
+          .showRecording(
+            elapsedSeconds: active.elapsedSeconds,
+            distanceMeters: active.distanceMeters,
+            timeStuckSeconds: active.timeStuckSeconds,
+            direction: direction,
+          )
+          .catchError((Object _) {
+        // POST_NOTIFICATIONS denied or platform channel error — tracking
+        // continues, notification just doesn't refresh this tick.
+      }),
+    );
   }
 
   /// Cancel every fbs subscription except [except]. Used by the
@@ -346,6 +376,10 @@ class TrackingNotifier extends Notifier<TrackingState> {
   Future<void> stop() async {
     if (state is! TrackingActive) return;
     state = const TrackingStopping();
+    // Reset notification throttle so the first snapshot of the next trip
+    // refreshes the notification immediately rather than waiting up to
+    // kTrackingNotificationRefreshInterval.
+    _lastNotificationUpdateAt = null;
     await ref.read(trackingServiceControllerProvider).stop();
   }
 

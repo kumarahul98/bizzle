@@ -140,6 +140,11 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                       selectedDay: _selectedDay,
                       focusedDay: _focusedDay,
                       onDaySelected: _onDaySelected,
+                      onTripTap: (trip) => Navigator.pushNamed(
+                        context,
+                        kRouteTripDetail,
+                        arguments: trip.id,
+                      ),
                     );
                   }
                   if (trips.isEmpty) return const _EmptyState();
@@ -243,12 +248,14 @@ class _CalendarBody extends StatelessWidget {
     required this.selectedDay,
     required this.focusedDay,
     required this.onDaySelected,
+    required this.onTripTap,
   });
 
   final Map<DateTime, List<TripSummary>> groupedTrips;
   final DateTime? selectedDay;
   final DateTime focusedDay;
   final void Function(DateTime selectedDay, DateTime focusedDay) onDaySelected;
+  final void Function(TripSummary trip) onTripTap;
 
   List<TripSummary> _eventLoader(DateTime day) {
     final key = DateTime(day.year, day.month, day.day);
@@ -310,6 +317,7 @@ class _CalendarBody extends StatelessWidget {
                 ? const <TripSummary>[]
                 : _eventLoader(selected),
             textTheme: textTheme,
+            onTripTap: onTripTap,
           ),
         ),
       ],
@@ -322,11 +330,13 @@ class _CalendarSubList extends StatelessWidget {
     required this.selectedDay,
     required this.trips,
     required this.textTheme,
+    required this.onTripTap,
   });
 
   final DateTime? selectedDay;
   final List<TripSummary> trips;
   final TextTheme textTheme;
+  final void Function(TripSummary trip) onTripTap;
 
   @override
   Widget build(BuildContext context) {
@@ -365,6 +375,7 @@ class _CalendarSubList extends StatelessWidget {
             distanceMeters: trips[i].distanceMeters,
             stuckSeconds: trips[i].timeStuckSeconds,
             showDivider: i < trips.length - 1,
+            onTap: () => onTripTap(trips[i]),
           ),
       ],
     );

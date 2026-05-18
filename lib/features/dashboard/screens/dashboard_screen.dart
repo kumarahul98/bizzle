@@ -55,8 +55,18 @@ class DashboardScreen extends ConsumerWidget {
 
   Future<void> _handleStart(BuildContext context, WidgetRef ref) async {
     final service = ref.read(trackingPermissionServiceProvider);
-    final status = await service.currentStatus();
+    // preflight() runs the strict location → notifications dance and
+    // prompts when needed. currentStatus() only probes — it would not
+    // surface a system prompt on a fresh install with location denied,
+    // and Start would silently fall through to start() (regression
+    // introduced when TrackingScreen was deleted in 08-08).
+    final status = await service.preflight();
     if (!context.mounted) return;
+    if (status == TrackingPermissionStatus.denied) {
+      // User declined the in-line prompt — there's no second screen to
+      // show a re-prompt CTA, so dismiss; user re-taps START to retry.
+      return;
+    }
     if (status == TrackingPermissionStatus.permanentlyDenied) {
       await _showSettingsDialog(
         context,

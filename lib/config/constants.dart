@@ -229,6 +229,15 @@ const int kTrackingMaxAttributableGapSeconds = 30;
 /// `.planning/debug/active-speed-tile-stale.md` for full diagnosis.
 const Duration kTrackingSpeedFreshnessWindow = Duration(seconds: 6);
 
+/// Minimum gap between successive notification refreshes (08-10 review HIGH #5).
+/// The 1Hz snapshot rate would call `showRecording()` ~2700 times on a 45-min
+/// trip — every call round-trips through the platform channel. Throttling to
+/// once per 5 s drops a 45-min trip to ~540 platform calls (5x reduction)
+/// while keeping the visible refresh cadence well under user-perceivable
+/// staleness. `onlyAlertOnce: true` already mutes sound/vibration on every
+/// refresh, but does not eliminate the IPC cost.
+const Duration kTrackingNotificationRefreshInterval = Duration(seconds: 5);
+
 // ---------------------------------------------------------------------------
 // Phase 4: Trip History
 // ---------------------------------------------------------------------------
