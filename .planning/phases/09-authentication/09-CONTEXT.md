@@ -50,8 +50,12 @@ Wire Google Sign-In + AWS Cognito token exchange into the existing app skeleton.
 
 ### Auth Library
 
-- **D-09:** Keep the Google → Cognito token exchange as specified. Package stack: `google_sign_in` (Google ID token) + `amazon_cognito_identity_dart_2` (exchange Google ID token for Cognito JWT) + `flutter_secure_storage` (persist tokens). This keeps API Gateway's native Cognito Authorizer working in Phase 10 without a custom Lambda.
-- **D-10:** `AuthService` in `lib/features/auth/services/` owns the sign-in sequence: call `google_sign_in`, get ID token, call Cognito SDK to exchange, store Cognito JWT + refresh token in `flutter_secure_storage`, return Cognito `sub` + profile fields.
+- **D-09:** Keep the Google → Cognito token exchange. Package stack: `google_sign_in` + `amazon_cognito_identity_dart_2` + `flutter_secure_storage` + `url_launcher` + `app_links`. This keeps API Gateway's native Cognito Authorizer working in Phase 10 without a custom Lambda. Chosen over plain Google Sign-In for 30-day refresh token durability (Google tokens expire hourly).
+- **D-10:** `AuthService` owns the sign-in sequence via **Cognito Hosted UI** (not a direct SDK token exchange — see spike finding below). Flow: launch Hosted UI URL in browser → user completes Google OAuth → Cognito redirects to deep link callback → app receives authorization code → POST to Cognito `/oauth2/token` endpoint → store tokens in `flutter_secure_storage`.
+
+  > ⚠️ **Spike 002a finding:** `amazon_cognito_identity_dart_2` v3.7 has NO method that takes a Google ID token and returns a Cognito User Pool JWT directly. The package supports `USER_SRP_AUTH` and `CUSTOM_AUTH` only. The federated Google login flows through Cognito's Hosted UI. Planner must account for `url_launcher` + `app_links` (deep link handler) + HTTP POST to `/oauth2/token`. The Flutter-side sign-in is a browser redirect, not an in-app flow.
+
+- **D-10a:** Additional pubspec dependencies required: `url_launcher: ^6.x`, `app_links: ^6.x` (deep link interception for the Cognito callback URI). Deep link scheme: `commutetracker://callback` — must be registered in `AndroidManifest.xml`.
 
 ### User ID Backfill
 
