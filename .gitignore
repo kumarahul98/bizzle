@@ -48,3 +48,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Spike / research node_modules — never commit dependencies
+.planning/spikes/**/node_modules/
