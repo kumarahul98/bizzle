@@ -38,6 +38,16 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
+
+    buildTypes {
+        release {
+            // Sign release builds with the debug keystore so sideloaded APKs
+            // install on physical devices for testing. Replace with a real
+            // release signingConfig before publishing to the Play Store —
+            // debug-signed APKs cannot be uploaded.
+            signingConfig = signingConfigs.getByName("debug")
+        }
+    }
 }
 
 dependencies {

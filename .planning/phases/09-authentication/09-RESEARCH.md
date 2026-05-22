@@ -1,0 +1,176 @@
+# Phase 9: Authentication — Research
+
+**Date:** 2026-05-21
+**Researcher:** Inline synthesis (agent timeout)
+**Status:** Complete
+
+---
+
+## Architecture Decision: Identity Pool vs User Pool Hosted UI
+
+Two approaches were evaluated. The team's discuss-phase locked D-10 (Hosted UI), but an Identity Pool alternative was proposed. This document presents both for a final decision.
+
+---
+
+## Approach Comparison
+
+| Dimension | Approach A: Identity Pool | Approach B: User Pool Hosted UI (D-10) |
+|-----------|--------------------------|----------------------------------------|
+| **UX** | Native in-app, no browser pop | Browser launches, deep-link back to app |
+| **Token lifetime** | IAM creds: 1hr (extendable to 12hr) | Refresh token: 30 days |
+| **Session on restart** | `signInSilently()` + Identity Pool call (requires network) | Existence check only (offline-friendly, D-03) |
+| **Packages added** | `google_sign_in`, `amazon_cognito_identity_dart_2` (Identity pool APIs), `aws_signature_v4` | `google_sign_in`, `url_launcher`, `app_links` |
+| **API Gateway auth** | IAM authorization (SigV4 signed requests) | Cognito User Pool JWT authorizer |
+| **Phase 10 backend** | API Gateway resource policy + IAM auth; no Cognito User Pool authorizer | Standard Cognito User Pool authorizer; simpler SAM config |
+| **Flutter complexity** | SigV4 signing must wrap every `http` call | Token stored once; `Authorization: Bearer <jwt>` header |
+| **Offline startup** | Requires network on every cold start (IAM refresh) | Offline: reads stored JWT, trusts it (D-03) |
+| **BACK-01 alignment** | ❌ Uses Identity Pool, not User Pool ("user pool" in requirement) | ✅ User Pool with Google federation |
+| **Spike 002a finding** | Not validated in spike; requires fresh research | ✅ Validated — Hosted UI is the correct User Pool path |
+
+---
+
+## Package Assessment
+
+### Approach A packages
+- **`google_sign_in` ^6.2** — pub.dev score 140/140. Dart 3 compatible. Provides `GoogleSignIn.signIn()` → `GoogleSignInAuthentication.idToken`. Supports `signInSilently()` for silent refresh. ✅
+- **`amazon_cognito_identity_dart_2` ^3.7** — pub.dev score ~80. Identity Pool APIs: `CognitoIdentityCredentials` or raw `getCredentialsForIdentity()`. HOWEVER: this package is community-maintained, last published 2023. The Cognito Identity Pool REST API can also be called directly via `http` without this package.
+- **`aws_signature_v4`** — pub.dev score ~70, community-maintained, not AWS-official. Wraps HTTP requests with SigV4 signing. Must intercept every outgoing request; no built-in `http.Client` integration (requires manual wrapping). Last published early 2024.
+
+### Approach B packages
+- **`url_launcher` ^6.2** — pub.dev score 140/140. Official Flutter team plugin. Launches Cognito Hosted UI URL. ✅
+- **`app_links` ^6.x** — pub.dev score ~110. Handles Android App Links and deep link callbacks. Works on Android 12+ with proper `<intent-filter>` declaration. Active maintenance. ✅
+- **`google_sign_in`** — not needed for Approach B (Cognito Hosted UI handles Google OAuth natively; no Flutter SDK involvement)
+
+---
+
+## Session Persistence Analysis
+
+### Approach A (Identity Pool)
+- On app restart: call `GoogleSignIn().signInSilently()` → get fresh Google ID token → call Cognito Identity Pool → get new IAM credentials → proceed
+- **Requires network on every cold start.** If offline: cannot obtain IAM credentials → app cannot function if auth is required
+- Contradicts D-03: "trust stored token by existence check only"
+- Contradicts the offline-first architecture: app should work without network
+
+### Approach B (User Pool Hosted UI)
+- On app restart: `flutter_secure_storage` check for stored Cognito refresh token → if exists → emit `signedIn` state (D-03: existence check only)
+- Fully offline-compatible: stored JWT trusted without network validation
+- Refresh happens lazily via 401 in Phase 11 (already decided)
+- Aligns with all D-01 through D-16 decisions in CONTEXT.md
+
+---
+
+## Recommendation: Approach B (User Pool Hosted UI)
+
+**Rationale:**
+1. **Offline-first is non-negotiable** — Identity Pool requires network on every cold start; Hosted UI's refresh token is stored and trusted offline (D-03)
+2. **Spike 002a already validated** — Hosted UI is the correct path; Identity Pool was not spiked
+3. **Package quality** — `url_launcher` + `app_links` are Flutter-official/high-score; `aws_signature_v4` is community-maintained with no official AWS backing
+4. **Phase 10 simplicity** — Cognito User Pool JWT authorizer is one SAM line; IAM auth requires SigV4 signing in every Flutter HTTP call + API Gateway IAM resource policies
+5. **BACK-01 compliance** — "user pool with Google federation" matches exactly
+6. **30-day refresh tokens** — Users don't re-authenticate for a month; Identity Pool gives 1hr
+
+The one trade-off (browser UX) is acceptable for an auth flow that happens once at onboarding.
+
+---
+
+## Implementation Blueprint (Approach B)
+
+### Pubspec additions
+```yaml
+dependencies:
+  google_sign_in: ^6.2.2
+  url_launcher: ^6.3.1
+  app_links: ^6.4.0
+  flutter_secure_storage: ^9.2.2
+  http: ^1.2.2          # already present for Phase 10 sync
+```
+
+### AndroidManifest.xml changes
+1. Deep link intent filter on `MainActivity`:
+```xml
+<intent-filter android:autoVerify="true">
+  <action android:name="android.intent.action.VIEW" />
+  <category android:name="android.intent.category.DEFAULT" />
+  <category android:name="android.intent.category.BROWSABLE" />
+  <data android:scheme="commutetracker" android:host="callback" />
+</intent-filter>
+```
+2. `android:launchMode="singleTask"` on `MainActivity` (prevents multiple instances on deep link return)
+
+### Core auth flow (numbered steps)
+1. User taps "Continue with Google" → `AuthService.signIn()` called
+2. Construct Cognito Hosted UI URL: `https://<domain>.auth.<region>.amazoncognito.com/oauth2/authorize?response_type=code&client_id=<CLIENT_ID>&redirect_uri=commutetracker://callback&scope=openid+email+profile&code_challenge=<pkce_challenge>&code_challenge_method=S256`
+3. `url_launcher.launchUrl(uri, mode: LaunchMode.externalApplication)`
+4. `app_links.uriLinkStream` intercepts the `commutetracker://callback?code=<auth_code>` deep link
+5. POST to `https://<domain>.auth.<region>.amazoncognito.com/oauth2/token` with `code`, `code_verifier`, `client_id`, `redirect_uri`, `grant_type=authorization_code`
+6. Parse response: `access_token`, `refresh_token`, `id_token`
+7. Decode `id_token` (JWT) to extract `sub` (Cognito user ID), `name`, `email`
+8. Store all three tokens in `flutter_secure_storage`
+9. Call `TripsDao.backfillUserId(cognitoSub)` — UPDATE WHERE user_id = 'local_user'
+10. Emit `AuthState.signedIn(sub, name, email)` from `AuthStateNotifier`
+11. Navigate to confirmation screen → then `MainShell`
+
+### Key classes/files to create
+```
+lib/features/auth/
+  providers/
+    auth_providers.dart          # AuthState sealed class + AuthStateNotifier + authServiceProvider
+  services/
+    auth_service.dart            # signIn(), _exchangeCode(), _storeTokens(), _loadStoredState()
+    pkce_helper.dart             # generateCodeVerifier(), generateCodeChallenge()
+  screens/
+    sign_in_success_screen.dart  # One-time confirmation (D-12)
+  widgets/
+    sign_in_bottom_sheet.dart    # Settings → Account sign-in sheet (D-08)
+```
+
+### PKCE implementation
+- `pkce_helper.dart`: generate 43-128 char random `code_verifier` (base64url, no padding)
+- `code_challenge = base64url(sha256(code_verifier))` using `dart:crypto`
+- Store `code_verifier` in memory (only needed for the current sign-in flow, not persistent)
+
+### Constants (--dart-define)
+```dart
+// lib/config/constants.dart additions
+const kCognitoPoolId = String.fromEnvironment('COGNITO_POOL_ID');
+const kCognitoClientId = String.fromEnvironment('COGNITO_CLIENT_ID');
+const kCognitoRegion = String.fromEnvironment('COGNITO_REGION');
+const kCognitoHostedUiDomain = String.fromEnvironment('COGNITO_HOSTED_UI_DOMAIN');
+const kCognitoRedirectUri = 'commutetracker://callback';
+```
+
+---
+
+## Phase 10 Impact
+
+Phase 10 backend needs to know:
+- **Auth mechanism:** Cognito User Pool JWT (access_token from `/oauth2/token`)
+- **API Gateway authorizer:** Cognito User Pool authorizer, verifying the `Authorization: Bearer <access_token>` header
+- **Cognito User Pool:** Must have Google as a federated identity provider with the Hosted UI domain configured
+- **PKCE:** Client-side only (Cognito Hosted UI handles PKCE validation server-side)
+- **Token validation:** API Gateway does this automatically via Cognito authorizer; Lambdas receive `event.requestContext.authorizer.claims.sub` as the verified user ID
+
+---
+
+## Validation Architecture
+
+### Unit tests
+- `AuthService`: mock `url_launcher` (verify URL construction), mock `http.Client` (verify token exchange POST body/headers), mock `flutter_secure_storage` (verify token persistence)
+- `PkceHelper`: test `code_verifier` length/charset, test `code_challenge` is correct SHA256(verifier)
+- `AuthStateNotifier`: test all three state transitions (loading→guest, loading→signedIn, signedIn via stored token)
+- `TripsDao.backfillUserId`: insert trips with `user_id = 'local_user'`, call backfill, verify all rows updated
+
+### Widget tests
+- `app.dart` auth gate: override `authStateProvider` with loading/guest/signedIn states, verify correct widget tree renders
+- `OnboardingScreen`: tap "Continue with Google" → verify `AuthService.signIn()` called
+- `OnboardingScreen`: tap "Skip" → verify navigator pops
+- `_AccountSection` in settings: guest state → verify "Sign in to back up" row; signed-in state → verify `AccountRow` shows real name
+
+### Integration
+- No full E2E auth test (requires real Cognito + Google OAuth); use `flutter_test` golden tests for screen layout only
+
+---
+
+## RESEARCH COMPLETE
+
+**Recommendation:** Approach B (User Pool Hosted UI) is the correct path. It was validated in spike 002a, aligns with all 16 CONTEXT.md decisions, preserves offline-first session persistence (stored refresh token trusted on cold start), and keeps Phase 10 backend simple (standard Cognito JWT authorizer). The Identity Pool alternative requires network on every cold start (violates offline-first) and introduces SigV4 signing complexity across all API calls with no significant UX benefit after the one-time sign-in. Implementation uses `url_launcher` + `app_links` + `flutter_secure_storage` with PKCE; no third-party AWS SDK needed.

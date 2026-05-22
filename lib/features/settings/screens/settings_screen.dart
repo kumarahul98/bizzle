@@ -7,23 +7,18 @@ import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/daos/user_preferences_dao.dart';
 import 'package:traevy/database/providers.dart';
 import 'package:traevy/features/settings/providers/settings_providers.dart';
-import 'package:traevy/notifications/notification_service.dart';
+import 'package:traevy/features/settings/widgets/account_row.dart';
+import 'package:traevy/features/settings/widgets/settings_row.dart';
+import 'package:traevy/features/settings/widgets/settings_section.dart';
+import 'package:traevy/shared/widgets/traevy_toggle.dart';
 
-const double _kSectionHeaderPaddingLeft = 16;
-const double _kSectionHeaderPaddingTop = 16;
-const double _kSectionHeaderPaddingRight = 16;
-const double _kSectionHeaderPaddingBottom = 8;
-const double _kBottomPadding = 32;
-const Duration _kOpacityDuration = Duration(milliseconds: 200);
-const double _kDisabledOpacity = 0.38;
-const double _kEnabledOpacity = 1;
-
-/// The settings screen — single scrollable screen with Appearance and
-/// Notifications sections (UX-02, UX-04, UX-05).
+/// The Traevy-restyled Settings screen — four grouped sections inside
+/// `MainShell`.
 ///
-/// Entry point: gear IconButton in DashboardScreen AppBar (D-01).
-/// Layout: Appearance section (3 RadioListTile rows) + Notifications section
-/// (weekly summary toggle + reminder subsection).
+/// Sections (top → bottom): Account, Recording, Notifications, Appearance.
+/// UX-02 (theme), UX-04 (weekly summary), UX-05 (daily reminder) wiring is
+/// preserved end-to-end through the existing
+/// `UserPreferencesDao.upsert` + `NotificationService` flows.
 class SettingsScreen extends ConsumerWidget {
   /// Create the settings screen.
   const SettingsScreen({super.key});
@@ -31,59 +26,246 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final asyncPrefs = ref.watch(userPreferenceProvider);
-    return Scaffold(
-      appBar: AppBar(title: const Text(kSettingsAppBarTitle)),
-      body: asyncPrefs.when(
+    final textTheme = Theme.of(context).textTheme;
+    return SafeArea(
+      child: asyncPrefs.when(
         data: (prefs) => SingleChildScrollView(
-          padding: const EdgeInsets.only(bottom: _kBottomPadding),
+          padding: const EdgeInsets.only(bottom: 32),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              _AppearanceSection(prefs: prefs, ref: ref),
-              const Divider(),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                child: Text(
+                  kSettingsAppBarTitle,
+                  style: textTheme.titleLarge,
+                ),
+              ),
+              _AccountSection(prefs: prefs),
+              _RecordingSection(prefs: prefs),
               _NotificationsSection(prefs: prefs, ref: ref),
+              _AppearanceSection(prefs: prefs, ref: ref),
             ],
           ),
         ),
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, s) => const Center(child: Text(kSettingsErrorMessage)),
+        error: (e, s) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Text(kSettingsErrorMessage, style: textTheme.bodyMedium),
+          ),
+        ),
       ),
     );
   }
 }
 
-/// Section header widget following Material 3 settings-page convention.
-///
-/// Renders [label] in titleSmall weight colored primary with 16pt horizontal
-/// padding and 16pt top / 8pt bottom padding.
-Widget _sectionHeader(BuildContext context, String label) {
-  final colorScheme = Theme.of(context).colorScheme;
-  return Padding(
-    padding: const EdgeInsets.fromLTRB(
-      _kSectionHeaderPaddingLeft,
-      _kSectionHeaderPaddingTop,
-      _kSectionHeaderPaddingRight,
-      _kSectionHeaderPaddingBottom,
-    ),
-    child: Text(
-      label,
-      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            color: colorScheme.primary,
+// ---------------------------------------------------------------------------
+// Sections
+// ---------------------------------------------------------------------------
+
+class _AccountSection extends StatelessWidget {
+  const _AccountSection({required this.prefs});
+  final UserPreferencesValue prefs;
+
+  @override
+  Widget build(BuildContext context) {
+    return SettingsSection(
+      title: 'Account',
+      children: <Widget>[
+        const AccountRow(
+          name: kPlaceholderUserName,
+          email: 'you@traevy.app',
+          initial: kPlaceholderUserInitial,
+        ),
+        const SettingsRow(
+          label: 'Cloud sync',
+          subtitle: 'OFF — sign in to enable',
+          // Wired in Phase 9 when authentication ships.
+          trailing: TraevyToggle(value: false, onChanged: _noopBool),
+        ),
+        SettingsRow(
+          label: 'Restore from cloud',
+          // Wired in Phase 11 when restore endpoint ships.
+          onTap: () => _showComingSoon(context, 'Restore'),
+        ),
+        const SettingsRow(
+          label: 'Sign out',
+          dangerous: true,
+          // Wired in Phase 9 when authentication ships.
+        ),
+      ],
+    );
+  }
+}
+
+class _RecordingSection extends StatelessWidget {
+  const _RecordingSection({required this.prefs});
+  final UserPreferencesValue prefs;
+
+  @override
+  Widget build(BuildContext context) {
+    return SettingsSection(
+      title: 'Recording',
+      children: <Widget>[
+        SettingsRow(
+          label: 'Cutoff "to office"',
+          subtitle:
+              'Before ${prefs.morningCutoffHour.toString().padLeft(2, '0')}:00',
+          // Wired in a future plan — the settings notifier does not yet
+          // expose cutoff updates. Rendered without onTap so no chevron
+          // is shown.
+        ),
+        const SettingsRow(
+          label: 'Auto-pause on stop',
+          // UserPreferences does not yet carry this flag — placeholder
+          // until Phase 9 backlog wires it. Toggle is visual-only.
+          trailing: TraevyToggle(value: true, onChanged: _noopBool),
+        ),
+      ],
+    );
+  }
+}
+
+class _NotificationsSection extends StatelessWidget {
+  const _NotificationsSection({required this.prefs, required this.ref});
+  final UserPreferencesValue prefs;
+  final WidgetRef ref;
+
+  @override
+  Widget build(BuildContext context) {
+    final reminderTimeLabel = _formatReminderTime(prefs.reminderTime);
+    final reminderSubtitle = prefs.reminderEnabled
+        ? '$reminderTimeLabel · weekdays'
+        : 'OFF';
+    return SettingsSection(
+      title: 'Notifications',
+      children: <Widget>[
+        SettingsRow(
+          label: 'Daily reminder',
+          subtitle: reminderSubtitle,
+          trailing: TraevyToggle(
+            value: prefs.reminderEnabled,
+            onChanged: (v) => unawaited(_toggleReminder(ref, prefs, v)),
           ),
-    ),
+        ),
+        SettingsRow(
+          label: 'Include weekends',
+          trailing: TraevyToggle(
+            value: prefs.weekendReminder,
+            onChanged: (v) => unawaited(_toggleWeekend(ref, prefs, v)),
+          ),
+        ),
+        SettingsRow(
+          label: 'Weekly summary',
+          subtitle: 'Sunday evening',
+          trailing: TraevyToggle(
+            value: prefs.weeklyNotificationEnabled,
+            onChanged: (v) => unawaited(_toggleWeeklySummary(ref, prefs, v)),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AppearanceSection extends StatelessWidget {
+  const _AppearanceSection({required this.prefs, required this.ref});
+  final UserPreferencesValue prefs;
+  final WidgetRef ref;
+
+  @override
+  Widget build(BuildContext context) {
+    return SettingsSection(
+      title: 'Appearance',
+      children: <Widget>[
+        SettingsRow(
+          label: 'Theme',
+          subtitle: _themeLabel(prefs.darkMode),
+          onTap: () async {
+            final picked = await _openThemePicker(context, prefs.darkMode);
+            if (picked == null) return;
+            if (picked == prefs.darkMode) return;
+            await ref
+                .read(userPreferencesDaoProvider)
+                .upsert(_copyPrefs(prefs, darkMode: picked));
+          },
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Theme picker bottom sheet
+// ---------------------------------------------------------------------------
+
+Future<String?> _openThemePicker(BuildContext context, String current) {
+  return showModalBottomSheet<String>(
+    context: context,
+    backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
+    showDragHandle: true,
+    builder: (sheetCtx) {
+      return SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            SettingsRow(
+              label: 'System',
+              onTap: () => Navigator.of(sheetCtx).pop(kDarkModeSystem),
+            ),
+            SettingsRow(
+              label: 'Light',
+              onTap: () => Navigator.of(sheetCtx).pop(kDarkModeLight),
+            ),
+            SettingsRow(
+              label: 'Dark',
+              onTap: () => Navigator.of(sheetCtx).pop(kDarkModeDark),
+            ),
+          ],
+        ),
+      );
+    },
   );
 }
 
-/// Build a copy of [prefs] with every field explicit, with named params
-/// overriding specific fields.
-///
-/// All upsert callers pass every field to prevent accidental zeroing
-/// (T-07-04-01 mitigation). This helper centralises the copy pattern.
+void _showComingSoon(BuildContext context, String label) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text('$label — available after sign-in')),
+  );
+}
+
+/// No-op handler for visual-only placeholder toggles (Cloud sync,
+/// Auto-pause on stop). Lifted to a top-level function so the enclosing
+/// row can be declared `const`.
+void _noopBool(bool _) {}
+
+// ---------------------------------------------------------------------------
+// Helpers — copy + format
+// ---------------------------------------------------------------------------
+
+String _themeLabel(String mode) {
+  if (mode.isEmpty) return mode;
+  return mode[0].toUpperCase() + mode.substring(1);
+}
+
+String _formatReminderTime(String? time) {
+  if (time == null) return '—';
+  try {
+    return DateFormat.jm().format(DateFormat('HH:mm').parse(time));
+  } on FormatException {
+    return time;
+  }
+}
+
+/// Build a copy of [prefs] with every field explicit; named params override
+/// specific fields. Centralised so every upsert call provides every column,
+/// preventing accidental zeroing (T-07-04-01 mitigation, carried from Plan 02).
 ///
 /// [reminderTime] supports three states:
-///   - omitted (sentinel default): keep the existing reminderTime unchanged.
+///   - omitted (sentinel default): keep existing [reminderTime] unchanged.
 ///   - non-null String: set to that value.
-///   - explicit `null`: clear the field to null.
+///   - explicit `null`: clear to null.
 UserPreferencesValue _copyPrefs(
   UserPreferencesValue prefs, {
   String? darkMode,
@@ -106,170 +288,13 @@ UserPreferencesValue _copyPrefs(
           weeklyNotificationEnabled ?? prefs.weeklyNotificationEnabled,
     );
 
-/// Private sentinel type used as default value for [_copyPrefs] reminderTime.
-///
-/// Using a dedicated type (rather than a bare Object instance) makes
-/// `identical` checks unnecessary and allows a clean `is` type test.
 class _UnsetSentinel {
   const _UnsetSentinel();
 }
 
-/// Appearance section: 3 RadioListTile rows for System/Light/Dark theme.
-///
-/// Tapping a row calls UserPreferencesDao.upsert immediately — theme
-/// change propagates via userPreferenceProvider to TraevyApp.themeMode
-/// with no app restart required (D-04).
-class _AppearanceSection extends StatelessWidget {
-  const _AppearanceSection({required this.prefs, required this.ref});
-
-  /// Current user preferences.
-  final UserPreferencesValue prefs;
-
-  /// Riverpod ref from the parent ConsumerWidget.
-  final WidgetRef ref;
-
-  @override
-  Widget build(BuildContext context) {
-    return RadioGroup<String>(
-      groupValue: prefs.darkMode,
-      onChanged: (value) {
-        if (value != null) {
-          unawaited(
-            ref.read(userPreferencesDaoProvider).upsert(
-                  _copyPrefs(prefs, darkMode: value),
-                ),
-          );
-        }
-      },
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          _sectionHeader(context, kSettingsAppearanceSectionTitle),
-          const RadioListTile<String>(
-            title: Text(kSettingsDarkModeSystemLabel),
-            value: kDarkModeSystem,
-          ),
-          const RadioListTile<String>(
-            title: Text(kSettingsDarkModeLightLabel),
-            value: kDarkModeLight,
-          ),
-          const RadioListTile<String>(
-            title: Text(kSettingsDarkModeDarkLabel),
-            value: kDarkModeDark,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Notifications section: weekly summary toggle + reminder subsection.
-///
-/// Weekly summary toggle (D-07): schedules Sunday 6pm notification via
-/// NotificationService.scheduleWeeklySummary on enable.
-///
-/// Reminder subsection (D-10): delegated to [_ReminderRows].
-class _NotificationsSection extends StatelessWidget {
-  const _NotificationsSection({required this.prefs, required this.ref});
-
-  /// Current user preferences.
-  final UserPreferencesValue prefs;
-
-  /// Riverpod ref from the parent ConsumerWidget.
-  final WidgetRef ref;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        _sectionHeader(context, kSettingsNotificationsSectionTitle),
-        SwitchListTile(
-          title: const Text(kSettingsWeeklySummaryLabel),
-          subtitle: const Text(kSettingsWeeklySummarySubtitle),
-          value: prefs.weeklyNotificationEnabled,
-          onChanged: (value) =>
-              unawaited(_toggleWeeklySummary(ref, prefs, value)),
-        ),
-        const Divider(indent: 16, endIndent: 16),
-        SwitchListTile(
-          title: const Text(kSettingsReminderLabel),
-          value: prefs.reminderEnabled,
-          onChanged: (value) =>
-              unawaited(_toggleReminder(ref, prefs, value)),
-        ),
-        _ReminderRows(prefs: prefs, ref: ref),
-      ],
-    );
-  }
-}
-
-/// Reminder time row and weekend toggle, with AnimatedOpacity transitions.
-///
-/// Both rows remain in the widget tree (no Visibility) so layout height
-/// stays consistent when reminder is toggled on/off (D-10 UI-SPEC).
-/// Opacity 0.38 matches Material 3 disabled-state spec.
-class _ReminderRows extends StatelessWidget {
-  const _ReminderRows({required this.prefs, required this.ref});
-
-  /// Current user preferences.
-  final UserPreferencesValue prefs;
-
-  /// Riverpod ref from the parent ConsumerWidget.
-  final WidgetRef ref;
-
-  @override
-  Widget build(BuildContext context) {
-    final formattedTime = _formatReminderTime(prefs.reminderTime);
-    final enabled = prefs.reminderEnabled;
-    return Column(
-      children: <Widget>[
-        AnimatedOpacity(
-          opacity: enabled ? _kEnabledOpacity : _kDisabledOpacity,
-          duration: _kOpacityDuration,
-          child: Semantics(
-            label: enabled
-                ? 'Reminder time, currently $formattedTime, tap to change'
-                : 'Reminder time, disabled',
-            excludeSemantics: !enabled,
-            child: ListTile(
-              leading: const Icon(Icons.access_time),
-              title: const Text(kSettingsReminderTimeLabel),
-              subtitle: Text(formattedTime),
-              enabled: enabled,
-              onTap: () => unawaited(_pickTime(context, ref, prefs)),
-            ),
-          ),
-        ),
-        AnimatedOpacity(
-          opacity: enabled ? _kEnabledOpacity : _kDisabledOpacity,
-          duration: _kOpacityDuration,
-          child: SwitchListTile(
-            title: const Text(kSettingsWeekendReminderLabel),
-            value: prefs.weekendReminder,
-            onChanged: enabled
-                ? (value) => unawaited(_toggleWeekend(ref, prefs, value))
-                : null,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 // ---------------------------------------------------------------------------
-// Action helpers (top-level so they are shared without subclassing)
+// Notification side-effects — identical wiring to Phase 7 (UX-04, UX-05)
 // ---------------------------------------------------------------------------
-
-/// Format HH:mm string for display (e.g., '08:00' → '8:00 AM').
-String _formatReminderTime(String? time) {
-  if (time == null) return '—';
-  try {
-    return DateFormat.jm().format(DateFormat('HH:mm').parse(time));
-  } on FormatException {
-    return time;
-  }
-}
 
 Future<void> _toggleWeeklySummary(
   WidgetRef ref,
@@ -279,9 +304,8 @@ Future<void> _toggleWeeklySummary(
   await ref
       .read(userPreferencesDaoProvider)
       .upsert(_copyPrefs(prefs, weeklyNotificationEnabled: value));
-  final service = NotificationService();
+  final service = ref.read(notificationServiceProvider);
   if (value) {
-    // Use the Riverpod-managed DB instance — no second connection opened.
     final db = ref.read(appDatabaseProvider);
     await service.scheduleWeeklySummary(db);
   } else {
@@ -297,7 +321,7 @@ Future<void> _toggleReminder(
   await ref
       .read(userPreferencesDaoProvider)
       .upsert(_copyPrefs(prefs, reminderEnabled: value));
-  final service = NotificationService();
+  final service = ref.read(notificationServiceProvider);
   if (value && prefs.reminderTime != null) {
     await service.scheduleReminder(
       hhMm: prefs.reminderTime!,
@@ -306,34 +330,6 @@ Future<void> _toggleReminder(
   } else {
     await service.cancelReminder();
   }
-}
-
-Future<void> _pickTime(
-  BuildContext context,
-  WidgetRef ref,
-  UserPreferencesValue prefs,
-) async {
-  final parts = (prefs.reminderTime ?? '08:00').split(':');
-  final initial = TimeOfDay(
-    hour: int.tryParse(parts[0]) ?? 8,
-    minute: int.tryParse(parts[1]) ?? 0,
-  );
-  final picked = await showTimePicker(
-    context: context,
-    initialTime: initial,
-  );
-  if (!context.mounted) return; // Guard AFTER the async gap.
-  if (picked == null) return;
-  final hhMm = '${picked.hour.toString().padLeft(2, '0')}:'
-      '${picked.minute.toString().padLeft(2, '0')}';
-  await ref
-      .read(userPreferencesDaoProvider)
-      .upsert(_copyPrefs(prefs, reminderTime: hhMm));
-  if (!prefs.reminderEnabled) return;
-  await NotificationService().scheduleReminder(
-    hhMm: hhMm,
-    includeWeekends: prefs.weekendReminder,
-  );
 }
 
 Future<void> _toggleWeekend(
@@ -345,8 +341,8 @@ Future<void> _toggleWeekend(
       .read(userPreferencesDaoProvider)
       .upsert(_copyPrefs(prefs, weekendReminder: value));
   if (!prefs.reminderEnabled || prefs.reminderTime == null) return;
-  await NotificationService().scheduleReminder(
-    hhMm: prefs.reminderTime!,
-    includeWeekends: value,
-  );
+  await ref.read(notificationServiceProvider).scheduleReminder(
+        hhMm: prefs.reminderTime!,
+        includeWeekends: value,
+      );
 }

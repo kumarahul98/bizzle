@@ -1,12 +1,10 @@
-// Widget tests for DashboardScreen (Phase 6, Plan 01 — RED state).
+// Widget tests for DashboardScreen — Phase 8 Plan 04 (GREEN state).
 //
-// This file imports dashboard_screen.dart and in_progress_card.dart which
-// do not exist yet. The compile failure is the intentional RED state;
-// Plans 03–04 create the production widgets that turn it GREEN.
-//
-// Permission-path tests migrated verbatim from
-// test/widget/features/tracking/home_screen_test.dart; class/helper names
-// updated to reflect DashboardScreen.
+// Phase 6 Plan 01 wrote the RED tests with AppBar/FAB assertions that no
+// longer apply after the Phase 8 overhaul. This file replaces those with
+// layout assertions matching the new design (HeroRecordCard START button,
+// HomeHeader, TodaySection, WeekLossCard) while retaining all permission-
+// path behavioural tests.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,32 +12,35 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/config/routes.dart';
+import 'package:traevy/config/theme.dart';
 import 'package:traevy/database/daos/trips_dao.dart';
+import 'package:traevy/database/daos/user_preferences_dao.dart';
 import 'package:traevy/features/dashboard/screens/dashboard_screen.dart';
+import 'package:traevy/features/dashboard/widgets/empty_slot_row.dart';
+import 'package:traevy/features/dashboard/widgets/hero_record_card.dart';
+import 'package:traevy/features/dashboard/widgets/home_header.dart';
 import 'package:traevy/features/dashboard/widgets/in_progress_card.dart';
+import 'package:traevy/features/dashboard/widgets/today_section.dart';
+import 'package:traevy/features/dashboard/widgets/week_loss_card.dart';
+import 'package:traevy/features/settings/providers/settings_providers.dart';
 import 'package:traevy/features/stats/providers/stats_providers.dart';
-import 'package:traevy/features/stats/screens/stats_screen.dart';
 import 'package:traevy/features/stats/services/stats_service.dart';
 import 'package:traevy/features/tracking/providers/tracking_providers.dart';
-import 'package:traevy/features/tracking/screens/tracking_screen.dart';
 import 'package:traevy/features/tracking/services/tracking_permission_service.dart';
 import 'package:traevy/features/tracking/state/tracking_state.dart';
 import 'package:traevy/features/trips/providers/history_providers.dart';
-import 'package:traevy/features/trips/widgets/trip_card.dart';
+import 'package:traevy/shared/widgets/trip_row_card.dart';
 import 'package:uuid/uuid.dart';
 
-/// Minimal test-only `TrackingNotifier` used exclusively by the
-/// DashboardScreen navigation test. The real notifier wires fbs stream
-/// subscriptions that crash in widget tests with
-/// `MissingPluginException`; this subclass short-circuits `build` so
-/// navigating into the tracking route does not blow up the test isolate.
+/// Minimal test-only notifier that always returns [TrackingIdle] without
+/// wiring any platform channel (avoids MissingPluginException).
 class _IdleTrackingNotifier extends TrackingNotifier {
   @override
   TrackingState build() => const TrackingIdle();
 }
 
-/// Minimal test-only `TrackingNotifier` that returns [TrackingActive]
-/// state for tests that exercise the active-tracking path.
+/// Minimal test-only notifier that returns [TrackingActive] for tests that
+/// exercise the active-tracking path.
 class _ActiveTrackingNotifier extends TrackingNotifier {
   @override
   TrackingState build() => TrackingActive(
@@ -57,15 +58,9 @@ typedef _PermissionHarness = ({
   int Function() openSettingsCalls,
 });
 
-/// Build a `TrackingPermissionService` whose `currentStatus` and
-/// `preflight` both resolve to the given [trackingStatus]. `opener`
-/// returns a callback-recording spy so tests can assert whether
-/// `openSystemSettings` was invoked.
-///
-/// The harness wires a per-permission probe/requester map so that the
-/// four-step dance (locationWhenInUse → locationAlways → notification)
-/// resolves to the intended tracking status with the minimum number of
-/// probe/request calls. The mapping is documented next to each case.
+/// Build a [TrackingPermissionService] whose `currentStatus` and `preflight`
+/// both resolve to the given [trackingStatus]. The returned harness exposes a
+/// counter for `openSystemSettings` invocations.
 _PermissionHarness _buildFakePermissionService(
   TrackingPermissionStatus trackingStatus,
 ) {
@@ -74,7 +69,6 @@ _PermissionHarness _buildFakePermissionService(
   final Map<Permission, PermissionStatus> requestValues;
   switch (trackingStatus) {
     case TrackingPermissionStatus.fullyGranted:
-      // All three permissions granted on probe — no requests fire.
       probeValues = <Permission, PermissionStatus>{
         Permission.locationWhenInUse: PermissionStatus.granted,
         Permission.locationAlways: PermissionStatus.granted,
@@ -82,10 +76,6 @@ _PermissionHarness _buildFakePermissionService(
       };
       requestValues = const <Permission, PermissionStatus>{};
     case TrackingPermissionStatus.foregroundOnly:
-      // Fine granted, background denied, notification granted. Test
-      // paths that care about foregroundOnly go through the tracking
-      // screen, not the dashboard screen — DashboardScreen treats
-      // foregroundOnly identically to fullyGranted (navigates).
       probeValues = <Permission, PermissionStatus>{
         Permission.locationWhenInUse: PermissionStatus.granted,
         Permission.locationAlways: PermissionStatus.denied,
@@ -93,9 +83,6 @@ _PermissionHarness _buildFakePermissionService(
       };
       requestValues = const <Permission, PermissionStatus>{};
     case TrackingPermissionStatus.denied:
-      // Fine denied on probe — currentStatus short-circuits before
-      // touching locationAlways or notification. preflight will call
-      // the requester for locationWhenInUse (still denied).
       probeValues = <Permission, PermissionStatus>{
         Permission.locationWhenInUse: PermissionStatus.denied,
       };
@@ -108,16 +95,15 @@ _PermissionHarness _buildFakePermissionService(
       };
       requestValues = const <Permission, PermissionStatus>{};
     case TrackingPermissionStatus.notificationDenied:
-      // Location dance resolves (fine + background granted) but the
-      // notification probe comes back denied. DashboardScreen uses
-      // `currentStatus` which does NOT call the requester, so no
-      // notification request value is needed here.
       probeValues = <Permission, PermissionStatus>{
         Permission.locationWhenInUse: PermissionStatus.granted,
         Permission.locationAlways: PermissionStatus.granted,
         Permission.notification: PermissionStatus.denied,
       };
-      requestValues = const <Permission, PermissionStatus>{};
+      // preflight() re-requests when the probe returns denied.
+      requestValues = <Permission, PermissionStatus>{
+        Permission.notification: PermissionStatus.denied,
+      };
   }
   final service = TrackingPermissionService.forTesting(
     probe: (permission) async {
@@ -166,8 +152,10 @@ StatsSummary _makeStatsSummary() {
     toOfficeAvgSeconds: 1800,
     toHomeAvgSeconds: 1900,
     weekdayAverages: <int?>[1800, 1800, 1800, 1800, 1800, null, null],
-    dailyTotalsLast28Days: <int>[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    dailyTotalsLast28Days: <int>[
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    ],
     hasAnyTrips: true,
   );
 }
@@ -182,24 +170,29 @@ Future<void> _pumpDashboardScreen(
     ProviderScope(
       overrides: [
         trackingPermissionServiceProvider.overrideWithValue(permissionService),
-        // DashboardScreen watches trackingStateProvider — override with a
-        // no-op notifier so the test isolate never reaches the real fbs
-        // singleton.
         trackingStateProvider.overrideWith(
           trackingNotifierFactory ?? _IdleTrackingNotifier.new,
         ),
-        // DashboardScreen watches allTripSummariesProvider (via
-        // todaysTripSummariesProvider) — override to avoid real Drift I/O.
         allTripSummariesProvider.overrideWith(
           (ref) => Stream<List<TripSummary>>.value(todayTrips),
         ),
-        // DashboardScreen watches statsSummaryProvider — override to avoid
-        // real Drift I/O and stats computation.
         statsSummaryProvider.overrideWith(
           (ref) => AsyncValue<StatsSummary>.data(_makeStatsSummary()),
         ),
+        // HeroRecordCard reads user prefs to derive direction. Override with
+        // a closed stream of defaults so Drift's underlying stream-close
+        // timer doesn't leak past widget disposal.
+        userPreferenceProvider.overrideWith(
+          (ref) => Stream<UserPreferencesValue>.value(
+            const UserPreferencesValue.defaults(),
+          ),
+        ),
       ],
       child: MaterialApp(
+        // buildLightTheme() includes TraevyTokensExt — required by
+        // HomeHeader, HeroRecordCard, TodaySection, WeekLossCard.
+        theme: buildLightTheme(),
+        darkTheme: buildDarkTheme(),
         home: const DashboardScreen(),
         routes: kAppRoutes,
       ),
@@ -209,7 +202,13 @@ Future<void> _pumpDashboardScreen(
 }
 
 void main() {
+  setUpAll(TestWidgetsFlutterBinding.ensureInitialized);
+
   group('DashboardScreen', () {
+    // ------------------------------------------------------------------
+    // Layout assertions — Phase 8 Traevy design
+    // ------------------------------------------------------------------
+
     testWidgets('renders DashboardScreen as app root', (tester) async {
       final harness =
           _buildFakePermissionService(TrackingPermissionStatus.fullyGranted);
@@ -218,26 +217,37 @@ void main() {
       expect(find.byType(DashboardScreen), findsOneWidget);
     });
 
-    testWidgets('FAB shows Start commute label when tracking is idle',
-        (tester) async {
+    testWidgets('renders HomeHeader', (tester) async {
       final harness =
           _buildFakePermissionService(TrackingPermissionStatus.fullyGranted);
       await _pumpDashboardScreen(tester, permissionService: harness.service);
 
-      expect(find.text(kDashboardFabIdleLabel), findsOneWidget);
+      expect(find.byType(HomeHeader), findsOneWidget);
     });
 
-    testWidgets('FAB shows Go to tracking label when tracking is active',
-        (tester) async {
+    testWidgets('renders HeroRecordCard with START button', (tester) async {
       final harness =
           _buildFakePermissionService(TrackingPermissionStatus.fullyGranted);
-      await _pumpDashboardScreen(
-        tester,
-        permissionService: harness.service,
-        trackingNotifierFactory: _ActiveTrackingNotifier.new,
-      );
+      await _pumpDashboardScreen(tester, permissionService: harness.service);
 
-      expect(find.text(kDashboardFabActiveLabel), findsOneWidget);
+      expect(find.byType(HeroRecordCard), findsOneWidget);
+      expect(find.text('START'), findsOneWidget);
+    });
+
+    testWidgets('renders TodaySection', (tester) async {
+      final harness =
+          _buildFakePermissionService(TrackingPermissionStatus.fullyGranted);
+      await _pumpDashboardScreen(tester, permissionService: harness.service);
+
+      expect(find.byType(TodaySection), findsOneWidget);
+    });
+
+    testWidgets('renders WeekLossCard', (tester) async {
+      final harness =
+          _buildFakePermissionService(TrackingPermissionStatus.fullyGranted);
+      await _pumpDashboardScreen(tester, permissionService: harness.service);
+
+      expect(find.byType(WeekLossCard), findsOneWidget);
     });
 
     testWidgets('shows InProgressCard when tracking is active', (tester) async {
@@ -260,7 +270,8 @@ void main() {
       expect(find.byType(InProgressCard), findsNothing);
     });
 
-    testWidgets('shows empty state text when no trips today', (tester) async {
+    testWidgets('shows EmptySlotRow placeholders when no trips today',
+        (tester) async {
       final harness =
           _buildFakePermissionService(TrackingPermissionStatus.fullyGranted);
       await _pumpDashboardScreen(
@@ -268,10 +279,12 @@ void main() {
         permissionService: harness.service,
       );
 
-      expect(find.text(kDashboardEmptyStateLabel), findsOneWidget);
+      // TodaySection (08-04) shows EmptySlotRow placeholders for empty
+      // state, not the legacy text label.
+      expect(find.byType(EmptySlotRow), findsWidgets);
     });
 
-    testWidgets('shows TripCard for each trip today', (tester) async {
+    testWidgets('shows TripRowCard for each trip today', (tester) async {
       final harness =
           _buildFakePermissionService(TrackingPermissionStatus.fullyGranted);
       await _pumpDashboardScreen(
@@ -280,67 +293,45 @@ void main() {
         todayTrips: [_makeToday()],
       );
 
-      expect(find.byType(TripCard), findsOneWidget);
+      expect(find.byType(TripRowCard), findsOneWidget);
     });
 
-    testWidgets('AppBar has history icon button', (tester) async {
-      // Icon must match implementation in dashboard_screen.dart AppBar actions
-      final harness =
-          _buildFakePermissionService(TrackingPermissionStatus.fullyGranted);
-      await _pumpDashboardScreen(tester, permissionService: harness.service);
-
-      expect(find.byIcon(Icons.history), findsOneWidget);
-    });
-
-    testWidgets('AppBar has stats icon button', (tester) async {
-      // Icon must match implementation in dashboard_screen.dart AppBar actions
-      final harness =
-          _buildFakePermissionService(TrackingPermissionStatus.fullyGranted);
-      await _pumpDashboardScreen(tester, permissionService: harness.service);
-
-      expect(find.byIcon(Icons.bar_chart), findsOneWidget);
-    });
-
-    // --------------------------------------------------------------------------
-    // Permission-path tests — migrated verbatim from home_screen_test.dart.
-    // HomeScreen → DashboardScreen, _pumpHomeScreen → _pumpDashboardScreen.
-    // --------------------------------------------------------------------------
+    // ------------------------------------------------------------------
+    // Permission-path tests — preserved from Phase 6 Plan 01.
+    // FAB text replaced with 'START' (HeroRecordCard button label).
+    // ------------------------------------------------------------------
 
     testWidgets(
-        'tapping FAB when idle with permanentlyDenied shows settings dialog '
+        'tapping START when idle with permanentlyDenied shows settings dialog '
         'instead of navigating', (tester) async {
       final harness = _buildFakePermissionService(
         TrackingPermissionStatus.permanentlyDenied,
       );
       await _pumpDashboardScreen(tester, permissionService: harness.service);
 
-      await tester.tap(find.text(kDashboardFabIdleLabel));
+      await tester.tap(find.text('START'));
       await tester.pump();
       await tester.pump();
 
-      // Dialog is present, tracking route is NOT.
+      // Dialog is present; in-place hero remained on the dashboard.
       expect(find.text('Location permission denied'), findsOneWidget);
       expect(
         find.widgetWithText(FilledButton, 'Open settings'),
         findsOneWidget,
       );
-      expect(find.byType(TrackingScreen), findsNothing);
+      expect(find.byType(DashboardScreen), findsOneWidget);
       expect(harness.openSettingsCalls(), 0);
     });
 
     testWidgets(
-        'tapping FAB when idle with notificationDenied shows notification '
+        'tapping START when idle with notificationDenied shows notification '
         'dialog and does NOT navigate to the tracking route', (tester) async {
-      // UX-03 gap-closure: POST_NOTIFICATIONS denial is a hard block
-      // because the foreground notification cannot be shown on Android
-      // 13+ without it. DashboardScreen must short-circuit Start the same
-      // way it does for permanentlyDenied.
       final harness = _buildFakePermissionService(
         TrackingPermissionStatus.notificationDenied,
       );
       await _pumpDashboardScreen(tester, permissionService: harness.service);
 
-      await tester.tap(find.text(kDashboardFabIdleLabel));
+      await tester.tap(find.text('START'));
       await tester.pump();
       await tester.pump();
 
@@ -349,31 +340,57 @@ void main() {
         find.widgetWithText(FilledButton, 'Open settings'),
         findsOneWidget,
       );
-      expect(find.byType(TrackingScreen), findsNothing);
+      expect(find.byType(DashboardScreen), findsOneWidget);
       expect(harness.openSettingsCalls(), 0);
     });
 
     testWidgets(
-        'tapping FAB when idle with fullyGranted navigates to tracking screen',
-        (tester) async {
-      final harness =
-          _buildFakePermissionService(TrackingPermissionStatus.fullyGranted);
-      await _pumpDashboardScreen(tester, permissionService: harness.service);
+      'tapping START when idle with fullyGranted invokes notifier.start() '
+      '(no navigation — recording transitions in place)',
+      (tester) async {
+        final harness = _buildFakePermissionService(
+          TrackingPermissionStatus.fullyGranted,
+        );
+        // Capture .start() invocations on the stub notifier.
+        final startCalls = <int>[];
+        await _pumpDashboardScreen(
+          tester,
+          permissionService: harness.service,
+          trackingNotifierFactory: () =>
+              _StartCallNotifier(onStart: () => startCalls.add(1)),
+        );
 
-      expect(find.byType(TrackingScreen), findsNothing);
+        expect(find.byType(DashboardScreen), findsOneWidget);
 
-      await tester.tap(find.text(kDashboardFabIdleLabel));
-      // Two pumps: one for the async currentStatus() microtask, one
-      // for the Navigator.pushNamed route transition frame.
-      await tester.pump();
-      await tester.pump();
-      // Let the route-push animation settle without triggering the
-      // tracking notifier's periodic rebuilds (there are none — our
-      // _IdleTrackingNotifier never changes state).
-      await tester.pumpAndSettle();
+        await tester.tap(find.text('START'));
+        // Two pumps: one for the async currentStatus() microtask, one for
+        // the synchronous TrackingStarting state flip + rebuild.
+        await tester.pump();
+        await tester.pump();
 
-      expect(find.byType(TrackingScreen), findsOneWidget);
-      expect(find.byType(DashboardScreen), findsNothing);
-    });
+        expect(startCalls.length, 1);
+        // Dashboard stays mounted — no navigation.
+        expect(find.byType(DashboardScreen), findsOneWidget);
+      },
+    );
   });
+}
+
+/// Test-only notifier that records .start() invocations without spinning
+/// up the foreground service. The hero card transitions through
+/// TrackingStarting → TrackingActive on the real path; for this test we
+/// only need to confirm the dashboard called notifier.start() exactly once.
+class _StartCallNotifier extends TrackingNotifier {
+  _StartCallNotifier({required this.onStart});
+
+  final VoidCallback onStart;
+
+  @override
+  TrackingState build() => const TrackingIdle();
+
+  @override
+  Future<void> start() async {
+    onStart();
+    state = const TrackingStarting();
+  }
 }

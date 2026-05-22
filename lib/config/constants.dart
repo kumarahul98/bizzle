@@ -160,6 +160,34 @@ const String kTrackingStopActionId = 'stop_tracking';
 /// See D-14 in `.planning/phases/02-core-tracking/02-CONTEXT.md`.
 const String kTrackingStopActionLabel = 'Stop';
 
+/// Action id for the Open button on the recording notification (08-10).
+/// Tapping OPEN brings the app to the foreground via an Activity
+/// PendingIntent — same effect as tapping the notification body.
+const String kTrackingOpenActionId = 'open_app';
+
+/// User-facing label for the Open action button (08-10).
+const String kTrackingOpenActionLabel = 'Open';
+
+/// iOS notification category id for the active-commute notification (08-10).
+/// Categories define which actions appear when the notification is expanded
+/// on iOS. Matches the Android action set (Open + Stop) so the cross-platform
+/// `flutter_local_notifications` API surfaces the same UX on both platforms.
+const String kTrackingNotificationCategoryId = 'traevy_recording';
+
+/// Title template for the active-commute notification (08-10). The
+/// `{direction}` token is substituted with the auto-labelled direction
+/// ('To office' / 'To home') at show/update time.
+const String kTrackingNotificationTitleTemplate =
+    'Recording your commute to {direction}';
+
+/// Body template for the active-commute notification (08-10). Tokens are
+/// substituted with formatted live values on every snapshot:
+///   - {elapsed} → '22:14'
+///   - {km}      → '4.1'
+///   - {stuck}   → '4m'
+const String kTrackingNotificationBodyTemplate =
+    '● REC  {elapsed} elapsed · {km} km · {stuck} stuck';
+
 /// GPS sampling interval — balances battery vs fidelity for a typical
 /// 30-minute commute. Passed to the geolocator position stream settings.
 ///
@@ -188,6 +216,27 @@ const double kTrackingMaxAcceptableAccuracyMeters = 30;
 ///
 /// See `.planning/phases/02-core-tracking/02-RESEARCH.md` §6.
 const int kTrackingMaxAttributableGapSeconds = 30;
+
+/// How fresh `_lastAccepted.speed` must be for `TripAccumulator.snapshot`
+/// to surface it as `currentSpeedMs`. Older than this and the snapshot
+/// reports 0 so the SPEED tile decays correctly when the device stops
+/// emitting fresh GPS samples (Android throttles emissions when stationary
+/// and the 30m accuracy gate drops stationary low-accuracy samples).
+///
+/// 6s = 2× `kTrackingSampleInterval` so a single dropped sample does not
+/// flip the tile to 0 prematurely, but two consecutive dropped samples
+/// (or stationary throttling) will. See
+/// `.planning/debug/active-speed-tile-stale.md` for full diagnosis.
+const Duration kTrackingSpeedFreshnessWindow = Duration(seconds: 6);
+
+/// Minimum gap between successive notification refreshes (08-10 review HIGH #5).
+/// The 1Hz snapshot rate would call `showRecording()` ~2700 times on a 45-min
+/// trip — every call round-trips through the platform channel. Throttling to
+/// once per 5 s drops a 45-min trip to ~540 platform calls (5x reduction)
+/// while keeping the visible refresh cadence well under user-perceivable
+/// staleness. `onlyAlertOnce: true` already mutes sound/vibration on every
+/// refresh, but does not eliminate the IPC cost.
+const Duration kTrackingNotificationRefreshInterval = Duration(seconds: 5);
 
 // ---------------------------------------------------------------------------
 // Phase 4: Trip History
@@ -499,8 +548,7 @@ const String kWeeklySummaryNotificationTitle = 'Your week in commute';
 /// string interpolation: `'$total total, $stuck in traffic'`.
 ///
 /// See D-06 in `.planning/phases/07-polish-notifications/07-CONTEXT.md`.
-const String kWeeklySummaryNotificationBodyTemplate =
-    '%s total, %s in traffic';
+const String kWeeklySummaryNotificationBodyTemplate = '%s total, %s in traffic';
 
 /// Weekly summary notification body when no trips were recorded.
 ///
@@ -516,5 +564,50 @@ const String kReminderNotificationTitle = 'Time to track your commute';
 /// Daily reminder notification body.
 ///
 /// See D-11 in `.planning/phases/07-polish-notifications/07-CONTEXT.md`.
-const String kReminderNotificationBody =
-    'Tap to start recording your commute';
+const String kReminderNotificationBody = 'Tap to start recording your commute';
+
+// ---------------------------------------------------------------------------
+// Phase 8 — UI Overhaul (Traevy design system)
+// ---------------------------------------------------------------------------
+
+/// Font family name for all UI text (body copy, labels, buttons, headings).
+/// Resolved via the `google_fonts` package — see pubspec.yaml.
+///
+/// Design token source: Typography block in
+/// `.planning/phases/08-ui-overhaul/08-CONTEXT.md`.
+const String kFontUI = 'Inter';
+
+/// Font family name for all numeric / monospace data displays (duration,
+/// distance, speed, time, percentages).
+/// Resolved via the `google_fonts` package — see pubspec.yaml.
+///
+/// Design token source: Typography block in
+/// `.planning/phases/08-ui-overhaul/08-CONTEXT.md`.
+const String kFontMono = 'JetBrainsMono';
+
+/// Placeholder display name shown in the header before the user signs in
+/// (Phase 9 populates this from Cognito profile).
+///
+/// Design token source: Specifics block in
+/// `.planning/phases/08-ui-overhaul/08-CONTEXT.md`.
+const String kPlaceholderUserName = 'Traveller';
+
+/// Single-character placeholder initial for the user avatar before sign-in.
+///
+/// Design token source: Specifics block in
+/// `.planning/phases/08-ui-overhaul/08-CONTEXT.md`.
+const String kPlaceholderUserInitial = 'T';
+
+/// Short brand mark rendered in the `TraevyLogoMark` widget header — "tv" in
+/// JetBrains Mono 700. Never use this as the canonical app name; use
+/// `kBrandFullName` for that.
+///
+/// Design token source: Specifics block in
+/// `.planning/phases/08-ui-overhaul/08-CONTEXT.md`.
+const String kBrandShortName = 'tv';
+
+/// Full brand name used in headings and accessibility labels.
+///
+/// Design token source: Specifics block in
+/// `.planning/phases/08-ui-overhaul/08-CONTEXT.md`.
+const String kBrandFullName = 'Traevy';

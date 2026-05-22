@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:traevy/config/constants.dart';
+import 'package:traevy/config/theme.dart';
 import 'package:traevy/database/daos/trips_dao.dart';
 import 'package:traevy/database/database.dart';
 import 'package:traevy/database/providers.dart';
@@ -11,35 +14,30 @@ import 'package:traevy/features/trips/providers/trip_management_providers.dart';
 import 'package:traevy/features/trips/services/trip_actions.dart'
     as trip_actions;
 import 'package:traevy/features/trips/widgets/edit_trip_sheet.dart';
+import 'package:traevy/features/trips/widgets/traffic_insight_card.dart';
+import 'package:traevy/features/trips/widgets/trip_timeline.dart';
 import 'package:traevy/shared/utils/formatters.dart';
+import 'package:traevy/shared/widgets/section_label.dart';
+import 'package:traevy/shared/widgets/stuck_bar.dart';
 
-// Spacing constants — all multiples of 4 per UI-SPEC. Map height is the
-// only allowed off-grid value (kTripDetailMapHeight = 256dp).
-const double _kBodyPadding = 16;
-const double _kManualBadgeGap = 24;
-const double _kStatRowVerticalPadding = 8;
-const double _kStatRowIconGap = 12;
-const double _kStatRowIconSize = 20;
+const double _kHorizontalPadding = 20;
+const double _kMapHeight = 210;
+const double _kMapBorderRadius = 16;
+const double _kCardBorderRadius = 16;
 const double _kMapCameraPadding = 32;
 const double _kPolylineStrokeWidth = 4;
-const double _kManualBadgeIconSize = 16;
+const double _kHeaderIconSize = 36;
+const double _kLegendDotSize = 8;
 
-/// Trip detail screen (HIST-03).
+/// Trip detail screen (HIST-03) — Phase 8 Traevy restyle.
 ///
-/// Two layouts driven by `TripRow.isManualEntry`:
-///   * GPS trip (D-06): scrolling map + 6 stat rows (Duration, Distance,
-///     Direction, Date, Moving, Stuck in traffic).
-///   * Manual trip (D-05): no map; "Manually entered" chip + 3 stat rows
-///     (Duration, Direction, Date). Distance and traffic stats omitted
-///     because manual entries have no GPS speed samples.
+/// Layout: custom header row (back arrow · date+time · more-options),
+/// 210dp flutter_map TileLayer wrapped in RepaintBoundary (Review LOW #5),
+/// commute-part-of-day SectionLabel, direction title, Duration+Distance
+/// card, StuckBar + legend, TrafficInsightCard callout (GPS trips only),
+/// TripTimeline, and Edit/Delete border buttons.
 ///
-/// Loading state shows a `CircularProgressIndicator`. When `findById`
-/// returns null the screen renders [kTripDetailNotFound] instead.
-///
-/// AppBar carries Edit and Delete icon actions for both layouts. The
-/// Delete action calls [trip_actions.handleDeleteTrip] (the shared
-/// confirmation flow) and `Navigator.of(context).pop()`s back to the
-/// history list on success (Pitfall 8 in 04-RESEARCH.md).
+/// Manual trips: map is hidden; TrafficInsightCard hidden (no traffic data).
 class TripDetailScreen extends ConsumerStatefulWidget {
   /// Create the trip detail screen for [tripId].
   const TripDetailScreen({required this.tripId, super.key});
@@ -71,18 +69,6 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
     });
   }
 
-  String _directionLabel(String direction) {
-    if (direction == kDirectionToOffice) return 'To office';
-    if (direction == kDirectionToHome) return 'To home';
-    return 'Trip';
-  }
-
-  String _directionStatValue(String direction) {
-    if (direction == kDirectionToOffice) return 'To office';
-    if (direction == kDirectionToHome) return 'To home';
-    return 'Unknown';
-  }
-
   TripSummary _summaryFromRow(TripRow row) => TripSummary(
     id: row.id,
     startTime: row.startTime,
@@ -104,39 +90,77 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
       builder: (sheetContext) => EditTripSheet(summary: _summaryFromRow(trip)),
     );
     if (!context.mounted) return;
-    // After edit, refresh the loaded row so updated fields render.
     await _loadTrip();
   }
 
   Future<void> _handleDelete() async {
-    // Capture Navigator before the await so we can pop without re-touching
-    // BuildContext after the async gap (use_build_context_synchronously).
     final navigator = Navigator.of(context);
     await trip_actions.handleDeleteTrip(context, ref, widget.tripId);
     if (!context.mounted) return;
     final state = ref.read(tripManagementProvider);
     if (state is TripManagementSaved) {
-      // Pitfall 8: pop back to history only after confirmed delete success.
       navigator.pop();
     }
+  }
+
+  void _showOptionsMenu() {
+    // Options menu: edit + delete via showModalBottomSheet.
+    final trip = _trip;
+    if (trip == null) return;
+    unawaited(
+      showModalBottomSheet<void>(
+        context: context,
+        builder: (ctx) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              ListTile(
+                leading: const Icon(Icons.edit_rounded),
+                title: const Text('Edit'),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  unawaited(_handleEdit(trip));
+                },
+              ),
+              ListTile(
+                leading: Icon(
+                  Icons.delete_outline_rounded,
+                  color: Theme.of(ctx).extension<TraevyTokensExt>()!.record,
+                ),
+                title: Text(
+                  'Delete',
+                  style: TextStyle(
+                    color: Theme.of(ctx).extension<TraevyTokensExt>()!.record,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  unawaited(_handleDelete());
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Trip')),
-        body: const Center(child: CircularProgressIndicator()),
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
       );
     }
     final trip = _trip;
     if (trip == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Trip')),
-        body: Center(
-          child: Text(
-            kTripDetailNotFound,
-            style: Theme.of(context).textTheme.bodyMedium,
+        body: SafeArea(
+          child: Center(
+            child: Text(
+              kTripDetailNotFound,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
           ),
         ),
       );
@@ -145,239 +169,440 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
   }
 
   Widget _buildLoaded(BuildContext context, TripRow trip) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final title = _directionLabel(trip.direction);
-    final appBar = AppBar(
-      title: Text(title),
-      actions: <Widget>[
-        IconButton(
-          icon: const Icon(Icons.edit_outlined),
-          tooltip: 'Edit trip',
-          onPressed: () => _handleEdit(trip),
-        ),
-        IconButton(
-          icon: Icon(Icons.delete_outline, color: colorScheme.error),
-          tooltip: 'Delete trip',
-          onPressed: _handleDelete,
-        ),
-      ],
-    );
-
-    if (trip.isManualEntry) {
-      return Scaffold(
-        appBar: appBar,
-        body: _ManualLayout(
-          trip: trip,
-          directionStatValue: _directionStatValue(trip.direction),
-        ),
-      );
-    }
     return Scaffold(
-      appBar: appBar,
-      body: _GpsLayout(
-        trip: trip,
-        directionStatValue: _directionStatValue(trip.direction),
+      body: SafeArea(
+        child: _TripDetailBody(
+          trip: trip,
+          onBack: () => Navigator.of(context).pop(),
+          onOptions: _showOptionsMenu,
+          onEdit: () => _handleEdit(trip),
+          onDelete: _handleDelete,
+        ),
       ),
     );
   }
 }
 
-class _GpsLayout extends StatelessWidget {
-  const _GpsLayout({required this.trip, required this.directionStatValue});
+class _TripDetailBody extends StatelessWidget {
+  const _TripDetailBody({
+    required this.trip,
+    required this.onBack,
+    required this.onOptions,
+    required this.onEdit,
+    required this.onDelete,
+  });
 
   final TripRow trip;
-  final String directionStatValue;
+  final VoidCallback onBack;
+  final VoidCallback onOptions;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  String _commutePartOfDay(DateTime startTime) {
+    final local = startTime.toLocal();
+    return local.hour < kDefaultDirectionCutoffHour
+        ? 'Morning commute'
+        : 'Evening commute';
+  }
+
+  String _directionDisplayName(String direction) {
+    if (direction == kDirectionToOffice) return 'To office';
+    if (direction == kDirectionToHome) return 'To home';
+    return 'Trip';
+  }
 
   @override
   Widget build(BuildContext context) {
+    final tokens = Theme.of(context).extension<TraevyTokensExt>()!;
+    final textTheme = Theme.of(context).textTheme;
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+
+    final localStart = trip.startTime.toLocal();
+    final dateLabel = DateFormat('EEE, d MMM').format(localStart);
+    final timeLabel = DateFormat('HH:mm').format(localStart);
+
+    final movingMinutes = trip.timeMovingSeconds ~/ 60;
+    final stuckMinutes = trip.timeStuckSeconds ~/ 60;
+    final totalMinutes = trip.durationSeconds ~/ 60;
+
+    final movingLabel = _formatMinutes(movingMinutes);
+    final stuckLabel = _formatMinutes(stuckMinutes);
+
     final latLngPoints = decodedToLatLng(trip.routePolyline ?? '');
-    final dateLabel = DateFormat(
-      'EEE, d MMM yyyy',
-    ).format(trip.startTime.toLocal());
-    return CustomScrollView(
-      slivers: <Widget>[
-        SliverToBoxAdapter(
-          child: SizedBox(
-            height: kTripDetailMapHeight,
-            child: _MapView(latLngPoints: latLngPoints),
+    final isGps = !trip.isManualEntry;
+
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          // ── Custom header row ────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: _kHorizontalPadding,
+              vertical: 12,
+            ),
+            child: Row(
+              children: <Widget>[
+                _CircleIconButton(
+                  icon: Icons.arrow_back_rounded,
+                  onPressed: onBack,
+                  tokens: tokens,
+                ),
+                const Spacer(),
+                Column(
+                  children: <Widget>[
+                    Text(
+                      dateLabel,
+                      style: textTheme.bodyMedium?.copyWith(color: onSurface),
+                    ),
+                    Text(
+                      timeLabel,
+                      style: TraevyFonts.mono(
+                        size: 12,
+                        color: tokens.textDim,
+                      ),
+                    ),
+                  ],
+                ),
+                const Spacer(),
+                _CircleIconButton(
+                  icon: Icons.more_horiz_rounded,
+                  onPressed: onOptions,
+                  tokens: tokens,
+                ),
+              ],
+            ),
+          ),
+
+          // ── Map (GPS trips only) ─────────────────────────────────────────
+          if (isGps)
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: _kHorizontalPadding,
+              ),
+              child: _MapSection(latLngPoints: latLngPoints, tokens: tokens),
+            ),
+
+          if (isGps) const SizedBox(height: 20),
+
+          // ── Stats + insight section ──────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: _kHorizontalPadding,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                // Commute part-of-day label
+                SectionLabel(
+                  text: _commutePartOfDay(trip.startTime),
+                  fontSize: 11,
+                ),
+                const SizedBox(height: 4),
+                // Direction title
+                Text(
+                  _directionDisplayName(trip.direction),
+                  style: TraevyFonts.ui(
+                    size: 24,
+                    weight: FontWeight.w700,
+                    letterSpacing: -0.6,
+                    color: onSurface,
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Duration + Distance stat card
+                _StatPairCard(
+                  durationSeconds: trip.durationSeconds,
+                  distanceMeters: trip.distanceMeters,
+                  tokens: tokens,
+                  onSurface: onSurface,
+                ),
+
+                if (isGps) ...<Widget>[
+                  const SizedBox(height: 12),
+                  // StuckBar
+                  StuckBar(
+                    movingMinutes: movingMinutes,
+                    stuckMinutes: stuckMinutes,
+                  ),
+                  const SizedBox(height: 8),
+                  // Moving / stuck legend row
+                  Row(
+                    children: <Widget>[
+                      _LegendDot(color: tokens.moving),
+                      const SizedBox(width: 6),
+                      Text(
+                        '$movingLabel moving',
+                        style: TraevyFonts.mono(
+                          size: 12,
+                          color: tokens.moving,
+                        ),
+                      ),
+                      const Spacer(),
+                      _LegendDot(color: tokens.stuck),
+                      const SizedBox(width: 6),
+                      Text(
+                        '$stuckLabel stuck',
+                        style: TraevyFonts.mono(
+                          size: 12,
+                          color: tokens.stuck,
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  if (stuckMinutes > 0) ...<Widget>[
+                    const SizedBox(height: 20),
+                    TrafficInsightCard(
+                      stuckMinutes: stuckMinutes,
+                      totalMinutes: totalMinutes,
+                    ),
+                  ],
+
+                  const SizedBox(height: 24),
+                  TripTimeline(
+                    startTime: trip.startTime,
+                    endTime: trip.endTime,
+                    stuckMinutes: stuckMinutes,
+                    direction: trip.direction,
+                  ),
+                ],
+
+                const SizedBox(height: 24),
+
+                // Edit / Delete action buttons
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.edit_rounded, size: 18),
+                        label: const Text('Edit'),
+                        onPressed: onEdit,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        icon: const Icon(
+                          Icons.delete_outline_rounded,
+                          size: 18,
+                        ),
+                        label: const Text('Delete'),
+                        onPressed: onDelete,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: tokens.record,
+                          side: BorderSide(color: tokens.record),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatMinutes(int minutes) {
+    if (minutes < 60) return '${minutes}m';
+    final h = minutes ~/ 60;
+    final m = minutes % 60;
+    return m == 0 ? '${h}h' : '${h}h ${m}m';
+  }
+}
+
+/// Circular icon button used in the custom header.
+class _CircleIconButton extends StatelessWidget {
+  const _CircleIconButton({
+    required this.icon,
+    required this.onPressed,
+    required this.tokens,
+  });
+
+  final IconData icon;
+  final VoidCallback onPressed;
+  final TraevyTokensExt tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: _kHeaderIconSize,
+      height: _kHeaderIconSize,
+      decoration: BoxDecoration(
+        color: tokens.surface2,
+        shape: BoxShape.circle,
+      ),
+      child: IconButton(
+        padding: EdgeInsets.zero,
+        icon: Icon(icon, size: 20),
+        onPressed: onPressed,
+      ),
+    );
+  }
+}
+
+/// Duration + Distance side-by-side card.
+class _StatPairCard extends StatelessWidget {
+  const _StatPairCard({
+    required this.durationSeconds,
+    required this.distanceMeters,
+    required this.tokens,
+    required this.onSurface,
+  });
+
+  final int durationSeconds;
+  final double distanceMeters;
+  final TraevyTokensExt tokens;
+  final Color onSurface;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: tokens.bgElev,
+        borderRadius: BorderRadius.circular(_kCardBorderRadius),
+        border: Border.all(color: tokens.border),
+      ),
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            child: _StatColumn(
+              label: 'Duration',
+              value: formatDuration(durationSeconds),
+              onSurface: onSurface,
+            ),
+          ),
+          Container(width: 1, height: 48, color: tokens.border),
+          Expanded(
+            child: _StatColumn(
+              label: 'Distance',
+              value: formatDistance(distanceMeters),
+              onSurface: onSurface,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatColumn extends StatelessWidget {
+  const _StatColumn({
+    required this.label,
+    required this.value,
+    required this.onSurface,
+  });
+
+  final String label;
+  final String value;
+  final Color onSurface;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: <Widget>[
+        SectionLabel(text: label, fontSize: 11),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TraevyFonts.mono(
+            size: 28,
+            weight: FontWeight.w600,
+            color: onSurface,
           ),
         ),
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.all(_kBodyPadding),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+      ],
+    );
+  }
+}
+
+/// Small colored circle used in the moving/stuck legend row.
+class _LegendDot extends StatelessWidget {
+  const _LegendDot({required this.color});
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: _kLegendDotSize,
+      height: _kLegendDotSize,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+    );
+  }
+}
+
+/// Map section: real flutter_map TileLayer at 210dp wrapped in RepaintBoundary.
+///
+/// Review LOW #5 — RepaintBoundary isolates heavy tile rasterization from
+/// adjacent state changes in StuckBar / TripTimeline rebuilds.
+class _MapSection extends StatelessWidget {
+  const _MapSection({required this.latLngPoints, required this.tokens});
+
+  final List<LatLng> latLngPoints;
+  final TraevyTokensExt tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    // Pitfall 2 guard: CameraFit.coordinates asserts on an empty list.
+    // Render a placeholder when no decoded points exist (corrupt polyline).
+    if (latLngPoints.isEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(_kMapBorderRadius),
+        child: Container(
+          height: _kMapHeight,
+          color: tokens.mapBg,
+        ),
+      );
+    }
+
+    // Review LOW #5 — wrap FlutterMap in RepaintBoundary to isolate tile
+    // rasterization from adjacent state changes (StuckBar, TripTimeline).
+    return RepaintBoundary(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(_kMapBorderRadius),
+        child: SizedBox(
+          height: _kMapHeight,
+          child: IgnorePointer(
+            child: FlutterMap(
+              options: MapOptions(
+                initialCameraFit: CameraFit.coordinates(
+                  coordinates: latLngPoints,
+                  padding: const EdgeInsets.all(_kMapCameraPadding),
+                ),
+              ),
               children: <Widget>[
-                _StatRow(
-                  icon: Icons.schedule_outlined,
-                  label: 'Duration',
-                  value: formatDuration(trip.durationSeconds),
+                TileLayer(
+                  urlTemplate: Theme.of(context).brightness == Brightness.dark
+                      ? kMapTileUrlDark
+                      : kMapTileUrlLight,
+                  subdomains: kMapTileSubdomains,
+                  userAgentPackageName: kMapUserAgentPackageName,
                 ),
-                _StatRow(
-                  icon: Icons.straighten_outlined,
-                  label: 'Distance',
-                  value: formatDistance(trip.distanceMeters),
+                PolylineLayer(
+                  polylines: <Polyline>[
+                    Polyline(
+                      points: latLngPoints,
+                      color: Theme.of(context).colorScheme.primary,
+                      strokeWidth: _kPolylineStrokeWidth,
+                    ),
+                  ],
                 ),
-                _StatRow(
-                  icon: Icons.explore_outlined,
-                  label: 'Direction',
-                  value: directionStatValue,
-                ),
-                _StatRow(
-                  icon: Icons.calendar_today_outlined,
-                  label: 'Date',
-                  value: dateLabel,
-                ),
-                _StatRow(
-                  icon: Icons.timer_outlined,
-                  label: 'Moving',
-                  value: formatDuration(trip.timeMovingSeconds),
-                ),
-                _StatRow(
-                  icon: Icons.traffic_outlined,
-                  label: 'Stuck in traffic',
-                  value: formatDuration(trip.timeStuckSeconds),
+                const RichAttributionWidget(
+                  attributions: <SourceAttribution>[
+                    TextSourceAttribution(
+                      '© CARTO, © OpenStreetMap contributors',
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
         ),
-      ],
-    );
-  }
-}
-
-class _ManualLayout extends StatelessWidget {
-  const _ManualLayout({
-    required this.trip,
-    required this.directionStatValue,
-  });
-
-  final TripRow trip;
-  final String directionStatValue;
-
-  @override
-  Widget build(BuildContext context) {
-    final dateLabel = DateFormat(
-      'EEE, d MMM yyyy',
-    ).format(trip.startTime.toLocal());
-    return Padding(
-      padding: const EdgeInsets.all(_kBodyPadding),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          const Chip(
-            avatar: Icon(
-              Icons.edit_note_outlined,
-              size: _kManualBadgeIconSize,
-            ),
-            label: Text(kManualEntryBadge),
-          ),
-          const SizedBox(height: _kManualBadgeGap),
-          _StatRow(
-            icon: Icons.schedule_outlined,
-            label: 'Duration',
-            value: formatDuration(trip.durationSeconds),
-          ),
-          _StatRow(
-            icon: Icons.explore_outlined,
-            label: 'Direction',
-            value: directionStatValue,
-          ),
-          _StatRow(
-            icon: Icons.calendar_today_outlined,
-            label: 'Date',
-            value: dateLabel,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MapView extends StatelessWidget {
-  const _MapView({required this.latLngPoints});
-
-  final List<LatLng> latLngPoints;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    // Pitfall 2 guard: CameraFit.coordinates asserts on an empty list.
-    // Render a neutral placeholder for GPS trips that somehow have no
-    // decoded points (corrupt polyline, partial Tracelet capture).
-    if (latLngPoints.isEmpty) {
-      return Container(
-        color: colorScheme.surfaceContainerLow,
-        height: kTripDetailMapHeight,
-      );
-    }
-    // IgnorePointer keeps the map from eating CustomScrollView pan/scroll
-    // gestures (D-06: detail map is a static preview, not interactive).
-    return IgnorePointer(
-      child: FlutterMap(
-        options: MapOptions(
-          initialCameraFit: CameraFit.coordinates(
-            coordinates: latLngPoints,
-            padding: const EdgeInsets.all(_kMapCameraPadding),
-          ),
-        ),
-        children: <Widget>[
-          TileLayer(
-            urlTemplate: Theme.of(context).brightness == Brightness.dark
-                ? kMapTileUrlDark
-                : kMapTileUrlLight,
-            subdomains: kMapTileSubdomains,
-            userAgentPackageName: kMapUserAgentPackageName,
-          ),
-          PolylineLayer(
-            polylines: <Polyline>[
-              Polyline(
-                points: latLngPoints,
-                color: colorScheme.primary,
-                strokeWidth: _kPolylineStrokeWidth,
-              ),
-            ],
-          ),
-          const RichAttributionWidget(
-            attributions: <SourceAttribution>[
-              TextSourceAttribution('© CARTO, © OpenStreetMap contributors'),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatRow extends StatelessWidget {
-  const _StatRow({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: _kStatRowVerticalPadding),
-      child: Row(
-        children: <Widget>[
-          Icon(
-            icon,
-            size: _kStatRowIconSize,
-            color: colorScheme.onSurfaceVariant,
-          ),
-          const SizedBox(width: _kStatRowIconGap),
-          Expanded(child: Text(label, style: textTheme.labelLarge)),
-          Text(value, style: textTheme.bodyLarge),
-        ],
       ),
     );
   }

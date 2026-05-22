@@ -22,7 +22,12 @@ class _RecordingNotifications implements TrackingNotificationService {
   }
 
   @override
-  Future<void> showRecording() async {
+  Future<void> showRecording({
+    int elapsedSeconds = 0,
+    double distanceMeters = 0,
+    int timeStuckSeconds = 0,
+    String direction = kDirectionToOffice,
+  }) async {
     showCalls += 1;
   }
 

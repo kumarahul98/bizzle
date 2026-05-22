@@ -1,30 +1,23 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 import 'package:traevy/config/constants.dart';
-import 'package:traevy/config/routes.dart';
-import 'package:traevy/features/dashboard/providers/dashboard_providers.dart';
-import 'package:traevy/features/dashboard/widgets/today_trips_section.dart';
-import 'package:traevy/features/dashboard/widgets/weekly_summary_card.dart';
-import 'package:traevy/features/stats/providers/stats_providers.dart';
+import 'package:traevy/features/dashboard/widgets/hero_record_card.dart';
+import 'package:traevy/features/dashboard/widgets/home_header.dart';
+import 'package:traevy/features/dashboard/widgets/today_section.dart';
+import 'package:traevy/features/dashboard/widgets/week_loss_card.dart';
 import 'package:traevy/features/tracking/providers/tracking_providers.dart';
 import 'package:traevy/features/tracking/services/tracking_permission_service.dart';
-import 'package:traevy/features/tracking/state/tracking_state.dart';
-import 'package:traevy/features/trips/widgets/manual_entry_sheet.dart';
-
-const double _kBodyHorizontalPadding = 16;
-const double _kBodyTopPadding = 24;
-const double _kBodyBottomPadding = 32;
-const double _kSectionGap = 16;
-const double _kFabClearance = 32;
 
 /// The dashboard home screen — the app root showing today's trips and
-/// a weekly summary card at a glance (UX-01).
+/// a weekly traffic loss card at a glance (UX-01).
 ///
-/// Replaces HomeScreen as the MaterialApp.home binding (D-01). Watches
-/// trackingStateProvider, todaysTripSummariesProvider, and
-/// statsSummaryProvider once in build and passes values down to child
-/// widgets so children remain plain StatelessWidgets.
+/// Phase 8: replaces AppBar + FAB with HomeHeader + HeroRecordCard,
+/// TodaySection, and WeekLossCard per UI-SPEC.md §3 / Plan 04.
+///
+/// [_handleStart] preserves the existing permission-check flow — wired via
+/// HeroRecordCard(onStart: callback) per RESEARCH.md Pattern 4.
 class DashboardScreen extends ConsumerWidget {
   /// Create the dashboard screen.
   const DashboardScreen({super.key});
@@ -32,99 +25,48 @@ class DashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final trackingState = ref.watch(trackingStateProvider);
-    final isTracking = trackingState is TrackingActive;
-    final asyncToday = ref.watch(todaysTripSummariesProvider);
-    final asyncStats = ref.watch(statsSummaryProvider);
-
-    final weekTotalSeconds =
-        asyncStats.whenData((s) => s.weekTotalSeconds).asData?.value ?? 0;
-    final weekStuckSeconds =
-        asyncStats.whenData((s) => s.weekStuckSeconds).asData?.value ?? 0;
-    final todayTripCount =
-        asyncToday.whenData((t) => t.length).asData?.value ?? 0;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(DateFormat('EEE, d MMM').format(DateTime.now())),
-        actions: <Widget>[
-          IconButton(
-            icon: const Icon(Icons.add),
-            tooltip: kDashboardAddTripTooltip,
-            onPressed: () => _handleAddManualTrip(context, ref),
-          ),
-          IconButton(
-            icon: const Icon(Icons.history),
-            tooltip: 'History',
-            onPressed: () => Navigator.pushNamed(context, kRouteHistory),
-          ),
-          IconButton(
-            icon: const Icon(Icons.bar_chart),
-            tooltip: 'Stats',
-            onPressed: () => Navigator.pushNamed(context, kRouteStats),
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings),
-            tooltip: kSettingsTooltip,
-            onPressed: () => Navigator.pushNamed(context, kRouteSettings),
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(
-          _kBodyHorizontalPadding,
-          _kBodyTopPadding,
-          _kBodyHorizontalPadding,
-          _kBodyBottomPadding,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            WeeklySummaryCard(
-              weekTotalSeconds: weekTotalSeconds,
-              weekStuckSeconds: weekStuckSeconds,
-              todayTripCount: todayTripCount,
+      body: SafeArea(
+        child: CustomScrollView(
+          slivers: [
+            const SliverToBoxAdapter(child: HomeHeader()),
+            const SliverToBoxAdapter(child: SizedBox(height: 8)),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: HeroRecordCard(
+                  onStart: () => _handleStart(context, ref),
+                ),
+              ),
             ),
-            const SizedBox(height: _kSectionGap),
-            TodayTripsSection(
-              asyncToday: asyncToday,
-              trackingState: trackingState,
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            SliverToBoxAdapter(
+              child: TodaySection(trackingState: trackingState),
             ),
-            const SizedBox(height: _kFabClearance),
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            const SliverToBoxAdapter(child: WeekLossCard()),
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
           ],
         ),
       ),
-      floatingActionButton: isTracking
-          ? FloatingActionButton.extended(
-              onPressed: () => Navigator.pushNamed(context, kRouteTracking),
-              icon: const Icon(Icons.navigation_rounded),
-              label: const Text(kDashboardFabActiveLabel),
-            )
-          : FloatingActionButton.extended(
-              onPressed: () => _handleStart(context, ref),
-              icon: const Icon(Icons.play_arrow_rounded),
-              label: const Text(kDashboardFabIdleLabel),
-            ),
     );
-  }
-
-  Future<void> _handleAddManualTrip(
-    BuildContext context,
-    WidgetRef ref,
-  ) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
-      builder: (sheetContext) => const ManualEntrySheet(),
-    );
-    if (!context.mounted) return;
   }
 
   Future<void> _handleStart(BuildContext context, WidgetRef ref) async {
     final service = ref.read(trackingPermissionServiceProvider);
-    final status = await service.currentStatus();
+    // preflight() runs the strict location → notifications dance and
+    // prompts when needed. currentStatus() only probes — it would not
+    // surface a system prompt on a fresh install with location denied,
+    // and Start would silently fall through to start() (regression
+    // introduced when TrackingScreen was deleted in 08-08).
+    final status = await service.preflight();
     if (!context.mounted) return;
+    if (status == TrackingPermissionStatus.denied) {
+      // User declined the in-line prompt — there's no second screen to
+      // show a re-prompt CTA, so dismiss; user re-taps START to retry.
+      return;
+    }
     if (status == TrackingPermissionStatus.permanentlyDenied) {
       await _showSettingsDialog(
         context,
@@ -144,7 +86,11 @@ class DashboardScreen extends ConsumerWidget {
       return;
     }
     if (!context.mounted) return;
-    await Navigator.pushNamed(context, kRouteTracking);
+    // Fire-and-forget: TrackingNotifier.start() flips state to TrackingStarting
+    // synchronously; HeroRecordCard reflects the transition in place — no
+    // navigation. Awaiting would block the dashboard for foreground-service
+    // spin-up. See .planning/debug/hero-start-double-tap.md.
+    unawaited(ref.read(trackingStateProvider.notifier).start());
   }
 
   Future<void> _showSettingsDialog(
