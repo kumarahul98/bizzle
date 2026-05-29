@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/config/routes.dart';
 import 'package:traevy/config/theme.dart';
+import 'package:traevy/features/auth/models/auth_state.dart';
+import 'package:traevy/features/auth/providers/auth_providers.dart';
+import 'package:traevy/features/auth/screens/splash_screen.dart';
 import 'package:traevy/features/settings/providers/settings_providers.dart';
 import 'package:traevy/features/shell/main_shell.dart';
 import 'package:traevy/features/tracking/providers/backfill_provider.dart';
@@ -17,6 +20,12 @@ import 'package:traevy/features/tracking/providers/backfill_provider.dart';
 /// Phase 3 (D-05): [TraevyApp] is a [ConsumerWidget] so it can call
 /// `ref.watch(directionBackfillProvider)` to trigger the one-shot
 /// background backfill on app startup.
+///
+/// Phase 9 (AUTH-02, AUTH-03): watches [authStateProvider] and routes via an
+/// exhaustive sealed `switch` — [AuthLoading] shows [SplashScreen] during
+/// Firebase session restore; [AuthGuest] and [AuthSignedIn] both show
+/// [MainShell]. The switch has no `default` branch so a new [AuthState]
+/// variant is a compile error at this call site (T-09-04-02 mitigation).
 class TraevyApp extends ConsumerWidget {
   /// Create the root app widget.
   const TraevyApp({super.key});
@@ -38,13 +47,23 @@ class TraevyApp extends ConsumerWidget {
           error: (e, s) => ThemeMode.system,
         );
 
+    // Phase 9 auth gate — sealed switch on AuthState (NOT .when, which is
+    // the AsyncValue API). AuthState is a plain sealed class from a
+    // NotifierProvider, not an AsyncValue (RESEARCH Pitfall 6 / A5).
+    final auth = ref.watch(authStateProvider);
+    final home = switch (auth) {
+      AuthLoading() => const SplashScreen(),
+      AuthGuest() => const MainShell(),
+      AuthSignedIn() => const MainShell(),
+    };
+
     return MaterialApp(
       title: 'Traevy',
       theme: buildLightTheme(),
       darkTheme: buildDarkTheme(),
       themeMode: themeMode,
       routes: kAppRoutes,
-      home: const MainShell(),
+      home: home,
     );
   }
 
