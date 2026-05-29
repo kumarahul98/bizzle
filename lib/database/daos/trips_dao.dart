@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/database.dart';
 import 'package:traevy/database/tables/trips_table.dart';
 
@@ -127,6 +128,26 @@ class TripsDao extends DatabaseAccessor<AppDatabase> with _$TripsDaoMixin {
   /// tombstone are atomic.
   Future<void> deleteTrip(String id) {
     return (delete(trips)..where((t) => t.id.equals(id))).go();
+  }
+
+  /// Rewrite every trip whose `userId` equals [kDefaultUserId] to
+  /// [newUserId]. Returns the number of rows that were changed.
+  ///
+  /// D-11 (Phase 9 auth): called by `AuthService.signIn()` inside a
+  /// `db.transaction()` alongside `UserPreferencesDao.backfillUserId`
+  /// so the two updates are atomic. The return value is the
+  /// first-sign-in signal — a count > 0 means there were guest trips
+  /// to migrate; a count of 0 means the user has already signed in on
+  /// this device.
+  ///
+  /// Pitfall 4 mitigation: the WHERE clause is set explicitly via
+  /// `..where((t) => t.userId.equals(kDefaultUserId))`. Only
+  /// `kDefaultUserId` rows are touched; real-uid rows are untouched.
+  /// Never use `update(trips).replace(row)` for partial updates.
+  Future<int> backfillUserId(String newUserId) {
+    return (update(trips)
+          ..where((t) => t.userId.equals(kDefaultUserId)))
+        .write(TripsCompanion(userId: Value(newUserId)));
   }
 
   TripSummary _toSummary(TripRow r) => TripSummary(

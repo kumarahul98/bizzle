@@ -135,6 +135,29 @@ class UserPreferencesDao extends DatabaseAccessor<AppDatabase>
         );
   }
 
+  /// Rewrite the single user-preferences row's `userId` from
+  /// [kDefaultUserId] to [newUserId]. Returns the number of rows
+  /// changed (0 or 1).
+  ///
+  /// D-11 (Phase 9 auth): called by `AuthService.signIn()` inside a
+  /// `db.transaction()` alongside `TripsDao.backfillUserId` so the
+  /// two updates are atomic. This table holds at most one row (at
+  /// `id = _kUserPreferencesId`) so the return value is at most 1.
+  /// The caller keys off the *trips* count for the first-sign-in
+  /// signal (D-12) — preferences count is returned here for symmetry.
+  ///
+  /// Pitfall 4 mitigation: the WHERE clause is set explicitly via
+  /// `..where((p) => p.userId.equals(kDefaultUserId))`. Only rows
+  /// with [kDefaultUserId] are touched; a row already carrying a real
+  /// uid (from a previous sign-in) is untouched.
+  /// Never use `update(userPreferences).replace(row)` for partial
+  /// updates.
+  Future<int> backfillUserId(String newUserId) {
+    return (update(userPreferences)
+          ..where((p) => p.userId.equals(kDefaultUserId)))
+        .write(UserPreferencesCompanion(userId: Value(newUserId)));
+  }
+
   /// Write [value] as the single preferences row. If no row exists the
   /// first call inserts it; subsequent calls update it in place. The
   /// `id` column is forced to `_kUserPreferencesId` so there is never
