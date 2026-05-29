@@ -1,9 +1,14 @@
-// Widget tests for the Traevy-restyled SettingsScreen (Phase 8 Plan 07).
+// Widget tests for the Traevy-restyled SettingsScreen (Phase 8 Plan 07,
+// extended Phase 9 Plan 05).
 //
-// Replaces the Phase 7 SwitchListTile / RadioListTile assertions with
+// Phase 8: Replaces Phase 7 SwitchListTile / RadioListTile assertions with
 // TraevyToggle / theme-picker-bottom-sheet assertions while preserving
 // the UX-02 (updateDarkMode), UX-04 (updateWeeklyNotificationEnabled),
 // and UX-05 (updateReminderEnabled) behavioural wiring.
+//
+// Phase 9 (AUTH-01): Adds state-aware _AccountSection group — guest override
+// renders "Sign in to back up" row; signedIn override renders populated
+// AccountRow (constructor swap only, D-07).
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,6 +18,8 @@ import 'package:traevy/config/theme.dart';
 import 'package:traevy/database/daos/user_preferences_dao.dart';
 import 'package:traevy/database/database.dart';
 import 'package:traevy/database/providers.dart';
+import 'package:traevy/features/auth/models/auth_state.dart';
+import 'package:traevy/features/auth/providers/auth_providers.dart';
 import 'package:traevy/features/settings/providers/settings_providers.dart';
 import 'package:traevy/features/settings/screens/settings_screen.dart';
 import 'package:traevy/features/settings/widgets/account_row.dart';
@@ -55,6 +62,21 @@ class _FakeUserPreferencesDao implements UserPreferencesDao {
       super.noSuchMethod(invocation);
 }
 
+/// Minimal fake [AuthStateNotifier] that returns a fixed [AuthState].
+///
+/// Extends [AuthStateNotifier] so the `authStateProvider.overrideWith`
+/// factory type-check passes (Riverpod 3.x requires the factory to return
+/// the exact Notifier subtype declared in the provider). Returns a
+/// configurable fixed state without subscribing to Firebase streams.
+class _FakeAuthNotifier extends AuthStateNotifier {
+  _FakeAuthNotifier(this._state);
+
+  final AuthState _state;
+
+  @override
+  AuthState build() => _state;
+}
+
 /// Records every NotificationService call so the tests can keep the
 /// real `flutter_local_notifications` plugin out of the test isolate
 /// (it crashes with a LateInitializationError on the host).
@@ -89,10 +111,16 @@ class _FakeNotificationService implements NotificationService {
 
 /// Pump a [SettingsScreen] with [prefs] as the Riverpod override and a
 /// [_FakeUserPreferencesDao] capturing writes.
+///
+/// [authState] overrides [authStateProvider] so the state-aware
+/// [_AccountSection] renders the correct path without hitting Firebase.
+/// Defaults to [AuthGuest] (the D-15 degrade path, which is what
+/// tests get when firebaseReady=false — the default provider value).
 Future<_FakeUserPreferencesDao> _pumpSettingsScreen(
   WidgetTester tester, {
   UserPreferencesValue prefs = const UserPreferencesValue.defaults(),
   _FakeNotificationService? notificationService,
+  AuthState authState = const AuthGuest(),
 }) async {
   final fakeDao = _FakeUserPreferencesDao(prefs);
   final fakeNotif = notificationService ?? _FakeNotificationService();
@@ -104,6 +132,7 @@ Future<_FakeUserPreferencesDao> _pumpSettingsScreen(
         userPreferenceProvider.overrideWith(
           (ref) => Stream<UserPreferencesValue>.value(prefs),
         ),
+        authStateProvider.overrideWith(() => _FakeAuthNotifier(authState)),
       ],
       child: MaterialApp(
         theme: buildLightTheme(),
@@ -157,12 +186,21 @@ void main() {
       },
     );
 
-    testWidgets('renders AccountRow with placeholder name+initial',
-        (tester) async {
-      await _pumpSettingsScreen(tester);
-      expect(find.byType(AccountRow), findsOneWidget);
-      expect(find.text(kPlaceholderUserName), findsOneWidget);
-    });
+    testWidgets(
+      'renders AccountRow when signed in (AUTH-01, D-07)',
+      (tester) async {
+        await _pumpSettingsScreen(
+          tester,
+          authState: const AuthSignedIn(
+            uid: 'u1',
+            name: kPlaceholderUserName,
+            email: 'you@traevy.app',
+          ),
+        );
+        expect(find.byType(AccountRow), findsOneWidget);
+        expect(find.text(kPlaceholderUserName), findsOneWidget);
+      },
+    );
 
     testWidgets('does not construct a Phase-7 AppBar with the gear tooltip',
         (tester) async {
@@ -300,6 +338,74 @@ void main() {
         // The subtitle contains the formatted reminder time when enabled.
         // _formatReminderTime('08:00') uses DateFormat.jm() → '8:00 AM'.
         expect(find.textContaining('8:00'), findsOneWidget);
+      },
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // Phase 9: State-aware _AccountSection (AUTH-01, D-07)
+  // ---------------------------------------------------------------------------
+
+  group('SettingsScreen _AccountSection — state-aware (AUTH-01, D-07)', () {
+    testWidgets(
+      'guest state renders "Sign in to back up" row and no AccountRow',
+      (tester) async {
+        // Default authState in _pumpSettingsScreen is AuthGuest().
+        await _pumpSettingsScreen(tester);
+        // Guest path: kCopySettingsGuestSignIn row should be present.
+        expect(find.text(kCopySettingsGuestSignIn), findsOneWidget);
+        // AccountRow must NOT be present in guest state.
+        expect(find.byType(AccountRow), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'signed-in state renders AccountRow with real name and email',
+      (tester) async {
+        await _pumpSettingsScreen(
+          tester,
+          authState: const AuthSignedIn(
+            uid: 'uid-ada',
+            name: 'Ada Lovelace',
+            email: 'ada@x.dev',
+          ),
+        );
+        // Signed-in path: AccountRow with real values.
+        expect(find.byType(AccountRow), findsOneWidget);
+        expect(find.text('Ada Lovelace'), findsOneWidget);
+        expect(find.text('ada@x.dev'), findsOneWidget);
+        // Guest row must NOT be present.
+        expect(find.text(kCopySettingsGuestSignIn), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'Sign out row remains a no-op visual (no onTap wired)',
+      (tester) async {
+        // Pump in signed-in state so AccountRow doesn't obscure Sign out row.
+        await _pumpSettingsScreen(
+          tester,
+          authState: const AuthSignedIn(
+            uid: 'u',
+            name: 'Test User',
+            email: 'test@example.com',
+          ),
+        );
+        // The "Sign out" row must still be rendered.
+        expect(find.text('Sign out'), findsOneWidget);
+        // It must NOT be tappable (no onTap wired — deferred per plan).
+        final signOutRow = find.ancestor(
+          of: find.text('Sign out'),
+          matching: find.byType(SettingsRow),
+        );
+        expect(signOutRow, findsOneWidget);
+        // Verify the SettingsRow does not have an InkWell (onTap=null means
+        // no InkWell wrapper is rendered inside the Sign out row's subtree).
+        final inkWellsInRow = find.descendant(
+          of: signOutRow,
+          matching: find.byType(InkWell),
+        );
+        expect(inkWellsInRow, findsNothing);
       },
     );
   });
