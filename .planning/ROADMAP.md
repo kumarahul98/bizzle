@@ -207,7 +207,7 @@ Plans:
 - [x] 09-02-PLAN.md — Sealed AuthState model + backfillUserId on both DAOs
 
 **Wave 3** *(blocked on Wave 2)*
-- [ ] 09-03-PLAN.md — Auth provider graph (AuthStateNotifier) + AuthService (sign-in/token-cache/backfill) + main.dart Firebase init
+- [x] 09-03-PLAN.md — Auth provider graph (AuthStateNotifier) + AuthService (sign-in/token-cache/backfill) + main.dart Firebase init
 
 **Wave 4** *(blocked on Wave 3)*
 - [ ] 09-04-PLAN.md — app.dart auth gate + static splash + one-time confirmation screen
@@ -261,6 +261,6 @@ Note: Phases 1-7 deliver the complete local-first experience without any authent
 | 6. Dashboard | 0/4 | Not started | - |
 | 7. Polish & Notifications | 0/4 | Not started | - |
 | 8. UI Overhaul | 0/4 | Not started | - |
-| 9. Authentication | 2/5 | In Progress|  |
+| 9. Authentication | 3/5 | In Progress|  |
 | 10. Backend Infrastructure | 0/2 | Not started | - |
 | 11. Sync Engine | 0/2 | Not started | - |
