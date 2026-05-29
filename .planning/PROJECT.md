@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A consumer Android app that lets anyone track their daily commute with a simple start/stop button, then shows them exactly how much time they spend stuck in traffic and how their commute trends over weeks. Built with Flutter, backed by AWS for cloud sync and restore.
+A consumer Android app that lets anyone track their daily commute with a simple start/stop button, then shows them exactly how much time they spend stuck in traffic and how their commute trends over weeks. Built with Flutter, backed by Firebase for cloud sync and restore.
 
 ## Core Value
 
@@ -16,7 +16,7 @@ Show people the reality of their commute — time wasted in traffic and how it c
 
 ### Active
 
-- [ ] Google Sign-In with AWS Cognito for authentication
+- [ ] Google Sign-In with Firebase Auth for authentication
 - [ ] Session persistence across app restarts
 - [ ] Onboarding flow (sign-in, location permission, done)
 - [ ] Manual start/stop commute recording with background GPS via Tracelet
@@ -33,7 +33,7 @@ Show people the reality of their commute — time wasted in traffic and how it c
 - [ ] 4-week trend line
 - [ ] Per-trip time moving vs time stuck (speed < 10 km/h threshold)
 - [ ] Weekly "time wasted in traffic" total
-- [ ] One-way sync: Drift to DynamoDB via sync queue and Lambda
+- [ ] One-way sync: Drift to Firestore via sync queue and Cloud Functions
 - [ ] One-time cloud restore from settings (reinstall/device switch recovery)
 - [ ] Dashboard home screen with today's trips and weekly summary card
 - [ ] Dark mode (system default + manual toggle)
@@ -53,7 +53,7 @@ Show people the reality of their commute — time wasted in traffic and how it c
 
 - Target audience is anyone with a regular commute who wants to understand their time spent traveling
 - Offline-first architecture: app must work fully without network, sync is opportunistic
-- Drift (SQLite) is source of truth; DynamoDB is backup for restore only
+- Drift (SQLite) is source of truth; Firestore is backup for restore only
 - Speed threshold of 10 km/h defines "stuck in traffic" vs "moving"
 - Direction auto-labeling uses configurable morning/evening cutoff (default 12:00)
 - Tech stack specified in CLAUDE.md but open to research-informed changes on specific packages
@@ -63,13 +63,14 @@ Show people the reality of their commute — time wasted in traffic and how it c
 - **Platform**: Android only for v0.1 — ship fast, expand later
 - **Timeline**: Ship fast — minimize scope creep, prioritize working features over polish
 - **Architecture**: Offline-first, client-authoritative — never block UI on network
-- **Auth**: Google Sign-In federated through AWS Cognito
-- **Backend**: AWS serverless (Cognito, API Gateway, Lambda, DynamoDB) via SAM
+- **Auth**: Google Sign-In via Firebase Auth (FlutterFire)
+- **Backend**: Firebase serverless (Firebase Auth, HTTPS Cloud Functions, Firestore) via Firebase CLI
 
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
+| Backend vendor: Firebase over AWS | Greenfield cloud-layer choice (no backend code written yet). Firebase wins on auth simplicity (Google one-tap via FlutterFire), first-party Flutter SDK, lower build effort, and matches the 3-REST-endpoint scope. ML/analytics stays open via Firestore→BigQuery→Vertex AI. See `cloud-vendor-tradeoffs.pdf`. | ✓ Decided 2026-05-27 |
 | Client-authoritative sync (one-way push) | Simplifies architecture, no conflict resolution needed | — Pending |
 | Drift as single source of truth | Offline-first requires local DB to be authoritative | ✓ Validated in Phase 1 (foundation) |
 | Speed-based traffic detection (10 km/h) | Simple proxy that works without external traffic APIs | ✓ Constant locked in Phase 1 (`kStuckSpeedThresholdKmh`) |
@@ -95,4 +96,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-26 — Phase 4 complete: trip history experience (HistoryScreen, TripDetailScreen, TripCard) built and verified. 157 tests passing.*
+*Last updated: 2026-05-29 — Backend vendor switched from AWS to Firebase for the cloud layer (Phases 9–11). See `cloud-vendor-tradeoffs.pdf` and the Key Decisions table.*

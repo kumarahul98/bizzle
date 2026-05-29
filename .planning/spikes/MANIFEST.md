@@ -1,5 +1,13 @@
 # Spike Manifest
 
+> ⚠️ **SUPERSEDED (2026-05-29) — backend vendor switched AWS → Firebase.**
+> These spikes evaluated AWS-stack choices (DynamoDB single-table, Cognito token exchange).
+> The cloud-layer vendor decision was re-made on a greenfield, technical-merit basis and
+> landed on **Firebase** (Firebase Auth + Cloud Functions + Firestore). See
+> `cloud-vendor-tradeoffs.pdf` (repo root) and `.planning/PROJECT.md` Key Decisions.
+> The Decision Anchors below ("keep DynamoDB", "keep Cognito") are retained as **historical
+> record only** and no longer reflect the chosen architecture. Phases 9–11 now target Firebase.
+
 ## Idea
 
 Two architectural decisions for Commute Tracker that need real comparison before Phase 9-10 planning is locked:

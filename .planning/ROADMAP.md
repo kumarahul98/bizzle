@@ -20,8 +20,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 6: Dashboard** - Home screen with today's trips and weekly summary ✓ 2026-04-28
 - [x] **Phase 7: Polish & Notifications** - Dark mode, tracking reminders, and summary notifications ✓ 2026-04-28
 - [ ] **Phase 8: UI Overhaul** - Full visual redesign to Traevy design system (Inter + JetBrains Mono, oklch colour tokens, calm & spacious layout)
-- [ ] **Phase 9: Authentication** - Google Sign-In with Cognito federation and onboarding flow
-- [ ] **Phase 10: Backend Infrastructure** - AWS SAM stack with Lambda endpoints and DynamoDB
+- [ ] **Phase 9: Authentication** - Google Sign-In via Firebase Auth and onboarding flow
+- [ ] **Phase 10: Backend Infrastructure** - Firebase Cloud Functions (HTTPS) and Firestore
 - [ ] **Phase 11: Sync Engine** - One-way sync queue and cloud restore flow
 
 ## Phase Details
@@ -188,13 +188,13 @@ Plans:
 - [x] 08-07-PLAN.md — Settings restyle (SettingsSection, SettingsRow, AccountRow, TraevyToggle wiring) + Onboarding scaffold + kRouteOnboarding registration
 
 ### Phase 9: Authentication
-**Goal**: Users can sign in with Google, exchange tokens with Cognito, and have their identity linked to existing local trip data
+**Goal**: Users can sign in with Google via Firebase Auth and have their identity linked to existing local trip data
 **Depends on**: Phase 1
 **Requirements**: AUTH-01, AUTH-02, AUTH-03, BACK-01
 **Success Criteria** (what must be TRUE):
-  1. User can sign in with their Google account and receive a Cognito-issued JWT
+  1. User can sign in with their Google account and receive a Firebase ID token
   2. User's session survives app restart without re-authentication
-  3. User completes onboarding flow (Google sign-in confirmation) and existing trips are tagged with user_id
+  3. User completes onboarding flow (Google sign-in confirmation) and existing trips are tagged with the Firebase uid
   4. Auth tokens are stored in flutter_secure_storage, never in plain text
 **Plans**: TBD
 **UI hint**: yes
@@ -204,14 +204,15 @@ Plans:
 - [ ] 09-02: TBD
 
 ### Phase 10: Backend Infrastructure
-**Goal**: AWS serverless backend is deployed with three working API endpoints protected by Cognito authorization
+**Goal**: Firebase backend is deployed with three working HTTPS Cloud Function endpoints protected by Firebase Auth token verification, writing to Firestore
 **Depends on**: Phase 9
 **Requirements**: BACK-02, BACK-03, BACK-04
 **Success Criteria** (what must be TRUE):
-  1. POST /trips/sync endpoint accepts a batch of trips and writes them to DynamoDB
-  2. DELETE /trips/{tripId} endpoint soft-deletes a trip in DynamoDB
-  3. GET /trips/restore endpoint returns all non-deleted trips for the authenticated user
-  4. All endpoints reject requests without a valid Cognito JWT
+  1. POST /trips/sync Cloud Function accepts a batch of trips and writes them to Firestore
+  2. DELETE /trips/{tripId} Cloud Function soft-deletes a trip in Firestore
+  3. GET /trips/restore Cloud Function returns all non-deleted trips for the authenticated user
+  4. All endpoints reject requests without a valid Firebase ID token
+  5. Firestore Security Rules deny all direct client access — only the Admin SDK (Cloud Functions) can read/write trip data
 **Plans**: TBD
 
 Plans:
@@ -219,7 +220,7 @@ Plans:
 - [ ] 10-02: TBD
 
 ### Phase 11: Sync Engine
-**Goal**: Trips automatically sync from Drift to DynamoDB in the background, and users can restore from cloud backup
+**Goal**: Trips automatically sync from Drift to Firestore (via Cloud Functions) in the background, and users can restore from cloud backup
 **Depends on**: Phase 10
 **Requirements**: SYNC-02, SYNC-03
 **Success Criteria** (what must be TRUE):

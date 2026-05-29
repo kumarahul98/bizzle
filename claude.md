@@ -1,7 +1,7 @@
 # CLAUDE.md — Commute Tracker v0.1
 
 ## Project Overview
-A Flutter-based Android app that tracks daily commutes via manual start/stop GPS recording, stores data locally with Drift, syncs to AWS backend, and generates stats like time spent in traffic, weekly totals, and commute trends.
+A Flutter-based Android app that tracks daily commutes via manual start/stop GPS recording, stores data locally with Drift, syncs to a Firebase backend, and generates stats like time spent in traffic, weekly totals, and commute trends.
 
 **Current version:** v0.1 (MVP)
 **Platform:** Android only (iOS planned for later)
@@ -15,7 +15,7 @@ A Flutter-based Android app that tracks daily commutes via manual start/stop GPS
 - **Framework:** Flutter (Dart)
 - **Local DB:** Drift (SQLite wrapper) — source of truth for all app data
 - **GPS:** Tracelet — handles raw GPS capture, background location, route recording
-- **Auth:** google_sign_in package + AWS Cognito token exchange
+- **Auth:** firebase_auth + google_sign_in (FlutterFire — Google provider)
 - **State Management:** Riverpod (flutter_riverpod + riverpod_annotation)
 - **Charts:** fl_chart
 - **Notifications:** flutter_local_notifications
@@ -23,12 +23,13 @@ A Flutter-based Android app that tracks daily commutes via manual start/stop GPS
 - **HTTP Client:** http (official Dart package — sufficient for 3 simple REST endpoints)
 - **Secure Storage:** flutter_secure_storage (for auth tokens)
 
-### Backend (AWS)
-- **Auth:** Cognito User Pool with Google federation
-- **API:** API Gateway (REST) with Cognito authorizer
-- **Compute:** Lambda (TypeScript, Node.js 24.x runtime)
-- **Database:** DynamoDB (single table design)
-- **IaC:** SAM (template.yaml in `/backend` directory)
+### Backend (Firebase)
+- **Auth:** Firebase Auth with Google provider
+- **API:** HTTPS Cloud Functions (REST-shaped) with Firebase ID-token verification
+- **Compute:** Cloud Functions 2nd gen (TypeScript, Node.js runtime)
+- **Database:** Firestore (document model — one document per trip)
+- **IaC:** Firebase CLI (`firebase.json` + `functions/` in `/backend` directory)
+- **Security:** Firestore Security Rules — deny-all to clients; only the Admin SDK (Cloud Functions) reads/writes trip data
 
 ---
 
@@ -49,7 +50,7 @@ commute_tracker/
 │   ├── features/
 │   │   ├── auth/
 │   │   │   ├── screens/            # Login, onboarding screens
-│   │   │   ├── services/           # Google sign-in + Cognito service
+│   │   │   ├── services/           # Google sign-in + Firebase Auth service
 │   │   │   └── providers/          # Auth state
 │   │   ├── tracking/
 │   │   │   ├── screens/            # Active tracking UI
@@ -76,7 +77,7 @@ commute_tracker/
 │   │   └── daos/                   # Data access objects
 │   ├── sync/
 │   │   ├── sync_engine.dart        # Sync queue processor
-│   │   └── api_client.dart         # HTTP client for API Gateway
+│   │   └── api_client.dart         # HTTP client for Cloud Functions
 │   ├── notifications/
 │   │   └── notification_service.dart
 │   └── shared/
@@ -88,19 +89,22 @@ commute_tracker/
 │   ├── widget/                     # Screen and component tests
 │   └── integration/                # Full flow tests
 └── backend/
-    ├── template.yaml               # SAM template
-    ├── src/
-    │   ├── handlers/
-    │   │   ├── sync-trips.ts       # POST /trips/sync
-    │   │   ├── delete-trip.ts      # DELETE /trips/{tripId}
-    │   │   └── restore-trips.ts    # GET /trips/restore
-    │   ├── utils/
-    │   │   ├── dynamo.ts           # DynamoDB client helpers
-    │   │   └── validation.ts       # Input validation schemas
-    │   └── types/
-    │       └── trip.ts             # Shared TypeScript types
-    ├── tsconfig.json
-    └── package.json
+    ├── firebase.json               # Firebase project config (functions, emulators)
+    ├── firestore.rules             # Firestore Security Rules (deny-all to clients)
+    ├── functions/
+    │   ├── src/
+    │   │   ├── handlers/
+    │   │   │   ├── sync-trips.ts   # POST /trips/sync
+    │   │   │   ├── delete-trip.ts  # DELETE /trips/{tripId}
+    │   │   │   └── restore-trips.ts # GET /trips/restore
+    │   │   ├── utils/
+    │   │   │   ├── firestore.ts    # Firestore Admin SDK helpers
+    │   │   │   ├── auth.ts         # Firebase ID-token verification
+    │   │   │   └── validation.ts   # Input validation schemas (zod)
+    │   │   └── types/
+    │   │       └── trip.ts         # Shared TypeScript types
+    │   ├── tsconfig.json
+    │   └── package.json
 ```
 
 ---
@@ -114,13 +118,14 @@ User taps Start → Tracelet captures GPS → User taps Stop
 → Trip saved to Drift (trips table)
 → Sync queue entry created (sync_queue table)
 → Sync engine picks up pending entries when online
-→ POST to API Gateway → Lambda → DynamoDB
+→ POST to HTTPS Cloud Function (Firebase ID token in header) → Firestore
 → On success: mark sync_queue entry as synced
 ```
 
 ### Sync Strategy: Client-Authoritative (One-Way Push)
 - **Drift is the single source of truth.** All reads come from Drift, never from the server.
-- **DynamoDB is a backup.** Server stores a copy for restore purposes only.
+- **Firestore is a backup.** Server stores a copy for restore purposes only.
+- **Never use the `cloud_firestore` SDK in the Flutter client.** The app talks to the backend only over REST (HTTPS Cloud Functions). This preserves offline-first (Drift = SOT) and keeps the backend swappable.
 - **Sync is one-way:** client → server. No server → client sync in v0.1.
 - **Restore flow:** User manually triggers from settings → GET /trips/restore → write into Drift (skip duplicates by trip UUID).
 - **No conflict resolution needed.** Client always wins because it's the only writer.
@@ -147,11 +152,11 @@ User taps Start → Tracelet captures GPS → User taps Stop
 
 | Method | Path | Description | Auth |
 |--------|------|-------------|------|
-| POST | /trips/sync | Batch upsert trips from client sync queue | Cognito |
-| DELETE | /trips/{tripId} | Soft-delete a trip in DynamoDB | Cognito |
-| GET | /trips/restore | Return all trips for authenticated user | Cognito |
+| POST | /trips/sync | Batch upsert trips from client sync queue | Firebase |
+| DELETE | /trips/{tripId} | Soft-delete a trip in Firestore | Firebase |
+| GET | /trips/restore | Return all trips for authenticated user | Firebase |
 
-**All endpoints require Cognito JWT in Authorization header.**
+**All endpoints require a Firebase ID token in the Authorization header, verified server-side via the Firebase Admin SDK.**
 
 ---
 
@@ -161,7 +166,7 @@ User taps Start → Tracelet captures GPS → User taps Stop
 | Column | Type | Notes |
 |--------|------|-------|
 | id | text (UUID) | Primary key, generated client-side |
-| user_id | text | Cognito user sub |
+| user_id | text | Firebase uid |
 | start_time | dateTime | |
 | end_time | dateTime | |
 | duration_seconds | integer | Computed from start/end |
@@ -211,13 +216,13 @@ User taps Start → Tracelet captures GPS → User taps Stop
 - Use `sealed` classes or enums for finite state (tracking state, sync status, direction).
 - Format all Dart code with `dart format`.
 
-### TypeScript / Lambda
+### TypeScript / Cloud Functions
 - Strict TypeScript (`"strict": true` in tsconfig).
-- Use AWS SDK v3 (modular imports: `@aws-sdk/client-dynamodb`, `@aws-sdk/lib-dynamodb`).
-- Each Lambda handler is a single file in `backend/src/handlers/`.
-- Validate all input at handler entry using a validation utility. Never trust client data.
+- Use the Firebase Admin SDK (`firebase-admin/firestore`, `firebase-admin/auth`) and `firebase-functions` v2 HTTPS triggers.
+- Each HTTPS Cloud Function handler is a single file in `backend/functions/src/handlers/`.
+- Verify the Firebase ID token at handler entry (Admin SDK `verifyIdToken`) before any work. Reject with 401 on failure.
+- Validate all input at handler entry using a validation utility (zod). Never trust client data.
 - Return consistent response shape: `{ statusCode, body: { data?, error? } }`.
-- Use `esbuild` for bundling Lambda handlers.
 
 ### General
 - UUIDs for all entity IDs, generated client-side (`uuid` package in Dart).
@@ -240,12 +245,12 @@ dart format .                        # Format all Dart files
 flutter analyze                      # Static analysis
 
 # Backend
-cd backend
+cd backend/functions
 npm install                          # Install dependencies
 npm run build                        # Compile TypeScript
-sam build                            # Build SAM project
-sam deploy --guided                  # Deploy to AWS
-sam local invoke SyncTripsFunction   # Test Lambda locally
+firebase emulators:start             # Run Auth + Firestore + Functions locally
+firebase deploy --only functions     # Deploy Cloud Functions
+firebase deploy --only firestore:rules  # Deploy Firestore Security Rules
 ```
 
 ---
@@ -258,7 +263,7 @@ sam local invoke SyncTripsFunction   # Test Lambda locally
 - **Speed threshold (10 km/h) is a constant.** Define it once in `constants.dart`, reference everywhere.
 - **Auth tokens go in flutter_secure_storage.** Never store in shared preferences or plain text.
 - **Sync queue retries max 3 times** with exponential backoff. After 3 failures, mark as failed and surface to user if needed.
-- **Soft deletes everywhere.** Trips are never hard-deleted from DynamoDB. Mark `deleted: true`.
+- **Soft deletes everywhere.** Trips are never hard-deleted from Firestore. Mark `deleted: true`.
 - **Test on real Android devices** for GPS and background service behavior. Emulator GPS simulation is unreliable for traffic calculations.
 
 ---
@@ -273,11 +278,12 @@ sam local invoke SyncTripsFunction   # Test Lambda locally
 - **Follow the existing patterns.** Match the conventions already in the codebase — naming, file structure, state management patterns, error handling style. Do not introduce new patterns without asking.
 - **Verify after changes.** After writing or editing code, run the relevant linter, formatter, or tests to confirm nothing is broken. Don't assume it works.
 
-### Backend / Lambda Rules
-- **TypeScript with full type safety.** All Lambda handlers must use strict TypeScript. Define explicit types for all request/response payloads, DynamoDB items, and function parameters. No `any` types.
-- **Use `@aws-sdk/lib-dynamodb` with typed interfaces.** Define TypeScript interfaces for every DynamoDB entity. Use `lib-dynamodb`'s `DynamoDBDocumentClient` for automatic marshalling, with input/output types mapped to interfaces.
-- **Validate at the boundary, trust internally.** Use a validation library (e.g., zod) to validate all incoming API request bodies at handler entry. After validation, the data is trusted and typed — no redundant checks deeper in the code.
-- **Each handler is self-contained.** One file per Lambda handler in `backend/src/handlers/`. Shared utilities go in `backend/src/utils/`. Do not create cross-handler dependencies.
+### Backend / Cloud Functions Rules
+- **TypeScript with full type safety.** All Cloud Function handlers must use strict TypeScript. Define explicit types for all request/response payloads, Firestore documents, and function parameters. No `any` types.
+- **Use the Firebase Admin SDK with typed interfaces.** Define TypeScript interfaces for every Firestore document. Use `FirestoreDataConverter` (or typed wrappers) so reads/writes are mapped to interfaces.
+- **Verify auth, then validate, then trust.** Verify the Firebase ID token (`verifyIdToken`) first, then validate the request body with zod at handler entry. After that, the data is trusted and typed — no redundant checks deeper in the code.
+- **Lock Firestore down.** Security Rules deny all client access; only the Admin SDK (Cloud Functions) reads/writes trip data. Default-deny — keep it that way.
+- **Each handler is self-contained.** One file per handler in `backend/functions/src/handlers/`. Shared utilities go in `backend/functions/src/utils/`. Do not create cross-handler dependencies.
 
 ### Frontend / Flutter Rules
 - **Drift is the only data source for UI.** Screens and widgets must never read from the network directly. All data comes from Drift queries.
@@ -301,7 +307,7 @@ sam local invoke SyncTripsFunction   # Test Lambda locally
 
 **Commute Tracker**
 
-A consumer Android app that lets anyone track their daily commute with a simple start/stop button, then shows them exactly how much time they spend stuck in traffic and how their commute trends over weeks. Built with Flutter, backed by AWS for cloud sync and restore.
+A consumer Android app that lets anyone track their daily commute with a simple start/stop button, then shows them exactly how much time they spend stuck in traffic and how their commute trends over weeks. Built with Flutter, backed by Firebase for cloud sync and restore.
 
 **Core Value:** Show people the reality of their commute — time wasted in traffic and how it changes over time. If nothing else works, this insight must.
 
@@ -310,8 +316,8 @@ A consumer Android app that lets anyone track their daily commute with a simple 
 - **Platform**: Android only for v0.1 — ship fast, expand later
 - **Timeline**: Ship fast — minimize scope creep, prioritize working features over polish
 - **Architecture**: Offline-first, client-authoritative — never block UI on network
-- **Auth**: Google Sign-In federated through AWS Cognito
-- **Backend**: AWS serverless (Cognito, API Gateway, Lambda, DynamoDB) via SAM
+- **Auth**: Google Sign-In via Firebase Auth (FlutterFire)
+- **Backend**: Firebase serverless (Firebase Auth, HTTPS Cloud Functions, Firestore) via Firebase CLI
 <!-- GSD:project-end -->
 
 <!-- GSD:stack-start source:research/STACK.md -->
@@ -326,7 +332,7 @@ A consumer Android app that lets anyone track their daily commute with a simple 
 | Drift | ^2.22 | Local SQLite database (source of truth) | Best-in-class type-safe SQLite for Flutter. Reactive streams, code generation, migration support. Far superior to sqflite for complex queries (stats aggregation, sync queue management). | MEDIUM |
 | Riverpod | ^2.6 (flutter_riverpod + riverpod_annotation + riverpod_generator) | State management | Compile-safe, testable, no BuildContext dependency. Code generation with `@riverpod` annotation eliminates boilerplate. The standard for new Flutter projects since 2024. | MEDIUM |
 | geolocator + flutter_background_service | See GPS section below | GPS tracking | See detailed GPS section -- Tracelet requires investigation. | LOW |
-| AWS SAM | latest | Infrastructure as Code | Official AWS tooling for Lambda + API Gateway + DynamoDB. Simpler than CDK for 3-endpoint APIs. Local testing with `sam local invoke`. | HIGH |
+| Firebase CLI | latest | Infrastructure as Code + deploy | Official Firebase tooling for Cloud Functions + Firestore + Security Rules. `firebase deploy` matches the 3-endpoint scope. Local testing via Emulator Suite. | HIGH |
 ### GPS / Location Stack (Critical Decision)
 | Library | Version | Purpose | Why |
 |---------|---------|---------|-----|
@@ -340,9 +346,10 @@ A consumer Android app that lets anyone track their daily commute with a simple 
 ### Authentication
 | Library | Version | Purpose | Why |
 |---------|---------|---------|-----|
-| google_sign_in | ^6.2 | Google OAuth on device | Official Flutter plugin by Google. Handles credential flow, returns ID token for Cognito exchange. |
-| amazon_cognito_identity_dart_2 | ^3.7 | Cognito token exchange | Community Dart SDK for Cognito. Exchange Google ID token for Cognito JWT. Lightweight -- no Amplify dependency. |
-| flutter_secure_storage | ^9.2 | Secure token storage | Stores Cognito JWT and refresh tokens in Android Keystore. Required -- never use SharedPreferences for auth tokens. |
+| firebase_core | latest | FlutterFire initialization | Required base for all FlutterFire plugins. Configured via `flutterfire configure` / `google-services.json`. Pin versions to a known-good set. |
+| firebase_auth | latest | Firebase Authentication | First-party (Google owns Flutter). Handles Google sign-in, session persistence, and ID-token issuance/refresh automatically. |
+| google_sign_in | ^6.2 | Google OAuth on device | Official Flutter plugin by Google. Provides the Google credential that `firebase_auth` consumes via `GoogleAuthProvider`. |
+| flutter_secure_storage | ^9.2 | Secure token storage | Stores the Firebase ID token in Android Keystore for the sync layer. Never use SharedPreferences for auth tokens. |
 ### Data & Sync
 | Library | Version | Purpose | Why |
 |---------|---------|---------|-----|
@@ -359,15 +366,14 @@ A consumer Android app that lets anyone track their daily commute with a simple 
 | flutter_local_notifications | ^18.0 | Local push notifications | Tracking reminders, weekly summary notifications. Handles Android notification channels. |
 | intl | ^0.19 | Date/time formatting | Format durations, dates, times for UI display. Standard Dart internationalization. |
 | table_calendar | ^3.1 | Calendar widget | Daily log calendar view. Customizable, supports event markers on dates. |
-### Backend (AWS Lambda / TypeScript)
+### Backend (Firebase Cloud Functions / TypeScript)
 | Technology | Version | Purpose | Why |
 |------------|---------|---------|-----|
-| TypeScript | ^5.5 | Lambda handler language | Strict type safety, excellent DynamoDB SDK types. |
-| Node.js | 24.x | Lambda runtime | Latest LTS runtime supported by AWS Lambda. |
-| @aws-sdk/client-dynamodb | ^3.600+ | DynamoDB client | AWS SDK v3, modular imports, tree-shakeable. |
-| @aws-sdk/lib-dynamodb | ^3.600+ | DynamoDB Document client | Automatic marshalling/unmarshalling. Type-safe with interfaces. |
+| TypeScript | ^5.5 | Cloud Function handler language | Strict type safety, excellent Firebase Admin SDK types. |
+| Node.js | 20.x+ | Cloud Functions runtime | Supported runtime for Cloud Functions 2nd gen. |
+| firebase-functions | latest | HTTPS trigger framework | v2 `onRequest` HTTPS triggers for the 3 REST endpoints. |
+| firebase-admin | latest | Admin SDK (Firestore + Auth) | Server-side Firestore reads/writes + `verifyIdToken` for auth. Bypasses Security Rules (deny-all to clients). |
 | zod | ^3.23 | Input validation | Schema-based validation at handler entry. Generates TypeScript types from schemas. |
-| esbuild | ^0.24 | Lambda bundling | Fast bundling, tree-shaking. SAM integrates with esbuild natively. |
 ### Development Tools
 | Tool | Purpose | Notes |
 |------|---------|-------|
@@ -375,7 +381,7 @@ A consumer Android app that lets anyone track their daily commute with a simple 
 | flutter_lints | Static analysis | Use `flutter analyze` -- catches null safety issues, unused imports |
 | very_good_analysis | Stricter lint rules | Opinionated lint rules. Use instead of default `flutter_lints` for higher code quality. |
 | mockito + build_runner | Testing mocks | Generate typed mocks for DAOs, services in unit tests |
-| SAM CLI | Backend local testing | `sam local invoke` to test Lambda handlers without deploying |
+| Firebase Emulator Suite | Backend local testing | Run Auth + Firestore + Functions locally with hot-reload via `firebase emulators:start` |
 ## Installation
 # Create Flutter project
 # Core dependencies (add to pubspec.yaml)
@@ -391,9 +397,9 @@ A consumer Android app that lets anyone track their daily commute with a simple 
 | http | Dio | If you need interceptors, retry logic, or multipart uploads. This app has 3 simple JSON endpoints -- http is sufficient. |
 | fl_chart | syncfusion_flutter_charts | If you need 50+ chart types or enterprise features. fl_chart is free, lighter, and covers line/bar/pie which is all we need. |
 | geolocator | location | If geolocator has a blocking bug. Otherwise geolocator has better maintenance and larger community. |
-| SAM | CDK | If backend grows beyond 5-10 resources or needs complex constructs. SAM is simpler for this small API. |
-| SAM | SST | If you want a more developer-friendly experience with live Lambda development. SST is good but adds abstraction over CDK. |
-| amazon_cognito_identity_dart_2 | amplify_flutter (auth) | If you plan to use multiple Amplify categories (storage, analytics, etc). For auth-only, Amplify is too heavy. |
+| Firebase | AWS (Cognito/Lambda/DynamoDB/SAM) | If the project becomes a learning vehicle for AWS, or grows into queue processing / multi-service event flows. See `cloud-vendor-tradeoffs.pdf` for the full comparison. |
+| Cloud Functions (HTTPS) | Direct Firestore SDK from client | Never for this project. Calling Firestore directly from Flutter breaks offline-first (Drift = SOT) and vendor portability. Always go through Cloud Functions over REST. |
+| firebase_auth | amazon_cognito_identity_dart_2 | Only if migrating back to AWS Cognito. FlutterFire is first-party and far simpler for Google sign-in. |
 ## What NOT to Use
 | Avoid | Why | Use Instead |
 |-------|-----|-------------|
@@ -402,8 +408,8 @@ A consumer Android app that lets anyone track their daily commute with a simple 
 | shared_preferences for tokens | Not encrypted, trivially readable on rooted devices | flutter_secure_storage |
 | sqflite directly | No type safety, manual SQL strings, no reactive streams, painful migrations | Drift (wraps SQLite) |
 | background_locator_2 | Abandoned/unmaintained | flutter_background_service + geolocator |
-| AWS Amplify Flutter (full SDK) | Massive dependency tree for 3 endpoints. Pulls DataStore, Analytics, etc. | Direct Cognito SDK + http |
-| firebase_auth | Wrong auth provider. Project uses AWS Cognito, not Firebase. | google_sign_in + Cognito SDK |
+| cloud_firestore (in the Flutter client) | Breaks offline-first (Drift is SOT) and vendor portability; tempts direct DB access. | http → HTTPS Cloud Functions |
+| AWS Cognito + Lambda + DynamoDB | Higher build effort (Hosted UI + deep links, single-table design) for a 3-endpoint app. Superseded by the Firebase decision. | Firebase Auth + Cloud Functions + Firestore |
 | Hive | No SQL queries, no relations, poor for aggregation. Fine for key-value, bad for trip data. | Drift |
 ## Stack Patterns
 - Use Drift as single source of truth for all UI reads
@@ -433,7 +439,8 @@ A consumer Android app that lets anyone track their daily commute with a simple 
 ## Sources
 - Flutter 3.41.6 / Dart 3.11.4 -- verified from local installation (HIGH confidence)
 - Package versions -- based on training data up to May 2025, flagged as MEDIUM confidence. Actual latest versions may be higher. Run `flutter pub add [package]` to get current versions.
-- AWS SDK v3, SAM, Node.js 24.x -- well-established, unlikely to have breaking changes (HIGH confidence)
+- Firebase (Auth, Cloud Functions, Firestore), firebase-admin/firebase-functions SDKs -- well-established, first-party (HIGH confidence)
+- Backend vendor switched AWS→Firebase on 2026-05-27 (see `cloud-vendor-tradeoffs.pdf`); FlutterFire versions should be pinned to a known-good set in pubspec.yaml
 - Tracelet package -- UNVERIFIED, not found in training data (LOW confidence)
 <!-- GSD:stack-end -->
 

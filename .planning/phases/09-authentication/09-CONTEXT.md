@@ -1,12 +1,13 @@
 # Phase 9: Authentication - Context
 
 **Gathered:** 2026-05-21
+**Updated:** 2026-05-29 — backend vendor switched AWS→Firebase (see `cloud-vendor-tradeoffs.pdf`). Auth approach changed from Cognito Hosted UI to Firebase Auth (Google provider). Auth-gate, optional-sign-in, and userId-backfill decisions carry over unchanged.
 **Status:** Ready for planning
 
 <domain>
 ## Phase Boundary
 
-Wire Google Sign-In + AWS Cognito token exchange into the existing app skeleton. Deliver working sign-in, persistent session, and user identity linked to local trip data. Sign-in is optional — the app runs fully offline without an account.
+Wire Google Sign-In via Firebase Auth into the existing app skeleton. Deliver working sign-in, persistent session, and user identity linked to local trip data. Sign-in is optional — the app runs fully offline without an account.
 
 **In scope:**
 - `lib/features/auth/` feature directory (providers, services, screens)
@@ -15,17 +16,17 @@ Wire Google Sign-In + AWS Cognito token exchange into the existing app skeleton.
 - `OnboardingScreen` tap handler wiring (button was no-op in Phase 8)
 - Settings → Account section: guest CTA vs signed-in profile row
 - Sign-in bottom sheet (for sign-in from Settings)
-- Silent `userId` backfill in Drift (local_user → Cognito sub) on sign-in
+- Silent `userId` backfill in Drift (local_user → Firebase uid) on sign-in
 - Post-sign-in confirmation screen
-- Token persistence in `flutter_secure_storage`
-- `--dart-define` constants for Cognito config
+- Firebase ID token persistence in `flutter_secure_storage` (for the Phase 11 sync layer)
+- FlutterFire project config (`flutterfire configure` / `google-services.json`)
 
 **Out of scope:**
-- Backend Cognito User Pool setup (Phase 10)
-- Trip sync to DynamoDB (Phase 11)
+- Backend Cloud Functions + Firestore setup (Phase 10)
+- Trip sync to Firestore (Phase 11)
 - Merge/conflict UI for local vs cloud trips (Phase 11)
 - Sign-out / account deletion
-- Token refresh (deferred — lazy refresh via 401 handling in Phase 11)
+- Firestore Security Rules (Phase 10)
 
 </domain>
 
@@ -34,9 +35,9 @@ Wire Google Sign-In + AWS Cognito token exchange into the existing app skeleton.
 
 ### Auth Gate Routing
 
-- **D-01:** `AuthStateNotifier` lives in `lib/features/auth/providers/`. It reads `flutter_secure_storage` on init and exposes three states: `AuthState.loading` / `AuthState.guest` / `AuthState.signedIn(sub, name, email)`.
+- **D-01:** `AuthStateNotifier` lives in `lib/features/auth/providers/`. It subscribes to `FirebaseAuth.instance.authStateChanges()` on init and exposes three states: `AuthState.loading` / `AuthState.guest` / `AuthState.signedIn(uid, name, email)`.
 - **D-02:** `app.dart` watches `authStateProvider` and renders accordingly: `loading` → static splash screen (Traevy logo + `bg` token background), `guest` → `MainShell()`, `signedIn` → `MainShell()`.
-- **D-03:** On boot, trust the stored token by existence check only — no network validation. If a Cognito token exists in secure storage, emit `signedIn`. Refresh happens lazily when a sync/API call returns 401 (Phase 11).
+- **D-03:** On boot, FlutterFire restores the session automatically — no manual token validation. If `FirebaseAuth.instance.currentUser` is non-null, emit `signedIn`; otherwise `guest`. ID-token refresh is handled by the Firebase SDK (no custom 401 refresh logic needed).
 - **D-04:** Static splash during `loading` state: a `Container` with `TraevyTokensExt.bg` fill + centered `TraevyLogoMark`. Not a named route — rendered inline from `app.dart`'s `authStateProvider.when(loading: ...)`.
 
 ### Skip / Optional Sign-In
@@ -45,29 +46,29 @@ Wire Google Sign-In + AWS Cognito token exchange into the existing app skeleton.
 - **D-06:** `AuthState` has three values — `loading`, `guest`, `signedIn`. Guest is a valid permanent state, not a fallback.
 - **D-07:** Settings → Account section is **state-aware**:
   - **Guest state:** Replace `AccountRow` with a single "Sign in to back up" row — Google icon + label. Tapping opens the sign-in bottom sheet.
-  - **Signed-in state:** Show `AccountRow` populated with real Cognito name, email, and first-letter initial.
+  - **Signed-in state:** Show `AccountRow` populated with the real Firebase profile name, email, and first-letter initial.
 - **D-08:** Sign-in from Settings opens a **modal bottom sheet** over the Settings screen (not a full-screen navigation to `kRouteOnboarding`). Contains the Google sign-in button and a brief "Back up your commutes" headline. Dismissable.
 
 ### Auth Library
 
-- **D-09:** Keep the Google → Cognito token exchange. Package stack: `google_sign_in` + `amazon_cognito_identity_dart_2` + `flutter_secure_storage` + `url_launcher` + `app_links`. This keeps API Gateway's native Cognito Authorizer working in Phase 10 without a custom Lambda. Chosen over plain Google Sign-In for 30-day refresh token durability (Google tokens expire hourly).
-- **D-10:** `AuthService` owns the sign-in sequence via **Cognito Hosted UI** (not a direct SDK token exchange — see spike finding below). Flow: launch Hosted UI URL in browser → user completes Google OAuth → Cognito redirects to deep link callback → app receives authorization code → POST to Cognito `/oauth2/token` endpoint → store tokens in `flutter_secure_storage`.
+- **D-09:** Use **Firebase Auth (FlutterFire)** with the Google provider. Package stack: `firebase_core` + `firebase_auth` + `google_sign_in` + `flutter_secure_storage`. This is the first-party path (Google owns Flutter) and is dramatically simpler than the previous Cognito approach — no Hosted UI, no browser redirect, no deep-link callback, no manual `/oauth2/token` POST.
+- **D-10:** `AuthService` owns the sign-in sequence as an **in-app flow** (no browser redirect): obtain a Google credential via `google_sign_in` → build a `GoogleAuthProvider` credential → `FirebaseAuth.instance.signInWithCredential(...)`. FlutterFire persists the session and refreshes ID tokens automatically. The current ID token (`user.getIdToken()`) is cached in `flutter_secure_storage` for the Phase 11 sync layer to attach to Cloud Function requests.
 
-  > ⚠️ **Spike 002a finding:** `amazon_cognito_identity_dart_2` v3.7 has NO method that takes a Google ID token and returns a Cognito User Pool JWT directly. The package supports `USER_SRP_AUTH` and `CUSTOM_AUTH` only. The federated Google login flows through Cognito's Hosted UI. Planner must account for `url_launcher` + `app_links` (deep link handler) + HTTP POST to `/oauth2/token`. The Flutter-side sign-in is a browser redirect, not an in-app flow.
+  > ✅ **Vendor switch (2026-05-29):** the Cognito Hosted UI + `amazon_cognito_identity_dart_2` + `url_launcher`/`app_links` deep-link approach from the prior spike (002a) is **dropped**. FlutterFire does the Google→Firebase exchange in-process. No deep link scheme, no `AndroidManifest` callback registration needed for auth.
 
-- **D-10a:** Additional pubspec dependencies required: `url_launcher: ^6.x`, `app_links: ^6.x` (deep link interception for the Cognito callback URI). Deep link scheme: `commutetracker://callback` — must be registered in `AndroidManifest.xml`.
+- **D-10a:** No extra redirect/deep-link dependencies required. Project config comes from `flutterfire configure` (generates `firebase_options.dart`) and the `google-services.json` placed in `android/app/`. Pin FlutterFire versions in `pubspec.yaml` to a known-good set (FlutterFire moves fast).
 
 ### User ID Backfill
 
-- **D-11:** Immediately after a successful sign-in, `AuthService.signIn()` runs a single Drift batch UPDATE: `UPDATE trips SET user_id = <cognitoSub> WHERE user_id = 'local_user'`. Same for `user_preferences`.
+- **D-11:** Immediately after a successful sign-in, `AuthService.signIn()` runs a single Drift batch UPDATE: `UPDATE trips SET user_id = <firebaseUid> WHERE user_id = 'local_user'`. Same for `user_preferences`.
 - **D-12:** After sign-in + backfill complete, navigate to a brief **confirmation screen**: "You're signed in. Your commutes will back up automatically." with the user's name/avatar and a "Let's go" button that pushes to `MainShell`. This is a one-time screen shown only at first sign-in.
 - **D-13:** The merge/conflict UI (comparing local trips with cloud backup) is **deferred to Phase 11**. Phase 9 only does the local userId rewrite.
 
-### Cognito Config Injection
+### Firebase Config Injection
 
-- **D-14:** Cognito values injected via `--dart-define` build flags: `COGNITO_POOL_ID`, `COGNITO_CLIENT_ID`, `COGNITO_REGION`. Read in `lib/config/constants.dart` via `String.fromEnvironment()`.
-- **D-15:** If Cognito config values are empty (missing `--dart-define` flags), `AuthStateNotifier` starts in `guest` state and the sign-in button is disabled. App remains fully functional offline. No crash or assertion.
-- **D-16:** Google OAuth client ID is handled by `google-services.json` placed in `android/app/`. No `--dart-define` needed for Google config — `google_sign_in` reads it automatically.
+- **D-14:** Firebase config comes from `flutterfire configure`, which generates `lib/firebase_options.dart` (committed). `Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform)` runs in `main.dart` before `runApp`. No `--dart-define` flags needed.
+- **D-15:** If Firebase fails to initialize or `google-services.json` is absent (e.g. a dev build without config), `AuthStateNotifier` starts in `guest` state and the sign-in button is disabled. App remains fully functional offline. No crash or assertion.
+- **D-16:** Google OAuth + Firebase Android config are both handled by `google-services.json` placed in `android/app/` (plus the Google Services Gradle plugin). `google_sign_in` and `firebase_auth` read it automatically. SHA-1/SHA-256 fingerprints must be registered in the Firebase Console project.
 
 </decisions>
 
@@ -78,7 +79,8 @@ Wire Google Sign-In + AWS Cognito token exchange into the existing app skeleton.
 
 ### Requirements
 - `.planning/REQUIREMENTS.md` §Authentication — AUTH-01, AUTH-02, AUTH-03 (sign-in, session persistence, onboarding flow)
-- `.planning/REQUIREMENTS.md` §Backend — BACK-01 (Cognito User Pool with Google federation — Phase 9 Flutter side only)
+- `.planning/REQUIREMENTS.md` §Backend — BACK-01 (Firebase Auth with Google provider — Phase 9 Flutter side only)
+- `cloud-vendor-tradeoffs.pdf` (repo root) — backend vendor decision (Firebase) and the Phase 9–11 implementation sketch
 - `.planning/ROADMAP.md` §Phase 9 — success criteria and plan stubs
 
 ### Existing Scaffold (Phase 8 left these wired but no-op)
@@ -118,7 +120,7 @@ Wire Google Sign-In + AWS Cognito token exchange into the existing app skeleton.
 - `lib/app.dart` line ~40 — `home: const MainShell()` becomes `home: _AuthGate()` (a `Consumer` widget watching `authStateProvider`)
 - `lib/features/settings/screens/settings_screen.dart` `_AccountSection` — swap `AccountRow(kPlaceholderUserName...)` for auth-state-aware conditional
 - `lib/database/daos/` — needs a `backfillUserId(String newId)` method (or inline UPDATE in `TripsDao`) called from `AuthService.signIn()`
-- `pubspec.yaml` — add `google_sign_in`, `amazon_cognito_identity_dart_2`, `flutter_secure_storage`
+- `pubspec.yaml` — add `firebase_core`, `firebase_auth`, `google_sign_in`, `flutter_secure_storage` (pin FlutterFire versions)
 
 </code_context>
 
@@ -127,7 +129,7 @@ Wire Google Sign-In + AWS Cognito token exchange into the existing app skeleton.
 
 - The confirmation screen after sign-in (D-12) is a **one-time screen**, not a persistent route. Show it once, then the user never sees it again. Gate with a `first_sign_in_shown` flag in `user_preferences` or simply navigate to MainShell and pop the confirmation after a short delay/tap.
 - Bottom sheet for Settings sign-in (D-08) should include: Google icon + "Back up your commutes" headline + brief "Your trips sync automatically when you sign in." subtext + "Continue with Google" button.
-- If `COGNITO_POOL_ID` is empty, the sign-in button in both onboarding and the Settings bottom sheet should be visually disabled with a tooltip: "Sign-in not configured" (dev/test builds).
+- If Firebase isn't configured (init failed / `google-services.json` absent), the sign-in button in both onboarding and the Settings bottom sheet should be visually disabled with a tooltip: "Sign-in not configured" (dev/test builds).
 
 </specifics>
 
