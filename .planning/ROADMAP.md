@@ -196,12 +196,22 @@ Plans:
   2. User's session survives app restart without re-authentication
   3. User completes onboarding flow (Google sign-in confirmation) and existing trips are tagged with the Firebase uid
   4. Auth tokens are stored in flutter_secure_storage, never in plain text
-**Plans**: TBD
+**Plans**: 5 plans
 **UI hint**: yes
 
 Plans:
-- [ ] 09-01: TBD
-- [ ] 09-02: TBD
+**Wave 1**
+- [ ] 09-01-PLAN.md — FlutterFire deps + Phase 9 constants/route + Wave 0 RED tests + google_sign_in 7.x API probe
+
+**Wave 2** *(blocked on Wave 1)*
+- [ ] 09-02-PLAN.md — Sealed AuthState model + backfillUserId on both DAOs
+
+**Wave 3** *(blocked on Wave 2)*
+- [ ] 09-03-PLAN.md — Auth provider graph (AuthStateNotifier) + AuthService (sign-in/token-cache/backfill) + main.dart Firebase init
+
+**Wave 4** *(blocked on Wave 3)*
+- [ ] 09-04-PLAN.md — app.dart auth gate + static splash + one-time confirmation screen
+- [ ] 09-05-PLAN.md — Sign-in bottom sheet + onboarding wiring + state-aware Settings Account section + widget tests
 
 ### Phase 10: Backend Infrastructure
 **Goal**: Firebase backend is deployed with three working HTTPS Cloud Function endpoints protected by Firebase Auth token verification, writing to Firestore
