@@ -113,7 +113,7 @@ class _FakeNotificationService implements NotificationService {
 /// [_FakeUserPreferencesDao] capturing writes.
 ///
 /// [authState] overrides [authStateProvider] so the state-aware
-/// [_AccountSection] renders the correct path without hitting Firebase.
+/// `_AccountSection` renders the correct path without hitting Firebase.
 /// Defaults to [AuthGuest] (the D-15 degrade path, which is what
 /// tests get when firebaseReady=false — the default provider value).
 Future<_FakeUserPreferencesDao> _pumpSettingsScreen(
