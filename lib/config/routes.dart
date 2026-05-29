@@ -28,6 +28,23 @@ const String kRouteSettings = '/settings';
 /// the OnboardingScreen builder is wired in Plan 07.
 const String kRouteOnboarding = '/onboarding';
 
+/// One-time sign-in confirmation screen route (D-12, Phase 9 Plan 04).
+///
+/// Shown immediately after a first successful sign-in when
+/// `AuthService.signIn()` returns `true` (i.e. local trips were backfilled
+/// from `kDefaultUserId` to the Firebase UID). Displays "You're signed in."
+/// and the "Let's go" CTA that resolves to the main shell.
+///
+/// This name is **reserved here** so all navigation callers can reference it
+/// as a constant before the screen is built in Plan 04. The screen is pushed
+/// via `Navigator.of(context).pushNamed(kRouteSignInSuccess)` from the
+/// onboarding handler and the sign-in sheet; it is NOT added to `kAppRoutes`
+/// because Plan 04 will push it as a `MaterialPageRoute` (not a named-route
+/// builder) to avoid exposing it in the global route table.
+///
+/// See D-12 in `.planning/phases/09-authentication/09-RESEARCH.md`.
+const String kRouteSignInSuccess = '/sign-in-success';
+
 /// App-level named routes.
 ///
 /// The map is declared `final` instead of `const` because Dart 3.11

@@ -611,3 +611,88 @@ const String kBrandShortName = 'tv';
 /// Design token source: Specifics block in
 /// `.planning/phases/08-ui-overhaul/08-CONTEXT.md`.
 const String kBrandFullName = 'Traevy';
+
+// ---------------------------------------------------------------------------
+// Phase 9 — Authentication (Firebase Auth + Google Sign-In)
+// ---------------------------------------------------------------------------
+
+/// Web OAuth 2.0 client ID for the Firebase project.
+///
+/// This is the **Web** client ID auto-created by Firebase (found in GCP Console
+/// → APIs & Services → Credentials → "Web client (auto created by Google
+/// Service)"). It is required on Android so that `google_sign_in` can mint an
+/// ID token that Firebase will accept — omitting it causes sign-in
+/// to fail even though the account picker succeeds (RESEARCH Pitfall 2).
+///
+/// This is a **public client identifier** — not a secret. It is safe to commit
+/// to source control (RESEARCH Runtime State Inventory, D-14).
+///
+/// Replace the placeholder below with the real value after running
+/// `flutterfire configure` and locating the web client in GCP Credentials.
+///
+/// See D-10/D-10a in `.planning/phases/09-authentication/09-RESEARCH.md`.
+const String kGoogleServerClientId =
+    'REPLACE_WITH_WEB_CLIENT_ID_FROM_FIREBASE_CONSOLE';
+
+/// Secure-storage key under which the cached Firebase ID token is written
+/// by `AuthService.signIn()` for the Phase 11 sync layer.
+///
+/// Token is stored in Android Keystore via `flutter_secure_storage` — never
+/// in SharedPreferences (CLAUDE.md mandate, D-10).
+///
+/// See D-10 in `.planning/phases/09-authentication/09-RESEARCH.md`.
+const String kFirebaseIdTokenKey = 'firebase_id_token';
+
+/// Opacity applied to the Google sign-in button when Firebase is not
+/// configured (D-15 degrade path — dev/CI builds without `google-services.json`).
+///
+/// Material M3 disabled-state opacity is 0.38. The button renders at this
+/// opacity and shows the [kCopySignInDisabledTooltip] on long-press.
+///
+/// See D-15 in `.planning/phases/09-authentication/09-CONTEXT.md`,
+/// UI-SPEC §D note.
+const double kDisabledSignInOpacity = 0.38;
+
+/// Headline copy for the sign-in bottom sheet (D-08, UI-SPEC §B).
+///
+/// Displayed at 22 px / w700 (Inter) above the Google sign-in button.
+const String kCopySignInSheetHeadline = 'Back up your commutes';
+
+/// Sub-text copy for the sign-in bottom sheet (D-08, UI-SPEC §B).
+///
+/// Displayed at 16 px / w400 (Inter) below the headline.
+const String kCopySignInSheetSubtext =
+    'Your trips sync automatically when you sign in.';
+
+/// Settings screen guest-state account row label (D-07, UI-SPEC §B).
+///
+/// Shown in the Account section when the user is in the guest auth state.
+const String kCopySettingsGuestSignIn = 'Sign in to back up';
+
+/// Headline on the post-sign-in confirmation screen (D-12, UI-SPEC §C).
+///
+/// Displayed at 36 px / w700 (Inter, letter-spacing –1.2) after
+/// successful sign-in.
+const String kCopyConfirmHeadline = "You're signed in.";
+
+/// Body copy on the post-sign-in confirmation screen (D-12, UI-SPEC §C).
+///
+/// Displayed at 16 px / w400 (Inter) below the headline.
+const String kCopyConfirmBody =
+    'Your commutes will back up automatically.';
+
+/// CTA label on the post-sign-in confirmation screen (D-12, UI-SPEC §C).
+///
+/// Button navigates to the main shell.
+const String kCopyConfirmCta = "Let's go";
+
+/// Tooltip text shown on the disabled Google sign-in button when Firebase
+/// is not configured (D-15, UI-SPEC §D note).
+const String kCopySignInDisabledTooltip = 'Sign-in not configured';
+
+/// Headline for the sign-in error state shown in the sheet when
+/// `AuthService.signIn()` throws a non-cancel exception (UI-SPEC §E).
+const String kCopySignInFailedHeadline = "Couldn't sign in.";
+
+/// Body copy for the sign-in error state (UI-SPEC §E).
+const String kCopySignInFailedBody = 'Check your connection and try again.';
