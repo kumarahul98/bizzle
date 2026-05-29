@@ -201,7 +201,7 @@ Plans:
 
 Plans:
 **Wave 1**
-- [ ] 09-01-PLAN.md — FlutterFire deps + Phase 9 constants/route + Wave 0 RED tests + google_sign_in 7.x API probe
+- [x] 09-01-PLAN.md — FlutterFire deps + Phase 9 constants/route + Wave 0 RED tests + google_sign_in 7.x API probe
 
 **Wave 2** *(blocked on Wave 1)*
 - [ ] 09-02-PLAN.md — Sealed AuthState model + backfillUserId on both DAOs
@@ -261,6 +261,6 @@ Note: Phases 1-7 deliver the complete local-first experience without any authent
 | 6. Dashboard | 0/4 | Not started | - |
 | 7. Polish & Notifications | 0/4 | Not started | - |
 | 8. UI Overhaul | 0/4 | Not started | - |
-| 9. Authentication | 0/2 | Not started | - |
+| 9. Authentication | 1/5 | In Progress|  |
 | 10. Backend Infrastructure | 0/2 | Not started | - |
 | 11. Sync Engine | 0/2 | Not started | - |

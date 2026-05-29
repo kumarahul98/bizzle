@@ -9,9 +9,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Authentication
 
-- [ ] **AUTH-01**: User can sign in with Google account via Firebase Auth (Google provider)
-- [ ] **AUTH-02**: User session persists across app restarts via secure token storage
-- [ ] **AUTH-03**: User completes onboarding flow (Google sign-in, location permission grant, done)
+- [x] **AUTH-01**: User can sign in with Google account via Firebase Auth (Google provider)
+- [x] **AUTH-02**: User session persists across app restarts via secure token storage
+- [x] **AUTH-03**: User completes onboarding flow (Google sign-in, location permission grant, done)
 
 ### Tracking
 
@@ -50,7 +50,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Backend
 
-- [ ] **BACK-01**: Firebase Auth with Google provider handles authentication
+- [x] **BACK-01**: Firebase Auth with Google provider handles authentication
 - [ ] **BACK-02**: POST /trips/sync Cloud Function batch-upserts trips from client
 - [ ] **BACK-03**: DELETE /trips/{tripId} Cloud Function soft-deletes a trip
 - [ ] **BACK-04**: GET /trips/restore Cloud Function returns all trips for authenticated user
@@ -103,9 +103,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUTH-01 | Phase 9 | Pending |
-| AUTH-02 | Phase 9 | Pending |
-| AUTH-03 | Phase 9 | Pending |
+| AUTH-01 | Phase 9 | Complete |
+| AUTH-02 | Phase 9 | Complete |
+| AUTH-03 | Phase 9 | Complete |
 | TRACK-01 | Phase 2 | Complete |
 | TRACK-02 | Phase 2 | Complete |
 | TRACK-03 | Phase 3 | Complete |
@@ -125,7 +125,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SYNC-01 | Phase 1 | Complete |
 | SYNC-02 | Phase 11 | Pending |
 | SYNC-03 | Phase 11 | Pending |
-| BACK-01 | Phase 9 | Pending |
+| BACK-01 | Phase 9 | Complete |
 | BACK-02 | Phase 10 | Pending |
 | BACK-03 | Phase 10 | Pending |
 | BACK-04 | Phase 10 | Pending |
