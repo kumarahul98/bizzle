@@ -20,7 +20,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 6: Dashboard** - Home screen with today's trips and weekly summary ✓ 2026-04-28
 - [x] **Phase 7: Polish & Notifications** - Dark mode, tracking reminders, and summary notifications ✓ 2026-04-28
 - [ ] **Phase 8: UI Overhaul** - Full visual redesign to Traevy design system (Inter + JetBrains Mono, oklch colour tokens, calm & spacious layout)
-- [ ] **Phase 9: Authentication** - Google Sign-In via Firebase Auth and onboarding flow
+- [x] **Phase 9: Authentication** - Google Sign-In via Firebase Auth and onboarding flow (completed 2026-05-29)
 - [ ] **Phase 10: Backend Infrastructure** - Firebase Cloud Functions (HTTPS) and Firestore
 - [ ] **Phase 11: Sync Engine** - One-way sync queue and cloud restore flow
 
@@ -211,7 +211,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3)*
 - [x] 09-04-PLAN.md — app.dart auth gate + static splash + one-time confirmation screen
-- [ ] 09-05-PLAN.md — Sign-in bottom sheet + onboarding wiring + state-aware Settings Account section + widget tests
+- [x] 09-05-PLAN.md — Sign-in bottom sheet + onboarding wiring + state-aware Settings Account section + widget tests
 
 ### Phase 10: Backend Infrastructure
 **Goal**: Firebase backend is deployed with three working HTTPS Cloud Function endpoints protected by Firebase Auth token verification, writing to Firestore
@@ -261,6 +261,6 @@ Note: Phases 1-7 deliver the complete local-first experience without any authent
 | 6. Dashboard | 0/4 | Not started | - |
 | 7. Polish & Notifications | 0/4 | Not started | - |
 | 8. UI Overhaul | 0/4 | Not started | - |
-| 9. Authentication | 4/5 | In Progress|  |
+| 9. Authentication | 5/5 | Complete   | 2026-05-29 |
 | 10. Backend Infrastructure | 0/2 | Not started | - |
 | 11. Sync Engine | 0/2 | Not started | - |
