@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "1076279794226",
+    "project_id": "travey-298a7",
+    "storage_bucket": "travey-298a7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1076279794226:android:9c1080019a66cee1dd7a2b",
+        "android_client_info": {
+          "package_name": "traevy.traevy"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1076279794226-lfbgqa0td7dtal7ch6s5l6928huo5ij7.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBiAihllkFBbgj-7sLG7374GcXp0gOCoQU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1076279794226-lfbgqa0td7dtal7ch6s5l6928huo5ij7.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
