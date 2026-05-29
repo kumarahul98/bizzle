@@ -6,6 +6,9 @@ import 'package:intl/intl.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/daos/user_preferences_dao.dart';
 import 'package:traevy/database/providers.dart';
+import 'package:traevy/features/auth/models/auth_state.dart';
+import 'package:traevy/features/auth/providers/auth_providers.dart';
+import 'package:traevy/features/auth/widgets/sign_in_sheet.dart';
 import 'package:traevy/features/settings/providers/settings_providers.dart';
 import 'package:traevy/features/settings/widgets/account_row.dart';
 import 'package:traevy/features/settings/widgets/settings_row.dart';
@@ -41,7 +44,7 @@ class SettingsScreen extends ConsumerWidget {
                   style: textTheme.titleLarge,
                 ),
               ),
-              _AccountSection(prefs: prefs),
+              const _AccountSection(),
               _RecordingSection(prefs: prefs),
               _NotificationsSection(prefs: prefs, ref: ref),
               _AppearanceSection(prefs: prefs, ref: ref),
@@ -64,24 +67,46 @@ class SettingsScreen extends ConsumerWidget {
 // Sections
 // ---------------------------------------------------------------------------
 
-class _AccountSection extends StatelessWidget {
-  const _AccountSection({required this.prefs});
-  final UserPreferencesValue prefs;
+/// State-aware Account section for the Settings screen (D-07, AUTH-01).
+///
+/// Watches [authStateProvider] and switches on the sealed [AuthState]:
+///   - [AuthSignedIn]: shows the populated [AccountRow] (constructor swap).
+///   - [AuthGuest] / [AuthLoading]: shows a tappable "Sign in to back up" row
+///     that opens the sign-in bottom sheet.
+///
+/// The "Cloud sync", "Restore from cloud", and "Sign out" rows are kept as
+/// existing no-op visuals — sign-out is deferred (UI-SPEC: do NOT wire it).
+class _AccountSection extends ConsumerWidget {
+  const _AccountSection();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final auth = ref.watch(authStateProvider);
+    // Build the top account row based on auth state.
+    final Widget accountWidget = switch (auth) {
+      AuthSignedIn(:final name, :final email) => AccountRow(
+          name: name,
+          email: email,
+          initial: name.isNotEmpty
+              ? name[0].toUpperCase()
+              : kPlaceholderUserInitial,
+        ),
+      // Guest or still loading — tappable row opens sign-in sheet.
+      _ => SettingsRow(
+          label: kCopySettingsGuestSignIn,
+          // No await needed — showSignInSheet handles its own async lifecycle.
+          onTap: () => showSignInSheet(context),
+        ),
+    };
+
     return SettingsSection(
       title: 'Account',
       children: <Widget>[
-        const AccountRow(
-          name: kPlaceholderUserName,
-          email: 'you@traevy.app',
-          initial: kPlaceholderUserInitial,
-        ),
+        accountWidget,
         const SettingsRow(
           label: 'Cloud sync',
           subtitle: 'OFF — sign in to enable',
-          // Wired in Phase 9 when authentication ships.
+          // Wired in Phase 11 when sync endpoint ships.
           trailing: TraevyToggle(value: false, onChanged: _noopBool),
         ),
         SettingsRow(
@@ -92,7 +117,7 @@ class _AccountSection extends StatelessWidget {
         const SettingsRow(
           label: 'Sign out',
           dangerous: true,
-          // Wired in Phase 9 when authentication ships.
+          // Sign-out is deferred — do NOT wire an onTap here.
         ),
       ],
     );
