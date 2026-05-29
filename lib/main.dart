@@ -1,6 +1,6 @@
 // Application entry point.
 //
-// Three plugin bootstraps must run BEFORE `runApp`:
+// Plugin bootstraps that must run BEFORE `runApp`:
 //
 //   1. `tz.initializeTimeZones()` populates the timezone database used by
 //      `flutter_local_notifications` `zonedSchedule`. Must be the first
@@ -26,17 +26,34 @@
 //      `FlutterBackgroundService().startService()` on the tracking
 //      screen can spin up the tracking isolate.
 //
+//   5. Firebase + GoogleSignIn bootstrap (D-15 degrade — try/catch):
+//      `Firebase.initializeApp` loads `DefaultFirebaseOptions` (generated
+//      by `flutterfire configure`). `GoogleSignIn.instance.initialize`
+//      configures the Web OAuth client ID so Android can mint a Firebase-
+//      usable ID token (RESEARCH Pitfall 2). Both calls are wrapped in a
+//      try/catch so the app degrades gracefully to guest mode when
+//      `google-services.json` / `firebase_options.dart` is absent (e.g.
+//      dev or CI builds). The resulting `firebaseReady` flag is injected
+//      into the `ProviderScope` via `firebaseReadyProvider.overrideWithValue`
+//      so `AuthStateNotifier` can detect and react to the degrade path
+//      without crashing.
+//
 // `WidgetsFlutterBinding.ensureInitialized()` MUST be the first call —
 // flutter_local_notifications and flutter_background_service both rely
 // on the platform channel infrastructure the binding bootstraps.
 
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:traevy/app.dart';
+import 'package:traevy/config/constants.dart';
+import 'package:traevy/features/auth/providers/auth_providers.dart';
 import 'package:traevy/features/tracking/services/tracking_notification_service.dart';
 import 'package:traevy/features/tracking/services/tracking_service.dart';
+import 'package:traevy/firebase_options.dart';
 import 'package:traevy/notifications/notification_service.dart';
 
 Future<void> main() async {
@@ -50,5 +67,31 @@ Future<void> main() async {
   // Registers weekly summary + commute reminder channels.
   await NotificationService().initialize();
   await configureBackgroundService();
-  runApp(const ProviderScope(child: TraevyApp()));
+
+  // D-15 degrade: wrap Firebase init in try/catch so the app starts as
+  // guest mode when google-services.json / firebase_options.dart is absent
+  // (Pitfall 5 — boot-time crash prevention). The flag is injected into the
+  // ProviderScope so AuthStateNotifier detects the degrade path and does NOT
+  // open an authStateChanges() subscription on the uninitialized Firebase SDK.
+  // Never block UI on getIdToken() here — offline-first contract.
+  var firebaseReady = false;
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    await GoogleSignIn.instance
+        .initialize(serverClientId: kGoogleServerClientId);
+    firebaseReady = true;
+  } on Object catch (_) {
+    firebaseReady = false;
+  }
+
+  runApp(
+    ProviderScope(
+      overrides: [
+        firebaseReadyProvider.overrideWithValue(firebaseReady),
+      ],
+      child: const TraevyApp(),
+    ),
+  );
 }
