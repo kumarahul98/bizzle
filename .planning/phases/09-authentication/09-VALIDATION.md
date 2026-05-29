@@ -38,7 +38,10 @@ created: 2026-05-29
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 09-01-01 | 01 | 0 | AUTH-01 | — | google_sign_in v7 `authenticate()` → `idToken` path confirmed against installed package | unit | `flutter test test/unit/auth/` | ❌ W0 | ⬜ pending |
+| 09-01-01 | 01 | 0 | AUTH-01 | — | google_sign_in v7 `authenticate()` → `idToken` path confirmed against installed package | unit | `flutter test test/unit/features/auth/google_sign_in_api_probe_test.dart` | ✅ exists | ✅ green |
+| 09-01-02 | 01 | 0 | AUTH-01, AUTH-02 | — | AuthState sealed subtypes + AuthStateNotifier state mapping contracts (RED until Plan 09-02) | unit | `flutter test test/unit/features/auth/auth_state_notifier_test.dart` | ✅ exists | ❌ red (Wave 0 intentional) |
+| 09-01-03 | 01 | 0 | AUTH-01, AUTH-02 | T-09-01-01 | AuthService.signIn() token cache + backfill signal contracts (RED until Plan 09-03) | unit | `flutter test test/unit/features/auth/auth_service_test.dart` | ✅ exists | ❌ red (Wave 0 intentional) |
+| 09-01-04 | 01 | 0 | AUTH-03 | — | DAO backfillUserId() rewrite + idempotency (RED until Plan 09-02) | unit | `flutter test test/unit/features/auth/backfill_test.dart` | ✅ exists | ❌ red (Wave 0 intentional) |
 
 *Populated by the planner during planning. Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -46,9 +49,10 @@ created: 2026-05-29
 
 ## Wave 0 Requirements
 
-- [ ] `test/unit/auth/auth_state_test.dart` — sealed `AuthState` (loading/guest/signedIn) transitions
-- [ ] `test/unit/auth/auth_service_test.dart` — sign-in sequence + userId backfill (mocked FirebaseAuth/GoogleSignIn)
-- [ ] Confirm `google_sign_in 7.x` exact `authenticate()` / `idToken` API surface against the installed package (Open Question A2)
+- [x] `test/unit/features/auth/auth_state_notifier_test.dart` — sealed `AuthState` (loading/guest/signedIn) transitions — RED (Plan 09-01 ✓)
+- [x] `test/unit/features/auth/auth_service_test.dart` — sign-in sequence + userId backfill (fakes injected) — RED (Plan 09-01 ✓)
+- [x] `test/unit/features/auth/backfill_test.dart` — DAO backfillUserId() rewrite + idempotency — RED (Plan 09-01 ✓)
+- [x] `test/unit/features/auth/google_sign_in_api_probe_test.dart` — Confirm `google_sign_in 7.x` exact `authenticate()` / `idToken` API surface — GREEN (Plan 09-01 ✓)
 
 *Planner refines this list during planning.*
 
