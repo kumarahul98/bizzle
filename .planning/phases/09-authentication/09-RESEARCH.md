@@ -602,24 +602,24 @@ Future<void> main() async {
 | A6 | The one-time confirmation screen can be gated by "backfill changed rows" without a schema migration | Architecture Pattern 4 | Low — prefs-flag alternative is also viable. |
 | A7 | The existing Settings "Sign out" row stays a no-op visual (sign-out deferred) | User Constraints / Deferred | Low — confirmed by CONTEXT "Out of scope: Sign-out". |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Exact google_sign_in 7.2.0 authentication object shape**
    - What we know: v7 uses `authenticate()` and exposes an `idToken`.
    - What's unclear: precise property path (`.authentication.idToken` vs `.idToken`) and whether
      `idToken` is sync or requires an await in 7.2.0.
-   - Recommendation: Wave 0 — read the installed package's `example/` and API ref; write
-     `AuthService` against the real types before building UI.
+   - **RESOLVED:** pinned by Plan 09-01 Task 2 — a Wave 0 compile-probe test reads the installed
+     package's real types and documents the exact `idToken` access path in the test header before
+     09-03 writes `AuthService`. No implementation code is written against an unverified API.
 
 2. **`google-services.json` in git?**
    - What we know: contains no secrets (public identifiers only) but is project/environment-specific.
-   - Recommendation: commit it for a solo hobby project (simplest), or `.gitignore` + document the
-     regenerate step. Not a blocker.
+   - **RESOLVED:** commit it (solo hobby project — simplest; no secrets in the file).
 
 3. **Release signing & SHA registration timing**
    - What we know: release currently uses the debug keystore (build.gradle.kts).
-   - Recommendation: register the **debug** keystore SHA-1/SHA-256 now (covers both build types
-     today). Re-register when a real release keystore is introduced (out of v0.1 scope).
+   - **RESOLVED:** register the **debug** keystore SHA-1/SHA-256 now (covers both build types today).
+     Re-register when a real release keystore is introduced (out of v0.1 scope).
 
 ## Environment Availability
 

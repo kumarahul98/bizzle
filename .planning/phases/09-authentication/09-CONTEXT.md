@@ -111,8 +111,9 @@ Wire Google Sign-In via Firebase Auth into the existing app skeleton. Deliver wo
 - `lib/config/theme.dart` `TraevyTokensExt` — `bg`, `accentBg`, `accent`, `textDim` tokens needed for splash + confirmation screens
 
 ### Established Patterns
-- **Riverpod manual providers (no codegen)** — locked. `AuthStateNotifier extends StateNotifier<AuthState>`. No `@riverpod` annotations. Consistent with every existing provider in the codebase.
-- **`asyncPrefs.when(data/loading/error)`** — use the same pattern for `authStateProvider.when(signedIn/guest/loading)` in `app.dart`. Already used in `settings_screen.dart`.
+- **Riverpod manual providers (no codegen)** — locked. No `@riverpod` annotations. Consistent with every existing provider in the codebase.
+  > **Superseded 2026-05-29:** the codebase uses Riverpod 3.x `Notifier<AuthState>` / `NotifierProvider` (NOT `StateNotifier`), and `app.dart` uses a sealed-class `switch` (NOT `.when`, which is the `AsyncValue` API). `grep StateNotifier lib/` returns zero hits; `TrackingNotifier`/`TripManagementNotifier` are the real analogs. See `09-PATTERNS.md` CRITICAL CORRECTION. The D-01/D-02 shorthand below is kept for history; the plans follow the PATTERNS correction.
+- **`asyncPrefs.when(data/loading/error)`** — analogous loading pattern; `app.dart`'s auth gate uses a sealed `switch` over `AuthState` (loading/guest/signedIn), not `.when`. The `.when` pattern is still used for `asyncPrefs` in `settings_screen.dart`.
 - **Feature-first structure** — create `lib/features/auth/providers/auth_providers.dart`, `lib/features/auth/services/auth_service.dart`, `lib/features/auth/screens/` for splash + confirmation.
 - **`ConsumerWidget`** — settings_screen.dart and dashboard widgets all use this. `_AccountSection` needs to become a `ConsumerWidget` to watch `authStateProvider`.
 
