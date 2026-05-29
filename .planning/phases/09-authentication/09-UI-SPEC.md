@@ -1,10 +1,11 @@
 ---
 phase: 9
 slug: authentication
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-05-29
+reviewed_at: 2026-05-29
 ---
 
 # Phase 9 — UI Design Contract
@@ -204,11 +205,13 @@ No third-party UI registries declared or used. All widgets are first-party Flutt
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: PASS
+- [x] Dimension 2 Visuals: PASS
+- [x] Dimension 3 Color: PASS
+- [x] Dimension 4 Typography: PASS (with note — broad scale inherited verbatim from locked Phase 8 system, not new debt)
+- [x] Dimension 5 Spacing: PASS (with note — in-between values carried from Phase 8, no new spacing introduced)
+- [x] Dimension 6 Registry Safety: PASS (N/A — Flutter/Material 3, no shadcn or third-party registry)
 
-**Approval:** pending
+**Approval:** approved 2026-05-29 (gsd-ui-checker — 6/6 dimensions, 0 blocking issues)
+
+**Non-blocking recommendation for planner:** pin the D-15 disabled-opacity value as a named constant in `lib/config/constants.dart` (spec approximates it as ~38%).
