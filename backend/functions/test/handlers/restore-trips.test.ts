@@ -67,6 +67,26 @@ describe('GET /trips/restore', () => {
       expect(ids).not.toContain(bTrip); // other user excluded
       // Returned trips carry only the userA owner.
       expect(trips.every((t) => t.userId === 'userA')).toBe(true);
+
+      // HI-01: the response must be clean, JSON-safe client Trip objects —
+      // time fields are ISO 8601 strings, and NO server metadata
+      // (`deleted`/`deletedAt`/`serverUpdatedAt`) leaks to the client.
+      const isoPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+      for (const t of trips) {
+        expect(typeof t.startTime).toBe('string');
+        expect(t.startTime).toMatch(isoPattern);
+        expect(typeof t.endTime).toBe('string');
+        expect(t.endTime).toMatch(isoPattern);
+        expect(typeof t.createdAt).toBe('string');
+        expect(t.createdAt).toMatch(isoPattern);
+        expect(typeof t.updatedAt).toBe('string');
+        expect(t.updatedAt).toMatch(isoPattern);
+
+        const raw = t as unknown as Record<string, unknown>;
+        expect(raw).not.toHaveProperty('deleted');
+        expect(raw).not.toHaveProperty('deletedAt');
+        expect(raw).not.toHaveProperty('serverUpdatedAt');
+      }
     });
   });
 });

@@ -40,6 +40,11 @@ export async function restoreTripsHandler(
       .get();
 
     const trips: Trip[] = snap.docs.map((docSnap) => {
+      // `docSnap.data()` is run through `tripConverter.fromFirestore`, which
+      // coerces timestamp-shaped time fields to ISO strings (HI-01). We then
+      // project to the client {@link Trip} shape, dropping the server-only
+      // metadata (`deleted`, `deletedAt`, `serverUpdatedAt`) so the response is
+      // JSON-safe with no Firestore `Timestamp` objects.
       const doc: TripDoc = docSnap.data();
       return {
         id: doc.id,
