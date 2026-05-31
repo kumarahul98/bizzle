@@ -223,7 +223,7 @@ Plans:
   3. GET /trips/restore Cloud Function returns all non-deleted trips for the authenticated user
   4. All endpoints reject requests without a valid Firebase ID token
   5. Firestore Security Rules deny all direct client access — only the Admin SDK (Cloud Functions) can read/write trip data
-**Plans**: 2 plans
+**Plans**: 3 plans
 
 Plans:
 - [ ] 10-01-PLAN.md — Backend scaffold & shared infrastructure (firebase.json, deny-all rules, Trip/TripDoc contract, auth/firestore/validation/response utils, GET /health)
