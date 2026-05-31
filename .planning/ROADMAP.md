@@ -21,7 +21,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 7: Polish & Notifications** - Dark mode, tracking reminders, and summary notifications ✓ 2026-04-28
 - [ ] **Phase 8: UI Overhaul** - Full visual redesign to Traevy design system (Inter + JetBrains Mono, oklch colour tokens, calm & spacious layout)
 - [x] **Phase 9: Authentication** - Google Sign-In via Firebase Auth and onboarding flow (completed 2026-05-29)
-- [ ] **Phase 10: Backend Infrastructure** - Firebase Cloud Functions (HTTPS) and Firestore
+- [x] **Phase 10: Backend Infrastructure** - Firebase Cloud Functions (HTTPS) and Firestore (completed 2026-05-31)
 - [ ] **Phase 11: Sync Engine** - One-way sync queue and cloud restore flow
 
 ## Phase Details
@@ -228,7 +228,7 @@ Plans:
 Plans:
 - [x] 10-01-PLAN.md — Backend scaffold & shared infrastructure (firebase.json, deny-all rules, Trip/TripDoc contract, auth/firestore/validation/response utils, GET /health)
 - [x] 10-02-PLAN.md — Three HTTPS handlers (sync/delete/restore) + Express routing
-- [ ] 10-03-PLAN.md — Emulator-backed integration test suite (proves all 5 success criteria)
+- [x] 10-03-PLAN.md — Emulator-backed integration test suite (proves all 5 success criteria)
 
 ### Phase 11: Sync Engine
 **Goal**: Trips automatically sync from Drift to Firestore (via Cloud Functions) in the background, and users can restore from cloud backup
@@ -263,5 +263,5 @@ Note: Phases 1-7 deliver the complete local-first experience without any authent
 | 7. Polish & Notifications | 0/4 | Not started | - |
 | 8. UI Overhaul | 0/4 | Not started | - |
 | 9. Authentication | 5/5 | Complete   | 2026-05-29 |
-| 10. Backend Infrastructure | 2/3 | In Progress|  |
+| 10. Backend Infrastructure | 3/3 | Complete   | 2026-05-31 |
 | 11. Sync Engine | 0/2 | Not started | - |

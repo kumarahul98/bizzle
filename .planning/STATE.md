@@ -4,14 +4,14 @@ milestone: v0.1
 milestone_name: milestone
 status: executing
 stopped_at: Completed 10-02-PLAN.md (three HTTPS endpoints + routing)
-last_updated: "2026-05-31T20:33:20.560Z"
+last_updated: "2026-05-31T20:43:52.660Z"
 last_activity: 2026-05-31
 progress:
   total_phases: 11
-  completed_phases: 9
+  completed_phases: 10
   total_plans: 50
-  completed_plans: 49
-  percent: 82
+  completed_plans: 50
+  percent: 91
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-11)
 ## Current Position
 
 Phase: 10 (backend infrastructure) — EXECUTING
-Plan: 2 of 3 complete
+Plan: 3 of 3 complete
 Status: Ready to execute
 Last activity: 2026-05-31
 
-Progress: [██████████] 98%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -60,6 +60,7 @@ Progress: [██████████] 98%
 | Phase 09-authentication P03 | 5m | 3 tasks | 3 files |
 | Phase 10-backend-infrastructure P01 | ~7m | 3 tasks | 16 files |
 | Phase 10 P02 | 15min | 3 tasks | 4 files |
+| Phase 10 P03 | 20min | 3 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -89,6 +90,9 @@ Recent decisions affecting current work:
 - Phase 10 Plan 01: typescript pinned to 5.x (resolved 5.9.3, not TS 6) for ts-jest stability (RESEARCH A4)
 - Phase 10 Plan 01: routePolyline capped at 100000 chars in zod (cross-AI review memory hardening)
 - Phase 10 Plan 01: engines.node "20" (locked D-02); Node 22 recommended — surface to user if a deploy is ever blocked
+- [Phase ?]: Phase 10 Plan 03: guarded initializeApp() in src/index.ts with getApps() — importing the exported Express app in-process double-inits the Admin app otherwise (handler init-safety fix)
+- [Phase ?]: Phase 10 Plan 03: integration tests use node:crypto randomUUID for UUID fixtures — uuid@8.3.2 is an untyped transitive dep; avoids adding @types/uuid
+- [Phase ?]: Phase 10 Plan 03: jest multi-project (unit + integration); npm test runs both on the emulator (46 green), npm run test:unit runs the 27 util tests standalone
 
 ### Pending Todos
 
@@ -101,6 +105,6 @@ None — Phase 2 is complete.
 
 ## Session Continuity
 
-Last session: 2026-05-31T20:33:20.556Z
+Last session: 2026-05-31T20:43:10.869Z
 Stopped at: Completed 10-02-PLAN.md (three HTTPS endpoints + routing)
 Resume file: None
