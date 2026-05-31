@@ -16,7 +16,12 @@ setGlobalOptions({ region: 'us-central1' });
  * Mounts `GET /health` plus the three `/trips/*` REST routes (BACK-02/03/04).
  */
 export const app = express();
-app.use(express.json());
+// Body bounded at 10mb (H1 defense-in-depth): large enough for a full
+// 1000-trip batch (the zod `kMaxSyncBatchTrips` cap rejects >1000 at the
+// validation layer with 400), while preventing oversized-payload memory
+// abuse. Plain `express.json()` defaults to 100kb, which would 413 realistic
+// multi-hundred-trip syncs before the handler runs.
+app.use(express.json({ limit: '10mb' }));
 
 app.get('/health', (_req, res) => {
   res.status(200).json({ status: 'ok' });
