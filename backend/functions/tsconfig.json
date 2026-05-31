@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "es2021",
+    "lib": ["es2021"],
+    "strict": true,
+    "noImplicitAny": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "outDir": "lib",
+    "rootDir": "src",
+    "sourceMap": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true
+  },
+  "include": ["src"],
+  "exclude": ["lib", "node_modules"]
+}

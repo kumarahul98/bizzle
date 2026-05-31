@@ -1,0 +1,32 @@
+{
+  "name": "functions",
+  "description": "Commute Tracker backend — Cloud Functions (trips sync/delete/restore)",
+  "private": true,
+  "engines": {
+    "node": "20"
+  },
+  "main": "lib/index.js",
+  "scripts": {
+    "build": "tsc",
+    "lint": "tsc --noEmit",
+    "serve": "npm run build && firebase emulators:start --only functions,firestore,auth",
+    "test": "firebase emulators:exec --only firestore,auth \"jest\"",
+    "test:unit": "jest --selectProjects unit"
+  },
+  "dependencies": {
+    "firebase-functions": "^7.2.5",
+    "firebase-admin": "^13.10.0",
+    "express": "^5.2.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.5",
+    "jest": "^30.4.2",
+    "ts-jest": "^29.4.11",
+    "@types/jest": "^30.0.0",
+    "@types/express": "^5.0.6",
+    "supertest": "^7.2.2",
+    "@types/supertest": "^7.2.0",
+    "@types/node": "^20"
+  }
+}
