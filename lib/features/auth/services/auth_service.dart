@@ -147,4 +147,19 @@ class AuthService {
     // Step 7: Return the first-sign-in signal (D-12).
     return tripsChanged > 0;
   }
+
+  /// Sign the user out.
+  ///
+  /// Clears the Firebase session, the Google sign-in state, and the cached
+  /// ID token. `FirebaseAuth.authStateChanges()` then emits `null`, which
+  /// flips `AuthStateNotifier` back to `AuthGuest` — no explicit state write
+  /// is needed here.
+  ///
+  /// Local trips keep the uid they were backfilled with (client-authoritative,
+  /// offline-first — sign-out never deletes local data).
+  Future<void> signOut() async {
+    await _firebaseAuth.signOut();
+    await _googleSignIn.signOut();
+    await _secureStorage.delete(key: kFirebaseIdTokenKey);
+  }
 }

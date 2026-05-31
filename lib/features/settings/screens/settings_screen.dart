@@ -70,57 +70,50 @@ class SettingsScreen extends ConsumerWidget {
 /// State-aware Account section for the Settings screen (D-07, AUTH-01).
 ///
 /// Watches [authStateProvider] and switches on the sealed [AuthState]:
-///   - [AuthSignedIn]: shows the populated [AccountRow] (constructor swap).
-///   - [AuthGuest] / [AuthLoading]: shows a tappable "Sign in to back up" row
-///     that opens the sign-in bottom sheet.
+///   - [AuthSignedIn]: populated [AccountRow] + a functional "Sign out" row.
+///   - [AuthGuest] / [AuthLoading]: a single tappable "Sign in to back up"
+///     row that opens the sign-in bottom sheet.
 ///
-/// The "Cloud sync", "Restore from cloud", and "Sign out" rows are kept as
-/// existing no-op visuals — sign-out is deferred (UI-SPEC: do NOT wire it).
+/// Cloud sync and Restore-from-cloud rows are intentionally NOT shown yet —
+/// both depend on the sync/restore endpoints that ship in Phase 11. They
+/// would be non-functional (and misleading) before then, so the account
+/// group stays minimal: sign in when guest, account + sign out when signed in.
 class _AccountSection extends ConsumerWidget {
   const _AccountSection();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final auth = ref.watch(authStateProvider);
-    // Build the top account row based on auth state.
-    final Widget accountWidget = switch (auth) {
-      AuthSignedIn(:final name, :final email) => AccountRow(
+
+    final rows = switch (auth) {
+      AuthSignedIn(:final name, :final email) => <Widget>[
+        AccountRow(
           name: name,
           email: email,
           initial: name.isNotEmpty
               ? name[0].toUpperCase()
               : kPlaceholderUserInitial,
         ),
-      // Guest or still loading — tappable row opens sign-in sheet.
-      _ => SettingsRow(
-          label: kCopySettingsGuestSignIn,
-          // No await needed — showSignInSheet handles its own async lifecycle.
-          onTap: () => showSignInSheet(context),
-        ),
-    };
-
-    return SettingsSection(
-      title: 'Account',
-      children: <Widget>[
-        accountWidget,
-        const SettingsRow(
-          label: 'Cloud sync',
-          subtitle: 'OFF — sign in to enable',
-          // Wired in Phase 11 when sync endpoint ships.
-          trailing: TraevyToggle(value: false, onChanged: _noopBool),
-        ),
         SettingsRow(
-          label: 'Restore from cloud',
-          // Wired in Phase 11 when restore endpoint ships.
-          onTap: () => _showComingSoon(context, 'Restore'),
-        ),
-        const SettingsRow(
-          label: 'Sign out',
+          label: kCopySettingsSignOut,
           dangerous: true,
-          // Sign-out is deferred — do NOT wire an onTap here.
+          // FirebaseAuth.signOut() → authStateChanges emits null → the
+          // section rebuilds into the guest path above.
+          onTap: () => unawaited(ref.read(authServiceProvider).signOut()),
         ),
       ],
-    );
+      // Guest or still loading — single CTA opens the sign-in sheet. No
+      // cloud/sign-out rows: they require an account (and Phase 11 sync).
+      _ => <Widget>[
+        SettingsRow(
+          label: kCopySettingsGuestSignIn,
+          // showSignInSheet handles its own async lifecycle.
+          onTap: () => showSignInSheet(context),
+        ),
+      ],
+    };
+
+    return SettingsSection(title: 'Account', children: rows);
   }
 }
 
@@ -254,15 +247,8 @@ Future<String?> _openThemePicker(BuildContext context, String current) {
   );
 }
 
-void _showComingSoon(BuildContext context, String label) {
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(content: Text('$label — available after sign-in')),
-  );
-}
-
-/// No-op handler for visual-only placeholder toggles (Cloud sync,
-/// Auto-pause on stop). Lifted to a top-level function so the enclosing
-/// row can be declared `const`.
+/// No-op handler for the visual-only Auto-pause placeholder toggle. Lifted to
+/// a top-level function so the enclosing row can be declared `const`.
 void _noopBool(bool _) {}
 
 // ---------------------------------------------------------------------------
@@ -298,20 +284,19 @@ UserPreferencesValue _copyPrefs(
   Object? reminderTime = const _UnsetSentinel(),
   bool? weekendReminder,
   bool? weeklyNotificationEnabled,
-}) =>
-    UserPreferencesValue(
-      userId: prefs.userId,
-      darkMode: darkMode ?? prefs.darkMode,
-      morningCutoffHour: prefs.morningCutoffHour,
-      eveningCutoffHour: prefs.eveningCutoffHour,
-      reminderEnabled: reminderEnabled ?? prefs.reminderEnabled,
-      reminderTime: reminderTime is _UnsetSentinel
-          ? prefs.reminderTime
-          : reminderTime as String?,
-      weekendReminder: weekendReminder ?? prefs.weekendReminder,
-      weeklyNotificationEnabled:
-          weeklyNotificationEnabled ?? prefs.weeklyNotificationEnabled,
-    );
+}) => UserPreferencesValue(
+  userId: prefs.userId,
+  darkMode: darkMode ?? prefs.darkMode,
+  morningCutoffHour: prefs.morningCutoffHour,
+  eveningCutoffHour: prefs.eveningCutoffHour,
+  reminderEnabled: reminderEnabled ?? prefs.reminderEnabled,
+  reminderTime: reminderTime is _UnsetSentinel
+      ? prefs.reminderTime
+      : reminderTime as String?,
+  weekendReminder: weekendReminder ?? prefs.weekendReminder,
+  weeklyNotificationEnabled:
+      weeklyNotificationEnabled ?? prefs.weeklyNotificationEnabled,
+);
 
 class _UnsetSentinel {
   const _UnsetSentinel();
@@ -366,7 +351,9 @@ Future<void> _toggleWeekend(
       .read(userPreferencesDaoProvider)
       .upsert(_copyPrefs(prefs, weekendReminder: value));
   if (!prefs.reminderEnabled || prefs.reminderTime == null) return;
-  await ref.read(notificationServiceProvider).scheduleReminder(
+  await ref
+      .read(notificationServiceProvider)
+      .scheduleReminder(
         hhMm: prefs.reminderTime!,
         includeWeekends: value,
       );

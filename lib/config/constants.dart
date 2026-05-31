@@ -669,6 +669,12 @@ const String kCopySignInSheetSubtext =
 /// Shown in the Account section when the user is in the guest auth state.
 const String kCopySettingsGuestSignIn = 'Sign in to back up';
 
+/// Settings screen signed-in account "Sign out" row label.
+///
+/// Shown in the Account section only when the user is signed in. Tapping it
+/// runs `AuthService.signOut()`, which flips auth state back to guest.
+const String kCopySettingsSignOut = 'Sign out';
+
 /// Headline on the post-sign-in confirmation screen (D-12, UI-SPEC §C).
 ///
 /// Displayed at 36 px / w700 (Inter, letter-spacing –1.2) after
@@ -678,8 +684,7 @@ const String kCopyConfirmHeadline = "You're signed in.";
 /// Body copy on the post-sign-in confirmation screen (D-12, UI-SPEC §C).
 ///
 /// Displayed at 16 px / w400 (Inter) below the headline.
-const String kCopyConfirmBody =
-    'Your commutes will back up automatically.';
+const String kCopyConfirmBody = 'Your commutes will back up automatically.';
 
 /// CTA label on the post-sign-in confirmation screen (D-12, UI-SPEC §C).
 ///

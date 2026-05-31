@@ -20,6 +20,7 @@ import 'package:traevy/database/database.dart';
 import 'package:traevy/database/providers.dart';
 import 'package:traevy/features/auth/models/auth_state.dart';
 import 'package:traevy/features/auth/providers/auth_providers.dart';
+import 'package:traevy/features/auth/services/auth_service.dart';
 import 'package:traevy/features/settings/providers/settings_providers.dart';
 import 'package:traevy/features/settings/screens/settings_screen.dart';
 import 'package:traevy/features/settings/widgets/account_row.dart';
@@ -51,15 +52,14 @@ class _FakeUserPreferencesDao implements UserPreferencesDao {
 
   @override
   Stream<UserPreferencesValue> watch() => Stream<UserPreferencesValue>.value(
-        _current,
-      );
+    _current,
+  );
 
   // The DAO has many auto-generated members from DatabaseAccessor; we never
   // exercise them in widget tests, so any access in tests should surface
   // immediately as a noSuchMethod failure rather than silently no-op.
   @override
-  dynamic noSuchMethod(Invocation invocation) =>
-      super.noSuchMethod(invocation);
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 /// Minimal fake [AuthStateNotifier] that returns a fixed [AuthState].
@@ -75,6 +75,20 @@ class _FakeAuthNotifier extends AuthStateNotifier {
 
   @override
   AuthState build() => _state;
+}
+
+/// Captures `signOut()` calls so the Sign-out row wiring can be asserted
+/// without touching real FirebaseAuth / GoogleSignIn platform channels.
+class _FakeAuthService implements AuthService {
+  int signOutCallCount = 0;
+
+  @override
+  Future<void> signOut() async {
+    signOutCallCount++;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 /// Records every NotificationService call so the tests can keep the
@@ -94,15 +108,13 @@ class _FakeNotificationService implements NotificationService {
   Future<void> scheduleReminder({
     required String hhMm,
     required bool includeWeekends,
-  }) async =>
-      calls.add('scheduleReminder($hhMm,$includeWeekends)');
+  }) async => calls.add('scheduleReminder($hhMm,$includeWeekends)');
 
   @override
   Future<void> cancelReminder() async => calls.add('cancelReminder');
 
   @override
-  dynamic noSuchMethod(Invocation invocation) =>
-      super.noSuchMethod(invocation);
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 // ---------------------------------------------------------------------------
@@ -121,6 +133,7 @@ Future<_FakeUserPreferencesDao> _pumpSettingsScreen(
   UserPreferencesValue prefs = const UserPreferencesValue.defaults(),
   _FakeNotificationService? notificationService,
   AuthState authState = const AuthGuest(),
+  AuthService? authService,
 }) async {
   final fakeDao = _FakeUserPreferencesDao(prefs);
   final fakeNotif = notificationService ?? _FakeNotificationService();
@@ -133,6 +146,8 @@ Future<_FakeUserPreferencesDao> _pumpSettingsScreen(
           (ref) => Stream<UserPreferencesValue>.value(prefs),
         ),
         authStateProvider.overrideWith(() => _FakeAuthNotifier(authState)),
+        if (authService != null)
+          authServiceProvider.overrideWithValue(authService),
       ],
       child: MaterialApp(
         theme: buildLightTheme(),
@@ -202,19 +217,21 @@ void main() {
       },
     );
 
-    testWidgets('does not construct a Phase-7 AppBar with the gear tooltip',
-        (tester) async {
+    testWidgets('does not construct a Phase-7 AppBar with the gear tooltip', (
+      tester,
+    ) async {
       await _pumpSettingsScreen(tester);
       // The settings screen now lives inside MainShell — no AppBar of its own.
       expect(find.byType(AppBar), findsNothing);
     });
 
-    testWidgets('renders at least 3 TraevyToggle instances in Notifications',
-        (tester) async {
+    testWidgets('renders at least 3 TraevyToggle instances in Notifications', (
+      tester,
+    ) async {
       await _pumpSettingsScreen(tester);
-      // Daily reminder + Include weekends + Weekly summary.
-      // Account section also has a "Cloud sync" toggle which is a
-      // visual placeholder for Phase 9 — so at minimum 4 toggles total.
+      // Recording auto-pause + daily reminder + weekly summary toggles.
+      // (The old Account "Cloud sync" placeholder toggle was removed — the
+      // Account section no longer renders cloud rows.)
       expect(
         find.byType(TraevyToggle),
         findsAtLeast(3),
@@ -380,9 +397,22 @@ void main() {
     );
 
     testWidgets(
-      'Sign out row remains a no-op visual (no onTap wired)',
+      'guest state hides Sign out, Cloud sync, and Restore rows',
       (tester) async {
-        // Pump in signed-in state so AccountRow doesn't obscure Sign out row.
+        // Default authState is AuthGuest().
+        await _pumpSettingsScreen(tester);
+        // Only the sign-in CTA belongs to the guest Account section.
+        expect(find.text(kCopySettingsGuestSignIn), findsOneWidget);
+        expect(find.text(kCopySettingsSignOut), findsNothing);
+        expect(find.text('Cloud sync'), findsNothing);
+        expect(find.text('Restore from cloud'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'signed-in Sign out row is tappable and invokes AuthService.signOut()',
+      (tester) async {
+        final fakeAuth = _FakeAuthService();
         await _pumpSettingsScreen(
           tester,
           authState: const AuthSignedIn(
@@ -390,22 +420,15 @@ void main() {
             name: 'Test User',
             email: 'test@example.com',
           ),
+          authService: fakeAuth,
         );
-        // The "Sign out" row must still be rendered.
-        expect(find.text('Sign out'), findsOneWidget);
-        // It must NOT be tappable (no onTap wired — deferred per plan).
-        final signOutRow = find.ancestor(
-          of: find.text('Sign out'),
-          matching: find.byType(SettingsRow),
-        );
-        expect(signOutRow, findsOneWidget);
-        // Verify the SettingsRow does not have an InkWell (onTap=null means
-        // no InkWell wrapper is rendered inside the Sign out row's subtree).
-        final inkWellsInRow = find.descendant(
-          of: signOutRow,
-          matching: find.byType(InkWell),
-        );
-        expect(inkWellsInRow, findsNothing);
+        // Sign out is present only when signed in, and the guest CTA is gone.
+        expect(find.text(kCopySettingsSignOut), findsOneWidget);
+        expect(find.text(kCopySettingsGuestSignIn), findsNothing);
+
+        await tester.tap(find.text(kCopySettingsSignOut));
+        await tester.pump();
+        expect(fakeAuth.signOutCallCount, equals(1));
       },
     );
   });
