@@ -227,7 +227,7 @@ Plans:
 
 Plans:
 - [ ] 10-01: TBD
-- [ ] 10-02: TBD
+- [ ] 10-02-PLAN.md — Three HTTPS handlers (sync/delete/restore) + Express routing
 
 ### Phase 11: Sync Engine
 **Goal**: Trips automatically sync from Drift to Firestore (via Cloud Functions) in the background, and users can restore from cloud backup
