@@ -27,7 +27,10 @@ export function extractBearerToken(header: string | undefined): string {
   if (!header) {
     throw new AuthError('Missing Authorization header');
   }
-  const match = /^Bearer (.+)$/.exec(header);
+  // Require exactly `Bearer <token>` with a single space and a non-whitespace
+  // token (LO-01). `\S+` rejects empty/whitespace-only values so malformed
+  // headers fail fast here rather than taking the slower SDK round-trip.
+  const match = /^Bearer (\S+)$/.exec(header);
   if (!match) {
     throw new AuthError('Malformed Authorization header');
   }

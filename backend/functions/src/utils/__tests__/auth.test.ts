@@ -31,6 +31,14 @@ describe('extractBearerToken', () => {
   it('throws AuthError for a non-Bearer scheme', () => {
     expect(() => extractBearerToken('Basic xyz')).toThrow(AuthError);
   });
+
+  it('throws AuthError when the token is empty (Bearer with trailing space)', () => {
+    expect(() => extractBearerToken('Bearer ')).toThrow(AuthError);
+  });
+
+  it('throws AuthError when the token is whitespace-only', () => {
+    expect(() => extractBearerToken('Bearer    ')).toThrow(AuthError);
+  });
 });
 
 describe('verifyAuth', () => {
