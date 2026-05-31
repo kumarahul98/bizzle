@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -65,17 +66,23 @@ class _SignInSheetContentState extends ConsumerState<_SignInSheetContent> {
       if (mounted) {
         Navigator.of(context).pop();
       }
-    } on GoogleSignInException {
+    } on GoogleSignInException catch (e) {
       // User cancelled the account picker — silent no-op (T-09-05-01).
       // Keep the sheet open; the CTA returns to its enabled state.
+      if (kDebugMode) {
+        debugPrint('[auth] sheet GoogleSignInException: ${e.code}');
+      }
       if (mounted) {
         setState(() {
           _isLoading = false;
         });
       }
-    } on Object {
+    } on Object catch (e) {
       // Network / credential error — show in-sheet error copy, keep open,
       // CTA re-enabled (UI-SPEC §B / T-09-05-02).
+      if (kDebugMode) {
+        debugPrint('[auth] sheet sign-in failed: ${e.runtimeType}: $e');
+      }
       if (mounted) {
         setState(() {
           _isLoading = false;

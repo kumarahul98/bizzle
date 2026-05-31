@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -77,9 +78,9 @@ final Provider<GoogleSignIn> googleSignInProvider = Provider<GoogleSignIn>(
 /// calls and to assert the exact key written.
 final Provider<FlutterSecureStorage> secureStorageProvider =
     Provider<FlutterSecureStorage>(
-  (ref) => const FlutterSecureStorage(),
-  name: 'secureStorageProvider',
-);
+      (ref) => const FlutterSecureStorage(),
+      name: 'secureStorageProvider',
+    );
 
 /// `AuthService` constructed with all dependencies injected via `ref.watch`
 /// so tests can override each dependency in isolation (RESEARCH §Wave 0 —
@@ -105,9 +106,9 @@ final Provider<AuthService> authServiceProvider = Provider<AuthService>(
 /// `.when()` (which is for `AsyncValue`, not sealed classes).
 final NotifierProvider<AuthStateNotifier, AuthState> authStateProvider =
     NotifierProvider<AuthStateNotifier, AuthState>(
-  AuthStateNotifier.new,
-  name: 'authStateProvider',
-);
+      AuthStateNotifier.new,
+      name: 'authStateProvider',
+    );
 
 /// Notifier that owns the UI-side [AuthState]. Subscribes to the Firebase
 /// auth-state-changes stream in `build()` and cancels via `ref.onDispose`.
@@ -157,9 +158,15 @@ class AuthStateNotifier extends Notifier<AuthState> {
   }
 
   void _attach() {
+    if (kDebugMode) {
+      debugPrint('[auth] notifier: subscribing to authStateChanges');
+    }
     final auth = ref.read(firebaseAuthProvider);
     _authSub = auth.authStateChanges().listen(
       (user) {
+        if (kDebugMode) {
+          debugPrint('[auth] authStateChanges event: user=${user != null}');
+        }
         if (user == null) {
           state = const AuthGuest();
         } else {
@@ -174,6 +181,11 @@ class AuthStateNotifier extends Notifier<AuthState> {
         }
       },
       onError: (Object error, StackTrace stack) {
+        if (kDebugMode) {
+          debugPrint(
+            '[auth] authStateChanges stream error: ${error.runtimeType}',
+          );
+        }
         // WR-03 analog: the Firebase auth stream errored. Do NOT forward
         // error.toString() — it may contain PII (uid, email). Degrade to
         // AuthGuest so the app remains usable without sign-in.
