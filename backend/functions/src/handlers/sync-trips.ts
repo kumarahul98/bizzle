@@ -77,6 +77,10 @@ export async function syncTripsHandler(
           isManualEntry: trip.isManualEntry,
           createdAt: trip.createdAt,
           updatedAt: trip.updatedAt,
+          // `deleted:false` is deliberate (D-11, client-authoritative): re-syncing
+          // an id resurrects a server-soft-deleted trip. An offline client that
+          // never saw the delete will un-delete it on next sync — by design.
+          // Do NOT "fix" this into preserving `deleted:true` without revisiting D-11.
           deleted: false,
           deletedAt: null,
           serverUpdatedAt: FieldValue.serverTimestamp(),
