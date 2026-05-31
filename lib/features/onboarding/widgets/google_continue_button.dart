@@ -44,12 +44,15 @@ class GoogleContinueButton extends StatelessWidget {
                 height: 20,
               ),
               const SizedBox(width: 12),
-              Text(
-                'Continue with Google',
-                style: TraevyFonts.ui(
-                  size: 14,
-                  weight: FontWeight.w600,
-                  color: onSurface,
+              Flexible(
+                child: Text(
+                  'Continue with Google',
+                  overflow: TextOverflow.ellipsis,
+                  style: TraevyFonts.ui(
+                    size: 15,
+                    weight: FontWeight.w600,
+                    color: onSurface,
+                  ),
                 ),
               ),
             ],

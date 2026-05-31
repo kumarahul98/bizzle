@@ -43,8 +43,7 @@ class _FakeAuthService implements AuthService {
   }
 
   @override
-  dynamic noSuchMethod(Invocation invocation) =>
-      super.noSuchMethod(invocation);
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 /// Minimal fake [AuthStateNotifier] returning a fixed [AuthState].
@@ -79,6 +78,16 @@ Future<void> _pumpOnboardingScreen(
   bool firebaseReady = true,
   AuthState authState = const AuthGuest(),
 }) async {
+  // Generous portrait viewport so the design's tall sticky-footer layout
+  // (logo → headline → ticks → Spacer → sign-in) fits without the Spacer
+  // collapsing. Wider/taller than a real phone on purpose: the flutter_test
+  // fallback font is much larger than Inter, so a true-to-device 390px width
+  // would trip false overflows that never occur with the real font.
+  tester.view.physicalSize = const Size(420, 1000);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
