@@ -16,7 +16,7 @@
 
 ## Live function URL (stable Cloud Run gen2 URL)
 ```
-https://api-rdj4i7kgmq-uc.a.run.app
+https://us-central1-travey-298a7.cloudfunctions.net/api
 ```
 Endpoints: `POST /trips/sync`, `GET /trips/restore`, `DELETE /trips/{tripId}`, `GET /health`.
 (This is the base URL Phase 11's api_client will target.)

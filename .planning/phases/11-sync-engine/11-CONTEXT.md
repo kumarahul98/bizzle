@@ -35,7 +35,7 @@ Drift stays the single source of truth; the network never blocks the UI.
 - **D-01:** New `lib/sync/` feature: `api_client.dart` (transport), `sync_engine.dart` (queue processor + triggers + status), and a small connectivity/lifecycle hook. Follow the codebase's **manual Riverpod 3.x `Provider`/`Notifier`** pattern (NO `@riverpod` codegen — analyzer conflict with drift_dev, as established project-wide). Providers: `apiClientProvider`, `syncEngineProvider` (a `Notifier<SyncStatus>` or a service held in a `Provider` that owns triggers), `restoreControllerProvider`.
 
 ### Transport / api_client (the Phase 10 contract)
-- **D-02:** `http` package. Base URL constant `kApiBaseUrl = 'https://api-rdj4i7kgmq-uc.a.run.app'` in `lib/config/constants.dart`; endpoint paths `/trips/sync`, `/trips/restore`, `/trips/{tripId}`. Methods: `syncTrips(List<TripRow>)` → `POST /trips/sync`, `deleteTrip(String tripId)` → `DELETE /trips/{tripId}`, `restoreTrips()` → `GET /trips/restore`.
+- **D-02:** `http` package. Base URL constant `kApiBaseUrl = 'https://us-central1-travey-298a7.cloudfunctions.net/api'` in `lib/config/constants.dart`; endpoint paths `/trips/sync`, `/trips/restore`, `/trips/{tripId}`. Methods: `syncTrips(List<TripRow>)` → `POST /trips/sync`, `deleteTrip(String tripId)` → `DELETE /trips/{tripId}`, `restoreTrips()` → `GET /trips/restore`.
 - **D-03 (token):** Attach `Authorization: Bearer <token>` using a **fresh** token from `FirebaseAuth.instance.currentUser?.getIdToken()` (FlutterFire auto-refreshes; this avoids the stale 1-hour cached token). If `currentUser` is null → not signed in → skip sync (no-op, not an error). On a **401** response, call `getIdToken(true)` (force refresh) and retry the request **once**; if still 401, treat as a failure for retry/backoff. (The Phase-9 secure-storage cached token under `kFirebaseIdTokenKey` is legacy/fallback; prefer live `getIdToken()`.)
 - **D-04 (serialization contract — MUST match backend zod `tripSchema` exactly):** camelCase keys `{ id, startTime, endTime, durationSeconds, distanceMeters, routePolyline, direction, timeMovingSeconds, timeStuckSeconds, isManualEntry, createdAt, updatedAt }`; timestamps as **ISO-8601 UTC** via `dateTime.toUtc().toIso8601String()` (RFC3339 with `Z` — satisfies `z.string().datetime()`); `direction` is the stored `'to_office'`/`'to_home'` string; `routePolyline` nullable; **omit `userId`** (server forces it from the token). Non-nullable numeric fields (distanceMeters, durationSeconds, timeMoving/Stuck) always serialize as numbers (0 for manual entries) — never null.
 
@@ -65,7 +65,7 @@ Drift stays the single source of truth; the network never blocks the UI.
 - `backend/functions/src/utils/validation.ts` — `tripSchema` / `syncTripsBody` (camelCase keys, ISO datetimes, direction enum, `routePolyline` max 100000 nullable, `userId` optional, `kMaxSyncBatchTrips=1000`)
 - `backend/functions/src/types/trip.ts` — `Trip` type
 - `backend/functions/src/handlers/restore-trips.ts` — response shape `{ statusCode, body: { data: { trips: Trip[] } } }`
-- `.planning/phases/10-backend-infrastructure/10-DEPLOY.md` — live base URL `https://api-rdj4i7kgmq-uc.a.run.app`, endpoint paths, auth gate
+- `.planning/phases/10-backend-infrastructure/10-DEPLOY.md` — live base URL `https://us-central1-travey-298a7.cloudfunctions.net/api`, endpoint paths, auth gate
 
 ### Existing client foundations to build on
 - `lib/database/daos/sync_queue_dao.dart` — `enqueueCreate/Update/Delete`, `getPending`, `watchPending`, `markSynced`, `incrementRetry` (needs new `markFailed`)
