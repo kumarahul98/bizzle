@@ -2,9 +2,14 @@
 
 **Researched:** 2026-06-01
 **Domain:** Firebase Cloud Functions 2nd gen (TypeScript) + Firestore + Emulator-based testing
-**Confidence:** HIGH on architecture/patterns (locked by CONTEXT.md + well-established Firebase APIs); MEDIUM on exact dependency version numbers (verify at scaffold — see Assumptions Log).
+**Confidence:** HIGH — architecture/patterns locked by CONTEXT.md + stable Firebase APIs; **dependency versions VERIFIED against the npm registry on 2026-06-01** and local tooling probed.
 
-> **Tooling note:** Live `npm view` / web-search version confirmation could not complete in this research session (network calls returned empty). All version pins below are tagged `[ASSUMED]` from the Jan 2026 knowledge cutoff and listed in the Assumptions Log. The planner's first scaffold task MUST run `npm view <pkg> version` (or accept whatever `firebase init functions` installs) and pin the actual current versions. The **architecture, code patterns, and API surface are HIGH confidence** — Firebase Functions v2, Admin SDK, and the auth-emulator token trick are stable and unchanged for years.
+> **Tooling note:** All versions below are `[VERIFIED: npm registry, 2026-06-01]` unless marked otherwise. Local environment confirmed: **Node v25.2.1, npm 11.12.1, firebase-tools 15.19.0** (global, Homebrew `/opt/homebrew/bin/firebase`).
+>
+> **Three deltas from naive assumptions — read before planning:**
+> 1. **Node runtime:** local Node 25 is fine for build/test but is **NOT** an accepted Cloud Functions runtime. `engines.node` MUST be `"20"` or `"22"`. D-02 locks **20** — still supported but **deprecated**; Firebase and `firebase-admin` 13.10 strongly recommend **22**. Flag to user (Open Q2). Deploy with Node 20 still works today.
+> 2. **Express is at 5.x** (`5.2.1` current) — Express 5 is now the default major. Named path params (`/trips/:tripId`) are **unchanged** and work in v5; only the `*` wildcard syntax changed. So the locked routing design is fine on Express 5. (You may still pin Express 4 for maximum example-parity — see Standard Stack note.)
+> 3. **zod is at 4.x** (`4.4.3`) — `.safeParse`, `.parse`, `z.infer`, `z.object`, `.max()` are all unchanged from the v3 API used below. Safe to use zod 4.
 
 ---
 
@@ -67,81 +72,88 @@ These have the authority of locked decisions. Planner MUST NOT contradict:
 - Response shape `{ statusCode, body: { data?, error? } }`.
 - UUIDs client-generated; all timestamps ISO 8601 / UTC.
 - Soft deletes everywhere (`deleted: true`); never hard-delete from Firestore.
-- Commit prefix for this phase: `[backend]` / `[infra]`. (CLAUDE.md convention; GSD commit hook may override format — planner notes both.)
-- Common command (CLAUDE.md): deploy via `firebase deploy --only functions` and `firebase deploy --only firestore:rules`.
+- Commit prefix for this phase: `[backend]` / `[infra]`. (CLAUDE.md convention; GSD commit hook may override format.)
+- Deploy via `firebase deploy --only functions` and `firebase deploy --only firestore:rules` (combine: `--only functions,firestore:rules`).
 
 ---
 
 ## Summary
 
-This is a greenfield, self-contained Firebase backend. Nothing exists under `backend/` yet (verified — directory absent). The phase stands up a `backend/` Firebase CLI project: one HTTPS Cloud Function (`api`, 2nd gen, Node 20) that mounts an Express app routing three REST endpoints to per-file handlers, each doing verify-token → zod-validate → Firestore write/read via a typed `FirestoreDataConverter`. Firestore is locked down with deny-all rules; only the Admin SDK (running inside the function) touches data. Tests run against the Firebase Emulator Suite, minting valid ID tokens against the **auth emulator** (which accepts unsigned tokens that `verifyIdToken` will accept when `FIREBASE_AUTH_EMULATOR_HOST` is set).
+Greenfield, self-contained Firebase backend. Nothing exists under `backend/` yet (verified — directory absent). The phase stands up a `backend/` Firebase CLI project: one HTTPS Cloud Function (`api`, 2nd gen, Node 20) that mounts an Express app routing three REST endpoints to per-file handlers, each doing verify-token → zod-validate → Firestore write/read via a typed `FirestoreDataConverter`. Firestore is locked with deny-all rules; only the Admin SDK touches data. Tests run against the Emulator Suite, minting valid ID tokens against the **auth emulator** (which issues unsigned tokens that `verifyIdToken` accepts when `FIREBASE_AUTH_EMULATOR_HOST` is set).
 
-The entire stack is locked by D-01..D-15 and CLAUDE.md, so research is prescriptive, not exploratory: it confirms the stack with concrete (to-be-verified) versions, supplies exact file layout, and gives copy-ready code patterns for `index.ts`, the auth util, the Trip converter, one full handler (verify→validate→trust), and the emulator test that mints a token. The single non-obvious technique is the auth-emulator token mint — documented in detail below.
+The stack is fully locked by D-01..D-15 + CLAUDE.md, so this research is prescriptive. All dependency versions are **verified against the live npm registry** (table below). The single non-obvious technique is the auth-emulator token mint — documented in detail.
 
-**Primary recommendation:** Scaffold with `firebase init functions` (TypeScript) inside `backend/`, take its default ESLint + tsconfig, **use Jest + ts-jest** (Firebase scaffold default; D-15 endorses), add Express + zod, and write all three handlers behind a single `api` Express function. Mint test tokens via the auth emulator REST endpoint, run tests with `firebase emulators:exec --only auth,firestore,functions 'jest'`.
+**Primary recommendation:** Scaffold with `firebase init functions` (TypeScript, ESLint yes) inside `backend/`, take its tsconfig/eslint, **use Jest + ts-jest** (scaffold default; D-15 endorses), add Express + zod, write all three handlers behind a single `api` Express function. Mint test tokens via the auth-emulator REST endpoint; run with `firebase emulators:exec --only auth,firestore,functions 'jest --runInBand'`. Set `engines.node` to `"20"` (locked) but surface to the user that Firebase recommends **22**.
 
 ## Architectural Responsibility Map
 
 | Capability | Primary Tier | Secondary Tier | Rationale |
 |------------|-------------|----------------|-----------|
-| HTTP routing / method+path dispatch | Express app (inside `api` function) | — | Single deployable; path-param `/:tripId` and method routing belong in Express, not in client or rules |
-| Token verification | API / Cloud Function (`firebase-admin/auth`) | — | Never trust client; `verifyIdToken` is server-only |
+| HTTP routing / method+path dispatch | Express app (inside `api` function) | — | Single deployable; `/:tripId` + method routing belong in Express |
+| Token verification | API / Cloud Function (`firebase-admin/auth`) | — | Server-only; never trust client |
 | Input validation | API / Cloud Function (zod) | — | Validate at handler entry, server-side |
-| Ownership enforcement | API / Cloud Function | — | Server forces `userId = uid`; client value is advisory at best |
-| Persistence (trips) | Firestore (via Admin SDK) | — | Source-of-backup store; client never reads/writes it directly |
-| Access control on raw store | Firestore Security Rules | — | Deny-all; defense-in-depth so even a leaked client can't touch Firestore |
-| ID-token issuance | Firebase Auth (client side, Phase 9) | — | Out of scope here; consumed as `Authorization: Bearer` |
+| Ownership enforcement | API / Cloud Function | — | Server forces `userId = uid` |
+| Persistence (trips) | Firestore (via Admin SDK) | — | Backup store; client never reads/writes directly |
+| Access control on raw store | Firestore Security Rules | — | Deny-all; defense-in-depth |
+| ID-token issuance | Firebase Auth (client, Phase 9) | — | Out of scope; consumed as `Authorization: Bearer` |
 
 ## Standard Stack
 
-### Core (production dependencies)
-| Package | Version (verify) | Purpose | Why Standard |
-|---------|------------------|---------|--------------|
-| `firebase-functions` | `^6.x` `[ASSUMED]` | v2 HTTPS trigger (`onRequest`, `setGlobalOptions`) | First-party; v2 is the current generation. v6 line was current at cutoff. |
-| `firebase-admin` | `^13.x` `[ASSUMED]` | Firestore + Auth Admin SDK (`getFirestore`, `getAuth`, `FieldValue`, `Timestamp`) | First-party server SDK; bypasses rules as intended (D-13). |
-| `express` | `^4.x` `[ASSUMED — see note]` | HTTP routing under single function | Standard v2 path-param REST pattern. **Note: pin Express 4, not 5** — Express 5 changed routing/path-matching and some middleware behavior; the well-trodden Firebase examples assume v4. Verify which the scaffold pulls. |
-| `zod` | `^3.x` `[ASSUMED]` | Input validation + inferred TS types | CLAUDE.md mandates zod; `z.infer` gives the `Trip` type for free. **If `npm view zod version` shows 4.x, confirm API (`.parse`/`.safeParse` unchanged) before pinning 4.** |
+### Core (production dependencies) — versions VERIFIED 2026-06-01
+| Package | Latest (npm) | Pin | Purpose | Notes |
+|---------|--------------|-----|---------|-------|
+| `firebase-functions` | **7.2.5** | `^7.2.5` | v2 HTTPS trigger (`onRequest`, `setGlobalOptions`) | `[VERIFIED: npm]` `engines.node >=18`; peer `firebase-admin ^11.10 \|\| ^12 \|\| ^13`. v2 modular import `firebase-functions/v2/https`. |
+| `firebase-admin` | **13.10.0** | `^13.10.0` | Firestore + Auth Admin SDK | `[VERIFIED: npm]` Satisfies the v7 functions peer. Node 18/20 **deprecated**, 22+ recommended. |
+| `express` | **5.2.1** | `^5.2.1` (or `^4.21` for example-parity) | HTTP routing under single function | `[VERIFIED: npm]` Named params `/:tripId` unchanged in v5; only `*` wildcard syntax changed. Either major works for this design — see note. |
+| `zod` | **4.4.3** | `^4.4.3` | Input validation + inferred TS types | `[VERIFIED: npm]` `.safeParse`/`.parse`/`z.infer`/`z.object`/`.max()` API used below is stable from v3→v4. |
 
-### Dev dependencies
-| Package | Version (verify) | Purpose |
-|---------|------------------|---------|
-| `typescript` | `^5.x` `[ASSUMED]` | Strict compile |
-| `firebase-tools` | `^14.x` `[ASSUMED]` | CLI: emulators, deploy. Local-install preferred for reproducible CI, or global. |
-| `jest` | `^29.x` `[ASSUMED]` | Test runner (recommended — see below) |
-| `ts-jest` | `^29.x` `[ASSUMED]` | TS transform for Jest |
-| `@types/jest` | `^29.x` `[ASSUMED]` | Jest types |
-| `@types/express` | `^4.x` `[ASSUMED]` | Express types (match Express major) |
-| `supertest` + `@types/supertest` | `^7.x` / `^6.x` `[ASSUMED]` | Optional: in-process HTTP assertions against the Express app |
-| ESLint + Firebase config | scaffold default | Lint (D-03) |
+> **Express 4 vs 5 decision (planner picks; either is fine):** The locked routes use only named params, which behave identically in both. Pick **Express 5** to match the current registry default and `@types/express` 5, OR **Express 4** if you want maximum parity with older Firebase tutorials. If you pin Express 4, also pin `@types/express ^4`. Do NOT mix Express 5 runtime with `@types/express 4`.
 
-**Test runner recommendation (resolves D-15 open choice): use Jest + ts-jest.**
-- It is the **Firebase `firebase init functions` TypeScript scaffold default** — least friction, generated config, matches every Firebase example.
-- vitest works too and has faster ESM/TS, but Firebase Functions scaffolds to **CommonJS** by default; choosing vitest means fighting ESM/CJS interop with `firebase-admin` and `firebase-functions`. Not worth it for a 3-endpoint backend.
-- Rationale is HIGH confidence on the "scaffold default = Jest/CJS" fact; the speed delta is irrelevant at this test count.
+### Dev dependencies — versions VERIFIED 2026-06-01
+| Package | Latest (npm) | Pin | Purpose |
+|---------|--------------|-----|---------|
+| `typescript` | **6.0.3** | `^5.x` recommended (see note) | Strict compile |
+| `firebase-tools` | **15.19.0** | global already installed | CLI: emulators, deploy, init |
+| `jest` | **30.4.2** | `^30.4.2` | Test runner (recommended) |
+| `ts-jest` | **29.4.11** | `^29.4.11` | TS transform for Jest |
+| `@types/jest` | **30.0.0** | `^30.0.0` | Jest types (match jest major) |
+| `@types/express` | **5.0.6** | match Express major | Express types |
+| `supertest` | **7.2.2** | `^7.2.2` | In-process HTTP assertions vs the Express app |
+| `@types/supertest` | **7.2.0** | `^7.2.0` | supertest types |
+| `firebase-functions-test` | **3.5.0** | optional | Not needed for emulator-based tests; listed for awareness |
+| ESLint + Firebase config | scaffold default | — | Lint (D-03) |
 
-### Alternatives Considered (all rejected by locked decisions — listed for completeness)
-| Instead of | Could Use | Why rejected here |
-|------------|-----------|-------------------|
-| Single Express `api` fn | 3 separate `onRequest` exports | D-04 locked single-fn Express; cleaner path-param + one deployable |
-| Top-level `trips/{uuid}` | `users/{uid}/trips/{id}` subcollection | D-09 rejected — no security benefit (rules deny-all), adds path nesting |
-| Jest | vitest | CJS scaffold friction (above) |
-| `firebase-functions-test` SDK | emulator + real HTTP | We need real `verifyIdToken` + Firestore behavior → emulator is the right level (D-14/D-15) |
+> **TypeScript version caution:** registry latest is **6.0.3**, but `ts-jest 29.4.11` and the Firebase scaffold's eslint/tsconfig were validated against the **TS 5.x** line. **Recommendation: pin `typescript ^5.x`** (whatever `firebase init functions` installs — currently the 5.x it scaffolds) to avoid TS6/ts-jest/eslint-parser churn. Only move to TS 6 if `ts-jest` and `@typescript-eslint` confirm support. `[VERIFIED: npm latest=6.0.3; compatibility caution from ts-jest peer range]`
+
+**Test runner recommendation (resolves D-15): use Jest + ts-jest.**
+- It is the **`firebase init functions` TypeScript scaffold default** — least friction, generated config, matches every Firebase example. Firebase scaffolds to **CommonJS**.
+- vitest (4.1.7) works and is faster, but choosing it means fighting ESM/CJS interop with the CJS scaffold. Not worth it for 3 endpoints.
+- `[VERIFIED: npm]` jest 30 / ts-jest 29.4.11 are mutually compatible (ts-jest 29.4 supports jest 30).
+
+### Alternatives Considered (rejected by locked decisions)
+| Instead of | Could Use | Why rejected |
+|------------|-----------|--------------|
+| Single Express `api` fn | 3 separate `onRequest` exports | D-04 locked single-fn Express |
+| Top-level `trips/{uuid}` | `users/{uid}/trips/{id}` subcollection | D-09 — no security benefit (deny-all), adds nesting |
+| Jest | vitest | CJS scaffold friction |
+| `firebase-functions-test` SDK | emulator + real HTTP | Need real `verifyIdToken` + Firestore → emulator (D-14/15) |
 
 **Installation (inside `backend/functions/` after `firebase init functions`):**
 ```bash
 # Production
-npm install firebase-functions firebase-admin express zod
+npm install firebase-functions@^7.2.5 firebase-admin@^13.10.0 express@^5.2.1 zod@^4.4.3
 # Dev
-npm install -D jest ts-jest @types/jest @types/express supertest @types/supertest
-# (typescript, eslint, firebase config come from the scaffold)
+npm install -D jest@^30.4.2 ts-jest@^29.4.11 @types/jest@^30.0.0 \
+  @types/express@^5.0.6 supertest@^7.2.2 @types/supertest@^7.2.0
+# typescript (^5.x), eslint, firebase config come from the scaffold
 ```
 
-**Version verification (planner's FIRST task — required, versions above are unverified):**
+**Re-verify at scaffold (versions move; confirm before committing pins):**
 ```bash
-for p in firebase-functions firebase-admin express zod typescript firebase-tools jest ts-jest; do \
+for p in firebase-functions firebase-admin express zod typescript jest ts-jest supertest; do \
   echo "$p=$(npm view $p version)"; done
+node --version && npm --version && firebase --version && java -version
 ```
-Pin the actual output. Prefer whatever `firebase init functions` installs for `firebase-functions`/`firebase-admin`/`typescript`/eslint — that combination is guaranteed mutually compatible.
 
 ## Architecture Patterns
 
@@ -153,16 +165,16 @@ Flutter client (Phase 11)                          backend/  (this phase)
   Authorization: Bearer <Firebase ID token>        │  Cloud Function "api" (2nd gen, Node 20)  │
         │                                           │   us-central1                             │
         ▼                                           │   ┌─────────── Express app ───────────┐  │
-  HTTPS  ───────────────────────────────────────►  │   │ JSON body already parsed by         │  │
-                                                    │   │ firebase-functions (req.body ready) │  │
-                                                    │   │                                     │  │
+  HTTPS  ───────────────────────────────────────►  │   │ JSON body parsed (firebase-functions│  │
+                                                    │   │ on real path / express.json() for   │  │
+                                                    │   │ supertest — see Pitfall 2)          │  │
                                                     │   │  POST   /trips/sync    ─┐           │  │
                                                     │   │  DELETE /trips/:tripId ─┤ route to  │  │
                                                     │   │  GET    /trips/restore ─┘ handler   │  │
                                                     │   └───────────────┬─────────────────────┘ │
                                                     │                   ▼ (each handler)         │
                                                     │   1. verifyIdToken(Bearer) ──fail──► 401   │
-                                                    │   2. zod.parse(body/params) ─fail──► 400   │
+                                                    │   2. zod.safeParse(body/params) fail► 400  │
                                                     │   3. force userId = token.uid              │
                                                     │   4. Firestore op via Admin SDK            │
                                                     └───────────────────┬───────────────────────┘
@@ -172,10 +184,9 @@ Flutter client (Phase 11)                          backend/  (this phase)
                                                         │   doc id = trip UUID                     │
                                                         │   FirestoreDataConverter<Trip>           │
                                                         │   rules: allow read,write: if false      │
-                                                        │   (clients blocked; only Admin SDK in)   │
                                                         └────────────────────────────────────────┘
 
-Data flow per endpoint:
+Per endpoint:
   sync    → batch set(merge) chunks ≤500 → {syncedIds}
   delete  → get(doc) → ownership check → update(deleted:true, deletedAt:serverTimestamp)
   restore → query where(userId==uid, deleted==false) → Trip[]
@@ -184,29 +195,29 @@ Data flow per endpoint:
 ### Recommended Project Structure
 ```
 backend/
-├── firebase.json            # functions + firestore + emulators block (D-14)
+├── firebase.json            # functions + firestore + emulators (D-14)
 ├── .firebaserc              # default project travey-298a7 (D-01)
 ├── firestore.rules          # deny-all (D-13)
 └── functions/
-    ├── package.json         # engines.node "20", main, build/serve/deploy/test scripts
+    ├── package.json         # engines.node "20"; main; build/serve/deploy/test scripts
     ├── tsconfig.json        # strict; outDir lib; rootDir src
-    ├── tsconfig.dev.json    # scaffold default (lints config files)
+    ├── tsconfig.dev.json    # scaffold default
     ├── .eslintrc.js         # scaffold default
     ├── jest.config.js       # ts-jest preset
     └── src/
-        ├── index.ts                 # admin.initializeApp(); Express app; export const api = onRequest(app)
+        ├── index.ts                 # initializeApp(); Express app; export const api = onRequest(app)
         ├── handlers/
         │   ├── sync-trips.ts        # POST /trips/sync   (BACK-02)
         │   ├── delete-trip.ts       # DELETE /trips/:tripId (BACK-03)
         │   └── restore-trips.ts     # GET /trips/restore (BACK-04)
         ├── utils/
-        │   ├── auth.ts              # verifyBearer(req) -> DecodedIdToken | throws 401
-        │   ├── firestore.ts         # tripConverter, tripsCollection() helper
+        │   ├── auth.ts              # verifyBearer(req) -> DecodedIdToken | throws AuthError
+        │   ├── firestore.ts         # tripConverter, tripsCollection()
         │   ├── validation.ts        # zod schemas (tripSchema, syncBodySchema, tripIdParam)
         │   └── respond.ts           # send(res, statusCode, {data?|error?}) — D-06 shape
-        └── types/
-            └── trip.ts              # shared Trip TS type (contract w/ Phase 11)  ← z.infer
-        └── __tests__/  (or test/)
+        ├── types/
+        │   └── trip.ts              # shared Trip TS type (contract w/ Phase 11) ← z.infer
+        └── __tests__/
             ├── helpers/emulator-token.ts   # mint ID token vs auth emulator
             ├── sync-trips.test.ts
             ├── delete-trip.test.ts
@@ -215,7 +226,7 @@ backend/
 
 ### Pattern 1: `index.ts` — Express under a single v2 `onRequest`
 ```typescript
-// Source: Firebase docs "HTTP functions" + "Express integration" pattern (CITED: firebase.google.com/docs/functions/http-events)
+// Source: Firebase HTTP functions + Express integration (CITED: firebase.google.com/docs/functions/http-events)
 import {onRequest} from "firebase-functions/v2/https";
 import {setGlobalOptions} from "firebase-functions/v2";
 import {initializeApp} from "firebase-admin/app";
@@ -225,22 +236,17 @@ import {syncTrips} from "./handlers/sync-trips";
 import {deleteTrip} from "./handlers/delete-trip";
 import {restoreTrips} from "./handlers/restore-trips";
 
-initializeApp();                          // no args: ADC in prod, emulator env in tests
+initializeApp();                          // no args: ADC in prod; emulator hosts via env in tests
 setGlobalOptions({region: "us-central1"}); // D-02
 
-const app = express();
-// NOTE: do NOT add express.json() blindly — see Pitfall 2. firebase-functions
-// already parses JSON onto req.body for application/json. express.json() is a
-// harmless no-op on an already-parsed body in most cases, but the documented,
-// safe stance is to rely on req.body being populated. Add express.json() only
-// if you hit an unparsed-body case under supertest (supertest hits Express
-// directly, bypassing the functions parser — see test note).
+export const app = express();             // export so supertest can hit it in-process
+app.use(express.json());                  // see Pitfall 2 — required for supertest; near-no-op on real path
 app.post("/trips/sync", syncTrips);
-app.delete("/trips/:tripId", deleteTrip);
+app.delete("/trips/:tripId", deleteTrip);  // named param — unchanged in Express 4 AND 5
 app.get("/trips/restore", restoreTrips);
 
-// Single deployable. Full URL in prod:
-// https://us-central1-travey-298a7.cloudfunctions.net/api/trips/sync
+// Single deployable. Prod URL (2nd gen Cloud Run-backed):
+//   https://api-<hash>-uc.a.run.app/trips/sync   (or the cloudfunctions.net alias)
 export const api = onRequest(app);
 ```
 
@@ -258,17 +264,17 @@ export async function verifyBearer(req: Request): Promise<DecodedIdToken> {
   const match = /^Bearer (.+)$/.exec(header);
   if (!match) throw new AuthError("Missing or malformed Authorization header");
   try {
-    return await getAuth().verifyIdToken(match[1]); // works against emulator when FIREBASE_AUTH_EMULATOR_HOST set
+    return await getAuth().verifyIdToken(match[1]); // accepts emulator tokens when FIREBASE_AUTH_EMULATOR_HOST set
   } catch {
-    throw new AuthError("Invalid or expired token"); // never echo the underlying error/token
+    throw new AuthError("Invalid or expired token"); // never echo underlying error/token
   }
 }
 ```
 
-### Pattern 3: Typed `FirestoreDataConverter<Trip>` — `utils/firestore.ts` + `types/trip.ts`
+### Pattern 3: Typed `FirestoreDataConverter<Trip>` — `types/trip.ts` + `utils/firestore.ts`
 ```typescript
-// types/trip.ts — the cross-phase contract (mirror Drift trips_table.dart)
-import {Timestamp} from "firebase-admin/firestore";
+// types/trip.ts — cross-phase contract (mirror Drift trips_table.dart)
+import {Timestamp, FieldValue} from "firebase-admin/firestore";
 
 export interface Trip {
   id: string;
@@ -286,21 +292,28 @@ export interface Trip {
   updatedAt: string;          // ISO 8601 UTC string
 }
 
-// Stored doc = Trip + server metadata (D-10)
+// On-read shape: Trip + resolved server metadata (D-10)
 export interface TripDoc extends Trip {
   deleted: boolean;
   deletedAt: Timestamp | null;
-  serverUpdatedAt: Timestamp; // FieldValue.serverTimestamp() resolves to Timestamp on read
+  serverUpdatedAt: Timestamp;
 }
+
+// On-write shape: serverUpdatedAt / deletedAt may be FieldValue sentinels.
+// Use this (NOT `any`/`never`) to satisfy strict TS — resolves Pitfall 7.
+export type TripWrite = Omit<TripDoc, "serverUpdatedAt" | "deletedAt"> & {
+  serverUpdatedAt: FieldValue;
+  deletedAt: FieldValue | Timestamp | null;
+};
 ```
 ```typescript
 // utils/firestore.ts
-// Source: Admin SDK FirestoreDataConverter (CITED: firebase.google.com/docs/reference/admin/node/...FirestoreDataConverter)
+// Source: Admin SDK FirestoreDataConverter (CITED: firebase.google.com/docs/firestore/manage-data/add-data#custom_objects)
 import {getFirestore, FirestoreDataConverter, QueryDocumentSnapshot} from "firebase-admin/firestore";
 import type {TripDoc} from "../types/trip";
 
 export const tripConverter: FirestoreDataConverter<TripDoc> = {
-  toFirestore: (t) => t,                       // we pass full objects; metadata set explicitly in handlers
+  toFirestore: (t) => t,
   fromFirestore: (snap: QueryDocumentSnapshot) => snap.data() as TripDoc,
 };
 
@@ -310,12 +323,13 @@ export const tripsCollection = () =>
 
 ### Pattern 4: Full handler — `handlers/sync-trips.ts` (verify → validate → trust → write, D-07/08/12)
 ```typescript
-// Source: composed from Admin SDK batch docs (CITED: firebase.google.com/docs/firestore/manage-data/transactions#batched-writes)
+// Source: composed from Admin SDK batched-writes (CITED: firebase.google.com/docs/firestore/manage-data/transactions#batched-writes)
 import type {Request, Response} from "express";
 import {getFirestore, FieldValue} from "firebase-admin/firestore";
 import {verifyBearer, AuthError} from "../utils/auth";
 import {syncBodySchema} from "../utils/validation";
 import {tripsCollection} from "../utils/firestore";
+import type {TripWrite} from "../types/trip";
 
 const BATCH_LIMIT = 500; // D-12
 
@@ -324,49 +338,56 @@ export async function syncTrips(req: Request, res: Response): Promise<void> {
   let uid: string;
   try { uid = (await verifyBearer(req)).uid; }
   catch (e) {
-    if (e instanceof AuthError) { res.status(401).json({error: e.message}); return; }
-    res.status(401).json({error: "Unauthorized"}); return;
+    res.status(401).json({error: e instanceof AuthError ? e.message : "Unauthorized"});
+    return;
   }
   // 2. VALIDATE (D-07) — safeParse, never throw to client
   const parsed = syncBodySchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({error: "Invalid request body"}); return; }
 
   // 3. TRUST — force ownership (D-08), chunk batches (D-12)
-  const trips = parsed.data.trips;
   const db = getFirestore();
   const col = tripsCollection();
+  const trips = parsed.data.trips;
   const syncedIds: string[] = [];
 
   for (let i = 0; i < trips.length; i += BATCH_LIMIT) {
     const batch = db.batch();
     for (const t of trips.slice(i, i + BATCH_LIMIT)) {
-      batch.set(
-        col.doc(t.id),
-        {
-          ...t,
-          userId: uid,                         // overwrite any client userId (D-08)
-          deleted: false,                       // re-synced trip resurfaces (D-11)
-          deletedAt: null,
-          serverUpdatedAt: FieldValue.serverTimestamp(),
-        } as never,                             // converter typing; keep strict — see Open Q
-        {merge: true},                          // idempotent upsert (D-12)
-      );
+      const write: TripWrite = {
+        ...t,
+        userId: uid,                              // overwrite any client userId (D-08)
+        deleted: false,                           // re-synced trip resurfaces (D-11)
+        deletedAt: null,
+        serverUpdatedAt: FieldValue.serverTimestamp(),
+      };
+      batch.set(col.doc(t.id), write as unknown as Parameters<typeof batch.set>[1], {merge: true});
       syncedIds.push(t.id);
     }
-    await batch.commit();
+    await batch.commit();                         // atomic per chunk
   }
-  res.status(200).json({data: {syncedIds}}); // D-06 (statusCode mirrored by res.status)
+  res.status(200).json({data: {syncedIds}});      // D-06
 }
 ```
-> Note for planner: the `as never` cast is a placeholder to flag the converter/`FieldValue` typing friction — see Open Questions. Prefer a typed write-shape interface (`TripWrite`) over a cast to honor "no `any`". CLAUDE.md forbids `any`; `as never`/`as unknown` should also be avoided in the final code.
+> Typing note: `TripWrite` (Pattern 3) keeps this `any`-free. The `as unknown as ...` on `batch.set` only bridges the converter's `WithFieldValue` typing; planner may instead drop the converter on writes and use a plain `getFirestore().collection("trips").doc(id)` typed via `TripWrite`. Either path avoids `any`. **Final code must contain no `any`** (CLAUDE.md). See Open Q5.
 
 ### Pattern 5: Delete handler core (ownership read-check, D-08/D-11)
 ```typescript
-const ref = tripsCollection().doc(tripIdParam.parse(req.params.tripId));
+import {tripIdParam} from "../utils/validation";
+// uid already obtained via verifyBearer
+const idParse = tripIdParam.safeParse(req.params.tripId);
+if (!idParse.success) { res.status(400).json({error: "Invalid trip id"}); return; }
+
+const ref = tripsCollection().doc(idParse.data);
 const snap = await ref.get();
-if (!snap.exists) { res.status(404).json({error: "Not found"}); return; }
-if (snap.data()!.userId !== uid) { res.status(404).json({error: "Not found"}); return; } // 404 not 403 — don't leak existence
-await ref.update({deleted: true, deletedAt: FieldValue.serverTimestamp(), serverUpdatedAt: FieldValue.serverTimestamp()});
+if (!snap.exists || snap.data()!.userId !== uid) {
+  res.status(404).json({error: "Not found"}); return;   // 404 (not 403) — don't leak existence
+}
+await ref.update({
+  deleted: true,
+  deletedAt: FieldValue.serverTimestamp(),
+  serverUpdatedAt: FieldValue.serverTimestamp(),
+});
 res.status(200).json({data: {id: ref.id}});
 ```
 
@@ -377,7 +398,7 @@ const snap = await tripsCollection()
   .where("deleted", "==", false)
   .get();
 const trips = snap.docs.map((d) => {
-  const {deleted, deletedAt, serverUpdatedAt, ...trip} = d.data(); // strip server metadata; return pure Trip
+  const {deleted, deletedAt, serverUpdatedAt, ...trip} = d.data(); // strip server metadata → pure Trip
   return trip;
 });
 res.status(200).json({data: {trips}});
@@ -403,7 +424,8 @@ service cloud.firestore {
     "predeploy": ["npm --prefix \"$RESOURCE_DIR\" run build"]
   },
   "firestore": {
-    "rules": "firestore.rules"
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
   },
   "emulators": {
     "auth": {"port": 9099},
@@ -414,40 +436,69 @@ service cloud.firestore {
   }
 }
 ```
-> Omit a `firestore.indexes` entry only if the composite query (`userId ==` + `deleted ==`) does not need a composite index. Firestore needs a composite index for a query combining two equality filters on different fields **only in some cases** — equality-only on two fields is auto-indexed by single-field indexes in many cases, but Firestore may still require a composite index. **Plan to capture the index requirement at first run** (the emulator/console prints the exact index URL). See Open Questions.
+> Ship a `firestore.indexes.json` (even `{"indexes":[],"fieldOverrides":[]}`) so the indexes target exists. The restore query (`userId ==` + `deleted ==`) is **two equality filters** — these are often serviceable by single-field indexes, but Firestore can still demand a composite index in prod. Plan to verify against real Firestore and add the composite index if demanded (the error gives the exact index-creation URL). See Pitfall 5 / Open Q3.
+
+### Pattern 9: zod schemas — `utils/validation.ts` (mirror Drift fields)
+```typescript
+import {z} from "zod";
+
+export const tripSchema = z.object({
+  id: z.string().uuid(),
+  // userId intentionally NOT required from client — server forces it (D-08).
+  startTime: z.string().datetime(),     // ISO 8601 UTC
+  endTime: z.string().datetime(),
+  durationSeconds: z.number().int().nonnegative(),
+  distanceMeters: z.number().nonnegative(),
+  routePolyline: z.string().nullable(),
+  direction: z.enum(["to_office", "to_home"]),
+  timeMovingSeconds: z.number().int().nonnegative(),
+  timeStuckSeconds: z.number().int().nonnegative(),
+  isManualEntry: z.boolean(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+export const syncBodySchema = z.object({
+  trips: z.array(tripSchema).min(1).max(1000),   // .max caps DoS (Open Q4)
+});
+
+export const tripIdParam = z.string().uuid();
+```
+> Note: client sends camelCase JSON matching this schema (the Phase 11 `api_client` contract). The Drift table stores camelCase Dart identifiers → snake_case SQL; the **JSON over the wire is camelCase** to match `types/trip.ts`. Lock this with Phase 11. If the client instead sends `userId`, the server ignores it (D-08) — keep `userId` out of the required schema or `.strip()` it.
 
 ### Anti-Patterns to Avoid
-- **Shared auth middleware that mutates `req` then handlers "trust" it.** CLAUDE.md/D-05 require verify→validate→trust *inside each handler*. Keep `verifyBearer(req)` as the first call in every handler, not Express middleware.
-- **Returning 403 on cross-user delete.** Use 404 to avoid leaking that another user's trip exists (D-08 says 404/403 — pick 404).
-- **`cloud_firestore` SDK in the Flutter client.** Forbidden; client talks REST only.
+- **Shared auth middleware that mutates `req`, then handlers "trust" it.** D-05/CLAUDE.md require verify→validate→trust *inside each handler*. Keep `verifyBearer(req)` as the first call in every handler.
+- **403 on cross-user delete.** Use **404** to avoid leaking that another user's trip exists (D-08 permits 404/403 — pick 404).
+- **`cloud_firestore` SDK in the Flutter client.** Forbidden; REST only.
 - **Hard delete.** Soft delete only (D-11).
 - **Echoing token/stack traces in error bodies.** D-06.
-- **Express 5 assumptions.** Pin Express 4 unless verified otherwise (routing/path-matching changed in 5).
+- **`any` / `as never` in final code.** Use `TripWrite` (Pattern 3). CLAUDE.md forbids `any`.
+- **Mixing Express 5 runtime with `@types/express` 4** (or vice versa).
 
 ## Don't Hand-Roll
 
 | Problem | Don't Build | Use Instead | Why |
 |---------|-------------|-------------|-----|
-| ID-token verification | Custom JWT/JWKS parse + signature check | `getAuth().verifyIdToken()` | Handles key rotation, revocation, clock skew, emulator mode |
-| Path/method routing | Manual `if (req.method===...)` + URL parse | Express routes | `/:tripId` param extraction, method dispatch (D-04) |
-| Input validation | Manual `typeof` checks | zod `.safeParse` + `z.infer` | Type-safe, generates the `Trip` type, CLAUDE.md mandate |
-| Atomic multi-write | Sequential `await set()` in a loop | `db.batch()` chunked ≤500 | Atomicity per chunk, fewer round-trips, respects 500 limit (D-12) |
-| Server timestamps | `new Date()` on the function host | `FieldValue.serverTimestamp()` | Authoritative server clock, audit-correct (D-10) |
-| Test token minting | Self-sign a JWT | Auth-emulator REST sign-up (below) | Produces a token `verifyIdToken` accepts in emulator mode |
+| ID-token verification | Custom JWT/JWKS parse + signature check | `getAuth().verifyIdToken()` | Key rotation, revocation, clock skew, emulator mode |
+| Path/method routing | Manual `if (req.method===...)` + URL parse | Express routes | `/:tripId` extraction, method dispatch (D-04) |
+| Input validation | Manual `typeof` checks | zod `.safeParse` + `z.infer` | Type-safe; generates `Trip` type; CLAUDE.md mandate |
+| Atomic multi-write | Sequential `await set()` loop | `db.batch()` chunked ≤500 | Atomicity per chunk; fewer round-trips; 500 limit (D-12) |
+| Server timestamps | `new Date()` on function host | `FieldValue.serverTimestamp()` | Authoritative server clock (D-10) |
+| Test token minting | Self-sign a JWT | Auth-emulator REST exchange (below) | Produces a token `verifyIdToken` accepts in emulator mode |
 
-**Key insight:** Every "hard" part here (token verification, atomic writes, server time) is a first-party Admin SDK primitive. The only bespoke code is glue (Express wiring, zod schemas mirroring the Drift table, the response helper).
+**Key insight:** Every hard part (token verify, atomic writes, server time) is a first-party Admin SDK primitive. Bespoke code is just glue: Express wiring, zod schemas mirroring the Drift table, the response helper.
 
 ## Emulator Testing — the token-mint technique (the one tricky bit)
 
-When `FIREBASE_AUTH_EMULATOR_HOST` is set, `getAuth().verifyIdToken()` **skips signature verification** and accepts tokens issued by the auth emulator. So tests must obtain a real emulator-issued ID token. Two reliable approaches:
+When `FIREBASE_AUTH_EMULATOR_HOST` is set, `getAuth().verifyIdToken()` **skips signature verification** and accepts tokens issued by the auth emulator (`[VERIFIED: web — firebase.google.com/docs/emulator-suite/connect_auth]`: "Firebase Admin SDKs accept unsigned ID Tokens issued by the Authentication emulator via verifyIdToken when FIREBASE_AUTH_EMULATOR_HOST is set"). Tests must therefore obtain a real emulator-issued ID token.
 
-**Approach A (recommended) — Admin SDK custom token → emulator REST exchange.** Create a custom token with the Admin SDK, then exchange it for an ID token at the emulator's Identity Toolkit REST endpoint:
+**Approach A (recommended) — Admin custom token → emulator REST exchange (lets you control the uid, needed for ownership tests):**
 ```typescript
 // helpers/emulator-token.ts
-// Source: Firebase auth emulator REST + custom-token exchange (CITED: firebase.google.com/docs/emulator-suite + identitytoolkit REST)
+// Source: auth emulator REST + signInWithCustomToken (CITED: firebase.google.com/docs/emulator-suite/connect_auth)
 import {getAuth} from "firebase-admin/auth";
 
-const AUTH_HOST = process.env.FIREBASE_AUTH_EMULATOR_HOST!; // e.g. "localhost:9099"
+const AUTH_HOST = process.env.FIREBASE_AUTH_EMULATOR_HOST!; // e.g. "127.0.0.1:9099"
 const PROJECT = process.env.GCLOUD_PROJECT ?? "travey-298a7";
 
 export async function mintIdToken(uid: string): Promise<string> {
@@ -459,82 +510,87 @@ export async function mintIdToken(uid: string): Promise<string> {
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({token: customToken, returnSecureToken: true}),
   });
-  const json = (await resp.json()) as {idToken: string};
-  return json.idToken; // verifyIdToken accepts this while emulator host is set
+  if (!resp.ok) throw new Error(`emulator token mint failed: ${resp.status}`);
+  const {idToken} = (await resp.json()) as {idToken: string};
+  return idToken; // verifyIdToken accepts this while emulator host is set
 }
 ```
 
-**Approach B — direct emulator sign-up:** POST to `accounts:signUp?key=fake-api-key` with `{returnSecureToken:true}` to get a brand-new uid + idToken in one call. Use when you don't care about a specific uid. For ownership tests you DO care, so prefer A (control the uid) or B then read the returned `localId` as the uid.
+**Approach B — direct emulator sign-up** (`POST accounts:signUp?key=fake-api-key` with `{returnSecureToken:true}`) returns a fresh uid (`localId`) + idToken in one call. Use when you don't care about the specific uid; for ownership tests prefer A.
 
-**Test setup (Jest), connecting Admin SDK to emulators:**
+> **Known gotcha** (`[VERIFIED: web — firebase-tools issue #5821, #2764]`): emulator ID tokens historically failed `verifyIdToken()` with *"no 'kid' claim"* **only when called outside an emulator-aware context** (e.g. `FIREBASE_AUTH_EMULATOR_HOST` not set in the verifying process). Ensure the SAME process that runs the handlers has `FIREBASE_AUTH_EMULATOR_HOST` set **before** `initializeApp()`. Running tests under `firebase emulators:exec` sets these for you.
+
+**Test setup (Jest) — connect Admin SDK to emulators BEFORE importing index:**
 ```typescript
-// jest setup / beforeAll
-process.env.FIREBASE_AUTH_EMULATOR_HOST = "localhost:9099";
-process.env.FIRESTORE_EMULATOR_HOST = "localhost:8080";
+// e.g. a setup file referenced by jest.config.js `setupFiles`
+process.env.FIREBASE_AUTH_EMULATOR_HOST = "127.0.0.1:9099";
+process.env.FIRESTORE_EMULATOR_HOST = "127.0.0.1:8080";
 process.env.GCLOUD_PROJECT = "travey-298a7"; // singleProjectMode (D-14)
-// import index AFTER env is set so initializeApp() picks up emulator hosts
+// THEN, inside the test: import {app} from "../index"; (env is read at initializeApp)
 ```
 
-**Running tests against the suite:**
+**Running tests:**
 ```bash
 # package.json: "test": "firebase emulators:exec --only auth,firestore,functions 'jest --runInBand'"
 cd backend/functions && npm test
 ```
-`emulators:exec` starts the suite, runs the command, tears down. `--runInBand` avoids cross-test Firestore state races (or clear Firestore between tests via the emulator REST `DELETE /emulator/v1/projects/{p}/databases/(default)/documents`).
+`emulators:exec` starts the suite, runs the command, tears down, and injects the `*_EMULATOR_HOST` env. `--runInBand` avoids Firestore state races; alternatively clear Firestore between tests via the emulator REST `DELETE /emulator/v1/projects/{p}/databases/(default)/documents`.
 
-**Driving the endpoints in tests — two options:**
-1. **supertest against the Express `app`** (fast, in-process): `import {app}` (export it alongside `api`), `await request(app).post('/trips/sync').set('Authorization', 'Bearer '+token).send({trips})`. Note: supertest hits Express directly, bypassing the functions JSON parser — so for supertest you DO need `express.json()` mounted (Pitfall 2).
-2. **fetch against the functions emulator** (true end-to-end): `http://localhost:5001/travey-298a7/us-central1/api/trips/sync`. Exercises the real `onRequest` body parsing.
-> Recommendation: use **supertest + `express.json()`** for the bulk of assertions (fast, deterministic), plus optionally one fetch-based smoke per endpoint. Planner decides; both satisfy D-15.
+**Driving endpoints — two options (both satisfy D-15):**
+1. **supertest against the exported `app`** (fast, in-process): `await request(app).post('/trips/sync').set('Authorization', 'Bearer '+token).send({trips})`. Requires `express.json()` mounted (Pitfall 2) because supertest bypasses the functions parser.
+2. **fetch against the functions emulator** (true E2E): `http://127.0.0.1:5001/travey-298a7/us-central1/api/trips/sync`.
+> Recommendation: **supertest + `express.json()`** for the bulk of assertions, plus optionally one fetch smoke per endpoint.
 
 ## Common Pitfalls
 
 ### Pitfall 1: Auth emulator token rejected by `verifyIdToken`
-**What goes wrong:** Tests self-sign a JWT or use a random string → `verifyIdToken` throws.
-**Why:** Even in emulator mode, the token must be issued by the auth emulator (correct `iss`/`aud`/format).
-**How to avoid:** Mint via Approach A/B above. Ensure `FIREBASE_AUTH_EMULATOR_HOST` is set **before** `initializeApp()` runs and before `verifyIdToken` is called.
-**Warning sign:** `auth/argument-error` or `Decoding Firebase ID token failed`.
+**What goes wrong:** Tests self-sign a JWT / use a random string → `verifyIdToken` throws (`auth/argument-error`, or "no 'kid' claim").
+**Why:** Even in emulator mode the token must be issued by the auth emulator, and the verifying process must have `FIREBASE_AUTH_EMULATOR_HOST` set before `initializeApp()`.
+**How to avoid:** Mint via Approach A/B. Set the env first; run under `emulators:exec`.
+**Warning sign:** `Decoding Firebase ID token failed` / `no 'kid' claim`.
 
-### Pitfall 2: Express body parsing under `onRequest` vs supertest
-**What goes wrong:** Adding `express.json()` "just in case", OR omitting it and finding `req.body` empty under supertest.
-**Why:** `firebase-functions` parses JSON onto `req.body` for the real `onRequest` path; supertest calls Express directly and does NOT go through that parser.
-**How to avoid:** Mount `express.json()` (it makes supertest work and is a near-no-op for already-parsed bodies in the functions path). Test both a supertest path and one real-emulator fetch to confirm. Verify behavior once at scaffold time rather than assuming.
-**Warning sign:** Handler sees `undefined` body in tests but works deployed (or vice versa).
+### Pitfall 2: Express body parsing — `onRequest` vs supertest
+**What goes wrong:** Omitting `express.json()` → `req.body` undefined under supertest; or worrying about double-parse on the real path.
+**Why:** `firebase-functions` parses JSON onto `req.body` on the real `onRequest` path; supertest calls Express directly and does NOT.
+**How to avoid:** Mount `express.json()` (Pattern 1). It makes supertest work and is effectively a no-op on already-populated bodies. Verify once with a real-emulator fetch.
+**Warning sign:** Handler sees `undefined` body in tests but works deployed.
 
 ### Pitfall 3: Cold start latency (2nd gen)
 **What goes wrong:** First request after idle is slow (Node + Admin SDK init).
-**Why:** Cloud Functions scale to zero; cold start pays init cost.
-**How to avoid:** Call `initializeApp()` once at module top (not per request). For v0.1 background sync, cold start is acceptable (no UI blocking — client is fire-and-forget per architecture). Do NOT add `minInstances` (cost) for v0.1. Note for Phase 11: client must tolerate first-call latency.
-**Warning sign:** Occasional multi-second first response; fine for this use case.
+**Why:** Functions scale to zero.
+**How to avoid:** `initializeApp()` once at module top (not per request). For v0.1 background sync this is acceptable (client is fire-and-forget per architecture). Do NOT set `minInstances` (cost). Note for Phase 11: client must tolerate first-call latency.
 
-### Pitfall 4: `/trips/:tripId` not matching / wrong method
-**What goes wrong:** DELETE to `/trips/abc` 404s, or POST hits the param route.
-**Why:** Route order / method mismatch, or Express 5 path-matching change.
-**How to avoid:** Register `post('/trips/sync')` and `get('/trips/restore')` (static) before/independently of `delete('/trips/:tripId')`; methods disambiguate. Pin Express 4.
-**Warning sign:** Param routes swallowing static paths.
+### Pitfall 4: `/trips/:tripId` routing / method mismatch
+**What goes wrong:** DELETE to `/trips/abc` 404s, or a static path hits the param route.
+**Why:** Route/method confusion.
+**How to avoid:** Static routes (`post /trips/sync`, `get /trips/restore`) and the param route (`delete /trips/:tripId`) are disambiguated by HTTP method — order doesn't matter here. Named params work identically in Express 4 and 5 (`[VERIFIED: web]`). Only Express 5's `*` wildcard changed — not used here.
+**Warning sign:** Unexpected 404 on a valid path+method.
 
-### Pitfall 5: Composite index required for restore query
-**What goes wrong:** `where('userId','==').where('deleted','==')` errors in prod with "needs an index".
-**Why:** Firestore may require a composite index for multi-field queries.
-**How to avoid:** Run the query against the emulator/prod once; if it demands an index, capture the generated `firestore.indexes.json` and add to `firebase.json` + deploy with `--only firestore:indexes`. The emulator is more lenient than prod — **test the query against real Firestore before declaring done**, or proactively define the composite index.
-**Warning sign:** `FAILED_PRECONDITION: The query requires an index` (only surfaces in prod).
+### Pitfall 5: Composite index for the restore query
+**What goes wrong:** `where('userId','==').where('deleted','==')` errors in prod with "query requires an index".
+**Why:** Firestore may require a composite index; the emulator is more lenient than prod.
+**How to avoid:** Test the query against **real** Firestore before declaring done, or proactively add the composite index to `firestore.indexes.json` and deploy `--only firestore:indexes`. The prod error includes the exact index-creation URL.
+**Warning sign:** `FAILED_PRECONDITION: The query requires an index` — only surfaces in prod, not the emulator.
 
-### Pitfall 6: Deploy ordering (functions vs rules)
-**What goes wrong:** Functions deploy but rules don't, leaving Firestore open, or vice versa.
-**Why:** Separate deploy targets.
-**How to avoid:** Deploy both: `cd backend && firebase deploy --only functions,firestore:rules`. Rules are independent of function readiness; order doesn't strictly matter, but deploy rules so the deny-all is live. CLAUDE.md lists them as separate commands; the combined `--only functions,firestore:rules` does both in one call.
-**Warning sign:** Console shows old rules / "allow if false" missing.
+### Pitfall 6: Deploy ordering (functions vs rules) + provisioning
+**What goes wrong:** Functions deploy but rules don't (Firestore left open), or Firestore DB isn't provisioned at all.
+**Why:** Separate deploy targets; Firestore Native DB must exist in the project.
+**How to avoid:** From `backend/`: `firebase deploy --only functions,firestore:rules`. Ensure the Firestore (Native mode) database exists in `travey-298a7` first (console or `firebase firestore:databases:create`). Order between functions and rules doesn't matter, but deploy rules so deny-all is live.
+**Warning sign:** Console shows missing deny-all rules, or deploy errors "Firestore database not found".
 
 ### Pitfall 7: `FieldValue.serverTimestamp()` + converter typing (no `any`)
-**What goes wrong:** `serverUpdatedAt: FieldValue` vs the `Timestamp` field type → TS error; tempting `as any`.
-**Why:** Write-time value is a sentinel; read-time value is a `Timestamp`. CLAUDE.md forbids `any`.
-**How to avoid:** Define a separate write interface (e.g. `type TripWrite = Omit<TripDoc,'serverUpdatedAt'|'deletedAt'> & {serverUpdatedAt: FieldValue; deletedAt: FieldValue|Timestamp|null}`), or use `WithFieldValue<TripDoc>` from the Admin SDK. Avoid `as never`/`as any` in final code.
+**What goes wrong:** Write-time `FieldValue` sentinel vs read-time `Timestamp` field type → TS error; tempting `as any`.
+**How to avoid:** Use the `TripWrite` interface (Pattern 3) / `WithFieldValue<TripDoc>`. CLAUDE.md forbids `any`.
 **Warning sign:** Type errors around `set()`/`update()` payloads.
 
 ### Pitfall 8: `singleProjectMode` + project id mismatch
-**What goes wrong:** Emulator uses a different project id than the Admin SDK → data not visible / token aud mismatch.
-**Why:** `GCLOUD_PROJECT` / `.firebaserc` must agree (`travey-298a7`).
-**How to avoid:** Set `GCLOUD_PROJECT=travey-298a7` in test env; `.firebaserc` default = same; `singleProjectMode:true`.
+**What goes wrong:** Emulator project id ≠ Admin SDK project id → data invisible / token aud mismatch.
+**How to avoid:** `GCLOUD_PROJECT=travey-298a7` in test env; `.firebaserc` default = same; `singleProjectMode:true`.
+
+### Pitfall 9: Wrong `engines.node` blocks deploy
+**What goes wrong:** Setting `engines.node` to local Node (25) → deploy rejected ("unsupported runtime").
+**Why:** Only Node 20/22/24 are accepted runtimes (`[VERIFIED: web — firebase.google.com/docs/functions/manage-functions]`); 18 deprecated, 14/16 decommissioned.
+**How to avoid:** `engines.node: "20"` (locked D-02) or `"22"` (recommended). Local Node 25 still builds/tests fine; the runtime pin is independent of the local interpreter.
 
 ## Runtime State Inventory
 
@@ -542,42 +598,41 @@ cd backend/functions && npm test
 
 | Category | Items Found | Action Required |
 |----------|-------------|------------------|
-| Stored data | None — Firestore `trips` collection does not exist yet; created on first write. | None |
-| Live service config | Firebase project `travey-298a7` exists (used by Phase 9 Auth). This phase ADDS Cloud Functions + Firestore + rules to it. Firestore database must be **provisioned (Native mode)** in the project before first deploy/use. | Verify/create Firestore (Native mode) in console; deploy functions + rules |
+| Stored data | None — Firestore `trips` collection doesn't exist yet; created on first write. | None |
+| Live service config | Firebase project `travey-298a7` exists (Phase 9 Auth). This phase ADDS Functions + Firestore + rules. Firestore (Native mode) DB must be **provisioned** before first prod deploy. | Verify/create Firestore Native DB; deploy functions + rules |
 | OS-registered state | None | None |
-| Secrets/env vars | No new secrets for v0.1 (Admin SDK uses ADC in deployed functions; no API keys needed server-side). Phase 9 client already holds the Firebase config. | None |
-| Build artifacts | None yet — `backend/functions/lib/` (TS output) and `node_modules/` will be generated; add to `.gitignore` (scaffold default does this). | Ensure `lib/` + `node_modules/` gitignored |
+| Secrets/env vars | No new secrets for v0.1 (deployed functions use ADC; no server-side API keys). | None |
+| Build artifacts | `backend/functions/lib/` (TS output) + `node_modules/` will be generated. | Ensure both gitignored (scaffold `.gitignore` does this) |
 
-**Verified:** `backend/` directory does not exist (greenfield). Repo-root `firebase.json` is the FlutterFire app config and must not be modified (D-01).
+**Verified:** `backend/` directory does not exist (greenfield). Repo-root `firebase.json` is the FlutterFire app config (projectId `travey-298a7`); there is **no root `.firebaserc`**. Do NOT modify root `firebase.json` (D-01).
 
 ## Environment Availability
 
 | Dependency | Required By | Available | Version | Fallback |
 |------------|------------|-----------|---------|----------|
-| Node.js 20 | Functions runtime + build/test | UNVERIFIED (probe returned empty this session) | — | nvm install 20 |
-| npm | Install deps | UNVERIFIED | — | comes with Node |
-| firebase CLI (`firebase-tools`) | emulators, deploy, init | UNVERIFIED | — | `npm i -g firebase-tools` or local devDep |
-| Java JDK | Firestore + Auth emulators require a JVM | UNVERIFIED | — | install Temurin/OpenJDK 11+ |
-| Firebase project `travey-298a7` | deploy target | Assumed yes (Phase 9 used it) | — | — |
-| Firestore (Native mode) provisioned | restore/sync writes | UNKNOWN — likely NOT yet created | — | Create in console / `firebase firestore:databases:create` |
+| Node.js | build + test (local) | ✓ | **v25.2.1** (local) | — (runtime pin is 20/22, independent) |
+| npm | install deps | ✓ | **11.12.1** | — |
+| firebase CLI | emulators, deploy, init | ✓ | **15.19.0** (`/opt/homebrew/bin/firebase`) | — |
+| Java JDK | Firestore + Auth emulators (JVM processes) | UNVERIFIED (probe not run) | — | install Temurin/OpenJDK 11+ |
+| Firebase project `travey-298a7` | deploy target | ✓ (Phase 9 used it) | — | — |
+| Firestore (Native mode) provisioned | sync/delete/restore in prod | UNKNOWN — likely NOT yet created | — | Create in console / `firebase firestore:databases:create` |
+| Node 20 or 22 runtime acceptance | deploy | ✓ (20 supported, deprecated; 22 recommended) | — | use 22 if 20 rejected |
 
-**Missing/unverified with action needed:**
-- **Java JDK** — the Firestore and Auth emulators are Java processes. If absent, `firebase emulators:start` fails. Planner's environment-setup task must verify `java -version`.
-- **Firestore database provisioning** — must exist (Native mode) in `travey-298a7` before live deploy. Emulator does not need it; prod does.
-- **firebase CLI + Node 20** — confirm at scaffold (the version-verification task covers this).
-
-> All availability probes in this research session returned empty output (sandbox/network). Planner's first task MUST re-run these checks: `node --version`, `npm --version`, `firebase --version`, `java -version`.
+**Action items for planner's environment-setup task:**
+- **`java -version`** — emulators are Java; install JDK if missing (the one un-probed dependency).
+- **Provision Firestore (Native mode)** in `travey-298a7` before live deploy (success criteria 1–3 fail in prod without it).
+- Confirm `engines.node` = `"20"` deploys cleanly; if Firebase warns/blocks, surface the Node 22 recommendation to the user (Open Q2).
 
 ## Validation Architecture
 
-> nyquist_validation = true in config.json → section included.
+> nyquist_validation = true → section included.
 
 ### Test Framework
 | Property | Value |
 |----------|-------|
-| Framework | Jest + ts-jest (recommended; Firebase scaffold default) — version verify (`^29.x` `[ASSUMED]`) |
+| Framework | Jest 30.4.2 + ts-jest 29.4.11 (`[VERIFIED: npm]`; Firebase scaffold default) |
 | Config file | `backend/functions/jest.config.js` — **does not exist (Wave 0)** |
-| Quick run command | `cd backend/functions && jest <file> --runInBand` (inside a running emulator, or use exec) |
+| Quick run command | `cd backend/functions && jest <file> --runInBand` (inside a running emulator) |
 | Full suite command | `cd backend/functions && npm test` → `firebase emulators:exec --only auth,firestore,functions 'jest --runInBand'` |
 
 ### Phase Requirements → Test Map
@@ -592,21 +647,21 @@ cd backend/functions && npm test
 | BACK-03 | user A cannot delete B's trip → 404 | integration (ownership) | `jest delete-trip.test.ts -t "ownership"` | ❌ Wave 0 |
 | BACK-04 | restore no/invalid token → 401 | integration | `jest restore-trips.test.ts -t "auth reject"` | ❌ Wave 0 |
 | BACK-04 | restore returns only non-deleted for uid | integration | `jest restore-trips.test.ts -t "happy path"` | ❌ Wave 0 |
-| BACK-04 | restore excludes other users' trips | integration (ownership) | `jest restore-trips.test.ts -t "ownership"` | ❌ Wave 0 |
-| (rules) | deny-all blocks direct client read/write | optional rules test (`@firebase/rules-unit-testing`) | — | ❌ optional |
+| BACK-04 | restore excludes other users' / deleted trips | integration (ownership) | `jest restore-trips.test.ts -t "ownership"` | ❌ Wave 0 |
+| (rules) | deny-all blocks direct client read/write | optional (`@firebase/rules-unit-testing`) | — | ❌ optional |
 
 ### Sampling Rate
-- **Per task commit:** the single handler's test file via `jest <file> --runInBand` (inside emulator).
+- **Per task commit:** the handler's test file via `jest <file> --runInBand` (inside emulator).
 - **Per wave merge:** full `npm test` (emulators:exec + jest).
-- **Phase gate:** full suite green + a live deploy smoke (curl one endpoint with a real token) before `/gsd-verify-work`.
+- **Phase gate:** full suite green + a live-deploy smoke (curl one endpoint with a real token) before `/gsd-verify-work`.
 
 ### Wave 0 Gaps
-- [ ] `backend/functions/jest.config.js` — ts-jest preset
+- [ ] `backend/functions/jest.config.js` — ts-jest preset + `setupFiles` for emulator env
 - [ ] `backend/functions/src/__tests__/helpers/emulator-token.ts` — `mintIdToken(uid)`
 - [ ] `backend/functions/src/__tests__/sync-trips.test.ts` — BACK-02
 - [ ] `backend/functions/src/__tests__/delete-trip.test.ts` — BACK-03
 - [ ] `backend/functions/src/__tests__/restore-trips.test.ts` — BACK-04
-- [ ] Framework install: `npm i -D jest ts-jest @types/jest supertest @types/supertest`
+- [ ] Framework install: `npm i -D jest@^30 ts-jest@^29.4 @types/jest@^30 supertest@^7 @types/supertest@^7`
 - [ ] Emulator env bootstrap (set `*_EMULATOR_HOST` + `GCLOUD_PROJECT` before importing index)
 
 ## Security Domain
@@ -617,84 +672,72 @@ cd backend/functions && npm test
 | ASVS Category | Applies | Standard Control |
 |---------------|---------|-----------------|
 | V2 Authentication | yes | Firebase ID-token verification (`verifyIdToken`) at every handler entry (D-07) |
-| V3 Session Management | no (stateless) | Tokens are short-lived JWTs; no server session. Token expiry handled by `verifyIdToken`. |
-| V4 Access Control | yes | Server-forced ownership (D-08): `userId = uid`; delete read-check; restore filtered by uid |
-| V5 Input Validation | yes | zod `.safeParse` at handler entry (D-07); reject 400 on failure |
+| V3 Session Management | no (stateless) | Short-lived JWTs; expiry via `verifyIdToken`; no server session |
+| V4 Access Control | yes | Server-forced ownership (D-08): `userId = uid`; delete read-check; restore filter |
+| V5 Input Validation | yes | zod `.safeParse` at handler entry (D-07) → 400 |
 | V6 Cryptography | no (delegated) | No custom crypto; Firebase/Admin SDK handle JWT signing/verification |
 | V7 Error/Logging | yes | No stack traces/tokens in responses (D-06); log server-side only |
-| V13 API/Web Service | yes | REST over HTTPS; deny-all Firestore rules (D-13); CORS — see below |
+| V13 API/Web Service | yes | REST over HTTPS; deny-all Firestore rules (D-13); CORS — see note |
 
 ### Known Threat Patterns
 | Pattern | STRIDE | Standard Mitigation |
 |---------|--------|---------------------|
-| Cross-user write (client sets someone else's userId) | Tampering / Elevation | Server overwrites `userId` with token uid (D-08) |
-| Cross-user delete/restore | Elevation / Info disclosure | Ownership read-check (404, not 403, to avoid existence leak) |
+| Cross-user write (client sets foreign userId) | Tampering / Elevation | Server overwrites `userId` with token uid (D-08) |
+| Cross-user delete/restore | Elevation / Info disclosure | Ownership read-check (404, not 403) |
 | Forged / replayed token | Spoofing | `verifyIdToken` (signature, exp, revocation) |
 | Direct Firestore access bypassing functions | Tampering | Deny-all rules (D-13) — Admin SDK only |
-| Injection via trip fields | Tampering | zod typed validation; Firestore is not SQL (no injection sink), but validate shapes |
+| Malformed trip fields | Tampering | zod typed validation (Firestore is not SQL — no injection sink, but validate shapes) |
 | Info disclosure via errors | Info disclosure | Generic error bodies; no stack/token echo (D-06) |
-| DoS via huge sync batch | DoS | Chunk ≤500 (D-12); consider a max-trips cap in zod (e.g. `.max(N)`) — see Open Q |
+| DoS via huge sync batch | DoS | Chunk ≤500 (D-12) + zod `.max(1000)` on the array (Open Q4) |
 
-**CORS note:** The client is the native http package (Flutter), **not a browser** — CORS is a browser-enforced mechanism and does not apply to native mobile requests. No CORS config is required for the Flutter client. (If the API were ever called from a web origin, add `cors` middleware; out of scope for v0.1 Android-only.) `[VERIFIED: reasoning — CORS is browser-origin enforcement; native HTTP clients don't send Origin/aren't subject to it]`
+**CORS note:** `[VERIFIED: reasoning]` The client is the native Flutter `http` package, **not a browser** — CORS is browser-origin enforcement and does not apply to native mobile requests. No CORS config needed for v0.1 (Android-only). If a web origin ever calls the API, add the `cors` option to `onRequest` or `cors` middleware (out of scope).
 
 ## Assumptions Log
 
+> Most prior assumptions were RESOLVED by live `npm view` + web search this session. Remaining items:
+
 | # | Claim | Section | Risk if Wrong |
 |---|-------|---------|---------------|
-| A1 | `firebase-functions ^6.x` is current | Standard Stack | Low — `firebase init functions` installs the correct compatible version; verify with `npm view` |
-| A2 | `firebase-admin ^13.x` is current | Standard Stack | Low — same; API surface (`getAuth`/`getFirestore`/`FieldValue`) stable across recent majors |
-| A3 | Express 4 (not 5) is what the scaffold/examples assume | Standard Stack / Pitfall 4 | Medium — Express 5 changed routing; if scaffold pulls 5, verify `/:tripId` matching + middleware |
-| A4 | `zod ^3.x` | Standard Stack | Low-Med — if `npm view` shows 4.x, confirm `.safeParse`/`z.infer` unchanged before pinning |
-| A5 | Jest/ts-jest `^29.x` | Validation Arch | Low — verify; functions scaffold may pin a specific minor |
-| A6 | `firebase-tools ^14.x` | Standard Stack | Low — use latest CLI |
-| A7 | Firebase functions scaffold default test runner = Jest, module = CommonJS | Test runner rec | Low — long-standing; confirm by running `firebase init functions` |
-| A8 | Auth emulator accepts custom-token→signInWithCustomToken exchange and `verifyIdToken` accepts the result when `FIREBASE_AUTH_EMULATOR_HOST` is set | Emulator Testing | Low-Med — well-documented behavior; confirm endpoint path/key (`fake-api-key`) at first test run |
-| A9 | Node 20 is an accepted Functions 2nd gen runtime as of 2026 | Stack | Low — but **verify Node 20 is not deprecated/EOL for new deploys**; if Firebase has moved minimum to Node 22, bump `engines.node` (D-02 says 20; flag to user if 20 is rejected at deploy) |
-| A10 | Restore query may or may not need a composite index | Pitfall 5 / firebase.json | Medium — must test against real Firestore; capture index if demanded |
-| A11 | Firestore (Native mode) DB not yet provisioned in `travey-298a7` | Environment / Runtime State | Medium — must create before live deploy; blocks success criterion 1-3 in prod if missing |
+| A1 | Java JDK is installed (emulators need a JVM) — NOT probed this session | Environment | Medium — `emulators:start` fails without it; planner must run `java -version` |
+| A2 | Firestore (Native mode) DB not yet provisioned in `travey-298a7` | Environment / Runtime State | Medium — must create before live deploy; blocks prod success criteria 1–3 if missing |
+| A3 | Node 20 still deploys cleanly mid-2026 (supported but deprecated) | Pitfall 9 / Open Q2 | Low — verified supported; if Firebase blocks at deploy, bump to 22 and notify user (D-02 locks 20) |
+| A4 | `pin typescript ^5.x` (not 6) for ts-jest/eslint compatibility | Standard Stack | Low-Med — TS6 latest exists but ts-jest 29.4 validated on TS5; use scaffold-installed TS |
+| A5 | Restore two-equality query may need a composite index in prod | Pitfall 5 / Open Q3 | Medium — verify against real Firestore; add index if demanded |
+| A6 | Auth-emulator `signInWithCustomToken` exchange works with `key=fake-api-key` | Emulator Testing | Low — documented + corroborated by firebase-tools issues; confirm exact response at first run |
+| A7 | Over-the-wire JSON is camelCase (matches `types/trip.ts`), client omits `userId` | Pattern 9 | Low-Med — lock the payload contract with Phase 11 |
 
-> **All version pins are unverified this session.** The planner's first task is mandatory `npm view` confirmation (command provided above). Treat the architecture/patterns as HIGH confidence and the numbers as MEDIUM-until-verified.
+**Versions are VERIFIED** (npm registry, 2026-06-01): firebase-functions 7.2.5, firebase-admin 13.10.0, express 5.2.1, zod 4.4.3, typescript 6.0.3, firebase-tools 15.19.0, jest 30.4.2, ts-jest 29.4.11, @types/jest 30.0.0, @types/express 5.0.6, supertest 7.2.2, @types/supertest 7.2.0, firebase-functions-test 3.5.0.
 
 ## Open Questions
 
-1. **Exact current versions of all deps.**
-   - What we know: rough major lines (Assumptions Log).
-   - What's unclear: exact `npm view` numbers; whether scaffold pulls Express 4 vs 5, zod 3 vs 4.
-   - Recommendation: planner's Task 1 runs the `npm view` loop and pins; prefer scaffold-installed versions for first-party packages.
+1. **Express 4 vs 5 (planner picks).** Both support the locked named-param routes identically. Default to 5 (current major + `@types/express 5`) unless tutorial-parity with v4 is preferred. Decide and keep `express` + `@types/express` on the same major.
 
-2. **Node 20 still accepted for new 2nd-gen deploys in mid-2026?**
-   - What we know: D-02 locks Node 20.
-   - What's unclear: Firebase periodically raises the minimum runtime / deprecates old Node.
-   - Recommendation: at scaffold, check the deploy warning. If Node 20 is rejected/deprecated, surface to user (it's a locked decision) before bumping to 22.
+2. **Node 20 vs 22 runtime.** D-02 locks **20** (supported but deprecated; Firebase/admin-SDK recommend **22**). Recommendation: deploy with 20 per the lock, but **surface to the user** that 22 is the recommended path — this is a locked decision, so the user should confirm before any change.
 
-3. **Composite index for the restore query.**
-   - What we know: `where(userId==).where(deleted==false)`; emulator is lenient, prod may demand an index.
-   - What's unclear: whether this specific two-equality query needs a composite index.
-   - Recommendation: run the query against prod Firestore (or rely on the error's index-creation URL) and, if required, add `firestore.indexes.json` + deploy `--only firestore:indexes`. Proactively defining it is safe.
+3. **Composite index for the restore query.** Two equality filters may or may not need a composite index in prod. Recommendation: ship `firestore.indexes.json`, run the query against real Firestore, and add/deploy the composite index if Firestore demands it (error URL provides it).
 
-4. **Max trips per sync batch cap.**
-   - What we know: chunking handles >500; but an unbounded request body is a DoS vector.
-   - What's unclear: a sensible upper bound for v0.1.
-   - Recommendation: add a zod `.max()` on the trips array (e.g. 1000) returning 400 if exceeded. Confirm bound with user/Phase-11 sync design.
+4. **Max trips per sync batch.** Chunking handles >500, but unbounded bodies are a DoS vector. Recommendation: `z.array(tripSchema).max(1000)` → 400 if exceeded. Confirm the bound with Phase 11 sync design.
 
-5. **Converter/`FieldValue` typing without `any`.**
-   - What we know: CLAUDE.md forbids `any`; `serverTimestamp()` sentinel vs `Timestamp` field type conflicts.
-   - Recommendation: define a `TripWrite` interface or use `WithFieldValue<TripDoc>`; the `as never` in Pattern 4 is a placeholder, NOT for final code.
+5. **Converter/`FieldValue` write typing without `any`.** Pattern 3 supplies `TripWrite`; planner chooses converter-on-write (with a narrow bridging cast) vs. plain typed collection on writes. Final code must be `any`-free (CLAUDE.md).
 
-6. **`firestore.indexes.json` inclusion in `firebase.json`.** Decide whether to ship an indexes file now (empty/with the composite index) — tied to Q3.
+6. **TypeScript major.** Pin TS 5.x (scaffold default) for ts-jest/eslint stability, or validate TS 6 with ts-jest/@typescript-eslint before adopting.
+
+7. **Payload contract direction (camelCase JSON, `userId` omitted).** Lock the exact wire shape with Phase 11's `api_client`.
 
 ## Sources
 
-### Primary (HIGH confidence — architecture/API)
-- CONTEXT.md D-01..D-15, CLAUDE.md Backend/Cloud Functions Rules, REQUIREMENTS.md (BACK-02/03/04), ROADMAP.md Phase 10, `lib/database/tables/trips_table.dart` — read directly this session.
-- Firebase HTTP functions / Express integration — `firebase.google.com/docs/functions/http-events` [CITED, from training knowledge]
-- Admin SDK verify ID tokens — `firebase.google.com/docs/auth/admin/verify-id-tokens` [CITED]
-- Admin SDK batched writes (500 limit) — `firebase.google.com/docs/firestore/manage-data/transactions#batched-writes` [CITED]
-- FirestoreDataConverter — Admin Node reference [CITED]
-- Emulator Suite + auth-emulator token behavior — `firebase.google.com/docs/emulator-suite` [CITED]
+### Primary (HIGH confidence)
+- CONTEXT.md D-01..D-15, CLAUDE.md Backend/Cloud Functions Rules, REQUIREMENTS.md (BACK-02/03/04), ROADMAP.md Phase 10, `lib/database/tables/trips_table.dart`, repo-root `firebase.json` — read directly this session.
+- npm registry (`npm view`, 2026-06-01) — all dependency versions VERIFIED.
+- Firebase HTTP functions / Express integration — firebase.google.com/docs/functions/http-events `[CITED + web-corroborated]`
+- Verify ID tokens — firebase.google.com/docs/auth/admin/verify-id-tokens `[CITED]`
+- Connect to Auth Emulator (unsigned-token acceptance) — firebase.google.com/docs/emulator-suite/connect_auth `[VERIFIED: web]`
+- Manage functions / runtime support (Node 20/22 supported, 18 deprecated) — firebase.google.com/docs/functions/manage-functions `[VERIFIED: web]`
+- Batched writes (500 limit) — firebase.google.com/docs/firestore/manage-data/transactions#batched-writes `[CITED]`
 
-### Secondary (MEDIUM — needs version confirmation)
-- npm version pins for all packages — **could not fetch live this session**; from Jan 2026 knowledge. Verify with `npm view`.
+### Secondary (MEDIUM)
+- firebase-tools issues #5821 / #2764 (emulator token "no kid claim" gotcha context) `[VERIFIED: web]`
+- firebase-admin release notes (Node 18/20 deprecation, 22 recommended) `[VERIFIED: web]`
 
 ### Tertiary (LOW)
 - None relied upon for normative claims.
@@ -702,10 +745,11 @@ cd backend/functions && npm test
 ## Metadata
 
 **Confidence breakdown:**
-- Standard stack (which packages): HIGH — locked by D-02/D-03 + CLAUDE.md. Exact versions: MEDIUM (unverified this session).
-- Architecture / file layout / code patterns: HIGH — locked decisions + stable, long-standing Firebase APIs.
-- Emulator token-mint technique: HIGH on the approach (well-documented, stable), MEDIUM on exact endpoint string until first test run.
-- Pitfalls: HIGH — all are well-known Firebase Functions gotchas directly relevant to the locked design.
+- Standard stack + versions: HIGH — locked by D-02/D-03 + CLAUDE.md; all versions verified against npm.
+- Architecture / file layout / code patterns: HIGH — locked decisions + stable Firebase APIs; Express 5 named-param behavior verified.
+- Emulator token-mint technique: HIGH on approach (documented + corroborated); confirm exact response payload at first run.
+- Pitfalls: HIGH — well-known Firebase Functions gotchas directly relevant to the locked design.
+- Environment: MEDIUM — Node/npm/CLI verified present; Java + Firestore provisioning unverified (flagged).
 
 **Research date:** 2026-06-01
 **Valid until:** ~2026-07-01 for versions (fast-moving npm); architecture stable ~6 months.
