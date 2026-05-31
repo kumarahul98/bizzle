@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:traevy/config/theme.dart';
 
 /// Visual scaffold for the "Continue with Google" button on the
@@ -37,7 +38,11 @@ class GoogleContinueButton extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
-              Icon(Icons.g_translate_rounded, size: 20, color: onSurface),
+              SvgPicture.asset(
+                'assets/icons/google_g.svg',
+                width: 20,
+                height: 20,
+              ),
               const SizedBox(width: 12),
               Text(
                 'Continue with Google',

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/config/theme.dart';
@@ -98,10 +99,10 @@ class _SignInSheetContentState extends ConsumerState<_SignInSheetContent> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             const SizedBox(height: 24),
-            Icon(
-              Icons.g_translate_rounded,
-              size: 20,
-              color: onSurface,
+            SvgPicture.asset(
+              'assets/icons/google_g.svg',
+              width: 20,
+              height: 20,
             ),
             const SizedBox(height: 12),
             Text(
