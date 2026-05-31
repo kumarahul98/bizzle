@@ -632,7 +632,7 @@ const String kBrandFullName = 'Traevy';
 ///
 /// See D-10/D-10a in `.planning/phases/09-authentication/09-RESEARCH.md`.
 const String kGoogleServerClientId =
-    'REPLACE_WITH_WEB_CLIENT_ID_FROM_FIREBASE_CONSOLE';
+    '1076279794226-lfbgqa0td7dtal7ch6s5l6928huo5ij7.apps.googleusercontent.com';
 
 /// Secure-storage key under which the cached Firebase ID token is written
 /// by `AuthService.signIn()` for the Phase 11 sync layer.
