@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -125,23 +124,12 @@ class OnboardingScreen extends ConsumerWidget {
                                 }
                                 // Repeat sign-in: the app.dart auth gate
                                 // already routes to MainShell — no push here.
-                              } on GoogleSignInException catch (e) {
+                              } on GoogleSignInException {
                                 // User cancelled — silent no-op.
-                                if (kDebugMode) {
-                                  debugPrint(
-                                    '[auth] onboarding cancel: ${e.code}',
-                                  );
-                                }
-                              } on Object catch (e) {
+                              } on Object {
                                 // Network / credential error — silent no-op.
                                 // The sign-in sheet handles rich error copy;
                                 // the onboarding path stays minimal.
-                                if (kDebugMode) {
-                                  debugPrint(
-                                    '[auth] onboarding sign-in failed: '
-                                    '${e.runtimeType}: $e',
-                                  );
-                                }
                               }
                             },
                           )

@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -158,15 +157,9 @@ class AuthStateNotifier extends Notifier<AuthState> {
   }
 
   void _attach() {
-    if (kDebugMode) {
-      debugPrint('[auth] notifier: subscribing to authStateChanges');
-    }
     final auth = ref.read(firebaseAuthProvider);
     _authSub = auth.authStateChanges().listen(
       (user) {
-        if (kDebugMode) {
-          debugPrint('[auth] authStateChanges event: user=${user != null}');
-        }
         if (user == null) {
           state = const AuthGuest();
         } else {
@@ -181,11 +174,6 @@ class AuthStateNotifier extends Notifier<AuthState> {
         }
       },
       onError: (Object error, StackTrace stack) {
-        if (kDebugMode) {
-          debugPrint(
-            '[auth] authStateChanges stream error: ${error.runtimeType}',
-          );
-        }
         // WR-03 analog: the Firebase auth stream errored. Do NOT forward
         // error.toString() — it may contain PII (uid, email). Degrade to
         // AuthGuest so the app remains usable without sign-in.

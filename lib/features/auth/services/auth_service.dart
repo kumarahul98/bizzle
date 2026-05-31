@@ -1,5 +1,4 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:traevy/config/constants.dart';
@@ -99,21 +98,12 @@ class AuthService {
 
     // Step 2: Invoke the v7 Google sign-in flow. Throws
     // GoogleSignInException on failure (including user cancel).
-    if (kDebugMode) {
-      debugPrint('[auth] step2: calling authenticate()');
-    }
     final account = await _googleSignIn.authenticate();
-    if (kDebugMode) {
-      debugPrint('[auth] step2: google account obtained');
-    }
 
     // Step 3: Read idToken via the SYNCHRONOUS getter verified in the
     // probe test. Null means serverClientId was not provided (Pitfall 2).
     final auth = account.authentication;
     final idToken = auth.idToken;
-    if (kDebugMode) {
-      debugPrint('[auth] step3: idToken present=${idToken != null}');
-    }
     if (idToken == null) {
       throw StateError(
         'GoogleSignIn returned a null idToken. '
@@ -123,17 +113,9 @@ class AuthService {
     }
 
     // Step 4: Exchange for a Firebase credential and sign in.
-    if (kDebugMode) {
-      debugPrint('[auth] step4: signInWithCredential…');
-    }
     final credential = GoogleAuthProvider.credential(idToken: idToken);
     final userCredential = await _firebaseAuth.signInWithCredential(credential);
     final user = userCredential.user!;
-    if (kDebugMode) {
-      debugPrint(
-        '[auth] step4: firebase sign-in OK (uid len=${user.uid.length})',
-      );
-    }
 
     // Step 5: Cache the Firebase ID token in flutter_secure_storage.
     // SECURITY (T-09-03-02): never log the token, credential, or the
@@ -163,9 +145,6 @@ class AuthService {
     }
 
     // Step 7: Return the first-sign-in signal (D-12).
-    if (kDebugMode) {
-      debugPrint('[auth] step6: backfill done tripsChanged=$tripsChanged');
-    }
     return tripsChanged > 0;
   }
 }
