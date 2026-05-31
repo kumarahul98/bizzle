@@ -239,11 +239,12 @@ Plans:
   2. Sync retries up to 3 times with exponential backoff on failure
   3. User can trigger cloud restore from settings, which downloads all trips and inserts them into Drift (skipping duplicates)
   4. Sync never blocks the UI -- all network operations are background-only
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 11-01: TBD
-- [ ] 11-02: TBD
+- [ ] 11-01-PLAN.md — Sync foundation: transport (ApiClient), serializer, SyncStatus model, DAO markFailed/resetFailed
+- [ ] 11-02-PLAN.md — Sync engine: queue processor (batch + backoff + in-flight guard), D-07 triggers, eager mount, unit tests — Sync engine: queue processor + triggers + retry/backoff
+- [ ] 11-03: TBD — Restore from cloud + Settings cloud-sync/restore rows
 
 ## Progress
 
