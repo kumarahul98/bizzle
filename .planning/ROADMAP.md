@@ -227,7 +227,7 @@ Plans:
 
 Plans:
 - [x] 10-01-PLAN.md — Backend scaffold & shared infrastructure (firebase.json, deny-all rules, Trip/TripDoc contract, auth/firestore/validation/response utils, GET /health)
-- [ ] 10-02-PLAN.md — Three HTTPS handlers (sync/delete/restore) + Express routing
+- [x] 10-02-PLAN.md — Three HTTPS handlers (sync/delete/restore) + Express routing
 - [ ] 10-03-PLAN.md — Emulator-backed integration test suite (proves all 5 success criteria)
 
 ### Phase 11: Sync Engine
@@ -263,5 +263,5 @@ Note: Phases 1-7 deliver the complete local-first experience without any authent
 | 7. Polish & Notifications | 0/4 | Not started | - |
 | 8. UI Overhaul | 0/4 | Not started | - |
 | 9. Authentication | 5/5 | Complete   | 2026-05-29 |
-| 10. Backend Infrastructure | 1/3 | In progress | - |
+| 10. Backend Infrastructure | 2/3 | In Progress|  |
 | 11. Sync Engine | 0/2 | Not started | - |

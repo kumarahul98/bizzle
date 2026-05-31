@@ -51,9 +51,9 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Backend
 
 - [x] **BACK-01**: Firebase Auth with Google provider handles authentication
-- [ ] **BACK-02**: POST /trips/sync Cloud Function batch-upserts trips from client
-- [ ] **BACK-03**: DELETE /trips/{tripId} Cloud Function soft-deletes a trip
-- [ ] **BACK-04**: GET /trips/restore Cloud Function returns all trips for authenticated user
+- [x] **BACK-02**: POST /trips/sync Cloud Function batch-upserts trips from client
+- [x] **BACK-03**: DELETE /trips/{tripId} Cloud Function soft-deletes a trip
+- [x] **BACK-04**: GET /trips/restore Cloud Function returns all trips for authenticated user
 
 ### UX
 
@@ -126,9 +126,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SYNC-02 | Phase 11 | Pending |
 | SYNC-03 | Phase 11 | Pending |
 | BACK-01 | Phase 9 | Complete |
-| BACK-02 | Phase 10 | Pending |
-| BACK-03 | Phase 10 | Pending |
-| BACK-04 | Phase 10 | Pending |
+| BACK-02 | Phase 10 | Complete |
+| BACK-03 | Phase 10 | Complete |
+| BACK-04 | Phase 10 | Complete |
 | UX-01 | Phase 6 | Complete |
 | UX-02 | Phase 7 | Complete |
 | UX-03 | Phase 2 | Complete |
