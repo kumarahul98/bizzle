@@ -223,11 +223,12 @@ Plans:
   3. GET /trips/restore Cloud Function returns all non-deleted trips for the authenticated user
   4. All endpoints reject requests without a valid Firebase ID token
   5. Firestore Security Rules deny all direct client access — only the Admin SDK (Cloud Functions) can read/write trip data
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 10-01: TBD
+- [ ] 10-01-PLAN.md — Backend scaffold & shared infrastructure (firebase.json, deny-all rules, Trip/TripDoc contract, auth/firestore/validation/response utils, GET /health)
 - [ ] 10-02-PLAN.md — Three HTTPS handlers (sync/delete/restore) + Express routing
+- [ ] 10-03-PLAN.md — Emulator-backed integration test suite (proves all 5 success criteria)
 
 ### Phase 11: Sync Engine
 **Goal**: Trips automatically sync from Drift to Firestore (via Cloud Functions) in the background, and users can restore from cloud backup
