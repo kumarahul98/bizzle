@@ -243,7 +243,7 @@ Plans:
 
 Plans:
 - [ ] 11-01-PLAN.md — Sync foundation: transport (ApiClient), serializer, SyncStatus model, DAO markFailed/resetFailed
-- [ ] 11-02-PLAN.md — Sync engine: queue processor (batch + backoff + in-flight guard), D-07 triggers, eager mount, unit tests — Sync engine: queue processor + triggers + retry/backoff
+- [ ] 11-02-PLAN.md — Sync engine: queue processor (batch + backoff + in-flight guard), D-07 triggers, eager mount, unit tests
 - [ ] 11-03: TBD — Restore from cloud + Settings cloud-sync/restore rows
 
 ## Progress
