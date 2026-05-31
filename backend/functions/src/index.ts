@@ -22,6 +22,9 @@ setGlobalOptions({ region: 'us-central1' });
  * Mounts `GET /health` plus the three `/trips/*` REST routes (BACK-02/03/04).
  */
 export const app = express();
+// No CORS: the only caller is the Phase 11 native Android `http` client, which
+// issues no preflight, so CORS is intentionally omitted (not a security gap).
+// A future browser caller would need locked-origin CORS here — never `origin:'*'`.
 // Body bounded at 10mb (H1 defense-in-depth): large enough for a full
 // 1000-trip batch (the zod `kMaxSyncBatchTrips` cap rejects >1000 at the
 // validation layer with 400), while preventing oversized-payload memory
