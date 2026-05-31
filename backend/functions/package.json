@@ -10,7 +10,8 @@
     "build": "tsc",
     "lint": "tsc --noEmit",
     "serve": "npm run build && firebase emulators:start --only functions,firestore,auth",
-    "test": "firebase emulators:exec --only firestore,auth \"jest\"",
+    "test": "firebase --project travey-298a7 --config ../firebase.json emulators:exec --only auth,firestore \"jest --runInBand\"",
+    "test:watch": "firebase --project travey-298a7 --config ../firebase.json emulators:exec --only auth,firestore \"jest --watch --runInBand\"",
     "test:unit": "jest --selectProjects unit"
   },
   "dependencies": {

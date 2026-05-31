@@ -1,4 +1,4 @@
-import { initializeApp } from 'firebase-admin/app';
+import { initializeApp, getApps } from 'firebase-admin/app';
 import { setGlobalOptions } from 'firebase-functions/v2';
 import { onRequest } from 'firebase-functions/v2/https';
 import express from 'express';
@@ -6,7 +6,13 @@ import { syncTripsHandler } from './handlers/sync-trips';
 import { deleteTripHandler } from './handlers/delete-trip';
 import { restoreTripsHandler } from './handlers/restore-trips';
 
-initializeApp();
+// Guard initialization so importing the exported `app` in-process (supertest /
+// the integration suite, which already initialized the Admin app against the
+// emulator) does not throw "[DEFAULT] already exists with a different
+// configuration". Idempotent init is also correct for the production runtime.
+if (!getApps().length) {
+  initializeApp();
+}
 setGlobalOptions({ region: 'us-central1' });
 
 /**

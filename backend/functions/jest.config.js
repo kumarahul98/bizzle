@@ -6,8 +6,14 @@ module.exports = {
       testEnvironment: 'node',
       testMatch: ['<rootDir>/src/utils/__tests__/**/*.test.ts'],
     },
-    // Plan 03 appends an `integration` project here (test/**/*.test.ts, emulator
-    // setupFiles, maxWorkers:1). It MUST keep this `unit` project intact so
-    // `npm run test:unit` (--selectProjects unit) still discovers the util tests.
+    {
+      displayName: 'integration',
+      preset: 'ts-jest',
+      testEnvironment: 'node',
+      testMatch: ['<rootDir>/test/**/*.test.ts'],
+      setupFiles: ['<rootDir>/test/helpers/emulator.ts'],
+      maxWorkers: 1,
+      testTimeout: 30000,
+    },
   ],
 };
