@@ -9,6 +9,7 @@ import 'package:traevy/features/auth/screens/splash_screen.dart';
 import 'package:traevy/features/settings/providers/settings_providers.dart';
 import 'package:traevy/features/shell/main_shell.dart';
 import 'package:traevy/features/tracking/providers/backfill_provider.dart';
+import 'package:traevy/sync/sync_engine.dart';
 
 /// Root widget for the Traevy app.
 ///
@@ -32,9 +33,17 @@ class TraevyApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Consume the backfill provider so it fires exactly once at startup.
-    // Riverpod keepAlive ensures it does not re-run on rebuild (Pitfall 5).
-    ref.watch(directionBackfillProvider);
+    ref
+      // Consume the backfill provider so it fires exactly once at startup.
+      // Riverpod keepAlive ensures it does not re-run on rebuild (Pitfall 5).
+      ..watch(directionBackfillProvider)
+      // Phase 11 (SYNC-02): eager-mount the sync engine so its triggers
+      // (post-save, connectivity-restored, app-resume) attach for the full app
+      // session. Watching CONSTRUCTS the provider at app root, which runs
+      // engine.start() and makes the watchPending() subscription live before
+      // the first trip save (M1). keepAlive provider — reading it does NOT
+      // block the UI build; all processing is async / fire-and-forget.
+      ..watch(syncEngineProvider);
 
     // D-04: watch user preferences for instant dark mode switching.
     // Falls back to ThemeMode.system while the stream initialises or
