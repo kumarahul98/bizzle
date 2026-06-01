@@ -104,6 +104,43 @@ class TripsDao extends DatabaseAccessor<AppDatabase> with _$TripsDaoMixin {
     return into(trips).insert(companion);
   }
 
+  /// Restore path (D-08, MEDIUM-3): insert every restored [companions] entry
+  /// in ONE Drift batch using `InsertMode.insertOrIgnore`, returning the count
+  /// of NEW rows actually written.
+  ///
+  /// Dedupe-by-UUID is enforced by the `id` primary key: a companion whose
+  /// `id` already exists locally is SILENTLY SKIPPED — never overwritten — so
+  /// a duplicate restore can never clobber a good local row
+  /// (client-authoritative, CLAUDE.md). All inserts run inside a single
+  /// `batch(...)` transaction (efficient + jank-free), NOT N awaited inserts.
+  ///
+  /// The NEW-row count is the pre/post `SELECT COUNT(*)` delta around the
+  /// batch. This is accepted for v0.1: restore is a manual, single-shot,
+  /// user-initiated action with no concurrent writers, so the count cannot
+  /// meaningfully race.
+  Future<int> insertOrIgnoreTrips(List<TripsCompanion> companions) async {
+    if (companions.isEmpty) return 0;
+    final before = await _countTrips();
+    await batch(
+      (b) => b.insertAll(
+        trips,
+        companions,
+        mode: InsertMode.insertOrIgnore,
+      ),
+    );
+    final after = await _countTrips();
+    return after - before;
+  }
+
+  /// Count all rows in the `trips` table. Used by [insertOrIgnoreTrips] to
+  /// compute the number of NEW rows written by a dedupe-by-UUID restore batch.
+  Future<int> _countTrips() async {
+    final count = trips.id.count();
+    final query = selectOnly(trips)..addColumns([count]);
+    final row = await query.getSingle();
+    return row.read(count) ?? 0;
+  }
+
   /// Update the trip identified by `companion.id.value`. Only columns
   /// wrapped in `Value(...)` are touched; `Value.absent()` leaves the
   /// column unchanged. Callers must always pass
