@@ -734,6 +734,12 @@ const Duration kSyncRetryBaseDelay = Duration(seconds: 2);
 /// `base × 2^retryCount` growth so a retry never sleeps longer than this.
 const Duration kSyncRetryMaxDelay = Duration(seconds: 60);
 
+/// Maximum number of trips the engine puts into a single `POST /trips/sync`
+/// chunk (D-05/D-06). Mirrors the backend zod batch cap. When a drain has
+/// more collapsed create/update upserts than this, the engine splits them
+/// into successive `syncTrips` calls of at most this many trips each.
+const int kMaxSyncBatchTrips = 1000;
+
 /// Settings Account section header (D-09). Reused by Plan 03's signed-in
 /// branch so the Phase 11 sync rows live under a stable, non-hardcoded title.
 const String kSettingsAccountSectionTitle = 'Account';
