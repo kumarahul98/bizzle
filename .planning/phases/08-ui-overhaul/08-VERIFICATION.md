@@ -1,8 +1,19 @@
 ---
 phase: 08-ui-overhaul
 verified: 2026-05-14T23:30:00Z
-status: human_needed
-score: 8/8 must-haves verified (automated)
+status: passed
+reconciled: 2026-06-01
+reconciled_note: >-
+  Status moved human_needed -> passed after confirming the human sign-off
+  completed and all gaps were resolved. 08-HUMAN-UAT.md (status: complete)
+  passed dark-mode sweep, font loading, and hero shadow; the two items that
+  raised issues were fixed and re-validated: gap 1 (two start buttons /
+  collapse into hero) by 8c0f3ce (08-08), gap 2 (SPEED tile stuck) by 914b5cc
+  (08-09), gap 3 (notification redesign, minor) by 08-08/09/10. The follow-up
+  08-UAT.md regression passed 11/11 (notification title/body/OPEN+STOP, hero
+  in-place recording, speed decay). 8/8 automated must-haves verified;
+  flutter analyze clean; 281 tests green.
+score: 8/8 must-haves verified (automated); human sign-off complete (gaps resolved + re-validated)
 overrides_applied: 0
 human_verification:
   - test: "Visual smoke test — install app on Android device, navigate Dashboard → Tracking → History → Trip Detail → Stats → Settings"
