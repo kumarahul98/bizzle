@@ -773,6 +773,14 @@ const String kSettingsRestoreInProgress = 'Restoring…';
 /// full string as `'Restored $n trips'`.
 const String kSettingsRestoreResultTemplate = 'Restored';
 
+/// Trip noun for the restore-result copy when exactly one trip was restored
+/// (D-09). The caller builds `'Restored 1 trip'`.
+const String kRestoreTripNounSingular = 'trip';
+
+/// Trip noun for the restore-result copy when more than one trip was restored
+/// (D-09). The caller builds `'Restored $n trips'`.
+const String kRestoreTripNounPlural = 'trips';
+
 /// Restore status copy: nothing new to restore (D-09).
 const String kSettingsRestoreUpToDate = 'Already up to date';
 

@@ -20,6 +20,21 @@ final StreamProvider<UserPreferencesValue> userPreferenceProvider =
   name: 'userPreferenceProvider',
 );
 
+/// Reactive count of `pending` sync-queue rows (Phase 11, D-09).
+///
+/// The Settings cloud-sync status row reads this alongside `syncStatusProvider`
+/// to render the "$N pending" subtitle. Derived from
+/// `SyncQueueDao.watchPending()` so the row updates live as trips enqueue/drain.
+/// Manual provider per the project-wide constraint (see
+/// `lib/database/providers.dart`). Widget tests override it to script a count.
+final StreamProvider<int> pendingSyncCountProvider = StreamProvider<int>(
+  (ref) => ref
+      .watch(syncQueueDaoProvider)
+      .watchPending()
+      .map((rows) => rows.length),
+  name: 'pendingSyncCountProvider',
+);
+
 /// Riverpod-managed [NotificationService] handle for Settings screen wiring.
 ///
 /// Production callers (settings notification toggles, app startup) read this

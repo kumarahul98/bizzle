@@ -11,6 +11,8 @@ import 'package:traevy/features/auth/providers/auth_providers.dart';
 import 'package:traevy/features/auth/widgets/sign_in_sheet.dart';
 import 'package:traevy/features/settings/providers/settings_providers.dart';
 import 'package:traevy/features/settings/widgets/account_row.dart';
+import 'package:traevy/features/settings/widgets/cloud_sync_row.dart';
+import 'package:traevy/features/settings/widgets/restore_row.dart';
 import 'package:traevy/features/settings/widgets/settings_row.dart';
 import 'package:traevy/features/settings/widgets/settings_section.dart';
 import 'package:traevy/shared/widgets/traevy_toggle.dart';
@@ -74,10 +76,10 @@ class SettingsScreen extends ConsumerWidget {
 ///   - [AuthGuest] / [AuthLoading]: a single tappable "Sign in to back up"
 ///     row that opens the sign-in bottom sheet.
 ///
-/// Cloud sync and Restore-from-cloud rows are intentionally NOT shown yet —
-/// both depend on the sync/restore endpoints that ship in Phase 11. They
-/// would be non-functional (and misleading) before then, so the account
-/// group stays minimal: sign in when guest, account + sign out when signed in.
+/// Phase 11 (SYNC-03, D-09): the signed-in branch now also renders a live
+/// cloud-sync status row ([CloudSyncRow]) and a Restore-from-cloud row
+/// ([RestoreRow]) between the account header and Sign out. The guest branch is
+/// unchanged — those rows require an account (and the Phase 11 sync endpoints).
 class _AccountSection extends ConsumerWidget {
   const _AccountSection();
 
@@ -94,6 +96,8 @@ class _AccountSection extends ConsumerWidget {
               ? name[0].toUpperCase()
               : kPlaceholderUserInitial,
         ),
+        const CloudSyncRow(),
+        const RestoreRow(),
         SettingsRow(
           label: kCopySettingsSignOut,
           dangerous: true,
