@@ -46,7 +46,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [ ] **SYNC-01**: All trip data stored locally in Drift (offline-first, works without network)
 - [x] **SYNC-02**: Trips sync one-way from Drift to Firestore (via Cloud Functions) through a background sync queue
-- [ ] **SYNC-03**: User can restore trips from cloud backup via settings (reinstall/device switch)
+- [x] **SYNC-03**: User can restore trips from cloud backup via settings (reinstall/device switch)
 
 ### Backend
 
@@ -124,7 +124,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | STAT-05 | Phase 5 | Complete |
 | SYNC-01 | Phase 1 | Complete |
 | SYNC-02 | Phase 11 | Complete |
-| SYNC-03 | Phase 11 | Pending |
+| SYNC-03 | Phase 11 | Complete |
 | BACK-01 | Phase 9 | Complete |
 | BACK-02 | Phase 10 | Complete |
 | BACK-03 | Phase 10 | Complete |

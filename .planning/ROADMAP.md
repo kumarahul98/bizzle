@@ -22,7 +22,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 8: UI Overhaul** - Full visual redesign to Traevy design system (Inter + JetBrains Mono, oklch colour tokens, calm & spacious layout)
 - [x] **Phase 9: Authentication** - Google Sign-In via Firebase Auth and onboarding flow (completed 2026-05-29)
 - [x] **Phase 10: Backend Infrastructure** - Firebase Cloud Functions (HTTPS) and Firestore (completed 2026-05-31)
-- [ ] **Phase 11: Sync Engine** - One-way sync queue and cloud restore flow (in progress: 11-01, 11-02 done; 11-03 pending)
+- [x] **Phase 11: Sync Engine** - One-way sync queue and cloud restore flow (in progress: 11-01, 11-02 done; 11-03 pending) (completed 2026-06-01)
 
 ## Phase Details
 
@@ -244,7 +244,7 @@ Plans:
 Plans:
 - [x] 11-01-PLAN.md — Sync foundation: transport (ApiClient), serializer, SyncStatus model, DAO markFailed/resetFailed
 - [x] 11-02-PLAN.md — Sync engine: queue processor (batch + backoff + in-flight guard), D-07 triggers, eager mount, unit tests
-- [ ] 11-03-PLAN.md — Restore-from-cloud (RestoreController + insertOrIgnore dedupe-by-UUID) + Settings signed-in cloud-sync-status & Restore rows (SYNC-03)
+- [x] 11-03-PLAN.md — Restore-from-cloud (RestoreController + insertOrIgnore dedupe-by-UUID) + Settings signed-in cloud-sync-status & Restore rows (SYNC-03)
 
 ## Progress
 
@@ -265,4 +265,4 @@ Note: Phases 1-7 deliver the complete local-first experience without any authent
 | 8. UI Overhaul | 0/4 | Not started | - |
 | 9. Authentication | 5/5 | Complete   | 2026-05-29 |
 | 10. Backend Infrastructure | 3/3 | Complete   | 2026-05-31 |
-| 11. Sync Engine | 2/3 | In progress | 2026-06-01 |
+| 11. Sync Engine | 4/3 | Complete   | 2026-06-01 |
