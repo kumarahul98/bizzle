@@ -5,7 +5,29 @@ area: trips
 severity: medium
 created: 2026-04-28
 phase_hint: 7
+status: resolved
+resolved: 2026-06-01
+resolved_by: 0b225a2
 ---
+
+## Resolution (2026-06-01)
+
+Already fixed by commit `0b225a2 fix(07-04): ManualEntrySheet traffic/distance
+fields + stats exclusion fix` during Phase 7 work. This todo (filed 2026-04-28)
+was simply never closed. Verified all three layers the todo named:
+
+- **UI** — `manual_entry_sheet.dart` collects optional "Time in traffic (HH:MM)"
+  and "Distance (km)" fields, both defaulting to 0 when blank.
+- **Provider** — `insertManualTrip` accepts/clamps `timeStuckSeconds` and
+  `distanceMeters`, computes `timeMovingSeconds = durationSeconds - clampedStuck`.
+- **Stats** — `stats_service.dart` implements the requested "D-05 refined" rule:
+  exclude manual trips from `weekStuckSeconds` ONLY when both traffic and
+  distance are blank (`isManualEntry && timeStuckSeconds == 0 && distanceMeters == 0`).
+
+Test coverage confirmed green (23 tests): `stats_service_test.dart` has a
+dedicated "STAT-05 refined manual exclusion (D-05)" group covering blank-excluded,
+traffic-included, and distance-included cases; `manual_entry_notifier_test.dart`
+covers the insert path. No code change needed.
 
 ## Problem
 
