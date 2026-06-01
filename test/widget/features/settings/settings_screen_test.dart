@@ -10,6 +10,7 @@
 // renders "Sign in to back up" row; signedIn override renders populated
 // AccountRow (constructor swap only, D-07).
 
+import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -28,6 +29,10 @@ import 'package:traevy/features/settings/widgets/settings_row.dart';
 import 'package:traevy/features/settings/widgets/settings_section.dart';
 import 'package:traevy/notifications/notification_service.dart';
 import 'package:traevy/shared/widgets/traevy_toggle.dart';
+import 'package:traevy/sync/api_client.dart';
+import 'package:traevy/sync/sync_engine.dart';
+import 'package:traevy/sync/sync_status.dart';
+import 'package:traevy/sync/trip_serializer.dart';
 
 // ---------------------------------------------------------------------------
 // Fakes
@@ -117,6 +122,54 @@ class _FakeNotificationService implements NotificationService {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+/// Fixed-state [SyncStatusNotifier] for the Phase 11 cloud-sync row tests.
+///
+/// Extends the real notifier so `syncStatusProvider.overrideWith` type-checks
+/// (Riverpod 3.x requires the exact Notifier subtype). Returns a configurable
+/// [SyncStatus] without any engine wiring.
+class _FakeSyncStatusNotifier extends SyncStatusNotifier {
+  _FakeSyncStatusNotifier(this._status);
+
+  final SyncStatus _status;
+
+  @override
+  SyncStatus build() => _status;
+}
+
+/// Instrumented [SyncEngine] that records `retryFailed()` calls so the
+/// failed-row tap path can be asserted without any network / Firebase. The
+/// provider is a plain `Provider<SyncEngine>`, so `overrideWithValue` accepts
+/// this fake directly.
+class _FakeSyncEngine implements SyncEngine {
+  int retryFailedCallCount = 0;
+
+  @override
+  Future<void> retryFailed() async {
+    retryFailedCallCount++;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// Scripted [ApiClient] for the restore-tap test. `restoreTrips()` returns a
+/// fixed companion list (or throws) — no network, no token seam.
+class _FakeApiClient implements ApiClient {
+  _FakeApiClient(this._companions, {this.throwOnRestore = false});
+
+  final List<TripsCompanion> _companions;
+  final bool throwOnRestore;
+
+  @override
+  Future<List<TripsCompanion>> restoreTrips() async {
+    if (throwOnRestore) throw const SyncException.transport();
+    return _companions;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -134,6 +187,11 @@ Future<_FakeUserPreferencesDao> _pumpSettingsScreen(
   _FakeNotificationService? notificationService,
   AuthState authState = const AuthGuest(),
   AuthService? authService,
+  SyncStatus syncStatus = const SyncIdle(),
+  int pendingCount = 0,
+  _FakeSyncEngine? syncEngine,
+  _FakeApiClient? apiClient,
+  AppDatabase? restoreDb,
 }) async {
   final fakeDao = _FakeUserPreferencesDao(prefs);
   final fakeNotif = notificationService ?? _FakeNotificationService();
@@ -146,12 +204,30 @@ Future<_FakeUserPreferencesDao> _pumpSettingsScreen(
           (ref) => Stream<UserPreferencesValue>.value(prefs),
         ),
         authStateProvider.overrideWith(() => _FakeAuthNotifier(authState)),
+        // Phase 11 cloud-sync / restore rows: keep all reads off the real
+        // backend, Firebase, and on-disk Drift.
+        syncStatusProvider.overrideWith(
+          () => _FakeSyncStatusNotifier(syncStatus),
+        ),
+        pendingSyncCountProvider.overrideWith(
+          (ref) => Stream<int>.value(pendingCount),
+        ),
+        if (syncEngine != null)
+          syncEngineProvider.overrideWithValue(syncEngine),
+        if (apiClient != null)
+          apiClientProvider.overrideWithValue(apiClient),
+        if (restoreDb != null)
+          tripsDaoProvider.overrideWithValue(restoreDb.tripsDao),
+        if (restoreDb != null)
+          syncQueueDaoProvider.overrideWithValue(restoreDb.syncQueueDao),
         if (authService != null)
           authServiceProvider.overrideWithValue(authService),
       ],
       child: MaterialApp(
         theme: buildLightTheme(),
-        home: const SettingsScreen(),
+        // Wrap in a Scaffold so SnackBars (restore result feedback) have a
+        // host — mirrors the production MainShell Scaffold.
+        home: const Scaffold(body: SettingsScreen()),
       ),
     ),
   );
@@ -404,8 +480,8 @@ void main() {
         // Only the sign-in CTA belongs to the guest Account section.
         expect(find.text(kCopySettingsGuestSignIn), findsOneWidget);
         expect(find.text(kCopySettingsSignOut), findsNothing);
-        expect(find.text('Cloud sync'), findsNothing);
-        expect(find.text('Restore from cloud'), findsNothing);
+        expect(find.text(kSettingsCloudSyncRowLabel), findsNothing);
+        expect(find.text(kSettingsRestoreRowLabel), findsNothing);
       },
     );
 
@@ -432,4 +508,135 @@ void main() {
       },
     );
   });
+
+  // ---------------------------------------------------------------------------
+  // Phase 11: Cloud-sync status + Restore rows (SYNC-03, D-09)
+  // ---------------------------------------------------------------------------
+
+  group('SettingsScreen _AccountSection — Phase 11 sync rows (SYNC-03)', () {
+    const signedIn = AuthSignedIn(
+      uid: 'u',
+      name: 'Test User',
+      email: 'test@example.com',
+    );
+
+    testWidgets('signed-in renders Cloud sync + Restore rows', (tester) async {
+      await _pumpSettingsScreen(tester, authState: signedIn);
+      expect(find.text(kSettingsCloudSyncRowLabel), findsOneWidget);
+      expect(find.text(kSettingsRestoreRowLabel), findsOneWidget);
+      // Sign out still present, ordered after the two new rows.
+      expect(find.text(kCopySettingsSignOut), findsOneWidget);
+    });
+
+    testWidgets('synced status → "All synced" subtitle', (tester) async {
+      await _pumpSettingsScreen(
+        tester,
+        authState: signedIn,
+        syncStatus: const SyncSynced(),
+      );
+      expect(find.text(kSettingsSyncStatusAllSynced), findsOneWidget);
+    });
+
+    testWidgets('failed status → failed subtitle, row tappable', (
+      tester,
+    ) async {
+      await _pumpSettingsScreen(
+        tester,
+        authState: signedIn,
+        syncStatus: const SyncFailed(2),
+      );
+      expect(find.text(kSettingsSyncStatusFailed), findsOneWidget);
+      // The Cloud sync row is tappable when failed → renders a chevron.
+      final cloudRow = find.ancestor(
+        of: find.text(kSettingsCloudSyncRowLabel),
+        matching: find.byType(SettingsRow),
+      );
+      expect(
+        find.descendant(
+          of: cloudRow,
+          matching: find.byIcon(Icons.chevron_right_rounded),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('tapping failed Cloud sync row calls retryFailed() once', (
+      tester,
+    ) async {
+      final engine = _FakeSyncEngine();
+      await _pumpSettingsScreen(
+        tester,
+        authState: signedIn,
+        syncStatus: const SyncFailed(1),
+        syncEngine: engine,
+      );
+      await tester.tap(find.text(kSettingsCloudSyncRowLabel));
+      await tester.pump();
+      expect(engine.retryFailedCallCount, equals(1));
+    });
+
+    testWidgets('tapping Restore drives controller and shows result SnackBar', (
+      tester,
+    ) async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final api = _FakeApiClient(<TripsCompanion>[_restoreCompanion('r1')]);
+
+      await _pumpSettingsScreen(
+        tester,
+        authState: signedIn,
+        apiClient: api,
+        restoreDb: db,
+      );
+
+      await tester.tap(find.text(kSettingsRestoreRowLabel));
+      await tester.pumpAndSettle();
+
+      // One new trip restored → "Restored 1 trip" SnackBar.
+      expect(
+        find.text(
+          '$kSettingsRestoreResultTemplate 1 $kRestoreTripNounSingular',
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('Restore error shows the error SnackBar copy', (tester) async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final api = _FakeApiClient(
+        const <TripsCompanion>[],
+        throwOnRestore: true,
+      );
+
+      await _pumpSettingsScreen(
+        tester,
+        authState: signedIn,
+        apiClient: api,
+        restoreDb: db,
+      );
+
+      await tester.tap(find.text(kSettingsRestoreRowLabel));
+      await tester.pumpAndSettle();
+
+      expect(find.text(kSettingsRestoreError), findsOneWidget);
+    });
+  });
 }
+
+/// Build a restored-trip [TripsCompanion] for [id] via the real serializer.
+TripsCompanion _restoreCompanion(String id) =>
+    TripSerializer.fromJson(<String, dynamic>{
+      'id': id,
+      'startTime': '2026-05-01T08:00:00.000Z',
+      'endTime': '2026-05-01T08:30:00.000Z',
+      'durationSeconds': 1800,
+      'distanceMeters': 12000.0,
+      'routePolyline': null,
+      'direction': 'to_office',
+      'timeMovingSeconds': 1200,
+      'timeStuckSeconds': 600,
+      'isManualEntry': false,
+      'createdAt': '2026-05-01T08:30:00.000Z',
+      'updatedAt': '2026-05-01T08:30:00.000Z',
+    });
