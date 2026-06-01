@@ -275,8 +275,9 @@ void main() {
       );
     });
 
-    test('non-object top-level JSON throws retryable SyncException (HR-01)', () {
-      // A top-level array — `as Map` would throw TypeError; re-map to transport.
+    test('non-object top-level JSON throws retryable SyncException (HR-01)',
+        () {
+      // A top-level array — `as Map` would throw a TypeError; re-map it.
       final client = MockClient(
         (req) async => http.Response('[1,2,3]', 200),
       );

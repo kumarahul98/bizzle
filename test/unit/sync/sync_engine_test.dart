@@ -536,8 +536,8 @@ void main() {
     });
 
     test(
-      'a new enqueue drains once; the drain\'s own markSynced shrink does NOT '
-      're-fire a redundant empty drain',
+      'a new enqueue drains once; a markSynced shrink does NOT re-fire an '
+      'empty drain',
       () async {
         await tripsDao.insertTrip(_trip('t1'));
         await engine.start();
@@ -554,7 +554,7 @@ void main() {
         expect(api.syncCalls.single, ['t1']);
 
         // And exactly one SyncSynced was emitted — the shrink emission was a
-        // no-op (without the guard it would emit a second redundant SyncSynced).
+        // no-op (without the guard it would emit a second redundant one).
         expect(
           emitted.whereType<SyncSynced>(),
           hasLength(1),
