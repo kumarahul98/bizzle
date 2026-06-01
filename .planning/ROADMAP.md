@@ -22,7 +22,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 8: UI Overhaul** - Full visual redesign to Traevy design system (Inter + JetBrains Mono, oklch colour tokens, calm & spacious layout)
 - [x] **Phase 9: Authentication** - Google Sign-In via Firebase Auth and onboarding flow (completed 2026-05-29)
 - [x] **Phase 10: Backend Infrastructure** - Firebase Cloud Functions (HTTPS) and Firestore (completed 2026-05-31)
-- [x] **Phase 11: Sync Engine** - One-way sync queue and cloud restore flow (in progress: 11-01, 11-02 done; 11-03 pending) (completed 2026-06-01)
+- [x] **Phase 11: Sync Engine** - One-way sync queue and cloud restore flow (completed 2026-06-01)
 
 ## Phase Details
 
@@ -246,6 +246,8 @@ Plans:
 - [x] 11-02-PLAN.md — Sync engine: queue processor (batch + backoff + in-flight guard), D-07 triggers, eager mount, unit tests
 - [x] 11-03-PLAN.md — Restore-from-cloud (RestoreController + insertOrIgnore dedupe-by-UUID) + Settings signed-in cloud-sync-status & Restore rows (SYNC-03)
 
+**Status**: ✅ COMPLETE (verified PASS, 4/4 criteria) — flutter analyze clean (no new issues over 96 baseline); full suite 377 passed / 0 failed / 0 new skips; Gemini cross-AI plan review converged 0 HIGH (2 iters); code review 0 Critical / 1 High (fixed). REST-only client (no cloud_firestore); targets the deployed backend at https://us-central1-travey-298a7.cloudfunctions.net/api. Live signed-in-device E2E is the only wake-up item. See 11-SUMMARY/11-VERIFICATION.
+
 ## Progress
 
 **Execution Order:**
@@ -265,4 +267,4 @@ Note: Phases 1-7 deliver the complete local-first experience without any authent
 | 8. UI Overhaul | 0/4 | Not started | - |
 | 9. Authentication | 5/5 | Complete   | 2026-05-29 |
 | 10. Backend Infrastructure | 3/3 | Complete   | 2026-05-31 |
-| 11. Sync Engine | 4/3 | Complete   | 2026-06-01 |
+| 11. Sync Engine | 3/3 | Complete   | 2026-06-01 |
