@@ -701,3 +701,74 @@ const String kCopySignInFailedHeadline = "Couldn't sign in.";
 
 /// Body copy for the sign-in error state (UI-SPEC §E).
 const String kCopySignInFailedBody = 'Check your connection and try again.';
+
+// ---------------------------------------------------------------------------
+// Phase 11 — Sync Engine (transport, serializer, status, Settings copy)
+// ---------------------------------------------------------------------------
+
+/// Base URL for the deployed Phase 10 HTTPS Cloud Functions API.
+///
+/// D-02: the VERIFIED stable Cloud Functions v2 alias
+/// (`us-central1-travey-298a7.cloudfunctions.net/api`) — health 200, 401 auth
+/// gate confirmed live. This is the canonical base URL; do NOT use the older
+/// `api-rdj4i7kgmq-uc.a.run.app` run.app host. `ApiClient` takes this as an
+/// INJECTABLE default so tests/emulator can override the host cheaply.
+const String kApiBaseUrl =
+    'https://us-central1-travey-298a7.cloudfunctions.net/api';
+
+/// Path for `POST /trips/sync` — batch upsert of pending trips (D-02).
+const String kSyncTripsPath = '/trips/sync';
+
+/// Path for `GET /trips/restore` — download all of the caller's trips (D-02).
+const String kRestoreTripsPath = '/trips/restore';
+
+/// Path prefix for `DELETE /trips/{tripId}` (D-02). The trip id is appended:
+/// `'$kDeleteTripPathPrefix$tripId'`.
+const String kDeleteTripPathPrefix = '/trips/';
+
+/// Base delay for exponential sync-retry backoff (D-06). The engine schedules
+/// the next retry at `base × 2^retryCount`, capped at [kSyncRetryMaxDelay].
+const Duration kSyncRetryBaseDelay = Duration(seconds: 2);
+
+/// Upper bound for a single exponential-backoff delay (D-06). Caps the
+/// `base × 2^retryCount` growth so a retry never sleeps longer than this.
+const Duration kSyncRetryMaxDelay = Duration(seconds: 60);
+
+/// Settings Account section header (D-09). Reused by Plan 03's signed-in
+/// branch so the Phase 11 sync rows live under a stable, non-hardcoded title.
+const String kSettingsAccountSectionTitle = 'Account';
+
+/// Settings cloud-sync status row label (D-09).
+const String kSettingsCloudSyncRowLabel = 'Cloud sync';
+
+/// Cloud-sync status copy: everything is synced (D-09, SyncSynced/SyncIdle).
+const String kSettingsSyncStatusAllSynced = 'All synced';
+
+/// Cloud-sync status copy: a sync is in flight (D-09, SyncSyncing).
+const String kSettingsSyncStatusSyncing = 'Syncing…';
+
+/// Cloud-sync status copy suffix: N rows still pending (D-09). The caller
+/// builds the full string as `'$n pending'`.
+const String kSettingsSyncStatusPendingTemplate = 'pending';
+
+/// Cloud-sync status copy: sync failed, tappable to retry (D-09, SyncFailed).
+const String kSettingsSyncStatusFailed = 'Sync failed — tap to retry';
+
+/// Cloud-sync status copy: device is offline (D-09, SyncOffline).
+const String kSettingsSyncStatusOffline = 'Offline';
+
+/// Settings restore-from-cloud row label (D-09).
+const String kSettingsRestoreRowLabel = 'Restore from cloud';
+
+/// Restore status copy: a restore is in progress (D-09).
+const String kSettingsRestoreInProgress = 'Restoring…';
+
+/// Restore status copy prefix: N trips restored (D-09). The caller builds the
+/// full string as `'Restored $n trips'`.
+const String kSettingsRestoreResultTemplate = 'Restored';
+
+/// Restore status copy: nothing new to restore (D-09).
+const String kSettingsRestoreUpToDate = 'Already up to date';
+
+/// Restore status copy: the restore request failed (D-09).
+const String kSettingsRestoreError = "Couldn't restore. Try again.";

@@ -72,6 +72,42 @@ class SyncQueueDao extends DatabaseAccessor<AppDatabase>
         .watch();
   }
 
+  /// One-shot read of all `pending` queue rows, oldest-first (by ascending
+  /// `id`). D-05: the sync engine pulls the pending batch this way to drain
+  /// the queue in enqueue order, rather than holding the `watchPending()`
+  /// stream for a single flush.
+  Future<List<SyncQueueRow>> getPending() {
+    return (select(syncQueue)
+          ..where((q) => q.status.equals(kSyncStatusPending))
+          ..orderBy([(q) => OrderingTerm.asc(q.id)]))
+        .get();
+  }
+
+  /// Promote a queue row to the terminal `failed` state (D-06). Called when a
+  /// row exhausts [kSyncQueueMaxRetries] retries, OR immediately on a
+  /// NON-retryable response (e.g. a 400 validation poison-pill, HIGH-2). A
+  /// failed row is not auto-retried until the user taps "retry", which runs
+  /// [resetFailed].
+  Future<void> markFailed(int id) {
+    return (update(syncQueue)..where((q) => q.id.equals(id))).write(
+      const SyncQueueCompanion(status: Value<String>(kSyncStatusFailed)),
+    );
+  }
+
+  /// Bulk-reset every `failed` row back to `pending` with a fresh retry budget
+  /// (D-06). This is the manual "tap to retry" action: Plan 02's
+  /// `SyncEngine.retryFailed()` calls it and Plan 03's Settings failed-state
+  /// row surfaces it. `pending`/`synced` rows are left untouched.
+  Future<void> resetFailed() {
+    return (update(syncQueue)..where((q) => q.status.equals(kSyncStatusFailed)))
+        .write(
+      const SyncQueueCompanion(
+        status: Value<String>(kSyncStatusPending),
+        retryCount: Value<int>(0),
+      ),
+    );
+  }
+
   /// Mark a queue row as successfully synced and stamp the UTC time.
   Future<void> markSynced(int id) {
     return (update(syncQueue)..where((q) => q.id.equals(id))).write(
