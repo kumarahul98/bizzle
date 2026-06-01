@@ -258,6 +258,58 @@ void main() {
         throwsA(isA<SyncException>()),
       );
     });
+
+    test('invalid/truncated JSON throws retryable SyncException (HR-01)', () {
+      // jsonDecode would throw FormatException — must re-map to transport.
+      final client = MockClient(
+        (req) async => http.Response('{"body":{"data":{"trips":[', 200),
+      );
+
+      expect(
+        () => build(client).restoreTrips(),
+        throwsA(
+          isA<SyncException>()
+              .having((e) => e.retryable, 'retryable', true)
+              .having((e) => e.notSignedIn, 'notSignedIn', false),
+        ),
+      );
+    });
+
+    test('non-object top-level JSON throws retryable SyncException (HR-01)', () {
+      // A top-level array — `as Map` would throw TypeError; re-map to transport.
+      final client = MockClient(
+        (req) async => http.Response('[1,2,3]', 200),
+      );
+
+      expect(
+        () => build(client).restoreTrips(),
+        throwsA(
+          isA<SyncException>()
+              .having((e) => e.retryable, 'retryable', true),
+        ),
+      );
+    });
+
+    test('a malformed trip element throws retryable SyncException (HR-01)', () {
+      // Well-formed envelope, but a trip element is missing required keys /
+      // has wrong types — TripSerializer.fromJson would throw; re-map.
+      final client = MockClient(
+        (req) async => http.Response(
+          envelope([
+            {'id': 42, 'not_a_trip': true},
+          ]),
+          200,
+        ),
+      );
+
+      expect(
+        () => build(client).restoreTrips(),
+        throwsA(
+          isA<SyncException>()
+              .having((e) => e.retryable, 'retryable', true),
+        ),
+      );
+    });
   });
 
   group('ApiClient injectable base URL', () {

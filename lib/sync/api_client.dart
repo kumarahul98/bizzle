@@ -167,15 +167,29 @@ class ApiClient {
       ),
     );
 
-    final decoded = jsonDecode(res.body) as Map<String, dynamic>;
-    final body = decoded['body'] as Map<String, dynamic>?;
-    final data = body?['data'] as Map<String, dynamic>?;
-    final trips = data?['trips'] as List<dynamic>?;
-    if (trips == null) throw const SyncException.transport();
+    // Decode + envelope-unwrap + per-trip mapping all run under a try so a
+    // truncated body (FormatException), a non-object top level (`as Map`
+    // TypeError), or a malformed trip element (cast/missing-key) re-maps to the
+    // documented retryable SyncException.transport — never a raw exception, and
+    // never leaking the response body / token / PII.
+    try {
+      final decoded = jsonDecode(res.body);
+      if (decoded is! Map<String, dynamic>) {
+        throw const SyncException.transport();
+      }
+      final body = decoded['body'] as Map<String, dynamic>?;
+      final data = body?['data'] as Map<String, dynamic>?;
+      final trips = data?['trips'] as List<dynamic>?;
+      if (trips == null) throw const SyncException.transport();
 
-    return trips
-        .map((e) => TripSerializer.fromJson(e as Map<String, dynamic>))
-        .toList();
+      return trips
+          .map((e) => TripSerializer.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } on SyncException {
+      rethrow;
+    } on Object {
+      throw const SyncException.transport();
+    }
   }
 }
 
