@@ -117,7 +117,10 @@ class _AccountSection extends ConsumerWidget {
       ],
     };
 
-    return SettingsSection(title: 'Account', children: rows);
+    return SettingsSection(
+      title: kSettingsAccountSectionTitle,
+      children: rows,
+    );
   }
 }
 
