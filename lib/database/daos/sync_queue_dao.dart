@@ -67,9 +67,9 @@ class SyncQueueDao extends DatabaseAccessor<AppDatabase>
   /// sync engine subscribes to this in Phase 9 and drains the queue
   /// whenever connectivity is available.
   Stream<List<SyncQueueRow>> watchPending() {
-    return (select(syncQueue)
-          ..where((q) => q.status.equals(kSyncStatusPending)))
-        .watch();
+    return (select(
+      syncQueue,
+    )..where((q) => q.status.equals(kSyncStatusPending))).watch();
   }
 
   /// One-shot read of all `pending` queue rows, oldest-first (by ascending
@@ -99,13 +99,24 @@ class SyncQueueDao extends DatabaseAccessor<AppDatabase>
   /// `SyncEngine.retryFailed()` calls it and Plan 03's Settings failed-state
   /// row surfaces it. `pending`/`synced` rows are left untouched.
   Future<void> resetFailed() {
-    return (update(syncQueue)..where((q) => q.status.equals(kSyncStatusFailed)))
-        .write(
+    return (update(
+      syncQueue,
+    )..where((q) => q.status.equals(kSyncStatusFailed))).write(
       const SyncQueueCompanion(
         status: Value<String>(kSyncStatusPending),
         retryCount: Value<int>(0),
       ),
     );
+  }
+
+  /// Count the queue rows currently in the terminal `failed` state. The sync
+  /// engine reads this to populate `SyncFailed(count)` for the Settings
+  /// "tap to retry" row, and Plan 03's row surfaces the same number.
+  Future<int> countFailed() async {
+    final rows = await (select(
+      syncQueue,
+    )..where((q) => q.status.equals(kSyncStatusFailed))).get();
+    return rows.length;
   }
 
   /// Mark a queue row as successfully synced and stamp the UTC time.

@@ -4,6 +4,8 @@ import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:traevy/config/constants.dart';
+import 'package:traevy/database/daos/sync_queue_dao.dart';
+import 'package:traevy/database/daos/trips_dao.dart';
 import 'package:traevy/database/database.dart';
 import 'package:traevy/sync/api_client.dart';
 import 'package:traevy/sync/sync_engine.dart';
@@ -51,15 +53,15 @@ class FakeApiClient implements ApiClient {
 
 /// Builds a live [TripsCompanion] for [id] so `findById` returns a real row.
 TripsCompanion _trip(String id) => TripsCompanion.insert(
-      id: id,
-      startTime: DateTime.utc(2026, 1, 1, 8),
-      endTime: DateTime.utc(2026, 1, 1, 9),
-      durationSeconds: 3600,
-      distanceMeters: 12000,
-      direction: kDirectionToOffice,
-      timeMovingSeconds: 3000,
-      timeStuckSeconds: 600,
-    );
+  id: id,
+  startTime: DateTime.utc(2026, 1, 1, 8),
+  endTime: DateTime.utc(2026, 1, 1, 9),
+  durationSeconds: 3600,
+  distanceMeters: 12000,
+  direction: kDirectionToOffice,
+  timeMovingSeconds: 3000,
+  timeStuckSeconds: 600,
+);
 
 void main() {
   group('SyncEngine', () {
@@ -110,15 +112,16 @@ void main() {
     });
 
     Future<int> pendingRetry(String tripId) async {
-      final rows = await (db.select(db.syncQueue)
-            ..where((q) => q.tripId.equals(tripId)))
-          .get();
+      final rows = await (db.select(
+        db.syncQueue,
+      )..where((q) => q.tripId.equals(tripId))).get();
       return rows.first.retryCount;
     }
 
     Future<String> rowStatus(int id) async {
-      final row = await (db.select(db.syncQueue)..where((q) => q.id.equals(id)))
-          .getSingle();
+      final row = await (db.select(
+        db.syncQueue,
+      )..where((q) => q.id.equals(id))).getSingle();
       return row.status;
     }
 
@@ -169,35 +172,39 @@ void main() {
       expect(await rowStatus(deleteId), kSyncStatusSynced);
     });
 
-    test('distinct trips are each represented once (collapse is per-tripId)',
-        () async {
-      await tripsDao.insertTrip(_trip('a'));
-      await tripsDao.insertTrip(_trip('b'));
-      await queueDao.enqueueCreate('a');
-      await queueDao.enqueueCreate('b');
+    test(
+      'distinct trips are each represented once (collapse is per-tripId)',
+      () async {
+        await tripsDao.insertTrip(_trip('a'));
+        await tripsDao.insertTrip(_trip('b'));
+        await queueDao.enqueueCreate('a');
+        await queueDao.enqueueCreate('b');
 
-      await buildEngine().processPending();
+        await buildEngine().processPending();
 
-      expect(api.syncCalls, hasLength(1));
-      expect(api.syncCalls.single.toSet(), {'a', 'b'});
-    });
+        expect(api.syncCalls, hasLength(1));
+        expect(api.syncCalls.single.toSet(), {'a', 'b'});
+      },
+    );
 
     // ---- Batching ----------------------------------------------------------
 
-    test('2 creates + 1 update across 3 trips batch into one syncTrips call',
-        () async {
-      await tripsDao.insertTrip(_trip('a'));
-      await tripsDao.insertTrip(_trip('b'));
-      await tripsDao.insertTrip(_trip('c'));
-      await queueDao.enqueueCreate('a');
-      await queueDao.enqueueCreate('b');
-      await queueDao.enqueueUpdate('c');
+    test(
+      '2 creates + 1 update across 3 trips batch into one syncTrips call',
+      () async {
+        await tripsDao.insertTrip(_trip('a'));
+        await tripsDao.insertTrip(_trip('b'));
+        await tripsDao.insertTrip(_trip('c'));
+        await queueDao.enqueueCreate('a');
+        await queueDao.enqueueCreate('b');
+        await queueDao.enqueueUpdate('c');
 
-      await buildEngine().processPending();
+        await buildEngine().processPending();
 
-      expect(api.syncCalls, hasLength(1));
-      expect(api.syncCalls.single.toSet(), {'a', 'b', 'c'});
-    });
+        expect(api.syncCalls, hasLength(1));
+        expect(api.syncCalls.single.toSet(), {'a', 'b', 'c'});
+      },
+    );
 
     test('zero syncTrips calls when only deletes are pending', () async {
       await queueDao.enqueueDelete(tripId: 'x', payload: '{}');
@@ -224,52 +231,59 @@ void main() {
 
     // ---- Success -----------------------------------------------------------
 
-    test('success -> markSynced + syncedAt set; status ends SyncSynced',
-        () async {
-      await tripsDao.insertTrip(_trip('t1'));
-      final id = await queueDao.enqueueCreate('t1');
+    test(
+      'success -> markSynced + syncedAt set; status ends SyncSynced',
+      () async {
+        await tripsDao.insertTrip(_trip('t1'));
+        final id = await queueDao.enqueueCreate('t1');
 
-      await buildEngine().processPending();
+        await buildEngine().processPending();
 
-      final row = await (db.select(db.syncQueue)..where((q) => q.id.equals(id)))
-          .getSingle();
-      expect(row.status, kSyncStatusSynced);
-      expect(row.syncedAt, isNotNull);
-      expect(emitted.last, isA<SyncSynced>());
-    });
+        final row = await (db.select(
+          db.syncQueue,
+        )..where((q) => q.id.equals(id))).getSingle();
+        expect(row.status, kSyncStatusSynced);
+        expect(row.syncedAt, isNotNull);
+        expect(emitted.last, isA<SyncSynced>());
+      },
+    );
 
     // ---- HIGH-2: retryable branching --------------------------------------
 
-    test('retryable failure (503) -> incrementRetry, row stays pending',
-        () async {
-      await tripsDao.insertTrip(_trip('t1'));
-      await queueDao.enqueueCreate('t1');
-      api.syncThrow = const SyncException.http(503);
+    test(
+      'retryable failure (503) -> incrementRetry, row stays pending',
+      () async {
+        await tripsDao.insertTrip(_trip('t1'));
+        await queueDao.enqueueCreate('t1');
+        api.syncThrow = const SyncException.http(503);
 
-      await buildEngine().processPending();
+        await buildEngine().processPending();
 
-      expect(await pendingRetry('t1'), 1);
-      final rows = await (db.select(db.syncQueue)
-            ..where((q) => q.tripId.equals('t1')))
-          .get();
-      expect(rows.first.status, kSyncStatusPending);
-    });
+        expect(await pendingRetry('t1'), 1);
+        final rows = await (db.select(
+          db.syncQueue,
+        )..where((q) => q.tripId.equals('t1'))).get();
+        expect(rows.first.status, kSyncStatusPending);
+      },
+    );
 
-    test('retryable failure at retryCount 2 -> retryCount 3 + markFailed',
-        () async {
-      await tripsDao.insertTrip(_trip('t1'));
-      final id = await queueDao.enqueueCreate('t1');
-      // Drive retryCount to 2 directly.
-      await queueDao.incrementRetry(id);
-      await queueDao.incrementRetry(id);
-      api.syncThrow = const SyncException.http(503);
+    test(
+      'retryable failure at retryCount 2 -> retryCount 3 + markFailed',
+      () async {
+        await tripsDao.insertTrip(_trip('t1'));
+        final id = await queueDao.enqueueCreate('t1');
+        // Drive retryCount to 2 directly.
+        await queueDao.incrementRetry(id);
+        await queueDao.incrementRetry(id);
+        api.syncThrow = const SyncException.http(503);
 
-      await buildEngine().processPending();
+        await buildEngine().processPending();
 
-      expect(await pendingRetry('t1'), kSyncQueueMaxRetries);
-      expect(await rowStatus(id), kSyncStatusFailed);
-      expect(emitted.last, isA<SyncFailed>());
-    });
+        expect(await pendingRetry('t1'), kSyncQueueMaxRetries);
+        expect(await rowStatus(id), kSyncStatusFailed);
+        expect(emitted.last, isA<SyncFailed>());
+      },
+    );
 
     test('non-retryable 400 -> markFailed IMMEDIATELY, retryCount untouched, '
         'no backoff', () async {
@@ -287,17 +301,19 @@ void main() {
       expect(emitted.last, isA<SyncFailed>());
     });
 
-    test('notSignedIn thrown mid-drain is a no-op skip (no retry, no fail)',
-        () async {
-      await tripsDao.insertTrip(_trip('t1'));
-      final id = await queueDao.enqueueCreate('t1');
-      api.syncThrow = const SyncException.notSignedIn();
+    test(
+      'notSignedIn thrown mid-drain is a no-op skip (no retry, no fail)',
+      () async {
+        await tripsDao.insertTrip(_trip('t1'));
+        final id = await queueDao.enqueueCreate('t1');
+        api.syncThrow = const SyncException.notSignedIn();
 
-      await buildEngine().processPending();
+        await buildEngine().processPending();
 
-      expect(await rowStatus(id), kSyncStatusPending);
-      expect(await pendingRetry('t1'), 0);
-    });
+        expect(await rowStatus(id), kSyncStatusPending);
+        expect(await pendingRetry('t1'), 0);
+      },
+    );
 
     // ---- In-flight guard ---------------------------------------------------
 
@@ -327,23 +343,25 @@ void main() {
 
     // ---- MEDIUM-2: backoff-window trigger coalescing ----------------------
 
-    test('trigger during active backoff window makes zero new apiClient calls',
-        () async {
-      await tripsDao.insertTrip(_trip('t1'));
-      await queueDao.enqueueCreate('t1');
-      api.syncThrow = const SyncException.http(503);
+    test(
+      'trigger during active backoff window makes zero new apiClient calls',
+      () async {
+        await tripsDao.insertTrip(_trip('t1'));
+        await queueDao.enqueueCreate('t1');
+        api.syncThrow = const SyncException.http(503);
 
-      final engine = buildEngine();
-      await engine.processPending(); // opens a backoff window
-      final callsAfterFirst = api.syncCalls.length;
-      expect(engine.backoffActive(), isTrue);
+        final engine = buildEngine();
+        await engine.processPending(); // opens a backoff window
+        final callsAfterFirst = api.syncCalls.length;
+        expect(engine.backoffActive(), isTrue);
 
-      // A trigger (connectivity/resume/post-save) fires before the window
-      // elapses — clock unchanged so now() is still before _backoffUntil.
-      await engine.processPending();
+        // A trigger (connectivity/resume/post-save) fires before the window
+        // elapses — clock unchanged so now() is still before _backoffUntil.
+        await engine.processPending();
 
-      expect(api.syncCalls.length, callsAfterFirst);
-    });
+        expect(api.syncCalls.length, callsAfterFirst);
+      },
+    );
 
     test('retryFailed clears the backoff window and is not blocked', () async {
       await tripsDao.insertTrip(_trip('t1'));
@@ -379,18 +397,20 @@ void main() {
 
     // ---- Offline / guest no-ops -------------------------------------------
 
-    test('offline -> zero API calls, status SyncOffline, retry untouched',
-        () async {
-      await tripsDao.insertTrip(_trip('t1'));
-      await queueDao.enqueueCreate('t1');
+    test(
+      'offline -> zero API calls, status SyncOffline, retry untouched',
+      () async {
+        await tripsDao.insertTrip(_trip('t1'));
+        await queueDao.enqueueCreate('t1');
 
-      await buildEngine(online: false).processPending();
+        await buildEngine(online: false).processPending();
 
-      expect(api.syncCalls, isEmpty);
-      expect(api.deleteCalls, isEmpty);
-      expect(emitted.last, isA<SyncOffline>());
-      expect(await pendingRetry('t1'), 0);
-    });
+        expect(api.syncCalls, isEmpty);
+        expect(api.deleteCalls, isEmpty);
+        expect(emitted.last, isA<SyncOffline>());
+        expect(await pendingRetry('t1'), 0);
+      },
+    );
 
     test('guest -> zero API calls and zero DB mutations', () async {
       await tripsDao.insertTrip(_trip('t1'));
@@ -406,31 +426,35 @@ void main() {
 
     // ---- Delete-404 idempotent (amendment) --------------------------------
 
-    test('deleteTrip returning normally (404 mapped to success) -> synced',
-        () async {
-      // FakeApiClient.deleteTrip does not throw -> mirrors deleteTrip's
-      // 404->success mapping from Plan 01.
-      final id = await queueDao.enqueueDelete(tripId: 't1', payload: '{}');
+    test(
+      'deleteTrip returning normally (404 mapped to success) -> synced',
+      () async {
+        // FakeApiClient.deleteTrip does not throw -> mirrors deleteTrip's
+        // 404->success mapping from Plan 01.
+        final id = await queueDao.enqueueDelete(tripId: 't1', payload: '{}');
 
-      await buildEngine().processPending();
+        await buildEngine().processPending();
 
-      expect(await rowStatus(id), kSyncStatusSynced);
-    });
+        expect(await rowStatus(id), kSyncStatusSynced);
+      },
+    );
 
     // ---- retryFailed chain (H2) -------------------------------------------
 
-    test('retryFailed re-enqueues a failed row and drains it to synced',
-        () async {
-      await tripsDao.insertTrip(_trip('t1'));
-      final id = await queueDao.enqueueCreate('t1');
-      await queueDao.markFailed(id);
+    test(
+      'retryFailed re-enqueues a failed row and drains it to synced',
+      () async {
+        await tripsDao.insertTrip(_trip('t1'));
+        final id = await queueDao.enqueueCreate('t1');
+        await queueDao.markFailed(id);
 
-      await buildEngine().retryFailed();
+        await buildEngine().retryFailed();
 
-      expect(api.syncCalls, hasLength(1));
-      expect(api.syncCalls.single, ['t1']);
-      expect(await rowStatus(id), kSyncStatusSynced);
-    });
+        expect(api.syncCalls, hasLength(1));
+        expect(api.syncCalls.single, ['t1']);
+        expect(await rowStatus(id), kSyncStatusSynced);
+      },
+    );
 
     // ---- Never throws ------------------------------------------------------
 
