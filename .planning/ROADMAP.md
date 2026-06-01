@@ -19,7 +19,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 5: Stats & Analytics** - Commute stats, traffic totals, trends, and charts
 - [x] **Phase 6: Dashboard** - Home screen with today's trips and weekly summary ✓ 2026-04-28
 - [x] **Phase 7: Polish & Notifications** - Dark mode, tracking reminders, and summary notifications ✓ 2026-04-28
-- [ ] **Phase 8: UI Overhaul** - Full visual redesign to Traevy design system (Inter + JetBrains Mono, oklch colour tokens, calm & spacious layout)
+- [x] **Phase 8: UI Overhaul** - Full visual redesign to Traevy design system (Inter + JetBrains Mono, oklch colour tokens, calm & spacious layout) (completed 2026-05-15)
 - [x] **Phase 9: Authentication** - Google Sign-In via Firebase Auth and onboarding flow (completed 2026-05-29)
 - [x] **Phase 10: Backend Infrastructure** - Firebase Cloud Functions (HTTPS) and Firestore (completed 2026-05-31)
 - [x] **Phase 11: Sync Engine** - One-way sync queue and cloud restore flow (completed 2026-06-01)
