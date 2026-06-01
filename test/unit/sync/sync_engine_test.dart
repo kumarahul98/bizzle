@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/daos/sync_queue_dao.dart';
@@ -477,6 +478,99 @@ void main() {
       expect(emitted.last, isA<SyncSynced>());
     });
   });
+
+  // ---- MR-03: post-save watchPending rising-edge guard ---------------------
+  //
+  // The post-save trigger (wired in start()) must nudge ONLY when the pending
+  // count rises (a genuine new enqueue). A successful drain's own markSynced
+  // writes shrink the pending set; that trailing emission must NOT re-fire a
+  // redundant empty processPending() (extra SyncSynced churn / wasted drain).
+  group('SyncEngine.start() post-save rising-edge guard (MR-03)', () {
+    const channel = 'dev.fluttercommunity.plus/connectivity';
+    late AppDatabase db;
+    late SyncQueueDao queueDao;
+    late TripsDao tripsDao;
+    late FakeApiClient api;
+    late List<SyncStatus> emitted;
+    late SyncStatusNotifier status;
+    late SyncEngine engine;
+
+    setUp(() {
+      TestWidgetsFlutterBinding.ensureInitialized();
+      // Stub the connectivity method channel so start()'s checkConnectivity()
+      // resolves (wifi) without a real platform.
+      TestDefaultBinaryMessenger messenger() =>
+          TestWidgetsFlutterBinding.instance.defaultBinaryMessenger;
+      messenger().setMockMethodCallHandler(
+        const MethodChannel(channel),
+        (call) async => <String>['wifi'],
+      );
+
+      db = AppDatabase(
+        DatabaseConnection(
+          NativeDatabase.memory(),
+          closeStreamsSynchronously: true,
+        ),
+      );
+      queueDao = db.syncQueueDao;
+      tripsDao = db.tripsDao;
+      api = FakeApiClient();
+      emitted = <SyncStatus>[];
+      status = _RecordingStatus(emitted);
+      engine = SyncEngine(
+        apiClient: api,
+        syncQueueDao: queueDao,
+        tripsDao: tripsDao,
+        status: status,
+        isSignedIn: () => true,
+        isOnline: () async => true,
+        now: () => DateTime.utc(2026, 6, 1, 12),
+      );
+    });
+
+    tearDown(() async {
+      engine.dispose();
+      TestWidgetsFlutterBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(const MethodChannel(channel), null);
+      await db.close();
+    });
+
+    test(
+      'a new enqueue drains once; the drain\'s own markSynced shrink does NOT '
+      're-fire a redundant empty drain',
+      () async {
+        await tripsDao.insertTrip(_trip('t1'));
+        await engine.start();
+
+        // Genuine new enqueue → pending count rises 0→1 → one drain.
+        await queueDao.enqueueCreate('t1');
+
+        // Let the reactive watchPending() stream deliver both the rising-edge
+        // emission AND the post-drain shrink emission, then settle.
+        await _pumpEventQueue();
+
+        // Exactly one network drain happened.
+        expect(api.syncCalls, hasLength(1));
+        expect(api.syncCalls.single, ['t1']);
+
+        // And exactly one SyncSynced was emitted — the shrink emission was a
+        // no-op (without the guard it would emit a second redundant SyncSynced).
+        expect(
+          emitted.whereType<SyncSynced>(),
+          hasLength(1),
+          reason: 'markSynced shrink must not re-fire an empty drain',
+        );
+      },
+    );
+  });
+}
+
+/// Drain the microtask + timer queue so reactive stream emissions and the
+/// fire-and-forget processPending() futures they schedule all settle.
+Future<void> _pumpEventQueue() async {
+  for (var i = 0; i < 20; i++) {
+    await Future<void>.delayed(Duration.zero);
+  }
 }
 
 /// Minimal [SyncStatusNotifier] that records transitions without a

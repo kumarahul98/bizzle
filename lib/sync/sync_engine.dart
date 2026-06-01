@@ -306,9 +306,16 @@ class SyncEngine {
     final initial = await Connectivity().checkConnectivity();
     _wasOnline = initial.any((r) => r != ConnectivityResult.none);
 
-    // Post-save nudge (M1): a new pending row drains automatically.
-    _pendingSub = _queueDao.watchPending().listen((_) {
-      unawaited(processPending());
+    // Post-save nudge (M1): a new pending row drains automatically. Gate on a
+    // RISING edge of the pending count (MR-03) so a successful drain's own
+    // `markSynced` writes — which SHRINK the pending set — do not re-fire a
+    // redundant empty `processPending()`. Only a genuine new enqueue (count
+    // increases) nudges; failed-row retry still flows through `retryFailed()`
+    // and the connectivity/resume triggers remain independent.
+    var lastPending = 0;
+    _pendingSub = _queueDao.watchPending().listen((rows) {
+      if (rows.length > lastPending) unawaited(processPending());
+      lastPending = rows.length;
     });
 
     // Connectivity-restored: only on the offline→online rising edge.
