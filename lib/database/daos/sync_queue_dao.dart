@@ -113,10 +113,12 @@ class SyncQueueDao extends DatabaseAccessor<AppDatabase>
   /// engine reads this to populate `SyncFailed(count)` for the Settings
   /// "tap to retry" row, and Plan 03's row surfaces the same number.
   Future<int> countFailed() async {
-    final rows = await (select(
-      syncQueue,
-    )..where((q) => q.status.equals(kSyncStatusFailed))).get();
-    return rows.length;
+    final count = syncQueue.id.count(
+      filter: syncQueue.status.equals(kSyncStatusFailed),
+    );
+    final row =
+        await (selectOnly(syncQueue)..addColumns([count])).getSingle();
+    return row.read(count) ?? 0;
   }
 
   /// Mark a queue row as successfully synced and stamp the UTC time.

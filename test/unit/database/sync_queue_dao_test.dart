@@ -117,6 +117,25 @@ void main() {
       expect(row.retryCount, 0);
     });
 
+    test('countFailed returns the number of failed rows only (LR-02)',
+        () async {
+      final f1 = await db.syncQueueDao.enqueueCreate('trip-f1');
+      final f2 = await db.syncQueueDao.enqueueCreate('trip-f2');
+      final syncedId = await db.syncQueueDao.enqueueCreate('trip-synced');
+      await db.syncQueueDao.enqueueCreate('trip-pending');
+      await db.syncQueueDao.markFailed(f1);
+      await db.syncQueueDao.markFailed(f2);
+      await db.syncQueueDao.markSynced(syncedId);
+
+      expect(await db.syncQueueDao.countFailed(), 2);
+    });
+
+    test('countFailed is zero when no rows are failed (LR-02)', () async {
+      await db.syncQueueDao.enqueueCreate('trip-1');
+
+      expect(await db.syncQueueDao.countFailed(), 0);
+    });
+
     test('resetFailed leaves pending and synced rows untouched', () async {
       final pendingId = await db.syncQueueDao.enqueueCreate('trip-pending');
       final syncedId = await db.syncQueueDao.enqueueCreate('trip-synced');
