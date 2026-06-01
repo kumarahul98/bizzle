@@ -1,9 +1,23 @@
 ---
-status: diagnosed
+status: resolved
 trigger: "Diagnose stale SPEED tile during active recording — tile shows 42 km/h when vehicle is stationary; distance/elapsed/stuck appear correct."
 created: 2026-05-15T00:00:00Z
-updated: 2026-05-15T00:00:00Z
+updated: 2026-06-01
+resolved: 2026-06-01
+resolved_by: 914b5cc
 ---
+
+## Resolution (2026-06-01)
+
+Diagnosed root cause (snapshot surfaced last-accepted speed with no decay)
+was fixed by commit `914b5cc fix(08-09): SPEED tile decays to 0 when GPS
+samples stop arriving`. Verified in current code:
+- `kTrackingSpeedFreshnessWindow = Duration(seconds: 6)` — constants.dart:230
+- `TripAccumulator.snapshot()` gates `currentSpeedMs` on
+  `now.difference(lastAt) <= kTrackingSpeedFreshnessWindow` — trip_accumulator.dart:207
+- Tests green: trip_accumulator_test.dart "speed freshness (gap 08-02)" group,
+  incl. "decays to 0 when last sample is older than the freshness window".
+
 
 ## Current Focus
 

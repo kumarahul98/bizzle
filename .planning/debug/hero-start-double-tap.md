@@ -1,9 +1,23 @@
 ---
-status: diagnosed
+status: resolved
 trigger: "Tapping dashboard hero START button navigates to TrackingScreen but lands in IDLE state, forcing user to tap twice to actually start recording"
 created: 2026-05-15T18:43:53Z
-updated: 2026-05-15T18:49:00Z
+updated: 2026-06-01
+resolved: 2026-06-01
+resolved_by: 8c0f3ce
 ---
+
+## Resolution (2026-06-01)
+
+Fixed by commit `8c0f3ce fix(08-08): collapse active recording into dashboard
+hero, delete TrackingScreen` — the recommended fix path (a) plus an
+architecture change that structurally eliminates the double-tap: recording now
+happens in-place in the dashboard hero card (no navigation to a separate idle
+TrackingScreen). Verified in current code: `_handleStart` invokes
+`unawaited(ref.read(trackingStateProvider.notifier).start())` before any
+navigation (dashboard_screen.dart:93). Confirmed by Phase 8 UAT tests 9–11
+(single-tap in-place recording, no separate tracking screen).
+
 
 ## Current Focus
 
