@@ -329,7 +329,7 @@ These must be addressed by the user before or during Phase 12 — they cannot be
 
 - [x] **Phase 12: iOS Scaffolding & Configuration** - Generate ios/ project, configure Podfile, Info.plist, entitlements, and bundle ID; app launches on Simulator and real iPhone (completed 2026-06-02)
 - [x] **Phase 13: Auth on iOS** - Google Sign-In working on a real device; session persists via Keychain (closed 2026-06-02 — requirements pre-satisfied by Phases 9+12, confirmed on-device by user; no execution needed)
-- [ ] **Phase 14: Background GPS Platform Branch** - Platform-branched CoreLocation tracking; GPS continues during backgrounded commute; traffic stats accurate on real iPhone (HIGHEST RISK — real-device validation required; flag for deeper research at plan time)
+- [x] **Phase 14: Background GPS Platform Branch** - Platform-branched CoreLocation tracking; GPS continues during backgrounded commute; traffic stats accurate on real iPhone (HIGHEST RISK — real-device validation required; flag for deeper research at plan time) (completed 2026-06-02)
 - [ ] **Phase 15: Notifications, Permissions & Onboarding UX on iOS** - iOS location two-step flow, notification permission, tracking-notification gate, onboarding copy (real-device required for permission flows)
 - [ ] **Phase 16: End-to-End Real-Device Parity Validation** - All features verified on a real iPhone; milestone acceptance gate (real-device required)
 
@@ -402,7 +402,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 14-03-PLAN.md — Wire notifier to the seam, platform-select the source, Android regression guard (full suite green)
+- [x] 14-03-PLAN.md — Wire notifier to the seam, platform-select the source, Android regression guard (full suite green)
 
 **Research flag**: Deeper planning required before execution. Open decision: keep `flutter_background_service.onForeground` driving the geolocator stream on iOS, or bypass `flutter_background_service` entirely and run the geolocator stream on the main isolate. Both are viable; bypass is the fallback. Resolve during plan-phase.
 
@@ -462,7 +462,7 @@ Note: Phases 1-7 deliver the complete local-first experience without any authent
 | 11. Sync Engine | v0.1 | 3/3 | Complete | 2026-06-01 |
 | 12. iOS Scaffolding & Configuration | v0.2 | 3/3 | Complete    | 2026-06-02 |
 | 13. Auth on iOS | v0.2 | 0/TBD | Not started | - |
-| 14. Background GPS Platform Branch | v0.2 | 2/3 | In Progress|  |
+| 14. Background GPS Platform Branch | v0.2 | 3/3 | Complete   | 2026-06-02 |
 | 15. Notifications, Permissions & Onboarding UX on iOS | v0.2 | 0/TBD | Not started | - |
 | 16. End-to-End Real-Device Parity Validation | v0.2 | 0/TBD | Not started | - |
 </content>
