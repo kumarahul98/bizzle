@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: iOS Support
 status: executing
-stopped_at: Phase 12 planned (3 plans) + Gemini-reviewed
-last_updated: "2026-06-02T13:46:55.054Z"
+stopped_at: Completed 12-02-PLAN.md — IOS-03 done, 12-03 next
+last_updated: "2026-06-02T14:07:52.101Z"
 last_activity: 2026-06-02
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
+  completed_plans: 2
   percent: 0
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-06-02)
 ## Current Position
 
 Phase: 12 (ios-scaffolding-configuration) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-06-02
 
-Progress: [███░░░░░░░] 33%
+Progress: [███████░░░] 67%
 
 ## Performance Metrics
 
@@ -51,6 +51,7 @@ Progress: [███░░░░░░░] 33%
 | 16 | TBD | - | - |
 
 *Updated after each plan completion*
+| Phase 12-ios-scaffolding-configuration P02 | 45min | 4 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -66,6 +67,10 @@ Recent decisions affecting current work:
 - [v0.2 Roadmap]: Phase 14 open decision — keep flutter_background_service.onForeground wrapper on iOS or bypass; resolve at plan time
 - [Phase ?]: iOS 15.0 deployment target (firebase_auth/firebase_core floor, user-approved)
 - [Phase ?]: flutter precache --ios required before pod install when Flutter.xcframework cache is absent (one-time machine setup)
+- [Phase 12]: No NSAppTransportSecurity exception required — all endpoints HTTPS; default ATS posture (TLS-required) retained (T-12-04 mitigated)
+- [Phase 12]: GoogleService-Info.plist committed to git (standard FlutterFire workflow — client config, not a secret; Firestore deny-all rules enforce real access boundary)
+- [Phase 12]: REVERSED_CLIENT_ID in GoogleService-Info.plist matches Info.plist CFBundleURLSchemes exactly: com.googleusercontent.apps.1076279794226-6h24q245801r9pca45v2e2tpjiocde64
+- [Phase 12]: DarwinInitializationSettings requestAlertPermission/requestSoundPermission/requestBadgePermission all false — permission deferred to Phase 15 iOS flow
 
 ### Pending Todos
 
@@ -97,6 +102,6 @@ Full checklist: `.planning/v0.1-DEVICE-CHECKLIST.md` (Groups A-I). Resume v0.1 c
 
 ## Session Continuity
 
-Last session: 2026-06-02T13:46:39.028Z
-Stopped at: Phase 12 planned (3 plans) + Gemini-reviewed
+Last session: 2026-06-02T14:07:52.098Z
+Stopped at: Completed 12-02-PLAN.md — IOS-03 done, 12-03 next
 Resume file: None
