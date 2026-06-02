@@ -1,78 +1,146 @@
 # Project Research Summary
 
-**Project:** Commute Tracker v0.1
-**Domain:** Offline-first GPS commute tracking mobile app (Flutter/Android + AWS serverless)
-**Researched:** 2026-04-11
-**Confidence:** MEDIUM
+**Project:** Commute Tracker — v0.2 iOS Support
+**Domain:** Cross-platform mobile (Flutter) — porting an existing Android-only app to iOS
+**Researched:** 2026-06-02
+**Confidence:** HIGH
 
 ## Executive Summary
 
-Commute Tracker is a consumer Android app whose core value is surfacing personal commute time and traffic insights no existing app delivers. The architecture is offline-first with client-authoritative sync: Drift SQLite is the single source of truth, the server is a passive backup, and the sync engine operates as an independent background queue processor. The stack is mature — Flutter 3.41.6, Drift, Riverpod with codegen, AWS SAM — with one critical unresolved dependency: the "Tracelet" GPS package must be validated before implementation.
+This milestone ports the fully-built Commute Tracker Android app to iOS with full feature parity, including background GPS commute tracking. Four parallel research streams (stack, features, architecture, pitfalls) converged on a single dominant finding: **the existing background-tracking mechanism does not work on iOS and must be replaced with Apple's native CoreLocation path** — but the change is small and well-understood, so the milestone is low-risk apart from that one phase.
 
-The biggest technical risks cluster in Phase 1 and 3. Android OEM battery optimization silently kills background location services. GPS speed data below 10 km/h is inherently noisy, and the core traffic-time differentiator depends on accurate speed classification.
+`flutter_background_service` (the Android keep-alive) cannot sustain continuous GPS on iOS: its `onBackground` callback fires at most ~15–30 seconds every 15 minutes via `BGTaskScheduler`, which is architecturally useless for a 30–60 minute commute recording. The correct iOS mechanism is already in the dependency graph: `geolocator`'s `AppleSettings(allowBackgroundLocationUpdates: true, pauseLocationUpdatesAutomatically: false, activityType: ActivityType.automotiveNavigation)` combined with `UIBackgroundModes: location` in `Info.plist`. CoreLocation then keeps the process alive for the trip's duration. The code change is a single `defaultTargetPlatform` branch (~10 lines) in `tracking_service.dart`; `TripAccumulator`, the Riverpod providers, Drift, and the sync engine are all untouched.
 
-## Recommended Stack
+Research also confirmed several facts that **shrink the milestone**: zero package version changes are needed (everything is iOS-compatible at current versions); the iOS Firebase app (`com.travey.app`) is already registered and `firebase_options.dart` already carries the iOS client config; `TrackingNotificationService` already has `DarwinInitializationSettings` wired; and the app uses `flutter_map` (OpenStreetMap), **not** `google_maps_flutter` — so the Google Maps iOS SDK setup mentioned in CLAUDE.md is a red herring and must not be added. The bulk of the work outside the GPS phase is Xcode/Info.plist configuration, not Dart.
 
-- Flutter 3.41.6 / Dart 3.11.4 (verified locally)
-- Drift ^2.22 — reactive SQLite streams, type-safe DAOs, migration support
-- Riverpod ^2.6 + riverpod_generator — compile-safe state management
-- geolocator ^13.0 (or Tracelet if verified) — GPS with native Doppler speed
-- flutter_background_service ^5.0 — Android foreground service for background GPS
-- google_sign_in ^6.2 + amazon_cognito_identity_dart_2 ^3.7 — Google auth without Amplify
-- flutter_secure_storage ^9.2 — Android Keystore for tokens
-- fl_chart ^0.69 — charts for stats
-- AWS SAM + TypeScript Lambda + DynamoDB + Cognito — 3-endpoint serverless backend
-- zod ^3.23 — Lambda input validation
-- http ^1.2 — sufficient for 3 JSON endpoints
+## Key Findings
 
-## Feature Landscape
+### Recommended Stack
 
-**Competitive gap:** No consumer app focuses on "how much time did I waste in traffic this week?" Google Maps Timeline, Waze, MileIQ, Strava all serve adjacent use cases.
+No new packages and no version bumps. The port is configuration plus one platform branch. The only `pubspec.yaml` change is enabling `flutter_launcher_icons.ios: true`.
 
-**Table stakes:** Start/stop GPS recording, background survival, trip history with route maps, duration/distance, editing/deletion, offline functionality, cloud backup, Google Sign-In, dark mode, foreground notification during tracking.
+**Core technologies (unchanged, now iOS-configured):**
+- `geolocator ^14.0.2`: GPS — on iOS use `AppleSettings` (native CoreLocation background updates). This replaces `flutter_background_service` for the iOS location stream.
+- `firebase_auth ^6.5.1` + `google_sign_in ^7.2.0`: auth — iOS needs `clientId: DefaultFirebaseOptions.currentPlatform.iosClientId` in Dart + the reversed-client-ID URL scheme in `Info.plist`.
+- `flutter_local_notifications ^21.0.0`: notifications — `DarwinInitializationSettings`, runtime permission request; **no** iOS foreground-service notification (gate `startTrackingNotification()` behind `Platform.isAndroid`).
+- `flutter_secure_storage ^10.3.1`: token storage — requires the **Keychain Sharing** entitlement on real devices (omission = silent `-34018`).
+- `flutter_map` (OSM): maps — pure Dart, works on iOS with zero native setup.
+- Drift (SQLite): source of truth — platform-agnostic, no change.
 
-**Differentiators:** Traffic time breakdown per trip (moving vs stuck at 10 km/h), weekly traffic totals, direction auto-labeling, best/worst commute day, 4-week trend line, manual trip entry, direction-split averages.
+**Minimum iOS deployment target:** `platform :ios, '14.0'` in `Podfile` + matching `IPHONEOS_DEPLOYMENT_TARGET`, with a `post_install` hook for transitive pods. (Firebase floor is iOS 13; 14.0 gives margin and covers all deps.)
 
-**Defer to v0.2+:** Weekly summary push notification, tracking reminder, home screen widget, trip export.
+### Expected Features
 
-**Defer to v2+:** Automatic trip detection, iOS, two-way sync, route comparison.
+All 17 existing features must reach parity. Research split them by porting effort:
 
-## Architecture
+**Needs iOS-specific handling (the real work):**
+- Background GPS commute tracking — platform branch to `AppleSettings` (HIGH risk, real-device validation required)
+- Location permission flow — two-step "When In Use" → "Always" (iOS defers the Always prompt; app must treat "When In Use only" as a valid degraded state)
+- iOS-14 Reduced Accuracy handling — detect via `getLocationAccuracy()`; block/flag recording when reduced (otherwise speed ≈ 0 silently corrupts traffic stats)
+- Google Sign-In — reversed-client-ID URL scheme
+- Tracking notification — gate behind `Platform.isAndroid` (no iOS equivalent; the system blue indicator is the iOS signal)
+- Notification permission — iOS runtime prompt
 
-Four-layer architecture: Presentation -> State (Riverpod) -> Services -> Data (Drift DAOs). Strict unidirectional data flow. Drift reactive streams eliminate stale-state bugs. Sealed state machines for tracking lifecycle and sync status.
+**Works identically (validate, don't build):**
+- Trip CRUD, manual entry, daily log/calendar, route map (flutter_map), all stats, dark mode, sync (Drift→Cloud Functions over REST), cloud restore.
 
-**Build order (dependency-driven):** Database -> Auth -> Tracking -> Trip Management -> Stats -> Sync/Backend -> Polish.
+**Defer (out of this milestone):**
+- Sign in with Apple — App Store Guideline 4.8 requires it *alongside* Google Sign-In, but **only at App Store submission**. Sideloading via free provisioning does not need it.
+- TestFlight / App Store distribution.
 
-## Critical Pitfalls
+### Architecture Approach
 
-1. **Android OEM battery kill** — foreground service mandatory, battery exemption onboarding, START_STICKY. Phase 1/3.
-2. **GPS speed noise below 10 km/h** — use Doppler speed, 3 km/h floor, sliding window smoothing. Phase 3.
-3. **Drift migration breakage** — design schema upfront, write migration tests from v1, polylines in separate table. Phase 1.
-4. **Cognito token refresh races** — centralize behind mutex, proactive refresh. Phase 2.
-5. **Sync queue unbounded growth** — chunk in 5-10 trip batches from day one. Phase 6.
+Minimal-change integration. The abstraction seam is a single platform branch in the tracking service that selects `AppleSettings` vs `AndroidSettings` for the geolocator location stream. The existing service-isolate structure can stay; on iOS the geolocator stream runs and CoreLocation (via `allowBackgroundLocationUpdates`) keeps the process alive. Fallback if the `flutter_background_service` `onForeground` lifecycle misbehaves on iOS: bypass `flutter_background_service` entirely on iOS and run the geolocator stream on the main isolate.
 
-## Suggested Phase Structure
+**Major components touched:**
+1. `tracking_service.dart` — platform branch for `LocationSettings` (the one non-trivial Dart change).
+2. `ios/Runner/Info.plist` — `NSLocationWhenInUseUsageDescription`, `NSLocationAlwaysAndWhenInUseUsageDescription`, `UIBackgroundModes: location`, notification usage, reversed-client-ID `CFBundleURLTypes`.
+3. Xcode project — Background Modes → Location Updates capability, Keychain Sharing entitlement, signing team, bundle ID `com.travey.app`, `GoogleService-Info.plist` added as a resource.
+4. `Podfile` — `platform :ios, '14.0'` + `post_install`.
 
-1. **Foundation** — Database schema, config, scaffold
-2. **Auth** — Google Sign-In + Cognito (user_id needed before trips)
-3. **Core Tracking** — GPS + TripProcessor + foreground service (highest risk)
-4. **Trip Management** — History, detail, edit, delete, manual entry
-5. **Stats and Dashboard** — Core value proposition
-6. **Sync and Backend** — AWS infrastructure, sync engine, restore
-7. **Polish** — Dark mode, reminders, edge cases
+### Critical Pitfalls
 
-## Research Flags
+1. **`pauseLocationUpdatesAutomatically` defaults to `true`** — silently pauses GPS during stop-and-go traffic (the exact thing the app measures). Must explicitly set `false`.
+2. **Keychain Sharing entitlement omission** — silent `-34018` auth-token failure on real devices (works in Simulator, so easy to miss).
+3. **iOS-14 Reduced Accuracy** — "Approximate Location" returns coarse, low-rate fixes with `speed ≈ 0` and no error; detect and handle, or traffic stats are garbage.
+4. **Reversed-client-ID URL scheme missing/mis-ordered** — Google Sign-In hangs in Safari with no surfaced error.
+5. **Using `flutter_background_service` as the iOS GPS engine** — silent failure mid-commute; use `AppleSettings` instead.
+6. **Posting the tracking notification on iOS** — phantom/confusing; gate behind `Platform.isAndroid`.
 
-**Needs validation:** Tracelet package existence (blocks Phase 3), GPS smoothing parameters (empirical tuning), DynamoDB key design (Phase 6), Cognito IdP setup.
+## Implications for Roadmap
 
-**Standard patterns (skip research):** Drift setup, google_sign_in, CRUD with Riverpod, SQL aggregates, dark mode, flutter_local_notifications.
+Convergent phase structure agreed by all four researchers:
+
+### Phase 1: iOS Scaffolding & Configuration
+**Rationale:** Nothing builds without the `ios/` folder, Podfile, Info.plist keys, entitlements, signing, and bundle ID. Pure foundation.
+**Delivers:** Generated `ios/` project; Podfile (iOS 14, post_install); all Info.plist keys; Background Modes + Keychain Sharing capabilities; `GoogleService-Info.plist` added; app launches on Simulator and (via free provisioning) on a real iPhone.
+**Avoids:** Pitfalls 2, 4, 5 (entitlements/plist set up correctly up front).
+
+### Phase 2: Auth on iOS
+**Rationale:** Auth gates the rest of the app; small, isolated, verifiable early.
+**Delivers:** Google Sign-In working on a real device (`clientId` param + URL scheme), session persistence via Keychain, token round-trip.
+**Uses:** firebase_auth, google_sign_in, flutter_secure_storage.
+
+### Phase 3: Background GPS Platform Branch
+**Rationale:** The milestone's central risk; must be validated on a real commute before anything depends on it.
+**Delivers:** Platform-branched `AppleSettings` tracking; `pauseLocationUpdatesAutomatically: false`; reduced-accuracy guard; background continuation verified on a real iPhone; traffic (moving/stuck) stats correct from real GPS.
+**Avoids:** Pitfalls 1, 3, 5. **Research flag: deep-research / careful planning warranted.**
+
+### Phase 4: Notifications, Permissions & Onboarding UX
+**Rationale:** Depends on permissions plumbing; finishes the iOS-specific UX.
+**Delivers:** `Platform.isAndroid` gating of the tracking notification; iOS notification permission request; two-step "Always" location flow in onboarding/settings; blue-indicator copy.
+
+### Phase 5: End-to-End Real-Device Validation
+**Rationale:** All remaining features work identically and can be validated together.
+**Delivers:** Full commute recorded on a real iPhone; trips, maps, stats, dark mode, sync, and restore confirmed on iOS. Milestone acceptance gate.
+
+### Phase Ordering Rationale
+- Scaffolding first — hard dependency for every other phase.
+- Auth before GPS — smaller, de-risks the toolchain/signing before tackling the hard phase.
+- GPS isolated in its own phase — highest risk, real-device-only, must not be entangled with other work.
+- Notifications/permissions after GPS — share the permission infrastructure.
+- Validation last — everything else is "verify identical behavior."
+
+### Research Flags
+- **Phase 3 (Background GPS):** deeper planning warranted — platform-conditional isolate behavior + real-device validation; one open question (keep `flutter_background_service.onForeground` wrapper vs bypass on iOS).
+
+Standard-pattern phases (skip deep research): Phases 1, 2, 4, 5 — config and well-documented APIs.
+
+## Confidence Assessment
+
+| Area | Confidence | Notes |
+|------|------------|-------|
+| Stack | HIGH | Versions verified iOS-compatible; firebase_options.dart read directly |
+| Features | HIGH | Each feature mapped; permission flows from Apple/geolocator docs |
+| Architecture | HIGH | tracking_service.dart read line-by-line; seam is concrete |
+| Pitfalls | MEDIUM-HIGH | Most from official docs; a few from corroborated GitHub issues |
+
+**Overall confidence:** HIGH
+
+### Gaps to Address
+- **iOS background-service wrapper choice (Phase 3):** keep `flutter_background_service.onForeground` driving the geolocator stream, or bypass it on iOS — decide during Phase 3 planning; both are viable, bypass is the fallback.
+- **`flutter_map_tile_caching` iOS minimum/stability (LOW confidence):** validate on device during Phase 1/5.
+- **Provisional notification authorization bug (single source):** confirm during Phase 4.
+
+## Human-Only Gates (cannot be automated)
+- **Xcode license acceptance** (`sudo xcodebuild -license accept`) — blocks all `flutter build ios` and git until done.
+- **Apple ID signing** in Xcode — free 7-day provisioning (no paid account needed this milestone); re-sign weekly for device runs.
+- **Real-device testing** — background GPS continuation, speed/traffic accuracy, and Google OAuth redirect all require a physical iPhone (Simulator GPS is unreliable for speed).
 
 ## Sources
 
-- CLAUDE.md + MVP-features-0.1.md (project context)
-- Flutter 3.41.6/Dart 3.11.4 (verified local installation)
-- Training data knowledge of Android background processing, GPS accuracy, competitor features
-- Tracelet: UNVERIFIED — highest-priority validation item
+### Primary (HIGH confidence)
+- Context7: `geolocator` / `geolocator_apple` (AppleSettings, background updates), `flutter_background_service` (iOS BGTaskScheduler limits), `flutter_local_notifications` (Darwin init), `flutter_secure_storage` (Keychain), `google_sign_in_ios`.
+- Firebase official iOS setup docs; Apple CoreLocation & App Store Review Guideline 4.8.
+- Project files read directly: `pubspec.yaml`, `lib/firebase_options.dart`, `tracking_service.dart`, `CLAUDE.md`.
+
+### Secondary (MEDIUM confidence)
+- GitHub issues corroborating `-34018` Keychain entitlement, `pauseLocationUpdatesAutomatically` default, reduced-accuracy behavior, provisional-auth bug.
+
+### Tertiary (LOW confidence)
+- `flutter_map_tile_caching` iOS minimum version — pub.dev states compatibility; exact floor unpublished; validate on device.
 
 ---
-*Synthesized: 2026-04-11 from STACK.md, FEATURES.md, ARCHITECTURE.md, PITFALLS.md*
+*Research completed: 2026-06-02*
+*Ready for roadmap: yes*
+*Note: not git-committed — Xcode license unaccepted blocks git on this machine.*

@@ -4,7 +4,15 @@
 
 Deliver an offline-first Android commute tracker that records GPS trips, computes traffic breakdowns, surfaces commute insights through stats and a dashboard, then adds cloud backup via auth and sync as the final layer. The build order is local-first: database foundation, then GPS tracking, trip management, history, stats, dashboard, and polish -- all working without any authentication. Auth, backend, and sync are added last so the core experience is fully usable before any cloud dependency.
 
+## Milestones
+
+- ✅ **v0.1 Android MVP** - Phases 1-11 (formally open — 13 device-UAT items deferred, resumable)
+- 🚧 **v0.2 iOS Support** - Phases 12-16 (in progress)
+
 ## Phases
+
+<details>
+<summary>✅ v0.1 Android MVP (Phases 1-11) — formally open, 13 device-UAT items deferred</summary>
 
 **Phase Numbering:**
 - Integer phases (1, 2, 3): Planned milestone work
@@ -23,8 +31,6 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 9: Authentication** - Google Sign-In via Firebase Auth and onboarding flow (completed 2026-05-29)
 - [x] **Phase 10: Backend Infrastructure** - Firebase Cloud Functions (HTTPS) and Firestore (completed 2026-05-31)
 - [x] **Phase 11: Sync Engine** - One-way sync queue and cloud restore flow (completed 2026-06-01)
-
-## Phase Details
 
 ### Phase 1: Foundation
 **Goal**: A runnable Flutter project with complete Drift database schema and app-wide configuration ready for all features to build on
@@ -246,25 +252,126 @@ Plans:
 - [x] 11-02-PLAN.md — Sync engine: queue processor (batch + backoff + in-flight guard), D-07 triggers, eager mount, unit tests
 - [x] 11-03-PLAN.md — Restore-from-cloud (RestoreController + insertOrIgnore dedupe-by-UUID) + Settings signed-in cloud-sync-status & Restore rows (SYNC-03)
 
-**Status**: ✅ COMPLETE (verified PASS, 4/4 criteria) — flutter analyze clean (no new issues over 96 baseline); full suite 377 passed / 0 failed / 0 new skips; Gemini cross-AI plan review converged 0 HIGH (2 iters); code review 0 Critical / 1 High (fixed). REST-only client (no cloud_firestore); targets the deployed backend at https://us-central1-travey-298a7.cloudfunctions.net/api. Live signed-in-device E2E is the only wake-up item. See 11-SUMMARY/11-VERIFICATION.
+**Status**: COMPLETE (verified PASS, 4/4 criteria) — flutter analyze clean (no new issues over 96 baseline); full suite 377 passed / 0 failed / 0 new skips; Gemini cross-AI plan review converged 0 HIGH (2 iters); code review 0 Critical / 1 High (fixed). REST-only client (no cloud_firestore); targets the deployed backend at https://us-central1-travey-298a7.cloudfunctions.net/api. Live signed-in-device E2E is the only wake-up item. See 11-SUMMARY/11-VERIFICATION.
+
+</details>
+
+---
+
+## v0.2 iOS Support
+
+**Milestone Goal:** Make the full Commute Tracker app run on iOS with feature parity to Android, runnable on a real iPhone via Xcode free (7-day) provisioning. No TestFlight or App Store this milestone.
+
+### Milestone Preconditions (Human-Only Gates)
+
+These must be addressed by the user before or during Phase 12 — they cannot be automated:
+
+1. **Xcode license acceptance** — run `sudo xcodebuild -license accept` on the Mac. This also unblocks git on this machine.
+2. **Apple ID signing in Xcode** — use free provisioning (no paid developer account needed). Note: free provisioning certificates expire every 7 days and must be re-signed for continued device runs.
+3. **Enable Developer Mode on the test iPhone** — iOS 16+ requires `Settings > Privacy & Security > Developer Mode` to be turned on (and the device restarted) before any locally-signed app will launch. Blocks all real-device testing if missed.
+4. **Real-device testing** — Phases 13, 14, 15, and 16 all require a physical iPhone. iOS Simulator cannot reliably test background GPS continuation, speed-based traffic accuracy, or the Google OAuth redirect flow.
+
+---
+
+### v0.2 Phase Checklist
+
+- [ ] **Phase 12: iOS Scaffolding & Configuration** - Generate ios/ project, configure Podfile, Info.plist, entitlements, and bundle ID; app launches on Simulator and real iPhone
+- [ ] **Phase 13: Auth on iOS** - Google Sign-In working on a real device; session persists via Keychain (device-install required)
+- [ ] **Phase 14: Background GPS Platform Branch** - Platform-branched CoreLocation tracking; GPS continues during backgrounded commute; traffic stats accurate on real iPhone (HIGHEST RISK — real-device validation required; flag for deeper research at plan time)
+- [ ] **Phase 15: Notifications, Permissions & Onboarding UX on iOS** - iOS location two-step flow, notification permission, tracking-notification gate, onboarding copy (real-device required for permission flows)
+- [ ] **Phase 16: End-to-End Real-Device Parity Validation** - All features verified on a real iPhone; milestone acceptance gate (real-device required)
+
+---
+
+### Phase 12: iOS Scaffolding & Configuration
+**Goal**: The app builds and runs on iOS — Simulator and real iPhone — with all platform prerequisites correctly configured so every subsequent phase starts from a clean foundation
+**Depends on**: Phase 11
+**Requirements**: IOS-01, IOS-02, IOS-03
+**Success Criteria** (what must be TRUE):
+  1. `flutter build ios --simulator` completes without error and the app launches on the iOS Simulator
+  2. The app installs and launches on a real iPhone via Xcode free provisioning (human-gated: requires Xcode license acceptance and Apple ID signing)
+  3. `Info.plist` contains all required keys: `NSLocationWhenInUseUsageDescription`, `NSLocationAlwaysAndWhenInUseUsageDescription`, `UIBackgroundModes: location`, notification usage description, and the reversed-client-ID `CFBundleURLTypes` entry
+  4. Keychain Sharing entitlement is present in `Runner.entitlements` (absence causes silent `-34018` token failure on real devices)
+  5. `GoogleService-Info.plist` is added to the Xcode project as a resource and `Podfile` targets iOS 14.0 with the required `post_install` hook; `pod install` completes successfully in `ios/` (run explicitly or via `flutter build ios`)
+  6. `Info.plist` contains an `NSAppTransportSecurity` configuration that permits the HTTPS calls the app makes (Google OAuth endpoints + the Cloud Functions sync backend) so network requests are not blocked by ATS
+  7. iOS app icons (all required sizes) and a launch screen storyboard are present so the installed app shows a proper icon and launch screen, not placeholder assets
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 13: Auth on iOS
+**Goal**: Users can sign in with Google on iOS and stay signed in across app restarts, with tokens stored securely in the iOS Keychain
+**Depends on**: Phase 12
+**Requirements**: IOS-04, IOS-05
+**Success Criteria** (what must be TRUE):
+  1. User can tap "Sign in with Google" on an iPhone, complete the OAuth flow in Safari, and return to the app authenticated (reversed-client-ID URL scheme routes the redirect correctly)
+  2. User remains signed in after force-quitting and relaunching the app on a real iPhone — no re-authentication prompt (human-gated: requires real-device install)
+  3. No `-34018` Keychain error appears in device logs — Keychain Sharing entitlement is confirmed working on a physical device
+  4. `google_sign_in` is initialized with `clientId: DefaultFirebaseOptions.currentPlatform.iosClientId` in Dart
+**Plans**: TBD
+
+### Phase 14: Background GPS Platform Branch
+**Goal**: Users can record a full commute on iOS with GPS continuing uninterrupted while the app is backgrounded or the screen is off, and moving/stuck traffic stats remain accurate
+**Depends on**: Phase 13
+**Requirements**: IOS-06, IOS-07, IOS-08
+**Success Criteria** (what must be TRUE):
+  1. User starts a trip on iPhone, locks the screen for the duration of a commute, stops the trip — GPS track is complete with no gaps (human-gated: requires real-device commute validation)
+  2. Moving/stuck time breakdown for a stop-and-go commute is accurate — GPS does not pause silently during slow traffic (`pauseLocationUpdatesAutomatically: false` confirmed working on device)
+  3. When iOS location accuracy is set to "Approximate" in Settings, the app detects reduced accuracy (`getLocationAccuracy()`) and surfaces a warning or blocks recording rather than silently computing garbage speed stats
+  4. `tracking_service.dart` contains a `defaultTargetPlatform` branch that selects `AppleSettings(allowBackgroundLocationUpdates: true, pauseLocationUpdatesAutomatically: false, activityType: ActivityType.automotiveNavigation)` on iOS
+**Plans**: TBD
+
+**Research flag**: Deeper planning required before execution. Open decision: keep `flutter_background_service.onForeground` driving the geolocator stream on iOS, or bypass `flutter_background_service` entirely and run the geolocator stream on the main isolate. Both are viable; bypass is the fallback. Resolve during plan-phase.
+
+**Sequencing note** (Gemini peer review challenged placing this highest-risk phase after Auth): Auth is kept first because the app gates the tracking UI behind sign-in (onboarding = sign-in → location permission → tracking), so reaching the tracking screen on a real device to validate background GPS requires working auth. Phase 12 already de-risks the toolchain (IOS-02: installs + launches on a real iPhone), so toolchain risk is retired before this phase regardless. If Phase 13 reveals auth is slow to stabilize, a throwaway GPS spike behind a temporary dev bypass can be pulled forward — but the default order is 12 → 13 → 14.
+
+### Phase 15: Notifications, Permissions & Onboarding UX on iOS
+**Goal**: The iOS-specific permission flows are correct, notifications work, and the tracking notification is properly suppressed on iOS so there is no phantom foreground-service badge
+**Depends on**: Phase 14
+**Requirements**: IOS-09, IOS-10, IOS-11
+**Success Criteria** (what must be TRUE):
+  1. During onboarding on iPhone, the user is prompted for "When In Use" location permission first; the app then requests "Always" at the appropriate moment and continues to function (in a degraded state) if the user grants only "When In Use" (human-gated: real-device permission flow)
+  2. User receives a notification permission prompt on iOS and, after granting, the weekly summary notification and departure-reminder notification fire as scheduled
+  3. The persistent tracking notification that appears on Android does NOT appear on iOS — the system blue location indicator is the only tracking signal shown to the user
+  4. `startTrackingNotification()` (or equivalent) is gated behind `Platform.isAndroid` so no phantom notification is posted on iOS
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 16: End-to-End Real-Device Parity Validation
+**Goal**: Every feature that works on Android is confirmed working on a real iPhone — this is the milestone acceptance gate
+**Depends on**: Phase 15
+**Requirements**: IOS-12
+**Success Criteria** (what must be TRUE):
+  1. User records a complete commute on iPhone (start, background, stop), and the trip appears in the daily log with correct duration, distance, and moving/stuck breakdown (human-gated: real-device commute)
+  2. Trip CRUD (create, edit direction/time, delete with confirmation) and manual entry all work on iOS
+  3. Daily log list view, calendar view, and route map (flutter_map/OpenStreetMap) render on iPhone with no RenderFlex overflow errors in the logs and no visual regressions versus the Android layout (cards, calendar markers, and polyline all display)
+  4. All stats screens (weekly total, direction averages, best/worst day, 4-week trend, traffic waste) show correct data derived from iOS-recorded trips
+  5. Sync (Drift → Cloud Functions) and cloud restore both complete successfully on iOS — same REST path as Android, confirmed with a live trip round-trip
+**Plans**: TBD
+
+---
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10 -> 11
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10 -> 11 -> 12 -> 13 -> 14 -> 15 -> 16
 
-Note: Phases 1-7 deliver the complete local-first experience without any authentication or cloud dependency. Phase 8 redesigns the UI to the Traevy design system. Phases 9-11 layer on auth, backend, and sync after the core app is fully functional and polished.
+Note: Phases 1-7 deliver the complete local-first experience without any authentication or cloud dependency. Phase 8 redesigns the UI to the Traevy design system. Phases 9-11 layer on auth, backend, and sync after the core app is fully functional and polished. Phases 12-16 port the app to iOS with full feature parity.
 
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 1. Foundation | 0/4 | Not started | - |
-| 2. Core Tracking | 0/3 | Not started | - |
-| 3. Trip Management | 0/5 | Not started | - |
-| 4. Trip History | 0/4 | Not started | - |
-| 5. Stats & Analytics | 0/5 | Not started | - |
-| 6. Dashboard | 0/4 | Not started | - |
-| 7. Polish & Notifications | 0/4 | Not started | - |
-| 8. UI Overhaul | 0/4 | Not started | - |
-| 9. Authentication | 5/5 | Complete   | 2026-05-29 |
-| 10. Backend Infrastructure | 3/3 | Complete   | 2026-05-31 |
-| 11. Sync Engine | 3/3 | Complete   | 2026-06-01 |
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 1. Foundation | v0.1 | 0/4 | Not started | - |
+| 2. Core Tracking | v0.1 | 0/3 | Not started | - |
+| 3. Trip Management | v0.1 | 0/5 | Not started | - |
+| 4. Trip History | v0.1 | 0/4 | Not started | - |
+| 5. Stats & Analytics | v0.1 | 0/5 | Not started | - |
+| 6. Dashboard | v0.1 | 0/4 | Not started | - |
+| 7. Polish & Notifications | v0.1 | 0/4 | Not started | - |
+| 8. UI Overhaul | v0.1 | 0/4 | Not started | - |
+| 9. Authentication | v0.1 | 5/5 | Complete | 2026-05-29 |
+| 10. Backend Infrastructure | v0.1 | 3/3 | Complete | 2026-05-31 |
+| 11. Sync Engine | v0.1 | 3/3 | Complete | 2026-06-01 |
+| 12. iOS Scaffolding & Configuration | v0.2 | 0/TBD | Not started | - |
+| 13. Auth on iOS | v0.2 | 0/TBD | Not started | - |
+| 14. Background GPS Platform Branch | v0.2 | 0/TBD | Not started | - |
+| 15. Notifications, Permissions & Onboarding UX on iOS | v0.2 | 0/TBD | Not started | - |
+| 16. End-to-End Real-Device Parity Validation | v0.2 | 0/TBD | Not started | - |

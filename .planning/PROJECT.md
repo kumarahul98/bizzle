@@ -8,6 +8,21 @@ A consumer Android app that lets anyone track their daily commute with a simple 
 
 Show people the reality of their commute — time wasted in traffic and how it changes over time. If nothing else works, this insight must.
 
+## Current Milestone: v0.2 iOS Support
+
+**Goal:** Make the full Commute Tracker app run on iOS with feature parity to Android, runnable on a real iPhone via Xcode.
+
+**Target features:**
+- iOS platform scaffolding (generate `ios/` folder, bundle ID, build config)
+- Background GPS tracking on iOS (geolocator native background location mode)
+- Google Sign-In + Firebase Auth on iOS (URL schemes, `GoogleService-Info.plist`)
+- Local notifications on iOS (permission model, tracking + weekly summary)
+- Secure token storage via iOS Keychain
+- Maps / route display on iOS
+- iOS permissions + `Info.plist` (location always/when-in-use, notifications)
+
+**Scope notes:** Full feature parity including background GPS. Target = runs on a real iPhone via Xcode 26.5 (no TestFlight / App Store this milestone). No Apple Developer account — relies on 7-day free provisioning. Previous milestone v0.1 is left formally open (13 deferred Android device-UAT items) and remains resumable.
+
 ## Requirements
 
 ### Validated
@@ -43,7 +58,6 @@ Show people the reality of their commute — time wasted in traffic and how it c
 
 ### Out of Scope
 
-- iOS support — Android-first for speed, iOS planned for later
 - Real-time traffic data integration — use GPS speed as proxy for v0.1
 - Multi-stop trip chaining — single A-to-B commute trips only
 - Social/sharing features — personal utility first
@@ -96,4 +110,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-29 — Backend vendor switched from AWS to Firebase for the cloud layer (Phases 9–11). See `cloud-vendor-tradeoffs.pdf` and the Key Decisions table.*
+*Last updated: 2026-06-02 — Started milestone v0.2 (iOS Support). iOS moved from Out of Scope to active milestone goal. v0.1 left formally open with deferred Android device-UAT items.*

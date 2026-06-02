@@ -63,6 +63,37 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **UX-04**: Weekly summary push notification with commute totals
 - [ ] **UX-05**: Tracking reminder notification at user's usual departure time
 
+## v0.2 (iOS Support) Requirements
+
+iOS port of the existing Android app with full feature parity, runnable on a real iPhone via Xcode (no TestFlight/App Store this milestone). Realizes **PLAT-01** from v2. Derived from `.planning/research/SUMMARY.md` (2026-06-02).
+
+### iOS Platform & Build
+
+- [ ] **IOS-01**: App builds and launches on the iOS Simulator from a generated `ios/` project
+- [ ] **IOS-02**: App installs and launches on a real iPhone via Xcode free (7-day) provisioning
+- [ ] **IOS-03**: `Info.plist` and Xcode entitlements are configured — location usage strings, `UIBackgroundModes: location`, Keychain Sharing, notification usage, reversed-client-ID URL scheme, bundle ID `com.travey.app`
+
+### Auth on iOS
+
+- [ ] **IOS-04**: User can sign in with Google on iOS (reversed-client-ID URL scheme + `iosClientId`)
+- [ ] **IOS-05**: User session persists across app restarts on iOS via Keychain (no `-34018` failure)
+
+### Background GPS on iOS
+
+- [ ] **IOS-06**: User can record a commute on iOS with GPS continuing while the app is backgrounded / screen off (CoreLocation `allowBackgroundLocationUpdates`)
+- [ ] **IOS-07**: GPS does not silently pause during stop-and-go traffic on iOS (`pauseLocationUpdatesAutomatically: false`), so moving/stuck traffic stats stay accurate
+- [ ] **IOS-08**: App detects iOS reduced-accuracy ("Approximate Location") and requests/handles full accuracy so speed-based traffic calculation remains valid
+
+### Permissions, Notifications & UX on iOS
+
+- [ ] **IOS-09**: User grants location via the iOS two-step When-In-Use → Always flow during onboarding, with "When In Use only" handled as a valid degraded state
+- [ ] **IOS-10**: User grants notification permission on iOS; weekly summary and departure-reminder notifications fire
+- [ ] **IOS-11**: The Android-only persistent tracking notification is suppressed on iOS (no phantom notification); tracking relies on the iOS system location indicator
+
+### Parity Validation
+
+- [ ] **IOS-12**: All identical-behavior features (trip CRUD, manual entry, daily log/calendar, route map via flutter_map, all stats, sync, cloud restore, dark mode) are verified working on a real iPhone
+
 ## v2 Requirements
 
 Deferred to future release. Tracked but not in current roadmap.
@@ -74,7 +105,7 @@ Deferred to future release. Tracked but not in current roadmap.
 
 ### Platform
 
-- **PLAT-01**: iOS support
+- **PLAT-01**: iOS support — *promoted to the v0.2 milestone (see IOS-01..IOS-12)*
 - **PLAT-02**: Home screen widget with today's commute summary
 
 ### Analytics
@@ -134,12 +165,23 @@ Which phases cover which requirements. Updated during roadmap creation.
 | UX-03 | Phase 2 | Complete |
 | UX-04 | Phase 7 | Complete |
 | UX-05 | Phase 7 | Complete |
+| IOS-01 | Phase 12 | Pending |
+| IOS-02 | Phase 12 | Pending |
+| IOS-03 | Phase 12 | Pending |
+| IOS-04 | Phase 13 | Pending |
+| IOS-05 | Phase 13 | Pending |
+| IOS-06 | Phase 14 | Pending |
+| IOS-07 | Phase 14 | Pending |
+| IOS-08 | Phase 14 | Pending |
+| IOS-09 | Phase 15 | Pending |
+| IOS-10 | Phase 15 | Pending |
+| IOS-11 | Phase 15 | Pending |
+| IOS-12 | Phase 16 | Pending |
 
 **Coverage:**
-- v1 requirements: 31 total
-- Mapped to phases: 31
-- Unmapped: 0
+- v1 requirements: 31 total — mapped to phases: 31 — unmapped: 0
+- v0.2 requirements: 12 total — mapped to phases: 12 — unmapped: 0
 
 ---
 *Requirements defined: 2026-04-11*
-*Last updated: 2026-05-29 — backend vendor switched AWS→Firebase (AUTH-01, SYNC-02, BACK-01..04); traceability phase numbers corrected to match ROADMAP (auth=9, backend=10, sync=11).*
+*Last updated: 2026-06-02 — added v0.2 (iOS Support) requirements IOS-01..IOS-12 (full Android→iOS parity); PLAT-01 promoted from v2. Traceability for IOS-* filled during v0.2 roadmap creation.*
