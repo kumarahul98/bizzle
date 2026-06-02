@@ -290,7 +290,7 @@ These must be addressed by the user before or during Phase 12 — they cannot be
 **Success Criteria** (what must be TRUE):
   1. `flutter build ios --simulator` completes without error and the app launches on the iOS Simulator
   2. The app installs and launches on a real iPhone via Xcode free provisioning (human-gated: requires Xcode license acceptance and Apple ID signing)
-  3. `Info.plist` contains all required keys: `NSLocationWhenInUseUsageDescription`, `NSLocationAlwaysAndWhenInUseUsageDescription`, `UIBackgroundModes: location`, notification usage description, and the reversed-client-ID `CFBundleURLTypes` entry
+  3. `Info.plist` contains all required keys: `NSLocationWhenInUseUsageDescription`, `NSLocationAlwaysAndWhenInUseUsageDescription`, `UIBackgroundModes: location`, and the reversed-client-ID `CFBundleURLTypes` entry (note: iOS local-notification permission is requested at runtime via `DarwinInitializationSettings` — there is no notification usage-description plist key)
   4. Keychain Sharing entitlement is present in `Runner.entitlements` (absence causes silent `-34018` token failure on real devices)
   5. `GoogleService-Info.plist` is added to the Xcode project as a resource and `Podfile` targets iOS 14.0 with the required `post_install` hook; `pod install` completes successfully in `ios/` (run explicitly or via `flutter build ios`)
   6. `Info.plist` contains an `NSAppTransportSecurity` configuration that permits the HTTPS calls the app makes (Google OAuth endpoints + the Cloud Functions sync backend) so network requests are not blocked by ATS
