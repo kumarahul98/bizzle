@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: iOS Support
 status: planning
-stopped_at: Phase 13 context gathered
+stopped_at: Phase 13 closed (pre-satisfied); starting Phase 14
 last_updated: "2026-06-02T15:24:53.421Z"
 last_activity: 2026-06-02
 progress:
   total_phases: 5
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 3
   completed_plans: 3
-  percent: 20
+  percent: 40
 ---
 
 # Project State
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-02)
 
 **Core value:** Show people the reality of their commute -- time wasted in traffic and how it changes over time.
-**Current focus:** Phase 13 — auth on ios
+**Current focus:** Phase 14 — background GPS platform branch (Phase 13 closed: auth pre-satisfied on iOS)
 
 ## Current Position
 
-Phase: 13
+Phase: 14
 Plan: Not started
-Status: Ready to plan
+Status: Discussing (autonomous, Gemini-proxied)
 Last activity: 2026-06-02
 
 Progress: [██████████] 100%

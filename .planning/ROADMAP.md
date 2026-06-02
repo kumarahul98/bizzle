@@ -276,7 +276,7 @@ These must be addressed by the user before or during Phase 12 — they cannot be
 ### v0.2 Phase Checklist
 
 - [x] **Phase 12: iOS Scaffolding & Configuration** - Generate ios/ project, configure Podfile, Info.plist, entitlements, and bundle ID; app launches on Simulator and real iPhone (completed 2026-06-02)
-- [ ] **Phase 13: Auth on iOS** - Google Sign-In working on a real device; session persists via Keychain (device-install required)
+- [x] **Phase 13: Auth on iOS** - Google Sign-In working on a real device; session persists via Keychain (closed 2026-06-02 — requirements pre-satisfied by Phases 9+12, confirmed on-device by user; no execution needed)
 - [ ] **Phase 14: Background GPS Platform Branch** - Platform-branched CoreLocation tracking; GPS continues during backgrounded commute; traffic stats accurate on real iPhone (HIGHEST RISK — real-device validation required; flag for deeper research at plan time)
 - [ ] **Phase 15: Notifications, Permissions & Onboarding UX on iOS** - iOS location two-step flow, notification permission, tracking-notification gate, onboarding copy (real-device required for permission flows)
 - [ ] **Phase 16: End-to-End Real-Device Parity Validation** - All features verified on a real iPhone; milestone acceptance gate (real-device required)
@@ -317,7 +317,8 @@ Plans:
   2. User remains signed in after force-quitting and relaunching the app on a real iPhone — no re-authentication prompt (human-gated: requires real-device install)
   3. No `-34018` Keychain error appears in device logs — Keychain Sharing entitlement is confirmed working on a physical device
   4. `google_sign_in` is initialized with `clientId: DefaultFirebaseOptions.currentPlatform.iosClientId` in Dart
-**Plans**: TBD
+**Plans**: None — closed 2026-06-02 without execution
+**Status**: COMPLETE (no execution). Requirements IOS-04/IOS-05 were already satisfied by existing code/config: sign-in confirmed working on a real iPhone by the user; the iOS client ID is supplied to `google_sign_in` via `ios/Runner/GoogleService-Info.plist` (so SC#4's intent is met via the plist rather than the literal `clientId:` arg); Keychain Sharing entitlement shipped in Phase 12. See `13-CONTEXT.md` Resolution note.
 
 ### Phase 14: Background GPS Platform Branch
 **Goal**: Users can record a full commute on iOS with GPS continuing uninterrupted while the app is backgrounded or the screen is off, and moving/stuck traffic stats remain accurate

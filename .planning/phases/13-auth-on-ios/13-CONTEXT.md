@@ -1,7 +1,15 @@
 # Phase 13: Auth on iOS - Context
 
 **Gathered:** 2026-06-02
-**Status:** Ready for planning
+**Status:** CLOSED 2026-06-02 — requirements pre-satisfied, no execution needed (see Resolution)
+
+> ## Resolution (2026-06-02)
+> Phase 13 was closed **without planning/execution** because its requirements were already met by code/config shipped in Phases 9 + 12:
+> - **IOS-04 (sign-in on iOS):** Confirmed working on a real iPhone by the user. The iOS client ID is supplied to `google_sign_in` automatically via **`ios/Runner/GoogleService-Info.plist`** (`CLIENT_ID`) — so the explicit `clientId:` arg in **D-01 is unnecessary and was NOT applied**. Success criterion #4's *mechanism* differs (plist vs `clientId:` arg) but its *intent* (google_sign_in has the iOS client ID) is satisfied.
+> - **IOS-05 (Keychain session persistence):** Keychain Sharing entitlement was configured in Phase 12 (IOS-03); FlutterFire persists the session on iOS via Keychain. Accepted on the basis of the user's on-device check.
+> - The snackbar UX change (D-03/D-04) was **not implemented** — it was a preference, not a parity requirement; deferred.
+>
+> Decisions below are retained as a record of the discussion only. D-01 and D-03/D-04 were NOT applied.
 
 <domain>
 ## Phase Boundary

@@ -75,8 +75,8 @@ iOS port of the existing Android app with full feature parity, runnable on a rea
 
 ### Auth on iOS
 
-- [ ] **IOS-04**: User can sign in with Google on iOS (reversed-client-ID URL scheme + `iosClientId`)
-- [ ] **IOS-05**: User session persists across app restarts on iOS via Keychain (no `-34018` failure)
+- [x] **IOS-04**: User can sign in with Google on iOS (reversed-client-ID URL scheme + `iosClientId`)
+- [x] **IOS-05**: User session persists across app restarts on iOS via Keychain (no `-34018` failure)
 
 ### Background GPS on iOS
 
@@ -168,8 +168,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | IOS-01 | Phase 12 | Complete |
 | IOS-02 | Phase 12 | Complete |
 | IOS-03 | Phase 12 | Complete |
-| IOS-04 | Phase 13 | Pending |
-| IOS-05 | Phase 13 | Pending |
+| IOS-04 | Phase 13 | Complete |
+| IOS-05 | Phase 13 | Complete |
 | IOS-06 | Phase 14 | Pending |
 | IOS-07 | Phase 14 | Pending |
 | IOS-08 | Phase 14 | Pending |
