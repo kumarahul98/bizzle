@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: iOS Support
-status: executing
-stopped_at: Completed 12-02-PLAN.md — IOS-03 done, 12-03 next
-last_updated: "2026-06-02T14:07:52.101Z"
+status: verifying
+stopped_at: Completed 12-03-PLAN.md — IOS-02 done, Phase 12 all 3 plans complete
+last_updated: "2026-06-02T14:40:47.311Z"
 last_activity: 2026-06-02
 progress:
   total_phases: 5
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 2
-  percent: 0
+  completed_plans: 3
+  percent: 20
 ---
 
 # Project State
@@ -27,10 +27,10 @@ See: .planning/PROJECT.md (updated 2026-06-02)
 
 Phase: 12 (ios-scaffolding-configuration) — EXECUTING
 Plan: 3 of 3
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-06-02
 
-Progress: [███████░░░] 67%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -52,6 +52,7 @@ Progress: [███████░░░] 67%
 
 *Updated after each plan completion*
 | Phase 12-ios-scaffolding-configuration P02 | 45min | 4 tasks | 9 files |
+| Phase 12 P03 | human-gated | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -71,6 +72,8 @@ Recent decisions affecting current work:
 - [Phase 12]: GoogleService-Info.plist committed to git (standard FlutterFire workflow — client config, not a secret; Firestore deny-all rules enforce real access boundary)
 - [Phase 12]: REVERSED_CLIENT_ID in GoogleService-Info.plist matches Info.plist CFBundleURLSchemes exactly: com.googleusercontent.apps.1076279794226-6h24q245801r9pca45v2e2tpjiocde64
 - [Phase 12]: DarwinInitializationSettings requestAlertPermission/requestSoundPermission/requestBadgePermission all false — permission deferred to Phase 15 iOS flow
+- [Phase ?]: Removed aps-environment from entitlements — free Apple ID teams cannot provision Push Notifications; app uses only local notifications (flutter_local_notifications) which require no aps-environment
+- [Phase ?]: DEVELOPMENT_TEAM 2DG5SFXZ5Z (Personal Team, Rahul kumar) committed to project.pbxproj — standard practice, non-secret; free provisioning install 2026-06-02, expires 2026-06-09
 
 ### Pending Todos
 
@@ -102,6 +105,6 @@ Full checklist: `.planning/v0.1-DEVICE-CHECKLIST.md` (Groups A-I). Resume v0.1 c
 
 ## Session Continuity
 
-Last session: 2026-06-02T14:07:52.098Z
-Stopped at: Completed 12-02-PLAN.md — IOS-03 done, 12-03 next
+Last session: 2026-06-02T14:40:47.307Z
+Stopped at: Completed 12-03-PLAN.md — IOS-02 done, Phase 12 all 3 plans complete
 Resume file: None
