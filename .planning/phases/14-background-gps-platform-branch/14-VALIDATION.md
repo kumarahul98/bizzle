@@ -1,10 +1,11 @@
 ---
 phase: 14
 slug: background-gps-platform-branch
-status: draft
+status: wave-0-complete
 nyquist_compliant: false
-wave_0_complete: false
+wave_0_complete: true
 created: 2026-06-02
+updated: 2026-06-02
 ---
 
 # Phase 14 — Validation Strategy
@@ -40,7 +41,9 @@ created: 2026-06-02
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| (planner fills) | | | IOS-06/07/08 | T-02-07 (no PII/position logging) | encoded polyline is the only location egress | unit | `flutter test test/unit/tracking/` | — | ⬜ pending |
+| 14-01-T1 | 01 | 0 | IOS-06/07 (SC#4 platform branch) | T-02-07 (no PII logging) | buildLocationSettings() never takes a Position; test asserts settings fields only | unit | `flutter test test/unit/features/tracking/location_settings_branch_test.dart` | ✅ | ✅ green |
+| 14-01-T2a | 01 | 0 (RED scaffold) | IOS-08 (reduced-accuracy gate) | T-02-07 | gate blocks recording when precise accuracy unavailable; no Position logged | unit (Wave 1 fills) | `flutter test test/unit/features/tracking/reduced_accuracy_gate_test.dart` | ✅ | ⬜ @Skip (Wave 1) |
+| 14-01-T2b | 01 | 0 (RED scaffold) | iOS stop-race | T-02-07 | stopping flag before cancel; late sample never reaches accumulator | unit (Wave 1 fills) | `flutter test test/unit/features/tracking/ios_engine_stop_race_test.dart` | ✅ | ⬜ @Skip (Wave 1) |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -48,10 +51,10 @@ created: 2026-06-02
 
 ## Wave 0 Requirements
 
-- [ ] `test/unit/tracking/location_settings_branch_test.dart` — assert `AppleSettings` (4 locked params) on iOS via `debugDefaultTargetPlatformOverride`, `AndroidSettings` on Android
-- [ ] `test/unit/tracking/reduced_accuracy_gate_test.dart` — mock accuracy wrapper; `reduced→request→reduced` blocks, `precise` proceeds
-- [ ] `test/unit/tracking/ios_engine_stop_race_test.dart` — controllable `StreamController<Position>`; late sample dropped after stop
-- [ ] Existing Phase 2 tracking tests cover the Android regression — no new infra needed
+- [x] `test/unit/features/tracking/location_settings_branch_test.dart` — asserts `AppleSettings` (4 locked params + showBackgroundLocationIndicator + distanceFilter) on iOS via `debugDefaultTargetPlatformOverride`; `AndroidSettings` on Android — **11 tests GREEN** (14-01 Task 1)
+- [x] `test/unit/features/tracking/reduced_accuracy_gate_test.dart` — Wave 0 RED scaffold: 3 outcomes documented (block/proceed/proceed); `@Skip('Wave 1 implements...')` — suite stays green (14-01 Task 2)
+- [x] `test/unit/features/tracking/ios_engine_stop_race_test.dart` — Wave 0 RED scaffold: stop-race contract documented; `@Skip('Wave 1 implements...')` — suite stays green (14-01 Task 2)
+- [ ] Existing Phase 2 tracking tests cover the Android regression — no new infra needed (verified by Wave 1 full-suite run)
 
 *Existing Flutter test infrastructure covers all automated phase requirements; no framework install needed.*
 
