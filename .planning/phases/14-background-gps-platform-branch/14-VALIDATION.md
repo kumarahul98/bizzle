@@ -1,8 +1,8 @@
 ---
 phase: 14
 slug: background-gps-platform-branch
-status: wave-0-complete
-nyquist_compliant: false
+status: complete
+nyquist_compliant: true
 wave_0_complete: true
 created: 2026-06-02
 updated: 2026-06-02
@@ -42,8 +42,9 @@ updated: 2026-06-02
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
 | 14-01-T1 | 01 | 0 | IOS-06/07 (SC#4 platform branch) | T-02-07 (no PII logging) | buildLocationSettings() never takes a Position; test asserts settings fields only | unit | `flutter test test/unit/features/tracking/location_settings_branch_test.dart` | ✅ | ✅ green |
-| 14-01-T2a | 01 | 0 (RED scaffold) | IOS-08 (reduced-accuracy gate) | T-02-07 | gate blocks recording when precise accuracy unavailable; no Position logged | unit (Wave 1 fills) | `flutter test test/unit/features/tracking/reduced_accuracy_gate_test.dart` | ✅ | ⬜ @Skip (Wave 1) |
-| 14-01-T2b | 01 | 0 (RED scaffold) | iOS stop-race | T-02-07 | stopping flag before cancel; late sample never reaches accumulator | unit (Wave 1 fills) | `flutter test test/unit/features/tracking/ios_engine_stop_race_test.dart` | ✅ | ⬜ @Skip (Wave 1) |
+| 14-01-T2a | 01 | 0→1 | IOS-08 (reduced-accuracy gate) | T-02-07 | gate blocks recording when precise accuracy unavailable; no Position logged | unit | `flutter test test/unit/features/tracking/reduced_accuracy_gate_test.dart` | ✅ | ✅ green |
+| 14-01-T2b | 01 | 0→1 | iOS stop-race | T-02-07 | stopping flag before cancel; late sample never reaches accumulator | unit | `flutter test test/unit/features/tracking/ios_engine_stop_race_test.dart` | ✅ | ✅ green |
+| 14-03-T2 | 03 | 2 | IOS-06/07/08 + D-04 + T-14-06 | T-14-06 | platform selection correct under both overrides; Android type ≠ iOS type | unit | `flutter test test/unit/features/tracking/tracking_event_source_selection_test.dart` | ✅ | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -52,9 +53,13 @@ updated: 2026-06-02
 ## Wave 0 Requirements
 
 - [x] `test/unit/features/tracking/location_settings_branch_test.dart` — asserts `AppleSettings` (4 locked params + showBackgroundLocationIndicator + distanceFilter) on iOS via `debugDefaultTargetPlatformOverride`; `AndroidSettings` on Android — **11 tests GREEN** (14-01 Task 1)
-- [x] `test/unit/features/tracking/reduced_accuracy_gate_test.dart` — Wave 0 RED scaffold: 3 outcomes documented (block/proceed/proceed); `@Skip('Wave 1 implements...')` — suite stays green (14-01 Task 2)
-- [x] `test/unit/features/tracking/ios_engine_stop_race_test.dart` — Wave 0 RED scaffold: stop-race contract documented; `@Skip('Wave 1 implements...')` — suite stays green (14-01 Task 2)
-- [ ] Existing Phase 2 tracking tests cover the Android regression — no new infra needed (verified by Wave 1 full-suite run)
+- [x] `test/unit/features/tracking/reduced_accuracy_gate_test.dart` — 3 outcomes (blocked/proceed-after/proceed-direct); @Skip removed in Wave 1; **3 tests GREEN** (14-02 Task 3)
+- [x] `test/unit/features/tracking/ios_engine_stop_race_test.dart` — stop-race contract: late-drop, flag-before-cancel, N-pre-M-post; @Skip removed in Wave 1; **3 tests GREEN** (14-02 Task 2)
+- [x] Existing Phase 2 tracking tests cover the Android regression — Wave 2 full-suite run: **397 tests GREEN** (14-03 Task 2 D-08 guard)
+
+## Wave 2 Requirements
+
+- [x] `test/unit/features/tracking/tracking_event_source_selection_test.dart` — iOS→MainIsolateTrackingEngine, Android→FbsTrackingEventSource via `debugDefaultTargetPlatformOverride`; instance types distinct — **3 tests GREEN** (14-03 Task 2)
 
 *Existing Flutter test infrastructure covers all automated phase requirements; no framework install needed.*
 
@@ -74,12 +79,12 @@ updated: 2026-06-02
 
 ## Validation Sign-Off
 
-- [ ] All code tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers the branch, gate, and stop-race tests
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 120 s
-- [ ] The three IOS-06/07/08 device behaviors are explicitly recorded as human-gated (not silently auto-passed)
-- [ ] `nyquist_compliant: true` set once the planner has mapped every task
+- [x] All code tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers the branch, gate, and stop-race tests
+- [x] No watch-mode flags
+- [x] Feedback latency < 120 s
+- [x] The three IOS-06/07/08 device behaviors are explicitly recorded as human-gated (not silently auto-passed)
+- [x] `nyquist_compliant: true` set once the planner has mapped every task
 
-**Approval:** pending
+**Approval:** Wave 2 complete — 397/397 tests GREEN, 0 new analyzer issues, platform selection proven under both overrides.
