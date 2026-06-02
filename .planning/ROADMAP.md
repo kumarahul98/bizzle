@@ -329,7 +329,11 @@ Plans:
   2. Moving/stuck time breakdown for a stop-and-go commute is accurate — GPS does not pause silently during slow traffic (`pauseLocationUpdatesAutomatically: false` confirmed working on device)
   3. When iOS location accuracy is set to "Approximate" in Settings, the app detects reduced accuracy (`getLocationAccuracy()`) and surfaces a warning or blocks recording rather than silently computing garbage speed stats
   4. `tracking_service.dart` contains a `defaultTargetPlatform` branch that selects `AppleSettings(allowBackgroundLocationUpdates: true, pauseLocationUpdatesAutomatically: false, activityType: ActivityType.automotiveNavigation)` on iOS
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 14-01-PLAN.md — Wave 0: buildLocationSettings() defaultTargetPlatform branch (SC#4) + iOS constants + validation test scaffolds
+- [ ] 14-02-PLAN.md — iOS main-isolate engine + TrackingEventSource seam + IOS-08 reduced-accuracy gate + Info.plist
+- [ ] 14-03-PLAN.md — Wire notifier to the seam, platform-select the source, Android regression guard (full suite green)
 
 **Research flag**: Deeper planning required before execution. Open decision: keep `flutter_background_service.onForeground` driving the geolocator stream on iOS, or bypass `flutter_background_service` entirely and run the geolocator stream on the main isolate. Both are viable; bypass is the fallback. Resolve during plan-phase.
 
