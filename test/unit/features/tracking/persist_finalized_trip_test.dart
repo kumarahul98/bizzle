@@ -1,13 +1,42 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
-import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/daos/sync_queue_dao.dart';
 import 'package:traevy/database/database.dart';
+import 'package:traevy/features/tracking/services/tracking_event_source.dart';
 import 'package:traevy/features/tracking/services/tracking_notification_service.dart';
 import 'package:traevy/features/tracking/services/tracking_service_controller.dart';
 import 'package:traevy/features/tracking/state/finalized_trip.dart';
+
+/// Minimal [TrackingEventSource] for tests that only exercise
+/// [TrackingServiceController.persistFinalizedTrip] — start/stop/streams
+/// are never called in these tests.
+class _FakeTrackingEventSource implements TrackingEventSource {
+  @override
+  Stream<Map<String, dynamic>?> get onState =>
+      const Stream<Map<String, dynamic>?>.empty();
+
+  @override
+  Stream<Map<String, dynamic>?> get onFinalized =>
+      const Stream<Map<String, dynamic>?>.empty();
+
+  @override
+  Stream<Map<String, dynamic>?> get onError =>
+      const Stream<Map<String, dynamic>?>.empty();
+
+  @override
+  Stream<Map<String, dynamic>?> get onReady =>
+      const Stream<Map<String, dynamic>?>.empty();
+
+  @override
+  Future<bool> start() async => true;
+
+  @override
+  Future<void> stop() async {}
+}
 
 /// Fake [TrackingNotificationService] that records every `dismiss` /
 /// `showRecording` / `initialize` call so tests can assert on them
@@ -84,7 +113,7 @@ void main() {
       );
       notifications = _RecordingNotifications();
       controller = TrackingServiceController(
-        service: FlutterBackgroundService(),
+        source: _FakeTrackingEventSource(),
         database: db,
         tripsDao: db.tripsDao,
         syncQueueDao: db.syncQueueDao,
@@ -179,7 +208,7 @@ void main() {
       () async {
         final throwingDao = _ThrowingSyncQueueDao(db);
         final throwingController = TrackingServiceController(
-          service: FlutterBackgroundService(),
+          source: _FakeTrackingEventSource(),
           database: db,
           tripsDao: db.tripsDao,
           syncQueueDao: throwingDao,

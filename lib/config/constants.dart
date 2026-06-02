@@ -812,3 +812,21 @@ const String kPreciseCommutePurposeKey = 'PreciseCommute';
 /// See IOS-07 and RESEARCH §2 in
 /// `.planning/phases/14-background-gps-platform-branch/14-RESEARCH.md`.
 const int kIosTrackingDistanceFilterMeters = 0;
+
+/// IOS-08: message surfaced when the reduced-accuracy gate blocks a start.
+///
+/// Shown when `Geolocator.requestTemporaryFullAccuracy` is called but the
+/// user declines to grant precise location, so recording is blocked rather
+/// than starting with coarse 500-metre fixes that would produce garbage
+/// speed stats.
+///
+/// This is a STABLE, user-facing string — it must NEVER contain raw
+/// platform text or GPS coordinates (T-02-07). It is distinct from the
+/// generic 'Unable to start tracking' message so the user understands the
+/// cause is accuracy, not a generic failure.
+///
+/// See IOS-08, D-05 in
+/// `.planning/phases/14-background-gps-platform-branch/14-CONTEXT.md`.
+const String kTrackingReducedAccuracyBlockedMessage =
+    'Precise location is required to track your commute. '
+    'Enable it in Settings → Privacy → Location Services → Traevy.';

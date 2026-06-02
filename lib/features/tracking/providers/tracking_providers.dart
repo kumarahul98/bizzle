@@ -6,10 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/providers.dart';
 import 'package:traevy/features/settings/providers/settings_providers.dart';
+import 'package:traevy/features/tracking/services/main_isolate_tracking_engine.dart';
+import 'package:traevy/features/tracking/services/tracking_event_source.dart';
 import 'package:traevy/features/tracking/services/tracking_notification_service.dart';
 import 'package:traevy/features/tracking/services/tracking_permission_service.dart';
 import 'package:traevy/features/tracking/services/tracking_service_controller.dart';
-import 'package:traevy/features/tracking/services/tracking_service_events.dart';
 import 'package:traevy/features/tracking/state/finalized_trip.dart';
 import 'package:traevy/features/tracking/state/tracking_state.dart';
 import 'package:traevy/features/trips/services/direction_label_service.dart';
@@ -33,9 +34,9 @@ import 'package:traevy/features/trips/services/direction_label_service.dart';
 ///     must outlive per-widget disposal, otherwise the first Stop event
 ///     can arrive while nothing is listening and the UI is stuck in
 ///     `TrackingActive` forever.
-///   * `TrackingNotifier` cancels its two `StreamSubscription`s in
+///   * `TrackingNotifier` cancels its four `StreamSubscription`s in
 ///     `ref.onDispose` so test containers (`container.dispose()`)
-///     release the fbs stream cleanly.
+///     release the event-source streams cleanly.
 ///
 /// Plan 02-05 wires persistence through
 /// `TrackingServiceController.persistFinalizedTrip(...)`. The
@@ -68,17 +69,44 @@ trackingNotificationServiceProvider = Provider<TrackingNotificationService>(
   name: 'trackingNotificationServiceProvider',
 );
 
-/// Thin UI-isolate wrapper around [FlutterBackgroundService]. The
-/// wrapped instance is the fbs singleton (`FlutterBackgroundService()`
-/// is a factory that always returns the same instance), so this
-/// provider is effectively a holder for the controller object itself.
+/// Platform-selected [TrackingEventSource].
+///
+/// D-04 platform selection: on iOS the main-isolate engine is used so
+/// CoreLocation keeps the GPS stream alive across background/lock-screen
+/// (IOS-06, D-01). On every other platform the fbs background-isolate
+/// wrapper is used (the existing Android path, unchanged).
+///
+/// The **same instance** is injected into both [TrackingNotifier] (which
+/// subscribes to its streams) and [trackingServiceControllerProvider]
+/// (which drives its start/stop). This is the D-04 contract — there is
+/// exactly ONE engine per app lifetime; a second construction would open a
+/// second GPS stream on iOS.
+///
+/// Uses `defaultTargetPlatform` (not `dart:io Platform.isIOS`) so the
+/// branch is exercisable under `debugDefaultTargetPlatformOverride` in
+/// unit tests (14-CONTEXT D-04, 14-VALIDATION).
+final Provider<TrackingEventSource> trackingEventSourceProvider =
+    Provider<TrackingEventSource>(
+      (ref) {
+        if (defaultTargetPlatform == TargetPlatform.iOS) {
+          return MainIsolateTrackingEngine();
+        }
+        return FbsTrackingEventSource(FlutterBackgroundService());
+      },
+      name: 'trackingEventSourceProvider',
+    );
+
+/// Thin UI-isolate wrapper around the platform-selected
+/// [TrackingEventSource]. The wrapped source is shared via
+/// [trackingEventSourceProvider] so the notifier's subscriptions and the
+/// controller's start/stop calls act on the same engine instance.
 /// Dependencies (`AppDatabase`, the two DAOs, the notification service)
 /// are injected via `ref.watch` so Drift tests can override the
 /// database provider in isolation.
 final Provider<TrackingServiceController> trackingServiceControllerProvider =
     Provider<TrackingServiceController>(
       (ref) => TrackingServiceController(
-        service: FlutterBackgroundService(),
+        source: ref.watch(trackingEventSourceProvider),
         database: ref.watch(appDatabaseProvider),
         tripsDao: ref.watch(tripsDaoProvider),
         syncQueueDao: ref.watch(syncQueueDaoProvider),
@@ -88,8 +116,8 @@ final Provider<TrackingServiceController> trackingServiceControllerProvider =
       name: 'trackingServiceControllerProvider',
     );
 
-/// Live tracking state driven by `service.invoke` events from the
-/// background isolate. Plan 02-04 binds the tracking screen tiles to
+/// Live tracking state driven by events from the platform-selected
+/// [TrackingEventSource]. Plan 02-04 binds the tracking screen tiles to
 /// this provider.
 final NotifierProvider<TrackingNotifier, TrackingState> trackingStateProvider =
     NotifierProvider<TrackingNotifier, TrackingState>(
@@ -97,28 +125,29 @@ final NotifierProvider<TrackingNotifier, TrackingState> trackingStateProvider =
       name: 'trackingStateProvider',
     );
 
-/// Notifier that owns the UI-side [TrackingState]. Subscribes to
-/// `tracking_state` (1 Hz accumulator snapshots) and `trip_finalized`
-/// (Stop event outcome) on the fbs instance.
+/// Notifier that owns the UI-side [TrackingState]. Subscribes to the
+/// platform-selected [TrackingEventSource] (1 Hz accumulator snapshots,
+/// trip-finalized payload, error events, and the Android service-ready
+/// signal).
 ///
 /// State machine:
 ///
 ///   * `TrackingIdle` — initial and post-stop state.
 ///   * `TrackingIdle → TrackingStarting` — [start] calls the
-///     controller; the service isolate is spinning up.
-///   * `TrackingStarting → TrackingActive` — first `tracking_state`
-///     event arrives from the service isolate.
+///     controller; the engine is spinning up.
+///   * `TrackingStarting → TrackingActive` — first `onState`
+///     event arrives from the engine.
 ///   * `TrackingActive → TrackingActive` — every subsequent snapshot
 ///     updates the live tiles.
 ///   * `TrackingActive → TrackingStopping → TrackingIdle` — [stop]
-///     sends the stop command, the service responds with
-///     `trip_finalized`, `persistFinalizedTrip` runs inside
-///     `TrackingStopping`, and the state returns to idle. The
-///     resulting [PersistResult] is stashed in a private
-///     last-result slot for the tracking screen to consume via
+///     sends the stop command, the engine responds with an `onFinalized`
+///     event, `persistFinalizedTrip` runs inside `TrackingStopping`, and
+///     the state returns to idle. The resulting [PersistResult] is stashed
+///     in a private last-result slot for the tracking screen to consume via
 ///     [consumeLastPersistResult].
 ///   * `TrackingStarting → TrackingError` — if the controller's start
-///     pre-flight fails (e.g. Location Services disabled).
+///     pre-flight fails (e.g. Location Services disabled, or IOS-08
+///     accuracy gate blocked).
 class TrackingNotifier extends Notifier<TrackingState> {
   StreamSubscription<Map<String, dynamic>?>? _stateSub;
   StreamSubscription<Map<String, dynamic>?>? _finalizeSub;
@@ -147,118 +176,108 @@ class TrackingNotifier extends Notifier<TrackingState> {
   }
 
   void _attach() {
-    final service = FlutterBackgroundService();
-    // D-14 race resolution: fbs's setAsForegroundService() calls Android's
-    // startForeground(id, notification) internally, replacing our
-    // action-bearing Stop notification with an action-less placeholder.
-    // The service isolate emits kServiceReadyEvent immediately after
-    // setAsForegroundService() completes. We respond by re-posting the
-    // UX-03 notification, which overwrites fbs's placeholder and restores
-    // the Stop button. See tracking_service_events.dart for the full
-    // contract.
-    _readySub = service
-        .on(kServiceReadyEvent)
-        .listen(
-          (data) async {
-            try {
-              await ref
-                  .read(trackingNotificationServiceProvider)
-                  .showRecording();
-            } on Object {
-              // POST_NOTIFICATIONS denied — tracking continues, button absent.
-            }
-          },
-          onError: (Object error, StackTrace stack) {
-            // kServiceReadyEvent channel errored — non-fatal. The notification
-            // may lack the Stop button but tracking is otherwise unaffected.
-          },
+    final source = ref.read(trackingEventSourceProvider);
+    // D-14 race resolution (Android only): fbs's setAsForegroundService()
+    // calls Android's startForeground(id, notification) internally,
+    // replacing our action-bearing Stop notification with an action-less
+    // placeholder. The service isolate emits kServiceReadyEvent immediately
+    // after setAsForegroundService() completes. We respond by re-posting
+    // the UX-03 notification, which overwrites fbs's placeholder and
+    // restores the Stop button.
+    //
+    // On iOS, source.onReady is const Stream.empty() (D-07) — no fbs
+    // service-ready signal; this subscription is a harmless no-op.
+    _readySub = source.onReady.listen(
+      (data) async {
+        try {
+          await ref.read(trackingNotificationServiceProvider).showRecording();
+        } on Object {
+          // POST_NOTIFICATIONS denied — tracking continues, button absent.
+        }
+      },
+      onError: (Object error, StackTrace stack) {
+        // onReady channel errored — non-fatal. The notification
+        // may lack the Stop button but tracking is otherwise unaffected.
+      },
+    );
+    _stateSub = source.onState.listen(
+      (data) {
+        if (data == null) return;
+        // strict-casts-safe: `trackingActiveFromSnapshotMap` does the
+        // `Map<String, dynamic>` → `Map<String, Object?>` cast through
+        // the audited `_req<T>` helper in `tracking_state.dart`.
+        final next = trackingActiveFromSnapshotMap(
+          data.cast<String, Object?>(),
         );
-    _stateSub = service
-        .on(kTrackingStateEvent)
-        .listen(
-          (data) {
-            if (data == null) return;
-            // strict-casts-safe: `trackingActiveFromSnapshotMap` does the
-            // `Map<String, dynamic>` → `Map<String, Object?>` cast through
-            // the audited `_req<T>` helper in `tracking_state.dart`.
-            final next = trackingActiveFromSnapshotMap(
-              data.cast<String, Object?>(),
-            );
-            state = next;
-            _maybeRefreshNotification(next);
-          },
-          onError: (Object error, StackTrace stack) {
-            // WR-03: the fbs channel emitted an error (e.g. the background
-            // isolate died abruptly or the platform channel dropped a
-            // message). Without this handler the error would propagate to
-            // the notifier's build zone and be invisible to the UI — the
-            // notifier would stay attached to a dead stream and the
-            // tracking screen would be frozen in TrackingActive forever.
-            //
-            // PII guard (T-02-07): do NOT forward `error.toString()` — it
-            // may contain raw platform diagnostics. Use a stable short
-            // user-facing message instead.
-            _cancelSiblingSubs(except: _stateSub);
-            _lastPersistResult = null;
-            state = TrackingError('Tracking stream failed');
-          },
-        );
-    _finalizeSub = service
-        .on(kTripFinalizedEvent)
-        .listen(
-          (data) async {
-            if (data == null) return;
-            state = const TrackingStopping();
-            final trip = FinalizedTripCodec.fromEventMap(data);
-            final result = await ref
-                .read(trackingServiceControllerProvider)
-                .persistFinalizedTrip(trip);
-            _lastPersistResult = result;
-            // Defense-in-depth (WR-02): only transition back to idle if the
-            // state is still TrackingStopping. If a concurrent caller (e.g.
-            // a `kTrackingErrorEvent` handler or a programmatic retry) has
-            // already moved the state elsewhere (TrackingError /
-            // TrackingStarting / TrackingActive) we must not clobber it.
-            if (state is TrackingStopping) {
-              state = const TrackingIdle();
-            }
-          },
-          onError: (Object error, StackTrace stack) {
-            // WR-03: the trip_finalized channel errored mid-persist window.
-            // Cancel siblings so we don't accept further (potentially
-            // inconsistent) snapshots from the dead service, clear any
-            // in-flight persist result, and surface a recoverable error
-            // state so the user can retry.
-            _cancelSiblingSubs(except: _finalizeSub);
-            _lastPersistResult = null;
-            state = TrackingError('Unable to finalize trip');
-          },
-        );
-    // WR-01: map the service isolate's `tracking_error` channel to a
-    // user-facing TrackingError. The service isolate emits a stable
-    // short `reason` tag (PII guard — raw error text may contain
-    // lat/lng coordinates per T-02-07). The notifier owns the reason →
-    // user-facing message mapping so every supported reason is a
-    // deliberate UX choice.
-    _errorSub = service
-        .on(kTrackingErrorEvent)
-        .listen(
-          (data) {
-            if (data == null) return;
-            final reason = data['reason'];
-            final message = switch (reason) {
-              'position_stream_error' =>
-                'Location unavailable. Tracking stopped.',
-              _ => 'Tracking stopped unexpectedly',
-            };
-            state = TrackingError(message);
-          },
-          onError: (Object error, StackTrace stack) {
-            _cancelSiblingSubs(except: _errorSub);
-            _lastPersistResult = null;
-            state = TrackingError('Tracking stream failed');
-          },
-        );
+        state = next;
+        _maybeRefreshNotification(next);
+      },
+      onError: (Object error, StackTrace stack) {
+        // WR-03: the event source emitted an error (e.g. the background
+        // isolate died abruptly or the platform channel dropped a
+        // message). Without this handler the error would propagate to
+        // the notifier's build zone and be invisible to the UI — the
+        // notifier would stay attached to a dead stream and the
+        // tracking screen would be frozen in TrackingActive forever.
+        //
+        // PII guard (T-02-07): do NOT forward `error.toString()` — it
+        // may contain raw platform diagnostics. Use a stable short
+        // user-facing message instead.
+        _cancelSiblingSubs(except: _stateSub);
+        _lastPersistResult = null;
+        state = TrackingError('Tracking stream failed');
+      },
+    );
+    _finalizeSub = source.onFinalized.listen(
+      (data) async {
+        if (data == null) return;
+        state = const TrackingStopping();
+        final trip = FinalizedTripCodec.fromEventMap(data);
+        final result = await ref
+            .read(trackingServiceControllerProvider)
+            .persistFinalizedTrip(trip);
+        _lastPersistResult = result;
+        // Defense-in-depth (WR-02): only transition back to idle if the
+        // state is still TrackingStopping. If a concurrent caller (e.g.
+        // a `kTrackingErrorEvent` handler or a programmatic retry) has
+        // already moved the state elsewhere (TrackingError /
+        // TrackingStarting / TrackingActive) we must not clobber it.
+        if (state is TrackingStopping) {
+          state = const TrackingIdle();
+        }
+      },
+      onError: (Object error, StackTrace stack) {
+        // WR-03: the trip_finalized channel errored mid-persist window.
+        // Cancel siblings so we don't accept further (potentially
+        // inconsistent) snapshots from the dead engine, clear any
+        // in-flight persist result, and surface a recoverable error
+        // state so the user can retry.
+        _cancelSiblingSubs(except: _finalizeSub);
+        _lastPersistResult = null;
+        state = TrackingError('Unable to finalize trip');
+      },
+    );
+    // WR-01: map the engine's `onError` channel to a user-facing
+    // TrackingError. The engine emits a stable short `reason` tag
+    // (PII guard — raw error text may contain lat/lng coordinates per
+    // T-02-07). The notifier owns the reason → user-facing message
+    // mapping so every supported reason is a deliberate UX choice.
+    _errorSub = source.onError.listen(
+      (data) {
+        if (data == null) return;
+        final reason = data['reason'];
+        final message = switch (reason) {
+          'position_stream_error' => 'Location unavailable. Tracking stopped.',
+          _ => 'Tracking stopped unexpectedly',
+        };
+        state = TrackingError(message);
+      },
+      onError: (Object error, StackTrace stack) {
+        _cancelSiblingSubs(except: _errorSub);
+        _lastPersistResult = null;
+        state = TrackingError('Tracking stream failed');
+      },
+    );
   }
 
   /// Refresh the foreground notification, throttled to once per
@@ -291,13 +310,13 @@ class TrackingNotifier extends Notifier<TrackingState> {
             direction: direction,
           )
           .catchError((Object _) {
-        // POST_NOTIFICATIONS denied or platform channel error — tracking
-        // continues, notification just doesn't refresh this tick.
-      }),
+            // POST_NOTIFICATIONS denied or platform channel error — tracking
+            // continues, notification just doesn't refresh this tick.
+          }),
     );
   }
 
-  /// Cancel every fbs subscription except [except]. Used by the
+  /// Cancel every event-source subscription except [except]. Used by the
   /// `onError` handlers (WR-03) to prevent a zombie subscription from
   /// emitting further events after the notifier has transitioned to
   /// [TrackingError] — once one channel has errored we cannot trust
@@ -321,18 +340,23 @@ class TrackingNotifier extends Notifier<TrackingState> {
     }
   }
 
-  /// Ask the background service to start tracking. Transitions the
-  /// state from [TrackingIdle] (or [TrackingError] — retry path) to
-  /// [TrackingStarting]; the service isolate's first `tracking_state`
-  /// event flips it to [TrackingActive]. If the controller's pre-flight
-  /// fails (e.g. Location Services disabled system-wide), transitions to
+  /// Ask the engine to start tracking. Transitions the state from
+  /// [TrackingIdle] (or [TrackingError] — retry path) to
+  /// [TrackingStarting]; the engine's first `onState` event flips it to
+  /// [TrackingActive]. If the controller's pre-flight fails (e.g. Location
+  /// Services disabled, or IOS-08 accuracy gate blocked), transitions to
   /// [TrackingError] instead.
+  ///
+  /// IOS-08: if the accuracy gate blocks, a distinct
+  /// [kTrackingReducedAccuracyBlockedMessage] is surfaced (not the generic
+  /// "Unable to start tracking") so the user understands the cause is
+  /// reduced location accuracy, not a general failure.
   ///
   /// Exhaustive guard over the sealed [TrackingState] variants (WR-02):
   /// only [TrackingIdle] and [TrackingError] allow a fresh start.
   /// [TrackingStarting], [TrackingActive], and [TrackingStopping] all
   /// short-circuit — crucially including [TrackingStopping], which is
-  /// the window while the `trip_finalized` listener's
+  /// the window while the `onFinalized` listener's
   /// [TrackingServiceController.persistFinalizedTrip] is awaiting the
   /// Drift transaction. A Start re-entry during that window would spawn
   /// a second tracking session over the first and the outer `_attach`
@@ -352,13 +376,19 @@ class TrackingNotifier extends Notifier<TrackingState> {
     state = const TrackingStarting();
     final ok = await ref.read(trackingServiceControllerProvider).start();
     if (!ok) {
-      state = TrackingError('Unable to start tracking');
+      // IOS-08: if the accuracy gate blocked the start, surface a distinct
+      // message so the user understands precision is required. On Android,
+      // the generic message is shown (location services disabled or similar).
+      final message = defaultTargetPlatform == TargetPlatform.iOS
+          ? kTrackingReducedAccuracyBlockedMessage
+          : 'Unable to start tracking';
+      state = TrackingError(message);
     }
   }
 
-  /// Ask the background service to stop tracking. No-op unless the
-  /// state is [TrackingActive] — the Stop button is hidden in every
-  /// other state, so this is a defensive guard against re-entry.
+  /// Ask the engine to stop tracking. No-op unless the state is
+  /// [TrackingActive] — the Stop button is hidden in every other state,
+  /// so this is a defensive guard against re-entry.
   ///
   /// WR-04 contract: the transition to [TrackingStopping] happens
   /// SYNCHRONOUSLY at the top of this method, BEFORE any `await`. A
@@ -366,13 +396,12 @@ class TrackingNotifier extends Notifier<TrackingState> {
   /// the first tap passes the guard and flips state to
   /// [TrackingStopping]; the second tap hits the guard and
   /// short-circuits because state is no longer [TrackingActive]. This
-  /// guarantees `kStopTrackingEvent` is invoked exactly once per Stop
-  /// click even though the service isolate responds asynchronously
-  /// with `kTripFinalizedEvent`.
+  /// guarantees the stop command is issued exactly once per Stop click
+  /// even though the engine responds asynchronously via `onFinalized`.
   ///
   /// The final [TrackingStopping] → [TrackingIdle] transition happens
-  /// inside the `trip_finalized` listener attached in [_attach], not
-  /// here, because the service isolate responds asynchronously.
+  /// inside the `onFinalized` listener attached in [_attach], not here,
+  /// because the engine responds asynchronously.
   Future<void> stop() async {
     if (state is! TrackingActive) return;
     state = const TrackingStopping();
@@ -384,7 +413,7 @@ class TrackingNotifier extends Notifier<TrackingState> {
   }
 
   /// Return the [PersistResult] produced by the most recent
-  /// `trip_finalized` cycle, and clear the slot. The tracking screen
+  /// `onFinalized` cycle, and clear the slot. The tracking screen
   /// calls this from a `ref.listen(trackingStateProvider, ...)` when
   /// the state transitions back to [TrackingIdle] after a save, so it
   /// can show the D-10 / save / failure snackbar exactly once.
@@ -399,8 +428,8 @@ class TrackingNotifier extends Notifier<TrackingState> {
 
   /// Test-only seam used by plan 02-06 widget tests to simulate the
   /// "trip just finalized with result X" state without driving a real
-  /// service-isolate round trip. MUST NOT be called from production
-  /// code — `very_good_analysis` warns when a non-test file touches a
+  /// engine round trip. MUST NOT be called from production code —
+  /// `very_good_analysis` warns when a non-test file touches a
   /// `@visibleForTesting` member.
   ///
   /// Intentionally named `setLastPersistResultForTesting` (not a
@@ -418,12 +447,11 @@ class TrackingNotifier extends Notifier<TrackingState> {
 }
 
 /// Isolate-boundary codec for [FinalizedTrip] payloads crossing the
-/// `flutter_background_service.invoke(kTripFinalizedEvent, ...)`
-/// channel. The service isolate emits `Map<String, dynamic>` and the
-/// notifier needs `Map<String, Object?>` — this helper is the single
-/// audited cast site, matching the pattern used by
-/// `trackingActiveFromSnapshotMap` for the `kTrackingStateEvent`
-/// payload.
+/// event-source channel. Both the Android fbs isolate and the iOS
+/// main-isolate engine emit `Map<String, dynamic>` and the notifier
+/// needs `Map<String, Object?>` — this helper is the single audited
+/// cast site, matching the pattern used by
+/// `trackingActiveFromSnapshotMap` for the `onState` payload.
 class FinalizedTripCodec {
   const FinalizedTripCodec._();
 
