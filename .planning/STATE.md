@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: iOS Support
-status: ready_to_plan
-stopped_at: Phase 12 complete (3/3) — ready to discuss Phase 13
-last_updated: 2026-06-02T14:47:54.836Z
+status: planning
+stopped_at: Phase 13 context gathered
+last_updated: "2026-06-02T15:24:53.421Z"
 last_activity: 2026-06-02
 progress:
   total_phases: 5
   completed_phases: 1
   total_plans: 3
-  completed_plans: 57
+  completed_plans: 3
   percent: 20
 ---
 
@@ -105,6 +105,6 @@ Full checklist: `.planning/v0.1-DEVICE-CHECKLIST.md` (Groups A-I). Resume v0.1 c
 
 ## Session Continuity
 
-Last session: 2026-06-02T14:40:47.307Z
-Stopped at: Completed 12-03-PLAN.md — IOS-02 done, Phase 12 all 3 plans complete
-Resume file: None
+Last session: 2026-06-02T15:24:53.417Z
+Stopped at: Phase 13 context gathered
+Resume file: .planning/phases/13-auth-on-ios/13-CONTEXT.md
