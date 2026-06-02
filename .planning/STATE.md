@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: iOS Support
-status: verifying
-stopped_at: Phase 14 Plan 03 complete — all 3 plans done
+status: awaiting-device-uat
+stopped_at: Phase 14 code complete + verified (automated 7/7); 3 device-UAT items pending real iPhone
 last_updated: "2026-06-02T17:47:58.784Z"
 last_activity: 2026-06-02
 progress:
@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (updated 2026-06-02)
 
 ## Current Position
 
-Phase: 14 (background-gps-platform-branch) — EXECUTING
+Phase: 14 (background-gps-platform-branch) — CODE COMPLETE, awaiting device UAT
 Plan: 3 of 3
-Status: Phase complete — ready for verification
+Status: Automated verification PASS (7/7); 3 device behaviors human-gated (see 14-HUMAN-UAT.md)
 Last activity: 2026-06-02
 
 Progress: [██████████] 100%
