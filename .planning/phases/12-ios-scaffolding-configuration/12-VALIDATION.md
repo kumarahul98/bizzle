@@ -51,7 +51,7 @@ created: 2026-06-02
 | IOS-03 | Keychain Sharing (Release) | grep | `grep -c keychain-access-groups ios/Runner/Release.entitlements` | count > 0 |
 | IOS-03 | Keychain Sharing (Debug) | grep | `grep -c keychain-access-groups ios/Runner/DebugProfile.entitlements` | count > 0 |
 | IOS-03 | GoogleService-Info.plist in target | grep | `grep -c GoogleService-Info.plist ios/Runner.xcodeproj/project.pbxproj` | count > 0 |
-| IOS-03 | Podfile platform 14.0 | grep | `grep "platform :ios" ios/Podfile` | shows '14.0' |
+| IOS-03 | Podfile platform 15.0 | grep | `grep "platform :ios" ios/Podfile` | shows '15.0' |
 | IOS-03 | pod install succeeds | build | `cd ios && pod install` | exit 0 |
 | IOS-03 | Bundle ID com.travey.app | grep | `grep -rc "com.travey.app" ios/Runner.xcodeproj/project.pbxproj` | count > 0 |
 | IOS-03 | App icons generated | fs check | `ls ios/Runner/Assets.xcassets/AppIcon.appiconset/ \| wc -l` | multiple png + Contents.json |
