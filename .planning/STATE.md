@@ -3,12 +3,13 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: iOS Support
 status: planning
-last_updated: "2026-06-02"
-last_activity: 2026-06-02
+stopped_at: Phase 12 planned (3 plans) + Gemini-reviewed
+last_updated: "2026-06-02T12:48:19.461Z"
+last_activity: 2026-06-02 — v0.2 roadmap created; phases 12-16 defined
 progress:
   total_phases: 5
   completed_phases: 0
-  total_plans: 0
+  total_plans: 3
   completed_plans: 0
   percent: 0
 ---
@@ -94,6 +95,6 @@ Full checklist: `.planning/v0.1-DEVICE-CHECKLIST.md` (Groups A-I). Resume v0.1 c
 
 ## Session Continuity
 
-Last session: 2026-06-02
-Stopped at: v0.2 roadmap created (phases 12-16); ready to plan Phase 12
-Resume file: None — start with `/gsd-plan-phase 12`
+Last session: 2026-06-02T12:48:19.454Z
+Stopped at: Phase 12 planned (3 plans) + Gemini-reviewed
+Resume file: .planning/phases/12-ios-scaffolding-configuration/12-01-PLAN.md
