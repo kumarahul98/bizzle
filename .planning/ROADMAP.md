@@ -295,8 +295,18 @@ These must be addressed by the user before or during Phase 12 — they cannot be
   5. `GoogleService-Info.plist` is added to the Xcode project as a resource and `Podfile` targets iOS 14.0 with the required `post_install` hook; `pod install` completes successfully in `ios/` (run explicitly or via `flutter build ios`)
   6. `Info.plist` contains an `NSAppTransportSecurity` configuration that permits the HTTPS calls the app makes (Google OAuth endpoints + the Cloud Functions sync backend) so network requests are not blocked by ATS
   7. iOS app icons (all required sizes) and a launch screen storyboard are present so the installed app shows a proper icon and launch screen, not placeholder assets
-**Plans**: TBD
+**Plans**: 3 plans
 **UI hint**: yes
+
+Plans:
+**Wave 1**
+- [ ] 12-01-PLAN.md — Scaffold ios/ project (flutter create), Podfile iOS 14.0 + post_install, pod install, Simulator build + launch (IOS-01)
+
+**Wave 2** *(blocked on Wave 1)*
+- [ ] 12-02-PLAN.md — Info.plist keys + both entitlements (keychain) + GoogleService-Info.plist target + app icons + notification_service Darwin init (IOS-03)
+
+**Wave 3** *(blocked on Wave 2)*
+- [ ] 12-03-PLAN.md — Real-device signing + Developer Mode + install/launch on physical iPhone (IOS-02)
 
 ### Phase 13: Auth on iOS
 **Goal**: Users can sign in with Google on iOS and stay signed in across app restarts, with tokens stored securely in the iOS Keychain
@@ -370,8 +380,9 @@ Note: Phases 1-7 deliver the complete local-first experience without any authent
 | 9. Authentication | v0.1 | 5/5 | Complete | 2026-05-29 |
 | 10. Backend Infrastructure | v0.1 | 3/3 | Complete | 2026-05-31 |
 | 11. Sync Engine | v0.1 | 3/3 | Complete | 2026-06-01 |
-| 12. iOS Scaffolding & Configuration | v0.2 | 0/TBD | Not started | - |
+| 12. iOS Scaffolding & Configuration | v0.2 | 0/3 | Not started | - |
 | 13. Auth on iOS | v0.2 | 0/TBD | Not started | - |
 | 14. Background GPS Platform Branch | v0.2 | 0/TBD | Not started | - |
 | 15. Notifications, Permissions & Onboarding UX on iOS | v0.2 | 0/TBD | Not started | - |
 | 16. End-to-End Real-Device Parity Validation | v0.2 | 0/TBD | Not started | - |
+</content>
