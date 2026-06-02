@@ -70,6 +70,11 @@
 	<string>Traevy records your commute route to calculate time moving and time stuck in traffic.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Traevy continues recording your commute in the background so you can keep using your phone normally while tracking.</string>
+	<key>NSLocationTemporaryUsageDescriptionDictionary</key>
+	<dict>
+		<key>PreciseCommute</key>
+		<string>Traevy needs precise location during your trip to accurately calculate time moving versus time stuck in traffic.</string>
+	</dict>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>

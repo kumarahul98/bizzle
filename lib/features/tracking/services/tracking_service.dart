@@ -30,6 +30,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:traevy/config/constants.dart';
+import 'package:traevy/features/tracking/services/location_settings_builder.dart';
 import 'package:traevy/features/tracking/services/tracking_service_events.dart';
 import 'package:traevy/features/tracking/services/trip_accumulator.dart';
 
@@ -84,15 +85,13 @@ Future<void> trackingServiceOnStart(ServiceInstance service) async {
   StreamSubscription<Position>? positionSub;
   Timer? uiTimer;
 
-  // LocationSettings: high accuracy, no distance-based throttling (time
-  // throttling comes from intervalDuration), 3-second sample cadence.
-  // See 02-RESEARCH §3 for the battery/fidelity rationale.
-  // distanceFilter defaults to 0 (no distance throttling — we time-throttle
-  // via intervalDuration instead), so it is deliberately omitted.
-  final settings = AndroidSettings(
-    accuracy: LocationAccuracy.high,
-    intervalDuration: kTrackingSampleInterval,
-  );
+  // LocationSettings: platform-branched via buildLocationSettings() so the
+  // SC#4 AppleSettings/AndroidSettings selection lives in exactly one place.
+  // On Android this produces AndroidSettings(accuracy: high,
+  // intervalDuration: kTrackingSampleInterval) — byte-for-byte identical to
+  // the previous inline construction (D-08 regression guard).
+  // See location_settings_builder.dart and 02-RESEARCH §3.
+  final settings = buildLocationSettings();
 
   positionSub = Geolocator.getPositionStream(locationSettings: settings).listen(
     (position) {

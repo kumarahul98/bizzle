@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:traevy/config/constants.dart';
@@ -6,6 +7,7 @@ import 'package:traevy/database/daos/sync_queue_dao.dart';
 import 'package:traevy/database/daos/trips_dao.dart';
 import 'package:traevy/database/daos/user_preferences_dao.dart';
 import 'package:traevy/database/database.dart';
+import 'package:traevy/features/tracking/services/location_accuracy_gate.dart';
 import 'package:traevy/features/tracking/services/tracking_notification_service.dart';
 import 'package:traevy/features/tracking/services/tracking_service_events.dart';
 import 'package:traevy/features/tracking/state/finalized_trip.dart';
@@ -34,6 +36,10 @@ class TrackingServiceController {
   /// and the [notifications] wrapper. Production wiring is done in
   /// `tracking_providers.dart` with `FlutterBackgroundService()`,
   /// `appDatabaseProvider`, and the two DAO providers.
+  ///
+  /// [accuracyGate] is the IOS-08 reduced-accuracy preflight gate. Defaults
+  /// to a real [LocationAccuracyGate] backed by Geolocator; inject a fake
+  /// in tests.
   TrackingServiceController({
     required FlutterBackgroundService service,
     required AppDatabase database,
@@ -41,12 +47,14 @@ class TrackingServiceController {
     required SyncQueueDao syncQueueDao,
     required TrackingNotificationService notifications,
     required UserPreferencesDao userPreferencesDao,
+    LocationAccuracyGate? accuracyGate,
   }) : _service = service,
        _database = database,
        _tripsDao = tripsDao,
        _syncQueueDao = syncQueueDao,
        _notifications = notifications,
-       _userPreferencesDao = userPreferencesDao;
+       _userPreferencesDao = userPreferencesDao,
+       _accuracyGate = accuracyGate ?? LocationAccuracyGate();
 
   final FlutterBackgroundService _service;
   final AppDatabase _database;
@@ -54,6 +62,7 @@ class TrackingServiceController {
   final SyncQueueDao _syncQueueDao;
   final TrackingNotificationService _notifications;
   final UserPreferencesDao _userPreferencesDao;
+  final LocationAccuracyGate _accuracyGate;
 
   /// Start the background tracking service. Returns `true` if the
   /// service was asked to start (`FlutterBackgroundService.startService`
@@ -85,6 +94,21 @@ class TrackingServiceController {
     if (!serviceEnabled) {
       return false;
     }
+
+    // IOS-08 reduced-accuracy gate (D-05): on iOS, ensure full (precise)
+    // location accuracy is available before opening the GPS stream.
+    // If accuracy is still reduced after the prompt (user declined), block
+    // recording — never compute speed stats from coarse 500-metre fixes.
+    // Uses defaultTargetPlatform (not dart:io Platform.isIOS) so the branch
+    // is exercisable in unit tests via debugDefaultTargetPlatformOverride.
+    // Android branch is UNCHANGED — the gate is iOS-only.
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      final precise = await _accuracyGate.ensurePrecise();
+      if (!precise) {
+        return false;
+      }
+    }
+
     // Post the UX-03 notification BEFORE starting the service so the
     // action-bearing notification exists at kTrackingNotificationId when
     // fbs's setAsForegroundService promotes the service. This is the
