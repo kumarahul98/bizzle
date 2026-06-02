@@ -36,8 +36,8 @@ void main() {
           source,
           isA<MainIsolateTrackingEngine>(),
           reason:
-              'iOS must use MainIsolateTrackingEngine (main-isolate CoreLocation '
-              'path, D-01) — not FbsTrackingEventSource',
+              'iOS must use MainIsolateTrackingEngine '
+              '(main-isolate CoreLocation path, D-01)',
         );
       },
     );
@@ -55,7 +55,8 @@ void main() {
           source,
           isA<FbsTrackingEventSource>(),
           reason:
-              'Android must use FbsTrackingEventSource (fbs isolate path, D-08)',
+              'Android must use FbsTrackingEventSource '
+              '(fbs isolate path, D-08)',
         );
       },
     );
