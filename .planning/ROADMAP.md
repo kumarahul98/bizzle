@@ -300,7 +300,7 @@ These must be addressed by the user before or during Phase 12 — they cannot be
 
 Plans:
 **Wave 1**
-- [ ] 12-01-PLAN.md — Scaffold ios/ project (flutter create), Podfile iOS 14.0 + post_install, pod install, Simulator build + launch (IOS-01)
+- [x] 12-01-PLAN.md — Scaffold ios/ project (flutter create), Podfile iOS 14.0 + post_install, pod install, Simulator build + launch (IOS-01)
 
 **Wave 2** *(blocked on Wave 1)*
 - [ ] 12-02-PLAN.md — Info.plist keys + both entitlements (keychain) + GoogleService-Info.plist target + app icons + notification_service Darwin init (IOS-03)
@@ -380,7 +380,7 @@ Note: Phases 1-7 deliver the complete local-first experience without any authent
 | 9. Authentication | v0.1 | 5/5 | Complete | 2026-05-29 |
 | 10. Backend Infrastructure | v0.1 | 3/3 | Complete | 2026-05-31 |
 | 11. Sync Engine | v0.1 | 3/3 | Complete | 2026-06-01 |
-| 12. iOS Scaffolding & Configuration | v0.2 | 0/3 | Not started | - |
+| 12. iOS Scaffolding & Configuration | v0.2 | 1/3 | In Progress|  |
 | 13. Auth on iOS | v0.2 | 0/TBD | Not started | - |
 | 14. Background GPS Platform Branch | v0.2 | 0/TBD | Not started | - |
 | 15. Notifications, Permissions & Onboarding UX on iOS | v0.2 | 0/TBD | Not started | - |

@@ -69,7 +69,7 @@ iOS port of the existing Android app with full feature parity, runnable on a rea
 
 ### iOS Platform & Build
 
-- [ ] **IOS-01**: App builds and launches on the iOS Simulator from a generated `ios/` project
+- [x] **IOS-01**: App builds and launches on the iOS Simulator from a generated `ios/` project
 - [ ] **IOS-02**: App installs and launches on a real iPhone via Xcode free (7-day) provisioning
 - [ ] **IOS-03**: `Info.plist` and Xcode entitlements are configured — location usage strings, `UIBackgroundModes: location`, Keychain Sharing, notification usage, reversed-client-ID URL scheme, bundle ID `com.travey.app`
 
@@ -165,7 +165,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | UX-03 | Phase 2 | Complete |
 | UX-04 | Phase 7 | Complete |
 | UX-05 | Phase 7 | Complete |
-| IOS-01 | Phase 12 | Pending |
+| IOS-01 | Phase 12 | Complete |
 | IOS-02 | Phase 12 | Pending |
 | IOS-03 | Phase 12 | Pending |
 | IOS-04 | Phase 13 | Pending |

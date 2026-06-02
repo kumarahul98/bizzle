@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: iOS Support
-status: planning
+status: executing
 stopped_at: Phase 12 planned (3 plans) + Gemini-reviewed
-last_updated: "2026-06-02T12:48:19.461Z"
-last_activity: 2026-06-02 — v0.2 roadmap created; phases 12-16 defined
+last_updated: "2026-06-02T13:46:55.054Z"
+last_activity: 2026-06-02
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 3
-  completed_plans: 0
+  completed_plans: 1
   percent: 0
 ---
 
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-02)
 
 **Core value:** Show people the reality of their commute -- time wasted in traffic and how it changes over time.
-**Current focus:** Phase 12 — iOS Scaffolding & Configuration (next up)
+**Current focus:** Phase 12 — ios-scaffolding-configuration
 
 ## Current Position
 
-Phase: 12 of 16 (iOS Scaffolding & Configuration)
-Plan: — (not yet planned)
-Status: Ready to plan
-Last activity: 2026-06-02 — v0.2 roadmap created; phases 12-16 defined
+Phase: 12 (ios-scaffolding-configuration) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
+Last activity: 2026-06-02
 
-Progress: [░░░░░░░░░░] 0% (v0.2 milestone)
+Progress: [███░░░░░░░] 33%
 
 ## Performance Metrics
 
@@ -64,6 +64,8 @@ Recent decisions affecting current work:
 - [v0.2 Research]: firebase_options.dart already carries iOS client config — iOS Firebase app pre-registered
 - [v0.2 Research]: flutter_background_service cannot sustain iOS GPS — use AppleSettings + CoreLocation instead
 - [v0.2 Roadmap]: Phase 14 open decision — keep flutter_background_service.onForeground wrapper on iOS or bypass; resolve at plan time
+- [Phase ?]: iOS 15.0 deployment target (firebase_auth/firebase_core floor, user-approved)
+- [Phase ?]: flutter precache --ios required before pod install when Flutter.xcframework cache is absent (one-time machine setup)
 
 ### Pending Todos
 
@@ -95,6 +97,6 @@ Full checklist: `.planning/v0.1-DEVICE-CHECKLIST.md` (Groups A-I). Resume v0.1 c
 
 ## Session Continuity
 
-Last session: 2026-06-02T12:48:19.454Z
+Last session: 2026-06-02T13:46:39.028Z
 Stopped at: Phase 12 planned (3 plans) + Gemini-reviewed
-Resume file: .planning/phases/12-ios-scaffolding-configuration/12-01-PLAN.md
+Resume file: None
