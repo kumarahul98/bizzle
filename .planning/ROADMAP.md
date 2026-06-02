@@ -292,7 +292,7 @@ These must be addressed by the user before or during Phase 12 — they cannot be
   2. The app installs and launches on a real iPhone via Xcode free provisioning (human-gated: requires Xcode license acceptance and Apple ID signing)
   3. `Info.plist` contains all required keys: `NSLocationWhenInUseUsageDescription`, `NSLocationAlwaysAndWhenInUseUsageDescription`, `UIBackgroundModes: location`, and the reversed-client-ID `CFBundleURLTypes` entry (note: iOS local-notification permission is requested at runtime via `DarwinInitializationSettings` — there is no notification usage-description plist key)
   4. Keychain Sharing entitlement is present in `Runner.entitlements` (absence causes silent `-34018` token failure on real devices)
-  5. `GoogleService-Info.plist` is added to the Xcode project as a resource and `Podfile` targets iOS 14.0 with the required `post_install` hook; `pod install` completes successfully in `ios/` (run explicitly or via `flutter build ios`)
+  5. `GoogleService-Info.plist` is added to the Xcode project as a resource and `Podfile` targets iOS 15.0 (raised from 14.0 to satisfy the firebase_auth/firebase_core podspec floor) with the required `post_install` hook; `pod install` completes successfully in `ios/` (run explicitly or via `flutter build ios`)
   6. `Info.plist` contains an `NSAppTransportSecurity` configuration that permits the HTTPS calls the app makes (Google OAuth endpoints + the Cloud Functions sync backend) so network requests are not blocked by ATS
   7. iOS app icons (all required sizes) and a launch screen storyboard are present so the installed app shows a proper icon and launch screen, not placeholder assets
 **Plans**: 3 plans
@@ -300,7 +300,7 @@ These must be addressed by the user before or during Phase 12 — they cannot be
 
 Plans:
 **Wave 1**
-- [x] 12-01-PLAN.md — Scaffold ios/ project (flutter create), Podfile iOS 14.0 + post_install, pod install, Simulator build + launch (IOS-01)
+- [x] 12-01-PLAN.md — Scaffold ios/ project (flutter create), Podfile iOS 15.0 + post_install, pod install, Simulator build + launch (IOS-01)
 
 **Wave 2** *(blocked on Wave 1)*
 - [x] 12-02-PLAN.md — Info.plist keys + both entitlements (keychain) + GoogleService-Info.plist target + app icons + notification_service Darwin init (IOS-03)
