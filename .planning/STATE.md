@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: iOS Support
-status: verifying
-stopped_at: Completed 12-03-PLAN.md — IOS-02 done, Phase 12 all 3 plans complete
-last_updated: "2026-06-02T14:40:47.311Z"
+status: ready_to_plan
+stopped_at: Phase 12 complete (3/3) — ready to discuss Phase 13
+last_updated: 2026-06-02T14:47:54.836Z
 last_activity: 2026-06-02
 progress:
   total_phases: 5
   completed_phases: 1
   total_plans: 3
-  completed_plans: 3
+  completed_plans: 57
   percent: 20
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-02)
 
 **Core value:** Show people the reality of their commute -- time wasted in traffic and how it changes over time.
-**Current focus:** Phase 12 — ios-scaffolding-configuration
+**Current focus:** Phase 13 — auth on ios
 
 ## Current Position
 
-Phase: 12 (ios-scaffolding-configuration) — EXECUTING
-Plan: 3 of 3
-Status: Phase complete — ready for verification
+Phase: 13
+Plan: Not started
+Status: Ready to plan
 Last activity: 2026-06-02
 
 Progress: [██████████] 100%
@@ -44,7 +44,7 @@ Progress: [██████████] 100%
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 12 | TBD | - | - |
+| 12 | 3 | - | - |
 | 13 | TBD | - | - |
 | 14 | TBD | - | - |
 | 15 | TBD | - | - |
