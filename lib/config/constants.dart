@@ -786,3 +786,29 @@ const String kSettingsRestoreUpToDate = 'Already up to date';
 
 /// Restore status copy: the restore request failed (D-09).
 const String kSettingsRestoreError = "Couldn't restore. Try again.";
+
+// ---------------------------------------------------------------------------
+// Phase 14: Background GPS platform branch (iOS CoreLocation path)
+// ---------------------------------------------------------------------------
+
+/// Purpose-key literal for `Geolocator.requestTemporaryFullAccuracy`.
+///
+/// **MUST match the `NSLocationTemporaryUsageDescriptionDictionary` key in
+/// `ios/Runner/Info.plist` exactly.** If the key differs, iOS will silently
+/// ignore the request and the precision-accuracy prompt will never appear.
+///
+/// See D-06 in `.planning/phases/14-background-gps-platform-branch/14-CONTEXT.md`
+/// and RESEARCH §4.
+const String kPreciseCommutePurposeKey = 'PreciseCommute';
+
+/// iOS-only distance filter for `AppleSettings.distanceFilter` (meters).
+///
+/// Set to 0 so that `pauseLocationUpdatesAutomatically: false` and high
+/// accuracy drive the sample cadence — a car in stop-and-go traffic (near
+/// zero speed) still emits samples. A higher value would silently starve
+/// the accumulator when the vehicle barely moves, breaking the IOS-07
+/// moving/stuck time guarantee.
+///
+/// See IOS-07 and RESEARCH §2 in
+/// `.planning/phases/14-background-gps-platform-branch/14-RESEARCH.md`.
+const int kIosTrackingDistanceFilterMeters = 0;
