@@ -256,22 +256,11 @@ class TrackingNotificationService {
   }) {
     final elapsed = formatDuration(elapsedSeconds);
     final km = (distanceMeters / 1000).toStringAsFixed(1);
-    final stuck = _formatStuck(timeStuckSeconds);
+    final stuck = formatStuck(timeStuckSeconds);
     return kTrackingNotificationBodyTemplate
         .replaceFirst('{elapsed}', elapsed)
         .replaceFirst('{km}', km)
         .replaceFirst('{stuck}', stuck);
-  }
-
-  /// Compact stuck-time formatter for the notification stat row. Notifications
-  /// have ~24 chars before clipping on small shades, so we use the shortest
-  /// readable form (`Xm` under an hour, `XhYm` over).
-  static String _formatStuck(int seconds) {
-    final minutes = seconds ~/ 60;
-    if (minutes < 60) return '${minutes}m';
-    final hours = minutes ~/ 60;
-    final remMinutes = minutes % 60;
-    return remMinutes == 0 ? '${hours}h' : '${hours}h${remMinutes}m';
   }
 
   /// Foreground tap handler. V5 validation (T-02-17): match the exact
