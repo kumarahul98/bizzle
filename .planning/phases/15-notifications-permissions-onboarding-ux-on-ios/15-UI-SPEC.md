@@ -1,10 +1,11 @@
 ---
 phase: 15
 slug: notifications-permissions-onboarding-ux-on-ios
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-06-03
+reviewed_at: 2026-06-03
 ---
 
 # Phase 15 — UI Design Contract
@@ -43,7 +44,7 @@ Standard Traevy 8-point scale. All values are multiples of 4. Carry-forward from
 |-------|-------|-------|
 | xs | 4px | Icon-to-label gap, inline chips |
 | sm | 8px | Compact element spacing, intra-row gaps |
-| md | 16px | Default element and section padding |
+| md | 16px | Default element and section padding, FeatureTick inter-row gap |
 | lg | 24px | Card internal padding, section vertical gaps |
 | xl | 32px | Screen horizontal padding (onboarding matches existing 32px) |
 | 2xl | 48px | Major section breaks |
@@ -51,7 +52,6 @@ Standard Traevy 8-point scale. All values are multiples of 4. Carry-forward from
 
 **Exceptions:**
 - Onboarding screen top padding: 60px (matches existing `fromLTRB(32, 60, 32, 32)`)
-- FeatureTick inter-row gap: 18px (matches existing pattern)
 - PermissionBanner: zero padding — MaterialBanner renders its own insets
 - iOS Live Activity lock-screen layout: follows Apple HIG WidgetKit sizing constraints
   (compact leading/trailing: 37×37 pt max; expanded height: 160 pt max per HIG)
@@ -61,16 +61,18 @@ Standard Traevy 8-point scale. All values are multiples of 4. Carry-forward from
 
 ## Typography
 
-Carry-forward from Phase 8 (TraevyFonts). All Phase 15 surfaces reuse the same type scale.
+Carry-forward from Phase 8 (TraevyFonts). All Phase 15 Flutter surfaces reuse the same type scale.
+Exactly 4 sizes and 2 weights are declared. De-emphasis is achieved via color (textDim / textMuted),
+not weight variation.
 
 | Role | Size | Weight | Line Height | Font | Usage |
 |------|------|--------|-------------|------|-------|
-| Body | 16px | w400 (regular) | 1.5 | Inter | Priming screen body copy, permission copy |
-| Label | 14px | w600 (semibold) | 1.3 | Inter | Priming screen feature ticks, banner CTA label |
-| Heading | 22px | w700 (bold) | 1.2 | Inter | Priming screen section heading |
-| Numeric (Live Activity mirror) | 13px | w400 | n/a (single line) | JetBrains Mono | Elapsed time, distance in Android enriched notification |
+| Heading | 22px | w700 (bold) | 1.2 | Inter | Priming screen section heading — **primary visual focal point** |
+| Body | 16px | w400 (regular) | 1.5 | Inter | Priming screen body copy, permission copy, CTA label |
+| Label | 14px | w700 (bold) | 1.3 | Inter | Priming screen feature tick titles, banner CTA label, skip link, terms blurb |
+| Numeric (Live Activity mirror) | 13px | w400 (regular) | n/a (single line) | JetBrains Mono | Elapsed time, distance in Android enriched notification |
 
-**Live Activity (SwiftUI) typography — native only:**
+**Live Activity (SwiftUI) typography — native only, not counted in the Flutter type scale:**
 - Elapsed time: `.system(size: 18, weight: .semibold, design: .monospaced)` — prominent, mono
 - Stats row (distance, stuck): `.system(size: 13, weight: .regular)` — secondary
 - Direction label: `.system(size: 11, weight: .semibold)` — caps badge style
@@ -97,7 +99,7 @@ Traevy token system. Both light and dark palette values are listed where relevan
 | Stuck state — stuck | #C4820A | #D4A832 | Stuck indicator dot, Live Activity stuck chip |
 | Danger — danger / record | #C0392B | #E05A4A | Stop button in Live Activity, destructive affordances |
 | textDim | #6B6B7A | #A0A0B8 | Priming screen body copy, banner subtitle |
-| textMuted | #9A9AAA | #6E6E88 | Terms blurb, caption text |
+| textMuted | #9A9AAA | #6E6E88 | Terms blurb, caption text, skip link |
 | border | #E5E5DF | #2E3040 | Card borders, separator lines |
 | movingBg | #DCF2E4 | #1E3D2E | FeatureTick icon background, Live Activity moving status chip bg |
 | stuckBg | #F5EDDA | #3A2E10 | Live Activity stuck status chip bg |
@@ -133,6 +135,9 @@ the full visual and interaction contract.
 **What it is:** A new Flutter screen inserted into the onboarding flow BEFORE the iOS
 "When In Use" system prompt. Shown iOS-only (Platform.isIOS gate). Android skips it entirely.
 
+**Primary visual focal point:** The 22px/w700 heading `"Your location stays on your device"` —
+the largest, boldest element on screen — anchors the trust message immediately below the icon.
+
 **Layout:** Reuse the same scaffold pattern as `onboarding_screen.dart`:
 - `Scaffold` → `SafeArea` → `LayoutBuilder` → `SingleChildScrollView` → sticky-footer column
 - Horizontal padding: 32px, top padding: 60px, bottom padding: 32px
@@ -142,24 +147,24 @@ the full visual and interaction contract.
 1. Location icon — `Icons.location_on_rounded`, size 48px, color `accent`, centered
 2. `SizedBox(height: 24)`
 3. Heading text: `"Your location stays on your device"`, 22px / w700 / Inter / letterSpacing -0.6
-4. `SizedBox(height: 12)`
+4. `SizedBox(height: 8)`
 5. Body copy (max width 280px): `"Traevy records your route to measure traffic time. All trip data is stored on your iPhone — never shared without your consent."`, 16px / w400 / Inter / height 1.5 / textDim color
-6. `SizedBox(height: 40)`
+6. `SizedBox(height: 32)`
 7. Three FeatureTick rows (reuse `FeatureTick` widget exactly):
    - Tick 1: title `"Route recording"` / subtitle `"Captures your GPS path in the background."`
    - Tick 2: title `"Speed-based traffic"` / subtitle `"We detect stuck time using speed — no other data."`
    - Tick 3: title `"Device-only storage"` / subtitle `"Trips never leave your iPhone unless you sign in."`
-   - Gaps between ticks: 18px (matches existing onboarding)
+   - Gaps between ticks: `SizedBox(height: 16)` (md token)
 8. `Spacer()`
 9. Primary CTA button — full-width, same shape/height as `GoogleContinueButton` (14px radius, 16px vertical padding, bgElev background, borderStr border):
-   - Label: `"Allow location access"` (Inter 15px w600)
+   - Label: `"Allow location access"` (Inter 16px w700)
    - Icon: `Icons.location_on_outlined`, 20px, placed left of label (same slot as Google G logo in GoogleContinueButton)
    - On tap: proceed to request `Permission.locationWhenInUse` via `TrackingPermissionService`
-10. `SizedBox(height: 12)`
-11. Skip link — centered, `"Skip for now"`, 14px / w500 / textDim
+10. `SizedBox(height: 8)`
+11. Skip link — centered, `"Skip for now"`, 14px / w400 / textMuted
     - On tap: navigate forward without requesting location (degraded mode from first launch)
-12. `SizedBox(height: 18)`
-13. Terms blurb — centered, `"You can change location access in Settings at any time."`, 11px / textMuted / height 1.5
+12. `SizedBox(height: 16)`
+13. Terms blurb — centered, `"You can change location access in Settings at any time."`, 14px / w400 / textMuted / height 1.5
 
 **States:**
 - Default: all content shown as above
