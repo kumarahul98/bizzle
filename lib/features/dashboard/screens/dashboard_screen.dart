@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:traevy/config/constants.dart';
@@ -55,6 +56,29 @@ class DashboardScreen extends ConsumerWidget {
 
   Future<void> _handleStart(BuildContext context, WidgetRef ref) async {
     final service = ref.read(trackingPermissionServiceProvider);
+
+    // D-01 iOS priming gate: show the location priming screen before the first
+    // system When-In-Use prompt, for both fresh and already-signed-in users.
+    //
+    // Uses currentStatus() (probe-only, never prompts) to detect the
+    // undetermined state. When locationWhenInUse is not yet granted,
+    // currentStatus() returns denied — that's the signal to push the
+    // priming screen first.
+    //
+    // On return from the priming screen, the user may have granted
+    // When-In-Use (CTA) or skipped. Either way, control falls through to
+    // the existing preflight() call, which on iOS will see location already
+    // granted (no double prompt) or will surface the prompt inline (skip
+    // path — acceptable fallback).
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      final pre = await service.currentStatus();
+      if (!context.mounted) return;
+      if (pre == TrackingPermissionStatus.denied) {
+        await Navigator.pushNamed(context, kRouteLocationPriming);
+        if (!context.mounted) return;
+      }
+    }
+
     // preflight() runs the strict location → notifications dance and
     // prompts when needed. currentStatus() only probes — it would not
     // surface a system prompt on a fresh install with location denied,
