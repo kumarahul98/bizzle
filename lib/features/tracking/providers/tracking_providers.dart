@@ -306,6 +306,7 @@ class TrackingNotifier extends Notifier<TrackingState> {
           .showRecording(
             elapsedSeconds: active.elapsedSeconds,
             distanceMeters: active.distanceMeters,
+            timeMovingSeconds: active.timeMovingSeconds,
             timeStuckSeconds: active.timeStuckSeconds,
             direction: direction,
           )
