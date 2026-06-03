@@ -34,6 +34,21 @@ class NotificationService {
   ///
   /// See D-08, D-14 in `.planning/phases/07-polish-notifications/07-CONTEXT.md`.
   Future<void> initialize() async {
+    // Initialize the plugin for both platforms.
+    // Darwin settings defer permission to TrackingPermissionService.preflight()
+    // in Phase 15, so all request* flags are false here.
+    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const darwinInit = DarwinInitializationSettings(
+      requestAlertPermission: false,
+      requestSoundPermission: false,
+      requestBadgePermission: false,
+    );
+    await _plugin.initialize(
+      settings: const InitializationSettings(
+        android: androidInit,
+        iOS: darwinInit,
+      ),
+    );
     await _createChannels();
     // Reschedule any already-enabled notifications from DB preferences.
     // Uses a temporary AppDatabase instance — NOT Riverpod (not yet running).
@@ -83,6 +98,11 @@ class NotificationService {
           kWeeklySummaryChannelId,
           kWeeklySummaryChannelName,
           channelDescription: kWeeklySummaryChannelDescription,
+        ),
+        iOS: DarwinNotificationDetails(
+          presentAlert: true,
+          presentSound: true,
+          presentBadge: false,
         ),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
@@ -238,6 +258,11 @@ class NotificationService {
           kReminderChannelId,
           kReminderChannelName,
           channelDescription: kReminderChannelDescription,
+        ),
+        iOS: DarwinNotificationDetails(
+          presentAlert: true,
+          presentSound: true,
+          presentBadge: false,
         ),
       );
 

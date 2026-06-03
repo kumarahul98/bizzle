@@ -1,25 +1,26 @@
 import 'package:drift/drift.dart';
-import 'package:flutter_background_service/flutter_background_service.dart';
+import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/daos/sync_queue_dao.dart';
 import 'package:traevy/database/daos/trips_dao.dart';
 import 'package:traevy/database/daos/user_preferences_dao.dart';
 import 'package:traevy/database/database.dart';
+import 'package:traevy/features/tracking/services/location_accuracy_gate.dart';
+import 'package:traevy/features/tracking/services/tracking_event_source.dart';
 import 'package:traevy/features/tracking/services/tracking_notification_service.dart';
-import 'package:traevy/features/tracking/services/tracking_service_events.dart';
 import 'package:traevy/features/tracking/state/finalized_trip.dart';
 import 'package:traevy/features/trips/services/direction_label_service.dart';
 
-/// UI-isolate wrapper around [FlutterBackgroundService]. Thin by design —
-/// all tracking logic (GPS stream, accumulator, 1 Hz snapshots, stop
-/// race guard) lives in `tracking_service.dart`. This class owns only:
+/// UI-isolate wrapper around the platform-selected [TrackingEventSource].
+/// Thin by design — all tracking logic (GPS stream, accumulator, 1 Hz
+/// snapshots, stop race guard) lives either in `tracking_service.dart`
+/// (Android fbs isolate) or in `MainIsolateTrackingEngine` (iOS). This
+/// class owns only:
 ///
 ///   * the start/stop lifecycle, including the Location-Services
 ///     pre-flight that the home screen cannot easily guard on its own;
-///   * the stop command, which is sent as an [kStopTrackingEvent]
-///     `service.invoke` call (the service isolate listens for it and
-///     responds with [kTripFinalizedEvent]);
+///   * the stop command, forwarded to the shared [TrackingEventSource];
 ///   * the [persistFinalizedTrip] transaction — the atomic Drift write
 ///     that inserts the trip and enqueues the sync-queue entry in a
 ///     single transaction, with the D-10 short-trip discard guarding
@@ -30,35 +31,41 @@ import 'package:traevy/features/trips/services/direction_label_service.dart';
 /// `TrackingPermissionService.preflight` first (plan 02-04's tracking
 /// screen does so). This keeps the UI in charge of denial/banner UX.
 class TrackingServiceController {
-  /// Construct a controller bound to [service], [database], its DAOs,
-  /// and the [notifications] wrapper. Production wiring is done in
-  /// `tracking_providers.dart` with `FlutterBackgroundService()`,
-  /// `appDatabaseProvider`, and the two DAO providers.
+  /// Construct a controller bound to the platform-selected [source],
+  /// [database], its DAOs, and the [notifications] wrapper. Production
+  /// wiring is done in `tracking_providers.dart` via
+  /// `trackingEventSourceProvider`.
+  ///
+  /// [accuracyGate] is the IOS-08 reduced-accuracy preflight gate. Defaults
+  /// to a real [LocationAccuracyGate] backed by Geolocator; inject a fake
+  /// in tests.
   TrackingServiceController({
-    required FlutterBackgroundService service,
+    required TrackingEventSource source,
     required AppDatabase database,
     required TripsDao tripsDao,
     required SyncQueueDao syncQueueDao,
     required TrackingNotificationService notifications,
     required UserPreferencesDao userPreferencesDao,
-  }) : _service = service,
+    LocationAccuracyGate? accuracyGate,
+  }) : _source = source,
        _database = database,
        _tripsDao = tripsDao,
        _syncQueueDao = syncQueueDao,
        _notifications = notifications,
-       _userPreferencesDao = userPreferencesDao;
+       _userPreferencesDao = userPreferencesDao,
+       _accuracyGate = accuracyGate ?? LocationAccuracyGate();
 
-  final FlutterBackgroundService _service;
+  final TrackingEventSource _source;
   final AppDatabase _database;
   final TripsDao _tripsDao;
   final SyncQueueDao _syncQueueDao;
   final TrackingNotificationService _notifications;
   final UserPreferencesDao _userPreferencesDao;
+  final LocationAccuracyGate _accuracyGate;
 
-  /// Start the background tracking service. Returns `true` if the
-  /// service was asked to start (`FlutterBackgroundService.startService`
-  /// returned `true`), `false` if the Location-Services pre-flight
-  /// failed or the platform refused.
+  /// Start tracking. Returns `true` if the engine started successfully,
+  /// `false` if the Location-Services pre-flight failed or the platform
+  /// refused.
   ///
   /// Pre-conditions the caller MUST have already handled:
   ///
@@ -70,49 +77,62 @@ class TrackingServiceController {
   /// Pre-conditions this method handles:
   ///
   ///   * `Geolocator.isLocationServiceEnabled()` — if Location Services
-  ///     are toggled off system-wide, return `false` without invoking
-  ///     `startService` (the fbs call would otherwise succeed, the
-  ///     service would spin up, and Geolocator would then fail with an
-  ///     unhelpful error on the first sample).
+  ///     are toggled off system-wide, return `false` without starting
+  ///     (the engine call would otherwise succeed, then Geolocator would
+  ///     fail with an unhelpful error on the first sample).
+  ///   * IOS-08 accuracy gate — on iOS, ensures full (precise) location
+  ///     accuracy before opening the GPS stream.
   ///
-  /// On a successful start the UX-03 foreground notification is shown
-  /// via [TrackingNotificationService.showRecording]. The notification
-  /// call is wrapped in a defensive try/catch (Deviation Rule 4): on
-  /// Android 13+ `POST_NOTIFICATIONS` may not yet be granted on the
-  /// first run, and we prefer silent tracking over a failed start.
+  /// On a successful Android start the UX-03 foreground notification is
+  /// shown via [TrackingNotificationService.showRecording] BEFORE the
+  /// engine starts (D-14 race resolution). On iOS, CoreLocation shows
+  /// its own system indicator (D-07); no flutter_local_notifications call
+  /// is made.
   Future<bool> start() async {
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       return false;
     }
-    // Post the UX-03 notification BEFORE starting the service so the
-    // action-bearing notification exists at kTrackingNotificationId when
-    // fbs's setAsForegroundService promotes the service. This is the
-    // D-14 unification contract — fbs reuses the existing notification
-    // at the same id+channel instead of creating its own action-less
-    // stock notification. Reversing this order would let fbs win the
-    // race and the Stop action button would never appear.
-    //
-    // POST_NOTIFICATIONS denied on Android 13+ → tracking still works,
-    // the UX-03 notification is just absent until the user grants it.
-    // Do NOT rethrow (Deviation Rule 4).
-    try {
-      await _notifications.showRecording();
-    } on Object {
-      // intentionally swallowed — see comment above
+
+    // IOS-08 reduced-accuracy gate (D-05): on iOS, ensure full (precise)
+    // location accuracy is available before opening the GPS stream.
+    // If accuracy is still reduced after the prompt (user declined), block
+    // recording — never compute speed stats from coarse 500-metre fixes.
+    // Uses defaultTargetPlatform (not dart:io Platform.isIOS) so the branch
+    // is exercisable in unit tests via debugDefaultTargetPlatformOverride.
+    // Android branch is UNCHANGED — the gate is iOS-only.
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      final precise = await _accuracyGate.ensurePrecise();
+      if (!precise) {
+        return false;
+      }
     }
-    return _service.startService();
+
+    // Post the UX-03 notification BEFORE starting the engine on Android so
+    // the action-bearing notification exists at kTrackingNotificationId when
+    // fbs's setAsForegroundService promotes the service. This is the D-14
+    // unification contract. On iOS, CoreLocation shows its own indicator
+    // (D-07) so no notification is posted here.
+    //
+    // POST_NOTIFICATIONS denied on Android 13+ → tracking still works.
+    // Do NOT rethrow (Deviation Rule 4).
+    if (defaultTargetPlatform != TargetPlatform.iOS) {
+      try {
+        await _notifications.showRecording();
+      } on Object {
+        // intentionally swallowed — see comment above
+      }
+    }
+
+    return _source.start();
   }
 
-  /// Tell the background isolate to stop. The service responds
-  /// asynchronously by emitting [kTripFinalizedEvent], which
+  /// Tell the engine to stop. The engine responds asynchronously by
+  /// emitting via [TrackingEventSource.onFinalized], which
   /// `TrackingNotifier` listens for and uses to transition the UI state
   /// through `TrackingStopping` back to `TrackingIdle`.
-  ///
-  /// The `invoke` call itself is fire-and-forget — fbs does not expose
-  /// an awaitable acknowledgement.
   Future<void> stop() async {
-    _service.invoke(kStopTrackingEvent);
+    await _source.stop();
   }
 
   /// Atomically persist a finalized trip.

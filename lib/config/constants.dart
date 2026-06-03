@@ -786,3 +786,47 @@ const String kSettingsRestoreUpToDate = 'Already up to date';
 
 /// Restore status copy: the restore request failed (D-09).
 const String kSettingsRestoreError = "Couldn't restore. Try again.";
+
+// ---------------------------------------------------------------------------
+// Phase 14: Background GPS platform branch (iOS CoreLocation path)
+// ---------------------------------------------------------------------------
+
+/// Purpose-key literal for `Geolocator.requestTemporaryFullAccuracy`.
+///
+/// **MUST match the `NSLocationTemporaryUsageDescriptionDictionary` key in
+/// `ios/Runner/Info.plist` exactly.** If the key differs, iOS will silently
+/// ignore the request and the precision-accuracy prompt will never appear.
+///
+/// See D-06 in `.planning/phases/14-background-gps-platform-branch/14-CONTEXT.md`
+/// and RESEARCH §4.
+const String kPreciseCommutePurposeKey = 'PreciseCommute';
+
+/// iOS-only distance filter for `AppleSettings.distanceFilter` (meters).
+///
+/// Set to 0 so that `pauseLocationUpdatesAutomatically: false` and high
+/// accuracy drive the sample cadence — a car in stop-and-go traffic (near
+/// zero speed) still emits samples. A higher value would silently starve
+/// the accumulator when the vehicle barely moves, breaking the IOS-07
+/// moving/stuck time guarantee.
+///
+/// See IOS-07 and RESEARCH §2 in
+/// `.planning/phases/14-background-gps-platform-branch/14-RESEARCH.md`.
+const int kIosTrackingDistanceFilterMeters = 0;
+
+/// IOS-08: message surfaced when the reduced-accuracy gate blocks a start.
+///
+/// Shown when `Geolocator.requestTemporaryFullAccuracy` is called but the
+/// user declines to grant precise location, so recording is blocked rather
+/// than starting with coarse 500-metre fixes that would produce garbage
+/// speed stats.
+///
+/// This is a STABLE, user-facing string — it must NEVER contain raw
+/// platform text or GPS coordinates (T-02-07). It is distinct from the
+/// generic 'Unable to start tracking' message so the user understands the
+/// cause is accuracy, not a generic failure.
+///
+/// See IOS-08, D-05 in
+/// `.planning/phases/14-background-gps-platform-branch/14-CONTEXT.md`.
+const String kTrackingReducedAccuracyBlockedMessage =
+    'Precise location is required to track your commute. '
+    'Enable it in Settings → Privacy → Location Services → Traevy.';

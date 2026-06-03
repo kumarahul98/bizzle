@@ -69,20 +69,20 @@ iOS port of the existing Android app with full feature parity, runnable on a rea
 
 ### iOS Platform & Build
 
-- [ ] **IOS-01**: App builds and launches on the iOS Simulator from a generated `ios/` project
-- [ ] **IOS-02**: App installs and launches on a real iPhone via Xcode free (7-day) provisioning
-- [ ] **IOS-03**: `Info.plist` and Xcode entitlements are configured — location usage strings, `UIBackgroundModes: location`, Keychain Sharing, notification usage, reversed-client-ID URL scheme, bundle ID `com.travey.app`
+- [x] **IOS-01**: App builds and launches on the iOS Simulator from a generated `ios/` project
+- [x] **IOS-02**: App installs and launches on a real iPhone via Xcode free (7-day) provisioning
+- [x] **IOS-03**: `Info.plist` and Xcode entitlements are configured — location usage strings, `UIBackgroundModes: location`, Keychain Sharing, notification usage, reversed-client-ID URL scheme, bundle ID `com.travey.app`
 
 ### Auth on iOS
 
-- [ ] **IOS-04**: User can sign in with Google on iOS (reversed-client-ID URL scheme + `iosClientId`)
-- [ ] **IOS-05**: User session persists across app restarts on iOS via Keychain (no `-34018` failure)
+- [x] **IOS-04**: User can sign in with Google on iOS (reversed-client-ID URL scheme + `iosClientId`)
+- [x] **IOS-05**: User session persists across app restarts on iOS via Keychain (no `-34018` failure)
 
 ### Background GPS on iOS
 
-- [ ] **IOS-06**: User can record a commute on iOS with GPS continuing while the app is backgrounded / screen off (CoreLocation `allowBackgroundLocationUpdates`)
-- [ ] **IOS-07**: GPS does not silently pause during stop-and-go traffic on iOS (`pauseLocationUpdatesAutomatically: false`), so moving/stuck traffic stats stay accurate
-- [ ] **IOS-08**: App detects iOS reduced-accuracy ("Approximate Location") and requests/handles full accuracy so speed-based traffic calculation remains valid
+- [x] **IOS-06**: User can record a commute on iOS with GPS continuing while the app is backgrounded / screen off (CoreLocation `allowBackgroundLocationUpdates`)
+- [x] **IOS-07**: GPS does not silently pause during stop-and-go traffic on iOS (`pauseLocationUpdatesAutomatically: false`), so moving/stuck traffic stats stay accurate
+- [x] **IOS-08**: App detects iOS reduced-accuracy ("Approximate Location") and requests/handles full accuracy so speed-based traffic calculation remains valid
 
 ### Permissions, Notifications & UX on iOS
 
@@ -165,14 +165,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 | UX-03 | Phase 2 | Complete |
 | UX-04 | Phase 7 | Complete |
 | UX-05 | Phase 7 | Complete |
-| IOS-01 | Phase 12 | Pending |
-| IOS-02 | Phase 12 | Pending |
-| IOS-03 | Phase 12 | Pending |
-| IOS-04 | Phase 13 | Pending |
-| IOS-05 | Phase 13 | Pending |
-| IOS-06 | Phase 14 | Pending |
-| IOS-07 | Phase 14 | Pending |
-| IOS-08 | Phase 14 | Pending |
+| IOS-01 | Phase 12 | Complete |
+| IOS-02 | Phase 12 | Complete |
+| IOS-03 | Phase 12 | Complete |
+| IOS-04 | Phase 13 | Complete |
+| IOS-05 | Phase 13 | Complete |
+| IOS-06 | Phase 14 | Complete |
+| IOS-07 | Phase 14 | Complete |
+| IOS-08 | Phase 14 | Complete |
 | IOS-09 | Phase 15 | Pending |
 | IOS-10 | Phase 15 | Pending |
 | IOS-11 | Phase 15 | Pending |

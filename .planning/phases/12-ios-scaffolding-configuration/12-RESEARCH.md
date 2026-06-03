@@ -11,7 +11,7 @@
 
 | ID | Description | Research Support |
 |----|-------------|------------------|
-| IOS-01 | App builds and launches on the iOS Simulator from a generated `ios/` project | `flutter create --platforms=ios .` scaffolds ios/; Podfile iOS 14.0 + post_install; `flutter build ios --simulator` is the verification command |
+| IOS-01 | App builds and launches on the iOS Simulator from a generated `ios/` project | `flutter create --platforms=ios .` scaffolds ios/; Podfile iOS 15.0 + post_install; `flutter build ios --simulator` is the verification command |
 | IOS-02 | App installs and launches on a real iPhone via Xcode free (7-day) provisioning | Human-gated: requires Xcode license accepted, Apple ID signing in Xcode, Developer Mode on iPhone; Keychain Sharing entitlement must be present or token writes silently fail |
 | IOS-03 | Info.plist and Xcode entitlements are fully configured — location usage strings, UIBackgroundModes: location, Keychain Sharing, notification usage, reversed-client-ID URL scheme, bundle ID com.travey.app | Complete key list documented; reversed-client-ID derived from firebase_options.dart iosClientId; both entitlements files require keychain-access-groups |
 </phase_requirements>
@@ -109,7 +109,7 @@ These directives are binding for this phase:
           │              ios/ Project Tree                     │
           │                                                    │
           │  Runner.xcworkspace ◄─── pod install resolves     │
-          │  Podfile            ◄─── platform :ios, '14.0'    │
+          │  Podfile            ◄─── platform :ios, '15.0'    │
           │                          + post_install GCC macros│
           │                                                    │
           │  Runner/ ────────────────────────────────────────  │
@@ -144,7 +144,7 @@ Steps must run in this dependency order — each step unblocks the next:
 1. **HUMAN GATE:** `sudo xcodebuild -license accept` — blocks everything else
 2. `flutter create --platforms=ios .` — generates ios/ tree
 3. Open `ios/Runner.xcodeproj` in Xcode → set bundle ID to `com.travey.app`
-4. Edit `ios/Podfile` — set `platform :ios, '14.0'` + full `post_install` block
+4. Edit `ios/Podfile` — set `platform :ios, '15.0'` + full `post_install` block
 5. Add Xcode capabilities: Background Modes → Location Updates; Keychain Sharing (empty group)
 6. Edit `ios/Runner/Info.plist` — add all required keys (location, UIBackgroundModes, CFBundleURLTypes)
 7. Download `GoogleService-Info.plist` from Firebase Console → drag into Xcode Runner group
@@ -157,7 +157,7 @@ Steps must run in this dependency order — each step unblocks the next:
 ### Anti-Patterns to Avoid
 
 - **Adding GoogleService-Info.plist only to the filesystem (not the Xcode target):** Firebase initialization fails at runtime with "GoogleService-Info.plist not found" even though the file is present on disk. Must be dragged into the Xcode Runner group so the build system includes it in Copy Bundle Resources.
-- **Setting only the Podfile platform line without the post_install IPHONEOS_DEPLOYMENT_TARGET:** Transitive pods may have lower minimums than 14.0 and emit linker warnings or errors. The `post_install` hook forces all pods to 14.0.
+- **Setting only the Podfile platform line without the post_install IPHONEOS_DEPLOYMENT_TARGET:** Transitive pods may have lower minimums than 15.0 and emit linker warnings or errors. The `post_install` hook forces all pods to 15.0.
 - **Adding UIBackgroundModes to Info.plist without the Xcode Background Modes capability:** iOS ignores the Info.plist entry without the capability; the GPS stream stops within ~30 seconds of backgrounding.
 - **Adding Google Maps setup (GMSServices.provideAPIKey()):** This codebase uses flutter_map. Adding Google Maps setup is incorrect and would introduce an unnecessary API key dependency.
 - **Using riverpod_annotation or code generation in new files for Phase 12:** Phase 12 has no new providers or models — no build_runner run is needed.
@@ -215,9 +215,9 @@ This is also the `REVERSED_CLIENT_ID` field in `GoogleService-Info.plist`. If th
 **Warning signs:** Firebase.initializeApp throws at startup even though the file is present in `ios/Runner/` on disk.
 
 ### Pitfall 4: Podfile Platform Target / post_install Mismatch
-**What goes wrong:** `flutter create` generates `platform :ios, '12.0'`. Firebase requires iOS 13+. Transitive pods may require 14.0. Without the `post_install` hook setting all pod targets to the same minimum, builds fail with "The plugin X requires a higher minimum iOS deployment target than your application is targeting."
+**What goes wrong:** `flutter create` generates `platform :ios, '12.0'`. Firebase requires iOS 13+. Transitive pods may require 15.0. Without the `post_install` hook setting all pod targets to the same minimum, builds fail with "The plugin X requires a higher minimum iOS deployment target than your application is targeting."
 **Why it happens:** Flutter's generated Podfile is conservative. Each package maintainer sets their own floor. Mismatch between the platform line, Xcode IPHONEOS_DEPLOYMENT_TARGET, and individual pods causes layered failures.
-**How to avoid:** Set `platform :ios, '14.0'` immediately after scaffold. Add the full `post_install` block (see Code Examples). Run `pod install` and then `flutter build ios --no-codesign` to catch failures early.
+**How to avoid:** Set `platform :ios, '15.0'` immediately after scaffold. Add the full `post_install` block (see Code Examples). Run `pod install` and then `flutter build ios --no-codesign` to catch failures early.
 **Warning signs:** `pod install` succeeds but `flutter build ios --no-codesign` fails with deployment target errors.
 
 ### Pitfall 5: CFBundleURLSchemes Uses Client ID Instead of Reversed Client ID
@@ -248,7 +248,7 @@ Verified patterns from official sources and direct file reads.
 
 ```ruby
 # Source: .planning/research/ARCHITECTURE.md (derived from Context7/geolocator + permission_handler docs)
-platform :ios, '14.0'
+platform :ios, '15.0'
 
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
@@ -293,7 +293,7 @@ post_install do |installer|
       # Raise all pod deployment targets to match the app minimum.
       # Without this, transitive pods that advertise a lower minimum
       # cause linker warnings or errors.
-      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
 
       # permission_handler: enable only the permissions this app uses.
       # Compiles out everything else to avoid App Store binary analysis flags.
@@ -555,7 +555,7 @@ Phase 12 is greenfield iOS scaffolding. There is no existing `ios/` folder, no i
 | IOS-03 | Keychain Sharing entitlement in Release.entitlements | Automated grep | `grep -c "keychain-access-groups" ios/Runner/Release.entitlements` | Count > 0 = present |
 | IOS-03 | Keychain Sharing in DebugProfile.entitlements | Automated grep | `grep -c "keychain-access-groups" ios/Runner/DebugProfile.entitlements` | Count > 0 = present |
 | IOS-03 | GoogleService-Info.plist in Xcode target | Build verification | Check "Copy Bundle Resources" in `ios/Runner.xcodeproj/project.pbxproj` | `grep "GoogleService-Info.plist" ios/Runner.xcodeproj/project.pbxproj` |
-| IOS-03 | Podfile platform is 14.0 | Automated grep | `grep "platform :ios" ios/Podfile` | Should show '14.0' |
+| IOS-03 | Podfile platform is 15.0 | Automated grep | `grep "platform :ios" ios/Podfile` | Should show '15.0' |
 | IOS-03 | pod install succeeds | Build | `cd ios && pod install` | Exit 0 = success |
 | IOS-03 | Bundle ID in Info.plist matches com.travey.app | Automated grep | `grep "com.travey.app" ios/Runner/Info.plist` | CFBundleIdentifier value |
 | IOS-03 | App icon sets generated | Filesystem check | `ls ios/Runner/Assets.xcassets/AppIcon.appiconset/ \| wc -l` | Should list multiple .png files + Contents.json |
@@ -586,7 +586,7 @@ None — Phase 12 has no new business logic to unit-test. The NotificationServic
 2. **`flutter_map_tile_caching` iOS minimum version**
    - What we know: Listed as iOS-compatible (pure Dart with Drift/SQLite backend). Pub.dev states compatibility.
    - What's unclear: The exact iOS minimum floor for `flutter_map_tile_caching` 10.1.1 is not explicitly published; estimated iOS 12 from Drift dependency.
-   - Recommendation: iOS 14.0 deployment target covers it with headroom. Validate tile caching works on device during Phase 16. No action needed in Phase 12.
+   - Recommendation: iOS 15.0 deployment target covers it with headroom. Validate tile caching works on device during Phase 16. No action needed in Phase 12.
 
 ---
 
