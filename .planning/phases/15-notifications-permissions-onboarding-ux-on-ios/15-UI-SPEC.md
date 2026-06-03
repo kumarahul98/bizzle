@@ -500,21 +500,25 @@ struct TraevyLiveActivityAttributes: ActivityAttributes {
         var stuckFormatted: String     // e.g. "4m"
         var isMoving: Bool
         var direction: String          // "to_office" | "to_home"
-        var startDate: Date            // for client-side elapsed Text(timerInterval:)
+        var startDate: Double          // ms-since-epoch (NOT Date) — the live_activities UserDefaults/Codable bridge cannot decode an int as a Swift Date; the SwiftUI view converts via Date(timeIntervalSince1970: startDate / 1000.0) for Text(timerInterval:)
     }
     // No static attributes needed — all state is dynamic for this use case
 }
 ```
 
-**Bridge call on each TripAccumulator snapshot:**
-1. Flutter side (Dart) formats the four values using existing formatters
-2. Calls bridge method `updateLiveActivity(ContentState)` — encodes as JSON
-3. Swift side decodes and calls `Activity<TraevyLiveActivityAttributes>.activities.first?.update(using: newState)`
+> **Superseded by RESEARCH §3 / Plan 15-04 (bridge = `live_activities` plugin).** Two details below were revised during research/planning and the plans (15-04/15-05) are authoritative:
+> - `startDate` is **Double** (ms epoch), not `Date` — see the struct comment above.
+> - The Stop affordance is a **SwiftUI `Link` to `traevy://stop`** consumed via the plugin's `urlSchemeStream()`, **NOT** an App Intent — `LiveActivityIntent`/`com.apple.developer.live-activity` entitlements are unavailable on the personal-team free-provisioning profile this milestone uses (RESEARCH §Stop button, A4).
 
-**Stop App Intent:**
-- `struct StopCommuteIntent: AppIntent` — calls back into Flutter via `FlutterMethodChannel` or plugin
-- Method channel message: `"stopTracking"` → routes to `TrackingServiceController.stop()`
-- Intent display name: `"Stop commute"` (matches button label)
+**Bridge call on each TripAccumulator snapshot (via the `live_activities` plugin, ~5s throttle):**
+1. Flutter side (Dart) formats the values using the shared formatters (`formatElapsed`/`formatDistance`/`formatStuck`)
+2. Calls `LiveActivityService.update(...)` → the plugin writes the 7-key `Map<String,dynamic>` to the shared App Group UserDefaults
+3. The Widget Extension reads the prefixed keys; the elapsed second-hand ticks client-side via `Text(timerInterval:)`
+
+**Stop affordance (URL scheme, free-provisioning safe):**
+- SwiftUI `Link(destination: URL(string: "traevy://stop")!)` — full-width, system red, min height 44
+- The plugin's `urlSchemeStream()` delivers `host == 'stop'` to Dart → `TrackingServiceController.stop()`
+- Label: `"Stop commute"` (matches button label)
 
 **iOS version gate (Dart side):**
 ```dart

@@ -778,22 +778,22 @@ struct TraevyLiveActivityView: View {
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **App Group provisioning on personal-team free account**
+   - **RESOLVED:** Deferred to the Wave 0 BLOCKING device-provisioning probe (Plan 15-01 checkpoint, autonomous:false). Live Activity Swift work (Plans 15-04/15-05) does not execute until the probe PASSes on a real iPhone. If it fails, switch to the fallback (custom method channel + ActivityKit in AppDelegate, no UserDefaults bridge) before continuing.
    - What we know: App Group entitlements normally require portal registration; Xcode automatic signing may handle this automatically on personal teams.
    - What's unclear: Whether `com.apple.security.application-groups` is provisioned automatically for personal-team targets with a Widget Extension.
-   - Recommendation: Wave 0 must include a validation task: add App Group capability to both targets, build and install on device, verify no signing error. If it fails, switch to fallback plan (custom method channel + ActivityKit in AppDelegate, no UserDefaults bridge).
+   - Disposition: Wave 0 validation task gates the risk; fallback documented.
 
 2. **`Activity.update()` background location mode restriction**
+   - **RESOLVED:** Treated as confirmed permitted (Apple's own Live Activities Q&A states location-mode apps may update Live Activities using background runtime). The actual update cadence is validated in human-gated device UAT (SC #5). The `Text(timerInterval:)` client-side ticking provides graceful degradation if Dart-side updates are throttled.
    - What we know: Apple's Q&A explicitly says location-mode apps can provide Live Activity updates. The forum thread about audio-mode restriction (error: "only playing background media") does NOT apply to location-mode apps.
-   - What's unclear: Whether there is an analogous undocumented restriction for location-mode apps.
-   - Recommendation: Treat as confirmed (Apple's own words); validate in human-gated device UAT. The `Text(timerInterval:)` pattern provides a graceful degradation if updates are throttled.
+   - Disposition: confirmed per Apple; cadence verified on device.
 
 3. **`device_info_plus` vs `live_activities.areActivitiesSupported()`**
-   - What we know: `areActivitiesSupported()` returns true on iOS 16.1+; `device_info_plus` gives the exact version number.
-   - What's unclear: Whether iOS 17 is best detected via `areActivitiesSupported()` (returns true on 16.1+, insufficient for our 17 floor) + separate version check, or just `device_info_plus`.
-   - Recommendation: Use `device_info_plus` for the `>= 17` check AND `areActivitiesEnabled()` to detect user-disabled settings. Two-check pattern: `version >= 17 && areActivitiesEnabled()`.
+   - **RESOLVED:** Use the two-check pattern `version >= 17 && areActivitiesEnabled()` — `device_info_plus` for the exact `>= 17` floor (areActivitiesSupported alone returns true on 16.1+, insufficient) AND `areActivitiesEnabled()` for the user-settings toggle. Implemented in Plan 15-05 `_isLiveActivitySupported()`.
+   - Disposition: pattern locked into Plan 15-05.
 
 ---
 
