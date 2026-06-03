@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: iOS Support
 status: verifying
-stopped_at: "Phase 15 context gathered (scope expanded: iOS Live Activity)"
-last_updated: "2026-06-03T11:43:36.297Z"
+stopped_at: Phase 15 UI-SPEC approved
+last_updated: "2026-06-03T12:22:22.185Z"
 last_activity: 2026-06-02
 progress:
   total_phases: 5
@@ -109,6 +109,6 @@ Full checklist: `.planning/v0.1-DEVICE-CHECKLIST.md` (Groups A-I). Resume v0.1 c
 
 ## Session Continuity
 
-Last session: 2026-06-03T11:43:36.289Z
-Stopped at: Phase 15 context gathered (scope expanded: iOS Live Activity)
-Resume file: .planning/phases/15-notifications-permissions-onboarding-ux-on-ios/15-CONTEXT.md
+Last session: 2026-06-03T12:22:22.175Z
+Stopped at: Phase 15 UI-SPEC approved
+Resume file: .planning/phases/15-notifications-permissions-onboarding-ux-on-ios/15-UI-SPEC.md
