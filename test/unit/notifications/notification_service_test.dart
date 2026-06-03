@@ -12,9 +12,54 @@
 //   - D-14: channel IDs are distinct across services
 //   - D-12: the reminder ID range (20-24) supports 5 weekday alarms + cancel
 //   - D-05: weekly summary uses a distinct ID (10) outside the reminder range
+//
+// Wave 0 RED additions (IOS-10):
+//   - requestIOSNotificationPermission() resolves IOSFlutterLocalNotificationsPlugin
+//     and calls requestPermissions(alert/badge/sound). RED until Plan 03.
 
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:traevy/config/constants.dart';
+import 'package:traevy/notifications/notification_service.dart';
+
+// ---------------------------------------------------------------------------
+// Minimal fake plugin for requestIOSNotificationPermission tests.
+//
+// FlutterLocalNotificationsPlugin cannot be instantiated in tests.
+// The test below documents the expected call surface; Plan 03 implements
+// NotificationService.requestIOSNotificationPermission() which uses
+// _plugin.resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>()
+// ?.requestPermissions(alert: true, badge: true, sound: true).
+// ---------------------------------------------------------------------------
+
+/// Records whether requestPermissions was called and with which arguments.
+class _FakeIosPlugin implements IOSFlutterLocalNotificationsPlugin {
+  bool requestPermissionsCalled = false;
+  bool? alertArg;
+  bool? badgeArg;
+  bool? soundArg;
+
+  @override
+  Future<bool?> requestPermissions({
+    bool sound = false,
+    bool alert = false,
+    bool badge = false,
+    bool provisional = false,
+    bool critical = false,
+    bool carPlay = false,
+    bool providesAppNotificationSettings = false,
+  }) async {
+    requestPermissionsCalled = true;
+    alertArg = alert;
+    badgeArg = badge;
+    soundArg = sound;
+    return true;
+  }
+
+  // Unimplemented stubs — not exercised by these tests.
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 void main() {
   group('NotificationService constants', () {
@@ -92,5 +137,50 @@ void main() {
         },
       );
     });
+  });
+
+  // -------------------------------------------------------------------------
+  // Wave 0 RED scaffold — IOS-10: requestIOSNotificationPermission()
+  //
+  // Documents the call surface that Plan 03 will implement on
+  // NotificationService. RED until Plan 03 adds
+  // requestIOSNotificationPermission() to NotificationService.
+  // -------------------------------------------------------------------------
+
+  group('NotificationService.requestIOSNotificationPermission (IOS-10)', () {
+    test(
+      'calls requestPermissions with alert/badge/sound=true on the iOS '
+      'platform-specific plugin implementation',
+      () async {
+        final fakeIos = _FakeIosPlugin();
+
+        // Plan 03 adds requestIOSNotificationPermission() to
+        // NotificationService. The method is expected to call:
+        //   _plugin.resolvePlatformSpecificImplementation<
+        //       IOSFlutterLocalNotificationsPlugin>()
+        //     ?.requestPermissions(alert: true, badge: true, sound: true)
+        //
+        // In the test seam, NotificationService accepts a
+        // [FlutterLocalNotificationsPlugin] that the test can swap for
+        // a fake. The fake is injected via the existing constructor
+        // parameter, and the test will call
+        //   service.requestIOSNotificationPermission(iosPlugin: fakeIos)
+        // or equivalent injection point that Plan 03 defines.
+        //
+        // Until Plan 03 adds the method, this test is RED (compile error).
+        final service = NotificationService();
+        await service.requestIOSNotificationPermission(iosPlugin: fakeIos);
+
+        expect(
+          fakeIos.requestPermissionsCalled,
+          isTrue,
+          reason: 'IOS-10: requestPermissions must be called on the '
+              'IOSFlutterLocalNotificationsPlugin',
+        );
+        expect(fakeIos.alertArg, isTrue, reason: 'alert must be true');
+        expect(fakeIos.badgeArg, isTrue, reason: 'badge must be true');
+        expect(fakeIos.soundArg, isTrue, reason: 'sound must be true');
+      },
+    );
   });
 }
