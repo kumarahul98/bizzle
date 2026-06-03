@@ -189,6 +189,16 @@ class TrackingPermissionService {
       final bgRequested = await _request(Permission.locationAlways);
       backgroundGranted = bgRequested.isGranted;
     }
+    // D-06: On iOS, tracking depends only on location. The notification
+    // permission dance is Android-only (UX-03 requires POST_NOTIFICATIONS on
+    // Android 13+, but iOS never gates tracking on notification permission).
+    // Return here without touching Permission.notification so the iOS
+    // Start button is never permanently disabled by a denied notification.
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      return backgroundGranted
+          ? TrackingPermissionStatus.fullyGranted
+          : TrackingPermissionStatus.foregroundOnly;
+    }
     // UX-03: notifications are a hard requirement. Fine+background (or
     // fine-only) resolved means location is OK; we still must ensure
     // POST_NOTIFICATIONS so the foreground notification (D-14) is
@@ -233,6 +243,11 @@ class TrackingPermissionService {
     final locationStatus = bgStatus.isGranted
         ? TrackingPermissionStatus.fullyGranted
         : TrackingPermissionStatus.foregroundOnly;
+    // D-06: iOS resolves on location alone — never probe notification.
+    // On iOS, returning here means notificationDenied is never reachable,
+    // so the Start button cannot be permanently disabled by a notification
+    // permission state (RESEARCH Pitfall 5).
+    if (defaultTargetPlatform == TargetPlatform.iOS) return locationStatus;
     // UX-03: location is OK; now classify notifications. Probe-only —
     // never call the requester from currentStatus (build-time safety).
     final notifStatus = await _probe(Permission.notification);
