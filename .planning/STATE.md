@@ -4,13 +4,13 @@ milestone: v0.2
 milestone_name: iOS Support
 status: verifying
 stopped_at: "Checkpoint: BLOCKING App-Group device-provisioning probe (Plan 15-01 Task 3)"
-last_updated: "2026-06-03T17:26:57.798Z"
+last_updated: "2026-06-03T17:37:35.041Z"
 last_activity: 2026-06-03
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 11
-  completed_plans: 7
+  completed_plans: 8
   percent: 40
 ---
 
@@ -30,7 +30,7 @@ Plan: 3 of 3
 Status: Phase complete — ready for verification
 Last activity: 2026-06-03
 
-Progress: [██████░░░░] 64%
+Progress: [███████░░░] 73%
 
 ## Performance Metrics
 
@@ -56,6 +56,7 @@ Progress: [██████░░░░] 64%
 | Phase 14 P02 | 30 | 3 tasks | 9 files |
 | Phase 14 P03 | 9min | - tasks | - files |
 | Phase 15 P01 | 25min | 2 tasks | 3 files |
+| Phase 15 P02 | 7 | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -113,6 +114,6 @@ Full checklist: `.planning/v0.1-DEVICE-CHECKLIST.md` (Groups A-I). Resume v0.1 c
 
 ## Session Continuity
 
-Last session: 2026-06-03T17:26:57.794Z
+Last session: 2026-06-03T17:37:35.035Z
 Stopped at: Checkpoint: BLOCKING App-Group device-provisioning probe (Plan 15-01 Task 3)
-Resume file: .planning/phases/15-notifications-permissions-onboarding-ux-on-ios/15-01-SUMMARY.md
+Resume file: None
