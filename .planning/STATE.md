@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: iOS Support
-status: awaiting-device-uat
-stopped_at: Phase 14 code complete + verified (automated 7/7); 3 device-UAT items pending real iPhone
-last_updated: "2026-06-02T17:47:58.784Z"
+status: verifying
+stopped_at: "Phase 15 context gathered (scope expanded: iOS Live Activity)"
+last_updated: "2026-06-03T11:43:36.297Z"
 last_activity: 2026-06-02
 progress:
   total_phases: 5
@@ -109,6 +109,6 @@ Full checklist: `.planning/v0.1-DEVICE-CHECKLIST.md` (Groups A-I). Resume v0.1 c
 
 ## Session Continuity
 
-Last session: 2026-06-02T17:47:58.781Z
-Stopped at: Phase 14 Plan 03 complete — all 3 plans done
-Resume file: None
+Last session: 2026-06-03T11:43:36.289Z
+Stopped at: Phase 15 context gathered (scope expanded: iOS Live Activity)
+Resume file: .planning/phases/15-notifications-permissions-onboarding-ux-on-ios/15-CONTEXT.md
