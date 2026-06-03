@@ -422,7 +422,12 @@ Plans:
   5. The Live Activity updates live from the `TripAccumulator` snapshot stream throughout a backgrounded commute and is dismissed when the trip stops (human-gated: real-device Live Activity behavior)
   6. The Android ongoing "Active commute" notification is enriched to show the same live stats (elapsed / distance / moving-stuck) for cross-platform parity, with no regression to the existing foreground-service binding
 
-**Plans**: TBD
+**Plans**: 5 plans
+- [ ] 15-01-PLAN.md — Wave 0: BLOCKING App-Group device-provisioning probe + test scaffolds
+- [ ] 15-02-PLAN.md — iOS permission branch + location priming screen + degraded banner + shared formatters (IOS-09)
+- [ ] 15-03-PLAN.md — Contextual iOS notification permission + Platform.isAndroid gate + Android stats enrichment (IOS-10/11/14)
+- [ ] 15-04-PLAN.md — Native TraevyLiveActivity Widget Extension (lock screen + Dynamic Island) + Info.plist (IOS-13)
+- [ ] 15-05-PLAN.md — Dart Live Activity bridge + provider lifecycle wiring (IOS-13)
 **UI hint**: yes
 **Note**: Scope expanded 2026-06-03 during discuss-phase — Live Activity (IOS-13) + Android notification parity (IOS-14) pulled in; original SC #3 ("blue indicator is the only signal") rewritten. iOS 17+ floor for the interactive Live Activity.
 
