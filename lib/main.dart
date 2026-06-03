@@ -24,7 +24,10 @@
 //   4. `configureBackgroundService()` registers the
 //      flutter_background_service onStart entrypoint (plan 02-03) so
 //      `FlutterBackgroundService().startService()` on the tracking
-//      screen can spin up the tracking isolate.
+//      screen can spin up the tracking isolate. Android-only: Phase 14
+//      replaced flutter_background_service with a main-isolate GPS engine
+//      on iOS, so configuring the Android service on iOS is unnecessary
+//      and was the likely cause of the ~20s white-screen stall.
 //
 //   5. Firebase + GoogleSignIn bootstrap (D-15 degrade — try/catch):
 //      `Firebase.initializeApp` loads `DefaultFirebaseOptions` (generated
@@ -41,6 +44,8 @@
 // `WidgetsFlutterBinding.ensureInitialized()` MUST be the first call —
 // flutter_local_notifications and flutter_background_service both rely
 // on the platform channel infrastructure the binding bootstraps.
+
+import 'dart:io' show Platform;
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -63,10 +68,43 @@ Future<void> main() async {
   // See Pitfall 2 in .planning/phases/08-ui-overhaul/08-RESEARCH.md.
   GoogleFonts.config.allowRuntimeFetching = false;
   tz.initializeTimeZones(); // Must be before any TZDateTime use.
+
+  final sw = Stopwatch()..start();
+
+  debugPrint('[main] bootstrap: TrackingNotificationService.initialize start');
   await TrackingNotificationService().initialize();
+  debugPrint(
+    '[main] bootstrap: TrackingNotificationService.initialize '
+    'done (+${sw.elapsedMilliseconds}ms)',
+  );
+  sw.reset();
+
+  debugPrint('[main] bootstrap: NotificationService.initialize start');
   // Registers weekly summary + commute reminder channels.
   await NotificationService().initialize();
-  await configureBackgroundService();
+  debugPrint(
+    '[main] bootstrap: NotificationService.initialize '
+    'done (+${sw.elapsedMilliseconds}ms)',
+  );
+  sw.reset();
+
+  // configureBackgroundService is Android-only. Phase 14 replaced
+  // flutter_background_service with a main-isolate GPS engine on iOS
+  // (IosTrackingEngine), so the service is not started or configured on iOS.
+  // Calling FlutterBackgroundService().configure() unconditionally on iOS
+  // was the likely cause of the ~20s white-screen stall seen during Phase 15
+  // UAT on iPhone 13 / iOS 26.5.
+  if (Platform.isAndroid) {
+    debugPrint('[main] bootstrap: configureBackgroundService start');
+    await configureBackgroundService();
+    debugPrint(
+      '[main] bootstrap: configureBackgroundService '
+      'done (+${sw.elapsedMilliseconds}ms)',
+    );
+    sw.reset();
+  } else {
+    debugPrint('[main] bootstrap: configureBackgroundService SKIPPED (iOS)');
+  }
 
   // D-15 degrade: wrap Firebase init in try/catch so the app starts as
   // guest mode when google-services.json / firebase_options.dart is absent
@@ -74,18 +112,38 @@ Future<void> main() async {
   // ProviderScope so AuthStateNotifier detects the degrade path and does NOT
   // open an authStateChanges() subscription on the uninitialized Firebase SDK.
   // Never block UI on getIdToken() here — offline-first contract.
+  debugPrint('[main] bootstrap: Firebase.initializeApp start');
   var firebaseReady = false;
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+    debugPrint(
+      '[main] bootstrap: Firebase.initializeApp '
+      'done (+${sw.elapsedMilliseconds}ms)',
+    );
+    sw.reset();
+
+    debugPrint('[main] bootstrap: GoogleSignIn.initialize start');
     await GoogleSignIn.instance
         .initialize(serverClientId: kGoogleServerClientId);
+    debugPrint(
+      '[main] bootstrap: GoogleSignIn.initialize '
+      'done (+${sw.elapsedMilliseconds}ms)',
+    );
+    sw.reset();
+
     firebaseReady = true;
-  } on Object catch (_) {
+  } on Object catch (e) {
+    debugPrint(
+      '[main] bootstrap: Firebase init failed '
+      '(+${sw.elapsedMilliseconds}ms): $e',
+    );
+    sw.reset();
     firebaseReady = false;
   }
 
+  debugPrint('[main] bootstrap: runApp');
   runApp(
     ProviderScope(
       overrides: [

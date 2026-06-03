@@ -167,7 +167,7 @@ class _NotificationsSection extends StatelessWidget {
       title: 'Notifications',
       children: <Widget>[
         SettingsRow(
-          label: 'Daily reminder',
+          label: kSettingsReminderLabel,
           subtitle: reminderSubtitle,
           trailing: TraevyToggle(
             value: prefs.reminderEnabled,
@@ -175,15 +175,20 @@ class _NotificationsSection extends StatelessWidget {
           ),
         ),
         SettingsRow(
-          label: 'Include weekends',
+          label: kSettingsReminderTimeLabel,
+          subtitle: reminderTimeLabel,
+          onTap: () => unawaited(_pickReminderTime(context, ref, prefs)),
+        ),
+        SettingsRow(
+          label: kSettingsWeekendReminderLabel,
           trailing: TraevyToggle(
             value: prefs.weekendReminder,
             onChanged: (v) => unawaited(_toggleWeekend(ref, prefs, v)),
           ),
         ),
         SettingsRow(
-          label: 'Weekly summary',
-          subtitle: 'Sunday evening',
+          label: kSettingsWeeklySummaryLabel,
+          subtitle: kSettingsWeeklySummarySubtitle,
           trailing: TraevyToggle(
             value: prefs.weeklyNotificationEnabled,
             onChanged: (v) => unawaited(_toggleWeeklySummary(ref, prefs, v)),
@@ -252,6 +257,60 @@ Future<String?> _openThemePicker(BuildContext context, String current) {
       );
     },
   );
+}
+
+// ---------------------------------------------------------------------------
+// Reminder time picker
+// ---------------------------------------------------------------------------
+
+/// Open the system time picker and persist the chosen time as an HH:mm string.
+///
+/// If the user dismisses without picking, the existing reminder time value in
+/// the DB is unchanged. If a time is picked and the reminder is currently
+/// enabled, the reminder alarm is rescheduled immediately — no need for the
+/// user to re-toggle the switch.
+Future<void> _pickReminderTime(
+  BuildContext context,
+  WidgetRef ref,
+  UserPreferencesValue prefs,
+) async {
+  // Parse the current reminderTime into a TimeOfDay for the picker's
+  // initialTime; fall back to 08:00 when no time is set yet.
+  final initial = _parseReminderTimeOfDay(prefs.reminderTime) ??
+      const TimeOfDay(hour: 8, minute: 0);
+
+  final picked = await showTimePicker(
+    context: context,
+    initialTime: initial,
+    helpText: kSettingsReminderTimeLabel,
+  );
+  if (picked == null) return;
+
+  final hhMm = '${picked.hour.toString().padLeft(2, '0')}:'
+      '${picked.minute.toString().padLeft(2, '0')}';
+
+  await ref
+      .read(userPreferencesDaoProvider)
+      .upsert(_copyPrefs(prefs, reminderTime: hhMm));
+
+  // If the reminder is already enabled, reschedule it with the new time.
+  if (prefs.reminderEnabled) {
+    await ref
+        .read(notificationServiceProvider)
+        .scheduleReminder(hhMm: hhMm, includeWeekends: prefs.weekendReminder);
+  }
+}
+
+/// Parse a stored HH:mm string into a [TimeOfDay], returning null on failure.
+TimeOfDay? _parseReminderTimeOfDay(String? hhMm) {
+  if (hhMm == null) return null;
+  final parts = hhMm.split(':');
+  if (parts.length != 2) return null;
+  final hour = int.tryParse(parts[0]);
+  final minute = int.tryParse(parts[1]);
+  if (hour == null || minute == null) return null;
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+  return TimeOfDay(hour: hour, minute: minute);
 }
 
 /// No-op handler for the visual-only Auto-pause placeholder toggle. Lifted to
@@ -339,18 +398,24 @@ Future<void> _toggleReminder(
       .read(userPreferencesDaoProvider)
       .upsert(_copyPrefs(prefs, reminderEnabled: value));
   final service = ref.read(notificationServiceProvider);
-  if (value && prefs.reminderTime != null) {
-    // IOS-10 D-07 edge: user enabling a departure reminder is a contextual
-    // signal — request iOS notification permission immediately (before or
-    // after the 7-day anchor). forceRequest bypasses the anchor check so
-    // the permission is requested when the user explicitly opts into reminders.
+  if (value) {
+    // IOS-10 D-07 edge: the user explicitly opts in — always request the iOS
+    // notification permission, regardless of whether a reminder time is set
+    // yet. forceRequest bypasses the 7-day anchor check so the system dialog
+    // fires on this explicit user action.
     await service.maybeRequestNotificationPermissionForUsage(
       forceRequest: true,
     );
-    await service.scheduleReminder(
-      hhMm: prefs.reminderTime!,
-      includeWeekends: prefs.weekendReminder,
-    );
+    // Only schedule if a time has been chosen. The reminder row shows "—" as
+    // the subtitle when no time is set, signalling the user must also pick a
+    // time. Scheduling with a null/missing time would silently no-op anyway
+    // (NotificationService.scheduleReminder guards malformed input).
+    if (prefs.reminderTime != null) {
+      await service.scheduleReminder(
+        hhMm: prefs.reminderTime!,
+        includeWeekends: prefs.weekendReminder,
+      );
+    }
   } else {
     await service.cancelReminder();
   }
