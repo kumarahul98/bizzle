@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/config/routes.dart';
 import 'package:traevy/config/theme.dart';
+import 'package:traevy/database/providers.dart';
 import 'package:traevy/features/auth/models/auth_state.dart';
 import 'package:traevy/features/auth/providers/auth_providers.dart';
 import 'package:traevy/features/auth/screens/splash_screen.dart';
@@ -54,6 +55,10 @@ class TraevyApp extends ConsumerWidget {
     // 7-day anchor check — the method itself guards against re-asking via the
     // one-time sentinel file.
     //
+    // The shared AppDatabase instance is passed explicitly so
+    // _isUsageAnchorMet never constructs a raw AppDatabase() — which would
+    // trigger the Drift "multiple database instances" warning (IOS-10 fix).
+    //
     // Uses ref.read (not watch) — the service is a stable Provider that never
     // changes; watching it would rebuild the entire app on provider
     // invalidation (unnecessary). The unawaited future is intentional —
@@ -62,7 +67,9 @@ class TraevyApp extends ConsumerWidget {
       unawaited(
         ref
             .read(notificationServiceProvider)
-            .maybeRequestNotificationPermissionForUsage()
+            .maybeRequestNotificationPermissionForUsage(
+              db: ref.read(appDatabaseProvider),
+            )
             .catchError((Object _) {}),
       );
     });

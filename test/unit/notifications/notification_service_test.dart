@@ -16,10 +16,16 @@
 // Wave 0 RED additions (IOS-10):
 //   - requestIOSNotificationPermission() resolves IOSFlutterLocalNotificationsPlugin
 //     and calls requestPermissions(alert/badge/sound). RED until Plan 03.
+//
+// IOS-10 fix (db injection regression guard):
+//   - maybeRequestNotificationPermissionForUsage accepts db to avoid
+//     constructing a raw AppDatabase() — verified via API contract test.
 
+import 'package:drift/native.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:traevy/config/constants.dart';
+import 'package:traevy/database/database.dart';
 import 'package:traevy/notifications/notification_service.dart';
 
 // ---------------------------------------------------------------------------
@@ -111,8 +117,10 @@ void main() {
       test(
         'reminder ID range does not overlap weekly summary ID',
         () {
-          final reminderRange =
-              List.generate(5, (i) => kReminderNotificationId + i);
+          final reminderRange = List.generate(
+            5,
+            (i) => kReminderNotificationId + i,
+          );
           expect(reminderRange, isNot(contains(kWeeklySummaryNotificationId)));
         },
       );
@@ -131,8 +139,10 @@ void main() {
         () {
           // cancelReminder() iterates i = 0..4, cancelling
           // kReminderNotificationId + i for each.
-          final cancelRange =
-              List.generate(5, (i) => kReminderNotificationId + i);
+          final cancelRange = List.generate(
+            5,
+            (i) => kReminderNotificationId + i,
+          );
           expect(cancelRange, equals([20, 21, 22, 23, 24]));
         },
       );
@@ -174,7 +184,8 @@ void main() {
         expect(
           fakeIos.requestPermissionsCalled,
           isTrue,
-          reason: 'IOS-10: requestPermissions must be called on the '
+          reason:
+              'IOS-10: requestPermissions must be called on the '
               'IOSFlutterLocalNotificationsPlugin',
         );
         expect(fakeIos.alertArg, isTrue, reason: 'alert must be true');
@@ -183,4 +194,64 @@ void main() {
       },
     );
   });
+
+  // -------------------------------------------------------------------------
+  // IOS-10 db-injection regression guard
+  //
+  // maybeRequestNotificationPermissionForUsage accepts an optional AppDatabase
+  // so callers with an existing Riverpod-provided db can pass it through,
+  // avoiding the Drift "multiple AppDatabase instances" warning that fires
+  // when a raw AppDatabase() is constructed inside _isUsageAnchorMet.
+  //
+  // On the test host (non-iOS) the platform guard returns before any db
+  // access, so these tests verify the API contract: the db parameter is
+  // accepted without error, and the method completes successfully with a
+  // real in-memory database passed in. The fix (app.dart passing
+  // ref.read(appDatabaseProvider)) is covered by the widget smoke test in
+  // test/widget/app_test.dart which overrides appDatabaseProvider and
+  // exercises the post-frame hook.
+  // -------------------------------------------------------------------------
+
+  group(
+    'maybeRequestNotificationPermissionForUsage db-injection API (IOS-10 fix)',
+    () {
+      test(
+        'accepts an explicit AppDatabase without error (no raw constructor)',
+        () async {
+          // Verifies the public API accepts an injected db so callers can pass
+          // the shared Riverpod-provided instance. On a non-iOS test host the
+          // platform guard causes an early return before the db is read; the
+          // test confirms the method signature and error-free completion.
+          final db = AppDatabase(NativeDatabase.memory());
+          addTearDown(db.close);
+
+          final service = NotificationService();
+          // Must complete without throwing. On non-iOS this is a no-op
+          // (platform guard). The db parameter being accepted without type
+          // error confirms the API contract introduced by the IOS-10 fix.
+          await expectLater(
+            service.maybeRequestNotificationPermissionForUsage(db: db),
+            completes,
+          );
+        },
+      );
+
+      test(
+        'accepts forceRequest: true with explicit db without error',
+        () async {
+          final db = AppDatabase(NativeDatabase.memory());
+          addTearDown(db.close);
+
+          final service = NotificationService();
+          await expectLater(
+            service.maybeRequestNotificationPermissionForUsage(
+              db: db,
+              forceRequest: true,
+            ),
+            completes,
+          );
+        },
+      );
+    },
+  );
 }
