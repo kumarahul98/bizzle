@@ -423,7 +423,7 @@ Plans:
   6. The Android ongoing "Active commute" notification is enriched to show the same live stats (elapsed / distance / moving-stuck) for cross-platform parity, with no regression to the existing foreground-service binding
 
 **Plans**: 5 plans
-- [ ] 15-01-PLAN.md — Wave 0: BLOCKING App-Group device-provisioning probe + test scaffolds
+- [x] 15-01-PLAN.md — Wave 0: BLOCKING App-Group device-provisioning probe + test scaffolds
 - [ ] 15-02-PLAN.md — iOS permission branch + location priming screen + degraded banner + shared formatters (IOS-09)
 - [ ] 15-03-PLAN.md — Contextual iOS notification permission + Platform.isAndroid gate + Android stats enrichment (IOS-10/11/14)
 - [ ] 15-04-PLAN.md — Native TraevyLiveActivity Widget Extension (lock screen + Dynamic Island) + Info.plist (IOS-13)
@@ -471,6 +471,6 @@ Note: Phases 1-7 deliver the complete local-first experience without any authent
 | 12. iOS Scaffolding & Configuration | v0.2 | 3/3 | Complete    | 2026-06-02 |
 | 13. Auth on iOS | v0.2 | 0/TBD | Not started | - |
 | 14. Background GPS Platform Branch | v0.2 | 3/3 | Complete   | 2026-06-02 |
-| 15. Notifications, Permissions & Onboarding UX on iOS | v0.2 | 0/TBD | Not started | - |
+| 15. Notifications, Permissions & Onboarding UX on iOS | v0.2 | 1/5 | In Progress|  |
 | 16. End-to-End Real-Device Parity Validation | v0.2 | 0/TBD | Not started | - |
 </content>

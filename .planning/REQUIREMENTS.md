@@ -86,11 +86,11 @@ iOS port of the existing Android app with full feature parity, runnable on a rea
 
 ### Permissions, Notifications & UX on iOS
 
-- [ ] **IOS-09**: User grants location via the iOS two-step When-In-Use → Always flow during onboarding, with "When In Use only" handled as a valid degraded state
-- [ ] **IOS-10**: User grants notification permission on iOS; weekly summary and departure-reminder notifications fire
-- [ ] **IOS-11**: The Android-only persistent tracking notification is suppressed on iOS (no phantom notification); the active-commute tracking signal on iOS is the Live Activity (iOS 17+) or, below 17, the system blue location indicator
-- [ ] **IOS-13**: On iOS 17+, an active commute shows a Live Activity (lock screen + Dynamic Island) with live elapsed/distance/moving-stuck stats and an in-place Stop button, updating from the `TripAccumulator` stream and dismissed on trip stop; iOS < 17 degrades to blue-indicator-only with in-app Stop
-- [ ] **IOS-14**: The Android ongoing "Active commute" foreground notification is enriched to show the same live stats (elapsed/distance/moving-stuck) as the iOS Live Activity, with no regression to the foreground-service binding
+- [x] **IOS-09**: User grants location via the iOS two-step When-In-Use → Always flow during onboarding, with "When In Use only" handled as a valid degraded state
+- [x] **IOS-10**: User grants notification permission on iOS; weekly summary and departure-reminder notifications fire
+- [x] **IOS-11**: The Android-only persistent tracking notification is suppressed on iOS (no phantom notification); the active-commute tracking signal on iOS is the Live Activity (iOS 17+) or, below 17, the system blue location indicator
+- [x] **IOS-13**: On iOS 17+, an active commute shows a Live Activity (lock screen + Dynamic Island) with live elapsed/distance/moving-stuck stats and an in-place Stop button, updating from the `TripAccumulator` stream and dismissed on trip stop; iOS < 17 degrades to blue-indicator-only with in-app Stop
+- [x] **IOS-14**: The Android ongoing "Active commute" foreground notification is enriched to show the same live stats (elapsed/distance/moving-stuck) as the iOS Live Activity, with no regression to the foreground-service binding
 
 ### Parity Validation
 
@@ -175,12 +175,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | IOS-06 | Phase 14 | Complete |
 | IOS-07 | Phase 14 | Complete |
 | IOS-08 | Phase 14 | Complete |
-| IOS-09 | Phase 15 | Pending |
-| IOS-10 | Phase 15 | Pending |
-| IOS-11 | Phase 15 | Pending |
+| IOS-09 | Phase 15 | Complete |
+| IOS-10 | Phase 15 | Complete |
+| IOS-11 | Phase 15 | Complete |
 | IOS-12 | Phase 16 | Pending |
-| IOS-13 | Phase 15 | Pending |
-| IOS-14 | Phase 15 | Pending |
+| IOS-13 | Phase 15 | Complete |
+| IOS-14 | Phase 15 | Complete |
 
 **Coverage:**
 - v1 requirements: 31 total — mapped to phases: 31 — unmapped: 0

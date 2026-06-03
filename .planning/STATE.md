@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: iOS Support
-status: executing
-stopped_at: Phase 15 UI-SPEC approved
-last_updated: "2026-06-03T15:20:10.258Z"
-last_activity: 2026-06-03 -- Phase 15 planning complete
+status: verifying
+stopped_at: "Checkpoint: BLOCKING App-Group device-provisioning probe (Plan 15-01 Task 3)"
+last_updated: "2026-06-03T17:26:57.798Z"
+last_activity: 2026-06-03
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 11
-  completed_plans: 6
+  completed_plans: 7
   percent: 40
 ---
 
@@ -27,10 +27,10 @@ See: .planning/PROJECT.md (updated 2026-06-02)
 
 Phase: 14 (background-gps-platform-branch) — CODE COMPLETE, awaiting device UAT
 Plan: 3 of 3
-Status: Ready to execute
-Last activity: 2026-06-03 -- Phase 15 planning complete
+Status: Phase complete — ready for verification
+Last activity: 2026-06-03
 
-Progress: [██████████] 100%
+Progress: [██████░░░░] 64%
 
 ## Performance Metrics
 
@@ -55,6 +55,7 @@ Progress: [██████████] 100%
 | Phase 12 P03 | human-gated | 2 tasks | 3 files |
 | Phase 14 P02 | 30 | 3 tasks | 9 files |
 | Phase 14 P03 | 9min | - tasks | - files |
+| Phase 15 P01 | 25min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -78,6 +79,9 @@ Recent decisions affecting current work:
 - [Phase ?]: DEVELOPMENT_TEAM 2DG5SFXZ5Z (Personal Team, Rahul kumar) committed to project.pbxproj — standard practice, non-secret; free provisioning install 2026-06-02, expires 2026-06-09
 - [Phase ?]: TrackingNotifier rewired to TrackingEventSource seam; trackingEventSourceProvider selects MainIsolateTrackingEngine (iOS) vs FbsTrackingEventSource (Android) — D-04 single runtime switch
 - [Phase ?]: IOS-08 accuracy-blocked start surfaces kTrackingReducedAccuracyBlockedMessage (distinct stable string) vs generic message on Android (T-02-07 preserved)
+- [Phase ?]: Wave 0 RED scaffolds committed for all 5 test files before any Plan 02-05 implementation begins
+- [Phase ?]: IOS-11 test seam: forTesting(platformIsAndroid:) pattern chosen to avoid dart:io Platform in tests (RESEARCH.md Pitfall 2)
+- [Phase ?]: App-Group device-provisioning probe is a BLOCKING gate for Plan 04 — must report PASS or FAIL before Swift is written
 
 ### Pending Todos
 
@@ -109,6 +113,6 @@ Full checklist: `.planning/v0.1-DEVICE-CHECKLIST.md` (Groups A-I). Resume v0.1 c
 
 ## Session Continuity
 
-Last session: 2026-06-03T12:22:22.175Z
-Stopped at: Phase 15 UI-SPEC approved
-Resume file: .planning/phases/15-notifications-permissions-onboarding-ux-on-ios/15-UI-SPEC.md
+Last session: 2026-06-03T17:26:57.794Z
+Stopped at: Checkpoint: BLOCKING App-Group device-provisioning probe (Plan 15-01 Task 3)
+Resume file: .planning/phases/15-notifications-permissions-onboarding-ux-on-ios/15-01-SUMMARY.md
