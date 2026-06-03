@@ -914,3 +914,11 @@ const String kTrackingNotificationBodyLine2Template =
 
 /// Route name for the iOS-only location priming screen (IOS-09, D-01).
 const String kRouteLocationPriming = '/location-priming';
+
+/// Number of days since the oldest recorded trip after which the iOS
+/// notification permission request is triggered contextually (IOS-10, D-07).
+///
+/// The 7-day anchor aligns with the weekly summary cadence — users who have
+/// been commuting for a week are the natural audience for scheduled
+/// notifications. Never set below 1 day.
+const int kNotificationPermissionAnchorDays = 7;

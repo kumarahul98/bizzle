@@ -1,5 +1,8 @@
+import 'dart:io' show File;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/database.dart';
@@ -201,6 +204,81 @@ class NotificationService {
   }
 
   // ---------------------------------------------------------------------------
+  // iOS notification permission (IOS-10)
+  // ---------------------------------------------------------------------------
+
+  /// Request the iOS notification permission (alert, badge, sound).
+  ///
+  /// No-op on non-iOS platforms when called without an explicit [iosPlugin].
+  /// When [iosPlugin] is provided (test seam), the platform guard is bypassed
+  /// so the injected fake is always exercised — the caller is responsible for
+  /// ensuring this is only done in tests or iOS-specific code paths.
+  ///
+  /// Errors are caught and logged, never thrown — matches the [initialize]
+  /// error-handling pattern.
+  Future<void> requestIOSNotificationPermission({
+    IOSFlutterLocalNotificationsPlugin? iosPlugin,
+  }) async {
+    // When an explicit iosPlugin is provided (test seam), skip the platform
+    // guard — the injected fake is the intended recipient regardless of the
+    // host platform.
+    if (iosPlugin == null && defaultTargetPlatform != TargetPlatform.iOS) {
+      return;
+    }
+    try {
+      final ios = iosPlugin ??
+          _plugin.resolvePlatformSpecificImplementation<
+              IOSFlutterLocalNotificationsPlugin>();
+      await ios?.requestPermissions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+    } on Exception catch (e, s) {
+      debugPrint(
+        'NotificationService.requestIOSNotificationPermission: $e\n$s',
+      );
+    }
+  }
+
+  /// Request iOS notification permission once, using a contextual trigger.
+  ///
+  /// Requests when EITHER of the following is true:
+  ///   (a) The oldest recorded trip's `startTime` is ≥7 days ago (natural
+  ///       weekly-summary anchor, D-07).
+  ///   (b) Called directly from the departure-reminder enable path — the
+  ///       caller opts in before the 7-day mark.
+  ///
+  /// A sentinel file is written to the app support directory on the first
+  /// call so this never re-asks (one-time permission request). The method
+  /// is a no-op on non-iOS platforms and never throws.
+  ///
+  /// Pass [forceRequest] = true to bypass the 7-day anchor check (used from
+  /// the reminder-enable path, where the user's explicit action is the
+  /// contextual signal regardless of trip age).
+  Future<void> maybeRequestNotificationPermissionForUsage({
+    AppDatabase? db,
+    bool forceRequest = false,
+  }) async {
+    if (defaultTargetPlatform != TargetPlatform.iOS) return;
+    try {
+      // Check one-time sentinel so we never ask twice.
+      if (await _hasRequestedPermission()) return;
+
+      final shouldRequest = forceRequest || await _isUsageAnchorMet(db: db);
+      if (!shouldRequest) return;
+
+      await requestIOSNotificationPermission();
+      await _writePermissionRequestedSentinel();
+    } on Exception catch (e, s) {
+      debugPrint(
+        'NotificationService.maybeRequestNotificationPermissionForUsage: '
+        '$e\n$s',
+      );
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------
 
@@ -318,5 +396,62 @@ class NotificationService {
       candidate = candidate.add(const Duration(days: 1));
     }
     return candidate;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Permission sentinel helpers (IOS-10)
+  // ---------------------------------------------------------------------------
+
+  /// Filename for the iOS notification permission sentinel file.
+  ///
+  /// Written to the app support directory on the first contextual permission
+  /// request so the request is never repeated.
+  static const String _kPermissionSentinelFile =
+      '.ios_notif_permission_requested';
+
+  /// Returns the sentinel [File] in the app support directory.
+  Future<File> _sentinelFile() async {
+    final dir = await getApplicationSupportDirectory();
+    return File('${dir.path}/$_kPermissionSentinelFile');
+  }
+
+  /// True if the one-time sentinel has already been written.
+  Future<bool> _hasRequestedPermission() async {
+    final f = await _sentinelFile();
+    return f.existsSync();
+  }
+
+  /// Write the one-time sentinel so the request is not repeated.
+  Future<void> _writePermissionRequestedSentinel() async {
+    try {
+      final f = await _sentinelFile();
+      await f.create(recursive: true);
+    } on Exception catch (e, s) {
+      debugPrint(
+        'NotificationService._writePermissionRequestedSentinel: $e\n$s',
+      );
+    }
+  }
+
+  /// Returns true if the 7-day usage anchor is met (the oldest recorded
+  /// trip's startTime is at least 7 days before now).
+  ///
+  /// Opens a fresh [AppDatabase] if [db] is null (fire-and-forget caller
+  /// in app.dart has no provider context).
+  Future<bool> _isUsageAnchorMet({AppDatabase? db}) async {
+    final ownDb = db == null;
+    final database = db ?? AppDatabase();
+    try {
+      final trips = await database.tripsDao.watchAllSummaries().first;
+      if (trips.isEmpty) return false;
+      // Find the oldest trip start time.
+      final oldest = trips.reduce(
+        (a, b) => a.startTime.isBefore(b.startTime) ? a : b,
+      );
+      final age = DateTime.now().difference(oldest.startTime);
+      return age.inDays >= kNotificationPermissionAnchorDays;
+    } finally {
+      if (ownDb) await database.close();
+    }
   }
 }

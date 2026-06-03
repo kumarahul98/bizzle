@@ -340,6 +340,13 @@ Future<void> _toggleReminder(
       .upsert(_copyPrefs(prefs, reminderEnabled: value));
   final service = ref.read(notificationServiceProvider);
   if (value && prefs.reminderTime != null) {
+    // IOS-10 D-07 edge: user enabling a departure reminder is a contextual
+    // signal — request iOS notification permission immediately (before or
+    // after the 7-day anchor). forceRequest bypasses the anchor check so
+    // the permission is requested when the user explicitly opts into reminders.
+    await service.maybeRequestNotificationPermissionForUsage(
+      forceRequest: true,
+    );
     await service.scheduleReminder(
       hhMm: prefs.reminderTime!,
       includeWeekends: prefs.weekendReminder,
