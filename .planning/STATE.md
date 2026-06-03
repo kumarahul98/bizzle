@@ -21,16 +21,18 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-02)
 
 **Core value:** Show people the reality of their commute -- time wasted in traffic and how it changes over time.
-**Current focus:** Phase 14 — background-gps-platform-branch
+**Current focus:** Phase 15 — notifications-permissions-onboarding-ux-on-ios
 
 ## Current Position
 
-Phase: 14 (background-gps-platform-branch) — CODE COMPLETE, awaiting device UAT
-Plan: 3 of 3
-Status: Phase complete — ready for verification
+Phase: 15 (notifications-permissions-onboarding-ux-on-ios) — IN PROGRESS, blocked on human device probe
+Plan: 3 of 5 complete (15-01 ✅ checkpoint, 15-02 ✅, 15-03 ✅)
+Status: BLOCKED — Plans 15-04 (native Swift Live Activity) + 15-05 (Dart bridge) gated on the App-Group device-provisioning probe (15-01 Task 3)
 Last activity: 2026-06-03
 
-Progress: [████████░░] 82%
+Progress: [██████░░░░] 60% (3/5 plans — autonomous Dart track done; Live Activity track blocked)
+
+**Resume after probe:** User runs the App-Group probe in Xcode on a real iPhone (see 15-01-SUMMARY.md). PASS → execute 15-04 then 15-05 as planned. FAIL → re-plan 15-04/15-05 for the no-App-Group fallback before any Swift.
 
 ## Performance Metrics
 
