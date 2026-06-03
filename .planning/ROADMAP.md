@@ -410,18 +410,21 @@ Plans:
 
 ### Phase 15: Notifications, Permissions & Onboarding UX on iOS
 
-**Goal**: The iOS-specific permission flows are correct, notifications work, and the tracking notification is properly suppressed on iOS so there is no phantom foreground-service badge
+**Goal**: The iOS-specific permission flows are correct, notifications work, the phantom Android tracking notification is suppressed on iOS, and the active commute is surfaced on iOS via a Live Activity (lock screen + Dynamic Island) with the Android ongoing notification enriched to match
 **Depends on**: Phase 14
-**Requirements**: IOS-09, IOS-10, IOS-11
+**Requirements**: IOS-09, IOS-10, IOS-11, IOS-13, IOS-14
 **Success Criteria** (what must be TRUE):
 
-  1. During onboarding on iPhone, the user is prompted for "When In Use" location permission first; the app then requests "Always" at the appropriate moment and continues to function (in a degraded state) if the user grants only "When In Use" (human-gated: real-device permission flow)
-  2. User receives a notification permission prompt on iOS and, after granting, the weekly summary notification and departure-reminder notification fire as scheduled
-  3. The persistent tracking notification that appears on Android does NOT appear on iOS — the system blue location indicator is the only tracking signal shown to the user
+  1. During onboarding on iPhone, the user is prompted for "When In Use" location permission first (preceded by one priming screen); the app then requests "Always" at the first trip Start and continues to function in a degraded best-effort-background state if the user grants only "When In Use" (human-gated: real-device permission flow)
+  2. iOS notification permission is requested contextually (~1 week into usage, when the first weekly summary is due, or earlier if a departure reminder is enabled); after granting, the weekly summary and departure-reminder notifications fire as scheduled. Notification permission NEVER gates tracking Start on iOS
+  3. The persistent Android foreground-service tracking notification does NOT appear on iOS. On **iOS 17+** the active-commute surface is a **Live Activity** (lock screen + Dynamic Island) showing live elapsed time, distance, and moving/stuck status with an **in-place Stop button**; on iOS < 17 the system blue location indicator is the only tracking signal and Stop stays in-app
   4. `startTrackingNotification()` (or equivalent) is gated behind `Platform.isAndroid` so no phantom notification is posted on iOS
+  5. The Live Activity updates live from the `TripAccumulator` snapshot stream throughout a backgrounded commute and is dismissed when the trip stops (human-gated: real-device Live Activity behavior)
+  6. The Android ongoing "Active commute" notification is enriched to show the same live stats (elapsed / distance / moving-stuck) for cross-platform parity, with no regression to the existing foreground-service binding
 
 **Plans**: TBD
 **UI hint**: yes
+**Note**: Scope expanded 2026-06-03 during discuss-phase — Live Activity (IOS-13) + Android notification parity (IOS-14) pulled in; original SC #3 ("blue indicator is the only signal") rewritten. iOS 17+ floor for the interactive Live Activity.
 
 ### Phase 16: End-to-End Real-Device Parity Validation
 

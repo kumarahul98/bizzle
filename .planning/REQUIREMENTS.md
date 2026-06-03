@@ -88,7 +88,9 @@ iOS port of the existing Android app with full feature parity, runnable on a rea
 
 - [ ] **IOS-09**: User grants location via the iOS two-step When-In-Use → Always flow during onboarding, with "When In Use only" handled as a valid degraded state
 - [ ] **IOS-10**: User grants notification permission on iOS; weekly summary and departure-reminder notifications fire
-- [ ] **IOS-11**: The Android-only persistent tracking notification is suppressed on iOS (no phantom notification); tracking relies on the iOS system location indicator
+- [ ] **IOS-11**: The Android-only persistent tracking notification is suppressed on iOS (no phantom notification); the active-commute tracking signal on iOS is the Live Activity (iOS 17+) or, below 17, the system blue location indicator
+- [ ] **IOS-13**: On iOS 17+, an active commute shows a Live Activity (lock screen + Dynamic Island) with live elapsed/distance/moving-stuck stats and an in-place Stop button, updating from the `TripAccumulator` stream and dismissed on trip stop; iOS < 17 degrades to blue-indicator-only with in-app Stop
+- [ ] **IOS-14**: The Android ongoing "Active commute" foreground notification is enriched to show the same live stats (elapsed/distance/moving-stuck) as the iOS Live Activity, with no regression to the foreground-service binding
 
 ### Parity Validation
 
@@ -177,10 +179,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | IOS-10 | Phase 15 | Pending |
 | IOS-11 | Phase 15 | Pending |
 | IOS-12 | Phase 16 | Pending |
+| IOS-13 | Phase 15 | Pending |
+| IOS-14 | Phase 15 | Pending |
 
 **Coverage:**
 - v1 requirements: 31 total — mapped to phases: 31 — unmapped: 0
-- v0.2 requirements: 12 total — mapped to phases: 12 — unmapped: 0
+- v0.2 requirements: 14 total — mapped to phases: 14 — unmapped: 0
 
 ---
 *Requirements defined: 2026-04-11*
