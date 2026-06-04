@@ -50,9 +50,11 @@ import 'dart:io' show Platform;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
 import 'package:traevy/app.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/features/auth/providers/auth_providers.dart';
@@ -68,6 +70,22 @@ Future<void> main() async {
   // See Pitfall 2 in .planning/phases/08-ui-overhaul/08-RESEARCH.md.
   GoogleFonts.config.allowRuntimeFetching = false;
   tz.initializeTimeZones(); // Must be before any TZDateTime use.
+
+  // Set the device-local timezone so that `tz.local` resolves to the correct
+  // IANA zone (e.g. "Asia/Kolkata") rather than defaulting to UTC.
+  // Without this, `tz.TZDateTime(tz.local, ...)` in NotificationService
+  // schedules reminders at the chosen HH:mm in UTC — off by the UTC offset.
+  //
+  // Wrapped in try/catch: a detection failure (unknown zone name, platform
+  // channel error) logs and falls back to leaving tz.local as-is (UTC) without
+  // crashing startup — matches the Firebase degrade pattern below.
+  try {
+    final timezoneInfo = await FlutterTimezone.getLocalTimezone();
+    tz.setLocalLocation(tz.getLocation(timezoneInfo.identifier));
+    debugPrint('[main] bootstrap: tz.local set to ${timezoneInfo.identifier}');
+  } on Object catch (e) {
+    debugPrint('[main] bootstrap: tz.setLocalLocation failed, using UTC: $e');
+  }
 
   final sw = Stopwatch()..start();
 

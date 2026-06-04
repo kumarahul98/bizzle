@@ -1,9 +1,9 @@
 ---
 slug: ios-reminder-and-white-screen
-status: resolved
+status: investigating
 trigger: "Phase 15 iOS device UAT — two defects: (1) Daily reminder toggle does nothing (never requests notification permission / never schedules), (2) ~20s white screen on launch."
 created: 2026-06-03T19:56:16Z
-updated: 2026-06-04T02:30:00Z
+updated: 2026-06-04T03:00:00Z
 ---
 
 # Debug Session: ios-reminder-and-white-screen
@@ -62,6 +62,14 @@ Issue 3 (drift double-database) is fixed and committed. Two remaining items:
 - hypothesis: `configureBackgroundService()` on iOS causes the 20s white screen — ELIMINATED: gated on `Platform.isAndroid`; device log shows SKIPPED (iOS). Bootstrap is now only ~2.3s pre-runApp.
 - hypothesis: Drift double-database is caused by `notification_service.dart` — ELIMINATED: the bug was at the call site in `app.dart` (no `db:` argument passed). `notification_service.dart` itself already accepted an optional `db` and only fell back to `AppDatabase()` when null.
 
+
+### Issue 4 — Daily reminder never fires at the set time (FIXED 2026-06-04, pending device verify)
+- **Symptom:** Daily reminder is ON, a Reminder time IS set (subtitle shows a real time), iOS permission granted — but no notification arrives at the chosen time. Also no trip-start notification (that one is BY DESIGN on iOS — Live Activity 15-04/05 pending — not a bug).
+- **Root cause (confirmed by code read):** All reminder/weekly scheduling uses `tz.TZDateTime.now(tz.local)` / `tz.TZDateTime(tz.local, ...)` (notification_service.dart _nextDailyTime/_nextWeekday/_nextSunday6pm), but the app NEVER calls `tz.setLocalLocation(...)`. main.dart only calls `tz.initializeTimeZones()`. Without setLocalLocation, `tz.local` defaults to UTC, so reminders schedule at the chosen HH:mm in UTC, not device-local time (e.g. IST UTC+5:30 → fires 5.5h off). Pre-existing since Phase 7; surfaced now during iOS UAT.
+- **Fix applied (2026-06-04):** Added `flutter_timezone: 5.1.0` to dependencies. In `lib/main.dart`, immediately after `tz.initializeTimeZones()` and before `TrackingNotificationService().initialize()`, added an `await FlutterTimezone.getLocalTimezone()` call that fetches the device IANA zone name via `timezoneInfo.identifier` (flutter_timezone 5.x returns a `TimezoneInfo` struct, not a plain String) and calls `tz.setLocalLocation(tz.getLocation(timezoneInfo.identifier))`. Wrapped in `try/catch(Object)` — failure logs via `debugPrint` and falls back to UTC without crashing startup (matches the Firebase degrade pattern). `NotificationService.initialize()` runs after this call, so the reschedule-on-startup path uses the correct local timezone.
+- **Files changed:** `lib/main.dart`, `pubspec.yaml` (flutter_timezone 5.1.0 added).
+- **Verify on device:** Re-enable Daily reminder in Settings → Notifications, set a time 2–3 minutes from now, lock the phone, wait → notification should arrive at the local time shown on-screen.
+
 ## Resolution
 
 ### Issue 1 — Daily reminder no-op
@@ -79,3 +87,9 @@ Issue 3 (drift double-database) is fixed and committed. Two remaining items:
 - **Root cause:** `app.dart` post-frame hook called `maybeRequestNotificationPermissionForUsage()` without a `db:` argument → `_isUsageAnchorMet` fell back to `AppDatabase()` constructor, creating a new instance per rebuild.
 - **Fix:** Pass `db: ref.read(appDatabaseProvider)` at the call site in `app.dart`.
 - **Files changed:** `lib/app.dart`, `test/unit/notifications/notification_service_test.dart`
+
+### Issue 4 — Daily reminder never fires at the set time (FIXED 2026-06-04, pending device verify)
+- **Root cause:** `tz.local` defaults to UTC because `main.dart` called `tz.initializeTimeZones()` but never `tz.setLocalLocation(...)`. All `_nextDailyTime`/`_nextWeekday`/`_nextSunday6pm` helpers in `notification_service.dart` use `tz.local`, so reminders were scheduled at the chosen HH:mm in UTC rather than device-local time.
+- **Fix:** Added `flutter_timezone: 5.1.0`. In `lib/main.dart`, immediately after `tz.initializeTimeZones()`, fetch the IANA zone via `FlutterTimezone.getLocalTimezone()` (returns `TimezoneInfo`; use `.identifier` field) and call `tz.setLocalLocation(tz.getLocation(timezoneInfo.identifier))`. Wrapped in `try/catch(Object)` for startup robustness.
+- **Files changed:** `lib/main.dart`, `pubspec.yaml`
+- **Verification needed:** On device — re-enable reminder, set 2–3 min ahead, lock phone, confirm notification arrives at local time.
