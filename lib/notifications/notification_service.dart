@@ -142,13 +142,27 @@ class NotificationService {
     required String hhMm,
     required bool includeWeekends,
   }) async {
+    // TEMP diagnostic (Issue 4): log entry point so we can confirm this method
+    // is actually called after the reminder toggle.
+    debugPrint(
+      '[notif-diag] scheduleReminder() entry — hhMm=$hhMm '
+      'includeWeekends=$includeWeekends '
+      'tz.local=${tz.local.name}',
+    );
+
     // Cancel all reminder slots first (Pitfall 6 from RESEARCH.md).
     for (var i = 0; i <= 4; i++) {
       await _plugin.cancel(id: kReminderNotificationId + i);
     }
 
     final parts = hhMm.split(':');
-    if (parts.length != 2) return; // guard malformed input
+    if (parts.length != 2) {
+      // TEMP diagnostic (Issue 4)
+      debugPrint(
+        '[notif-diag] scheduleReminder() ABORTED — malformed hhMm: $hhMm',
+      );
+      return; // guard malformed input
+    }
     final hour = int.tryParse(parts[0]);
     final minute = int.tryParse(parts[1]);
     if (hour == null ||
@@ -157,16 +171,29 @@ class NotificationService {
         hour > 23 ||
         minute < 0 ||
         minute > 59) {
+      // TEMP diagnostic (Issue 4)
+      debugPrint(
+        '[notif-diag] scheduleReminder() ABORTED — invalid hour/minute: '
+        'hour=$hour minute=$minute',
+      );
       return; // silently skip rather than crash
     }
 
     if (includeWeekends) {
       // Single daily reminder — fires every day at the given time.
+      final scheduledDate = _nextDailyTime(hour, minute);
+      // TEMP diagnostic (Issue 4): confirm computed scheduledDate before
+      // handing to zonedSchedule.
+      debugPrint(
+        '[notif-diag] scheduleReminder() scheduling daily alarm '
+        'id=$kReminderNotificationId '
+        'scheduledDate=${scheduledDate.toIso8601String()}',
+      );
       await _plugin.zonedSchedule(
         id: kReminderNotificationId,
         title: kReminderNotificationTitle,
         body: kReminderNotificationBody,
-        scheduledDate: _nextDailyTime(hour, minute),
+        scheduledDate: scheduledDate,
         notificationDetails: _reminderDetails(),
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         matchDateTimeComponents: DateTimeComponents.time,
@@ -183,16 +210,38 @@ class NotificationService {
         DateTime.friday,
       ];
       for (var i = 0; i < weekdays.length; i++) {
+        final scheduledDate = _nextWeekday(weekdays[i], hour, minute);
+        // TEMP diagnostic (Issue 4): confirm computed scheduledDate per weekday
+        // alarm before handing to zonedSchedule.
+        debugPrint(
+          '[notif-diag] scheduleReminder() scheduling weekday alarm '
+          'id=${kReminderNotificationId + i} '
+          'weekday=${weekdays[i]} '
+          'scheduledDate=${scheduledDate.toIso8601String()}',
+        );
         await _plugin.zonedSchedule(
           id: kReminderNotificationId + i,
           title: kReminderNotificationTitle,
           body: kReminderNotificationBody,
-          scheduledDate: _nextWeekday(weekdays[i], hour, minute),
+          scheduledDate: scheduledDate,
           notificationDetails: _reminderDetails(),
           androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
           matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
         );
       }
+    }
+
+    // TEMP diagnostic (Issue 4): query pendingNotificationRequests()
+    // immediately after scheduling so we can confirm iOS registered the alarms.
+    final pending = await _plugin.pendingNotificationRequests();
+    debugPrint(
+      '[notif-diag] scheduleReminder() done — '
+      'pendingNotificationRequests count=${pending.length}',
+    );
+    for (final req in pending) {
+      debugPrint(
+        '[notif-diag]   pending id=${req.id} title="${req.title}"',
+      );
     }
   }
 
@@ -229,10 +278,18 @@ class NotificationService {
       final ios = iosPlugin ??
           _plugin.resolvePlatformSpecificImplementation<
               IOSFlutterLocalNotificationsPlugin>();
-      await ios?.requestPermissions(
+      final granted = await ios?.requestPermissions(
         alert: true,
         badge: true,
         sound: true,
+      );
+      // TEMP diagnostic (Issue 4): log the result of requestPermissions() so
+      // we can confirm whether the OS returned granted=true or false/null.
+      // null means the platform implementation was not available; false means
+      // the user denied or permission is in a provisional/undetermined state.
+      debugPrint(
+        '[notif-diag] requestIOSNotificationPermission() '
+        'requestPermissions result: granted=$granted',
       );
     } on Exception catch (e, s) {
       debugPrint(

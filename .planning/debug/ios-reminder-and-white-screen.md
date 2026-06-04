@@ -36,14 +36,14 @@ Two distinct defects surfaced during Phase 15 iOS device UAT on a real iPhone 13
 - Real device: iPhone 13, iOS 26.5. flutter id `00008110-00115119260A401E`, devicectl id `FEC345D4-825D-51B4-A052-54C7378F615D` (connected).
 - Phase 15 plans 15-01/02/03 complete; 15-04/15-05 (Live Activity) blocked on an unrelated App-Group device-provisioning probe.
 
-## Current Focus (2026-06-04 — post drift-fix)
+## Current Focus (2026-06-04 — Issue 4 diagnostics)
 
-Issue 3 (drift double-database) is fixed and committed. Two remaining items:
+Issue 4 (daily reminder never fires) — timezone fix (b96fb6d) was confirmed deployed on device but notification still did not fire. Need a debug-attached run to observe the chain: tz resolution → scheduleReminder execution → pendingNotificationRequests → iOS auth status. Diagnostic logging added to main.dart and notification_service.dart.
 
-- hypothesis: (Issue 2) The ~20s white screen on device may be debug-JIT warmup: the `--profile` run still produced a JIT build (Dart execution mode: JIT; bootstrap totals ~2.3s dominated by `NotificationService.initialize`, but white screen persists ~20s post-`runApp`). Must be settled with a real profile/release build.
-- next_action: (1) Investigate why `flutter run --profile` on iPhone 13 produced a JIT/debug build — check flutter version, connected device, build command. (2) Run a genuine `flutter build ipa --profile` or `flutter run --release` and measure first-frame time to determine if 20s is debug-JIT artifact. (3) Separately investigate 2.3s `NotificationService.initialize` cost if white screen persists on profile/release. (4) Issue 1 — confirm iOS permission prompt fires after delete+reinstall (user action required).
-- test: Issue 2 — first-frame time on profile/release build confirms white screen is gone or persists. Issue 1 — reinstall test.
-- expecting: On profile/release build the white screen is short (debug-JIT artifact) OR a real post-runApp stall in SplashScreen/authState is isolated.
+- hypothesis: One or more of the following is broken: (a) tz.local is not being set to the correct zone at runtime (FlutterTimezone call fails silently or returns wrong zone), (b) scheduleReminder() is not being called at all after the toggle (reminderTime still null or code path skipped), (c) zonedSchedule succeeds but the notification is never registered in iOS (pendingNotificationRequests returns 0), or (d) iOS permission is not fully GRANTED (provisional or denied prevents delivery).
+- next_action: Attach iPhone 13 with `flutter run -d 00008110-00115119260A401E` (debug build), enable Daily reminder in Settings, set time ~2 min ahead, copy back [notif-diag] log lines to identify which link is broken.
+- test: Attach debug build, grep for [notif-diag] prefix in log stream; compare tz.local value, scheduledDate(s), pendingNotificationRequests count, and iOS authorizationStatus.
+- expecting: Logs reveal exactly which link fails — wrong zone, zero pending requests, denied permission, or notification fire confirm.
 
 ## Evidence (device run 2026-06-04)
 
@@ -69,6 +69,9 @@ Issue 3 (drift double-database) is fixed and committed. Two remaining items:
 - **Fix applied (2026-06-04):** Added `flutter_timezone: 5.1.0` to dependencies. In `lib/main.dart`, immediately after `tz.initializeTimeZones()` and before `TrackingNotificationService().initialize()`, added an `await FlutterTimezone.getLocalTimezone()` call that fetches the device IANA zone name via `timezoneInfo.identifier` (flutter_timezone 5.x returns a `TimezoneInfo` struct, not a plain String) and calls `tz.setLocalLocation(tz.getLocation(timezoneInfo.identifier))`. Wrapped in `try/catch(Object)` — failure logs via `debugPrint` and falls back to UTC without crashing startup (matches the Firebase degrade pattern). `NotificationService.initialize()` runs after this call, so the reschedule-on-startup path uses the correct local timezone.
 - **Files changed:** `lib/main.dart`, `pubspec.yaml` (flutter_timezone 5.1.0 added).
 - **Verify on device:** Re-enable Daily reminder in Settings → Notifications, set a time 2–3 minutes from now, lock the phone, wait → notification should arrive at the local time shown on-screen.
+
+- timestamp: 2026-06-04T03:40:00Z — Issue 4 timezone fix (b96fb6d) deployed via release build, app reinstalled (permission reset by uninstall). User re-enabled Daily reminder + set a near-future time + locked phone — STILL no notification fired. Timezone fix alone did not resolve it. Need device-side diagnostics: confirm (a) resolved local tz after setLocalLocation, (b) scheduleReminder actually runs and the computed scheduledDate, (c) pendingNotificationRequests() contents, (d) iOS permission authorizationStatus. Release build streams no logs — must run a debug/profile build attached to capture.
+- timestamp: 2026-06-04T04:10:00Z — Diagnostic logging added (Issue 4). Added `[notif-diag]` prefixed debugPrints to: (a) main.dart timezone block — logs `tz.local` name on success and the FAILED fallback on error; (b) notification_service.dart scheduleReminder() — logs entry (hhMm, includeWeekends, tz.local.name), each computed scheduledDate + alarm id, and the full pendingNotificationRequests() list after scheduling; (c) notification_service.dart requestIOSNotificationPermission() — logs the bool? result of requestPermissions() (granted=true/false/null). flutter analyze clean on changed files; all 12 notification unit tests pass. Awaiting attached debug run to capture log lines.
 
 ## Resolution
 
