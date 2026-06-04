@@ -1,9 +1,9 @@
 ---
 slug: ios-reminder-and-white-screen
-status: investigating
+status: resolved
 trigger: "Phase 15 iOS device UAT — two defects: (1) Daily reminder toggle does nothing (never requests notification permission / never schedules), (2) ~20s white screen on launch."
 created: 2026-06-03T19:56:16Z
-updated: 2026-06-04T01:30:00Z
+updated: 2026-06-04T02:30:00Z
 ---
 
 # Debug Session: ios-reminder-and-white-screen
