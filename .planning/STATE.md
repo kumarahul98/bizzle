@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: iOS Support
 status: executing
-stopped_at: "Checkpoint: BLOCKING App-Group device-provisioning probe (Plan 15-01 Task 3)"
-last_updated: "2026-06-05T19:26:23.305Z"
+stopped_at: Completed 15-04-PLAN.md (Live Activity Widget Extension — IOS-13 native half)
+last_updated: "2026-06-05T19:38:47.981Z"
 last_activity: 2026-06-05
 progress:
   total_phases: 5
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 11
-  completed_plans: 10
-  percent: 40
+  completed_plans: 11
+  percent: 60
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-06-02)
 ## Current Position
 
 Phase: 15 (notifications-permissions-onboarding-ux-on-ios) — IN PROGRESS
-Plan: 4 of 5 complete (15-01 ✅ checkpoint, 15-02 ✅, 15-03 ✅, 15-04 ✅)
-Status: Ready for final plan 15-05 (Dart bridge)
-Last activity: 2026-06-06
+Plan: 5 of 5 complete (15-01 ✅ checkpoint, 15-02 ✅, 15-03 ✅, 15-04 ✅)
+Status: Ready to execute
+Last activity: 2026-06-05
 
-Progress: [█████████░] 91%
+Progress: [██████████] 100%
 
 **Next:** Execute 15-05 (Dart bridge: LiveActivityService, iOS version gate, urlSchemeStream listener, TrackingServiceController integration).
 
@@ -120,6 +120,6 @@ Full checklist: `.planning/v0.1-DEVICE-CHECKLIST.md` (Groups A-I). Resume v0.1 c
 
 ## Session Continuity
 
-Last session: 2026-06-06T00:54:35.000Z
+Last session: 2026-06-05T19:38:47.970Z
 Stopped at: Completed 15-04-PLAN.md (Live Activity Widget Extension — IOS-13 native half)
 Resume file: None
