@@ -1,0 +1,10 @@
+/* Traevy Live Activity localised strings (IOS-13).
+   These keys are used in TraevyLiveActivityWidget.swift via NSLocalizedString. */
+
+"live_activity_to_office" = "TO OFFICE";
+"live_activity_to_home" = "TO HOME";
+"live_activity_moving" = "MOVING";
+"live_activity_stuck" = "STUCK";
+"live_activity_elapsed" = "elapsed";
+"live_activity_distance" = "distance";
+"live_activity_stop" = "Stop commute";
