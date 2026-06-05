@@ -352,6 +352,9 @@ class TrackingNotifier extends Notifier<TrackingState> {
       timeStuckSeconds: active.timeStuckSeconds,
       currentSpeedMs: active.currentSpeedKmh / 3.6,
     );
+    debugPrint( // TEMP la-diag
+      '[la-diag] wiring: trackingStarting->Active transition, invoking liveActivityService.start()', // TEMP la-diag
+    ); // TEMP la-diag
     unawaited(
       ref
           .read(liveActivityServiceProvider)

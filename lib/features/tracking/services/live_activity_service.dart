@@ -58,6 +58,7 @@ class LiveActivityService {
   /// invoked when the SwiftUI Stop button fires `traevy://stop`.
   Future<void> init(TrackingServiceController controller) async {
     if (defaultTargetPlatform != TargetPlatform.iOS) return;
+    debugPrint('[la-diag] init() called platform=$defaultTargetPlatform'); // TEMP la-diag
     try {
       await _plugin.init(
         appGroupId: kLiveActivityAppGroupId,
@@ -65,6 +66,9 @@ class LiveActivityService {
         // We manage POST_NOTIFICATIONS permission ourselves in Plan 03.
         requestAndroidNotificationPermission: false,
       );
+      debugPrint( // TEMP la-diag
+        '[la-diag] init() plugin.init done appGroup=$kLiveActivityAppGroupId urlScheme=$kLiveActivityUrlScheme', // TEMP la-diag
+      ); // TEMP la-diag
       _plugin.urlSchemeStream().listen((data) {
         // T-15-11: exact-match host guard — only 'stop' triggers the action.
         // Any other URL or host is silently ignored (ASVS V5 input validation).
@@ -72,7 +76,8 @@ class LiveActivityService {
           unawaited(controller.stop());
         }
       });
-    } on Object {
+    } on Object catch (e) {
+      debugPrint('[la-diag] init() FAILED: $e'); // TEMP la-diag
       // init failure is non-fatal: Live Activity is additive (T-15-13).
     }
   }
@@ -83,14 +88,23 @@ class LiveActivityService {
   /// returns false. Stores the returned activity id in [_activityId] for
   /// subsequent [update] and [end] calls.
   Future<void> start(TripSnapshot snapshot, String direction) async {
-    if (!await _isLiveActivitySupported()) return;
+    debugPrint('[la-diag] start() called'); // TEMP la-diag
+    final supported = await _isLiveActivitySupported();
+    debugPrint('[la-diag] start() supportGate=$supported'); // TEMP la-diag
+    if (!supported) return;
+    final content = _contentState(snapshot, direction);
+    debugPrint( // TEMP la-diag
+      '[la-diag] start() calling createActivity id=$kLiveActivityId keys=${content.entries.map((e) => "${e.key}=${e.value}").join(", ")}', // TEMP la-diag
+    ); // TEMP la-diag
     try {
       final id = await _plugin.createActivity(
         kLiveActivityId,
-        _contentState(snapshot, direction),
+        content,
       );
       _activityId = id;
-    } on Object {
+      debugPrint('[la-diag] start() createActivity returned activityId=$id'); // TEMP la-diag
+    } on Object catch (e) {
+      debugPrint('[la-diag] start() createActivity THREW: $e'); // TEMP la-diag
       // createActivity failure is non-fatal (T-15-13).
     }
   }
@@ -103,6 +117,7 @@ class LiveActivityService {
   Future<void> update(TripSnapshot snapshot, String direction) async {
     final id = _activityId;
     if (id == null) return;
+    debugPrint('[la-diag] update() activityId=$id'); // TEMP la-diag
     try {
       await _plugin.updateActivity(id, _contentState(snapshot, direction));
     } on Object {
@@ -117,6 +132,7 @@ class LiveActivityService {
   Future<void> end() async {
     final id = _activityId;
     if (id == null) return;
+    debugPrint('[la-diag] end() activityId=$id'); // TEMP la-diag
     try {
       await _plugin.endActivity(id);
     } on Object {
@@ -157,13 +173,26 @@ class LiveActivityService {
     if (defaultTargetPlatform != TargetPlatform.iOS) return false;
     try {
       final supported = await _plugin.areActivitiesSupported();
-      if (!supported) return false;
+      debugPrint('[la-diag] support: areActivitiesSupported=$supported'); // TEMP la-diag
+      if (!supported) {
+        debugPrint('[la-diag] support: RESULT=false (areActivitiesSupported=false)'); // TEMP la-diag
+        return false;
+      }
       final enabled = await _plugin.areActivitiesEnabled();
-      if (!enabled) return false;
+      debugPrint('[la-diag] support: areActivitiesEnabled=$enabled'); // TEMP la-diag
+      if (!enabled) {
+        debugPrint('[la-diag] support: RESULT=false (areActivitiesEnabled=false)'); // TEMP la-diag
+        return false;
+      }
       final iosInfo = await DeviceInfoPlugin().iosInfo;
-      final major = int.tryParse(iosInfo.systemVersion.split('.').first) ?? 0;
-      return major >= 17;
-    } on Object {
+      final systemVersion = iosInfo.systemVersion;
+      final major = int.tryParse(systemVersion.split('.').first) ?? 0;
+      debugPrint('[la-diag] support: iOSMajor=$major (raw=$systemVersion)'); // TEMP la-diag
+      final result = major >= 17;
+      debugPrint('[la-diag] support: RESULT=$result'); // TEMP la-diag
+      return result;
+    } on Object catch (e) {
+      debugPrint('[la-diag] support: EXCEPTION $e'); // TEMP la-diag
       // If the version check itself fails, default to unsupported — safe
       // degradation: tracking continues without Live Activity (T-15-13).
       return false;
