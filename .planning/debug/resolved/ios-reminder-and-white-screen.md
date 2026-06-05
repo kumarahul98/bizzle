@@ -1,9 +1,9 @@
 ---
 slug: ios-reminder-and-white-screen
-status: investigating
+status: resolved
 trigger: "Phase 15 iOS device UAT — two defects: (1) Daily reminder toggle does nothing (never requests notification permission / never schedules), (2) ~20s white screen on launch."
 created: 2026-06-03T19:56:16Z
-updated: 2026-06-04T03:00:00Z
+updated: 2026-06-05T00:00:00Z
 ---
 
 # Debug Session: ios-reminder-and-white-screen
@@ -96,3 +96,11 @@ Issue 4 (daily reminder never fires) — timezone fix (b96fb6d) was confirmed de
 - **Fix:** Added `flutter_timezone: 5.1.0`. In `lib/main.dart`, immediately after `tz.initializeTimeZones()`, fetch the IANA zone via `FlutterTimezone.getLocalTimezone()` (returns `TimezoneInfo`; use `.identifier` field) and call `tz.setLocalLocation(tz.getLocation(timezoneInfo.identifier))`. Wrapped in `try/catch(Object)` for startup robustness.
 - **Files changed:** `lib/main.dart`, `pubspec.yaml`
 - **Verification needed:** On device — re-enable reminder, set 2–3 min ahead, lock phone, confirm notification arrives at local time.
+
+
+### Issue 4 — Daily reminder fired at wrong time (UTC)
+- **Root cause:** App initialized the tz database (`tz.initializeTimeZones()`) but never called `tz.setLocalLocation(...)`, so `tz.local` defaulted to UTC. All reminder/weekly scheduling computed fire times in UTC instead of device-local (IST UTC+5:30) — reminders silently fired ~5.5h off.
+- **Fix:** Added `flutter_timezone ^5.1.0`; `main.dart` now resolves the device IANA zone and calls `tz.setLocalLocation(tz.getLocation(...))` after `initializeTimeZones()`, with a UTC try/catch fallback. (commit b96fb6d)
+- **Verified on device:** `tz.local set to Asia/Kolkata` confirmed in logs; user confirmed the daily reminder now fires at the set local time. Temporary `[notif-diag]` instrumentation removed (commit 60a07bf).
+- **Files changed:** `pubspec.yaml`, `lib/main.dart`
+- **Note:** The missing trip-start notification on iOS is NOT a bug — it is the Live Activity (plans 15-04/15-05), still blocked on the App-Group device probe.
