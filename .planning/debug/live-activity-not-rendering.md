@@ -60,3 +60,22 @@ Rework the Swift widget (ios/TraevyLiveActivity/) to the `live_activities` plugi
 - Dynamic Island shows car icon + elapsed timer (compact) and full layout on long-press (expanded).
 - Distance, direction badge, and moving/stuck chip update every ~5 s.
 - Tapping Stop dismisses the Live Activity and stops the trip.
+
+## PAUSE / RESUME HERE (2026-06-06)
+
+**Status when paused:** Live Activity still does NOT render on device. Root-causing in progress.
+
+**Two fixes already applied and committed (correct, keep them):**
+- `52cab39` — Swift widget reworked to the `live_activities` plugin contract (struct renamed to `LiveActivitiesAppAttributes`, reads shared App-Group UserDefaults via `prefixedKey`). This was a real bug (plugin README: rename = "created but not appear").
+- App-Group provisioning probe PASSED on the free personal team (after removing a trailing-space typo in the group id). App Groups DO provision here.
+
+**Open finding (the current blocker):** An on-screen diagnostic banner (temp, committed `90f630b` + `abd60de`) shows `LA: (not started)` and NEVER changes — even when tapping Start on the dashboard. This means `LiveActivityService.init()` (called from `TrackingNotifier.build()` via `ref.watch(trackingStateProvider)` in DashboardScreen) is never executing its banner-set line. Contradiction: the dashboard watches `trackingStateProvider`, which should construct the notifier and run `init()` immediately. So either (a) stale build artifacts (a clean release rebuild was just installed via devicectl — **awaiting the user's re-test of the banner**), or (b) a genuine wiring break (the active trip is driven by a path that never constructs `trackingStateProvider`, or DashboardScreen isn't the rendered home).
+
+**EXACT NEXT STEP on resume:**
+1. Ask the user to open the freshly-installed clean build and read the yellow banner.
+   - If it now shows `LA init…`/`LA start…` → it was stale artifacts; read the new line to learn the gate/create result.
+   - If still `LA: (not started)` → add a marker at the TOP of `main()` (`liveActivityDiag.value = 'LA: main() ran <marker>'`) and rebuild. If THAT marker shows → installed Dart is current and `init()` genuinely isn't being called → trace why `trackingStateProvider` isn't constructed during a trip (check MainShell/auth state, whether trip start goes through `trackingStateProvider.notifier.start()` vs a direct controller path). If the marker does NOT show → builds are not reflecting source (deeper toolchain/caching problem).
+
+**Temp diagnostics still in tree (REMOVE once fixed):** `[la-diag]` debugPrints + `liveActivityDiag` ValueNotifier + `_LaDiagBanner` overlay in app.dart. All marked `// TEMP la-diag`.
+
+**Device install method that works on iOS 26:** clean `flutter build ios --release` then `xcrun devicectl device install app --device FEC345D4-825D-51B4-A052-54C7378F615D build/ios/iphoneos/Runner.app`. (`flutter install`/`flutter run` are flaky; `flutter logs`/idevicesyslog do NOT capture Flutter Dart logs in release — use the on-screen banner instead.)
