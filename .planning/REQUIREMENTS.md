@@ -96,6 +96,34 @@ iOS port of the existing Android app with full feature parity, runnable on a rea
 
 - [ ] **IOS-12**: All identical-behavior features (trip CRUD, manual entry, daily log/calendar, route map via flutter_map, all stats, sync, cloud restore, dark mode) are verified working on a real iPhone
 
+## v0.3 (App Improvements) Requirements
+
+Android-facing UX fixes and features requested 2026-06-06. Built on branch `gsd/v0.3-app-improvements`. Realizes **AUTO-02** (geofence triggers) and **PLAT-02** (home-screen widget) from v2, scoped to labeling and start/stop respectively.
+
+### Tracking & Trips
+
+- [ ] **TRACK-09**: User can pause and resume an active commute (for a break — snack/meeting) without ending the trip; paused time is excluded from duration and moving/stuck stats
+- [ ] **TRACK-10**: User can enable an auto-pause prompt — when an active trip appears stationary beyond a threshold, a notification offers to pause the trip
+- [ ] **TRACK-11**: User can edit all details of a trip — start time, end time, and individual break/pause segments — with duration and traffic stats recomputed
+- [ ] **TRACK-12**: User can set or change a trip's direction (to-home / to-office) via a quick label selector during tracking and from the trip view
+
+### First-Run & Auth
+
+- [ ] **AUTH-04**: On first install the user sees a login screen with a "Skip" option that lets them use the app locally without signing in; sync stays disabled until they sign in later from settings
+
+### Saved Locations
+
+- [ ] **LOC-01**: User can set their Home and Office locations (map/coordinate picker) and persist them in preferences
+- [ ] **LOC-02**: Trips are auto-labeled to-home / to-office based on the proximity of trip start/end to the saved Home/Office locations, taking precedence over the time-of-day heuristic when a confident match exists
+
+### Home-Screen Widget
+
+- [ ] **WIDGET-01**: User can add an Android home-screen widget that starts or stops a commute with one tap and reflects the current tracking state
+
+### Display Fixes
+
+- [ ] **UX-06**: The active-tracking elapsed timer always renders fully on screen — never wrapping the last digit to a new line or clipping — regardless of elapsed duration
+
 ## v2 Requirements
 
 Deferred to future release. Tracked but not in current roadmap.
@@ -103,12 +131,12 @@ Deferred to future release. Tracked but not in current roadmap.
 ### Automation
 
 - **AUTO-01**: Automatic trip detection without manual start/stop
-- **AUTO-02**: Geofence-based trip triggers
+- **AUTO-02**: Geofence-based trip triggers — *partially realized in v0.3 as geofence auto-labeling (LOC-02); auto start/stop still deferred*
 
 ### Platform
 
 - **PLAT-01**: iOS support — *promoted to the v0.2 milestone (see IOS-01..IOS-12)*
-- **PLAT-02**: Home screen widget with today's commute summary
+- **PLAT-02**: Home screen widget with today's commute summary — *start/stop widget realized in v0.3 (WIDGET-01); summary-content widget still deferred*
 
 ### Analytics
 

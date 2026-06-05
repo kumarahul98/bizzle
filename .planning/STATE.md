@@ -1,17 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.2
-milestone_name: iOS Support
-status: verifying
-stopped_at: "Phase 15 context gathered (scope expanded: iOS Live Activity)"
-last_updated: "2026-06-03T11:43:36.297Z"
-last_activity: 2026-06-02
+milestone: v0.3
+milestone_name: App Improvements
+status: planning
+last_updated: "2026-06-05T21:24:24.293Z"
+last_activity: 2026-06-05
 progress:
-  total_phases: 5
-  completed_phases: 2
-  total_plans: 6
-  completed_plans: 6
-  percent: 40
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -25,12 +24,10 @@ See: .planning/PROJECT.md (updated 2026-06-02)
 
 ## Current Position
 
-Phase: 14 (background-gps-platform-branch) — CODE COMPLETE, awaiting device UAT
-Plan: 3 of 3
-Status: Automated verification PASS (7/7); 3 device behaviors human-gated (see 14-HUMAN-UAT.md)
-Last activity: 2026-06-02
-
-Progress: [██████████] 100%
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-06-05 — Milestone v0.3 started
 
 ## Performance Metrics
 
