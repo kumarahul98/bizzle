@@ -1,39 +1,39 @@
 import ActivityKit
-import WidgetKit
-import SwiftUI
+import Foundation
 
-/// ActivityAttributes for the Traevy Live Activity (IOS-13).
+/// ActivityAttributes required by the `live_activities` Flutter plugin (v2.4.9).
 ///
-/// ContentState carries the 7 dynamic fields that the live_activities Flutter
-/// plugin writes to the shared App Group UserDefaults suite on every snapshot
-/// update. The `LiveDeliveryData` typealias is required by the plugin's
-/// UserDefaults bridge (it reads prefixed keys using this type name).
+/// The struct name MUST be `LiveActivitiesAppAttributes` — the plugin creates
+/// ActivityKit activities using this exact type name. A mismatch means the plugin
+/// starts an activity of this type but the widget registered for any other type
+/// will never match, so nothing renders on the lock screen or Dynamic Island.
 ///
-/// IMPORTANT: `startDate` is a Double (ms since epoch), NOT a Swift Date.
-/// The live_activities UserDefaults/Codable bridge serialises Dart's int epoch
-/// value as a numeric JSON value and cannot decode it as a Swift Date. Convert
-/// to Date in the view layer: `Date(timeIntervalSince1970: startDate / 1000.0)`.
-struct TraevyLiveActivityAttributes: ActivityAttributes {
-    // Required by the live_activities plugin's UserDefaults bridge.
+/// Dynamic data is NOT carried in ContentState fields. Instead, the plugin
+/// writes each Map entry from Dart into `UserDefaults(suiteName: appGroupId)`
+/// under the key `"\(id)_\(mapKey)"`. The SwiftUI widget reads each field via
+/// `sharedDefault.string/bool/double(forKey: context.attributes.prefixedKey("key"))`.
+///
+/// The 7 UserDefaults keys written by live_activity_service.dart:
+///   elapsedFormatted (String), distanceFormatted (String),
+///   movingFormatted  (String), stuckFormatted   (String),
+///   isMoving         (Bool),   direction         (String),
+///   startDate        (Double — ms since epoch)
+struct LiveActivitiesAppAttributes: ActivityAttributes, Identifiable {
+    // Required by the plugin's UserDefaults bridge — do not remove.
     public typealias LiveDeliveryData = ContentState
 
-    public struct ContentState: Codable, Hashable {
-        /// Pre-formatted elapsed string, e.g. "38:22" or "1:04:15".
-        var elapsedFormatted: String
-        /// Pre-formatted distance string, e.g. "2.4 km".
-        var distanceFormatted: String
-        /// Pre-formatted moving time string, e.g. "34m".
-        var movingFormatted: String
-        /// Pre-formatted stuck time string, e.g. "4m".
-        var stuckFormatted: String
-        /// True when current speed >= kStuckSpeedThresholdKmh (10 km/h).
-        var isMoving: Bool
-        /// Trip direction: "to_office" or "to_home".
-        var direction: String
-        /// Trip start time as milliseconds since epoch (Double, NOT Date).
-        /// Convert in view: Date(timeIntervalSince1970: startDate / 1000.0)
-        var startDate: Double
-    }
+    // ContentState is intentionally empty: dynamic data travels through
+    // UserDefaults, not through the ContentState Codable payload.
+    public struct ContentState: Codable, Hashable { }
 
     var id = UUID()
+}
+
+extension LiveActivitiesAppAttributes {
+    /// Returns the UserDefaults key for a given Dart map key, prefixed with the
+    /// activity id. Format mirrors the plugin's native implementation exactly:
+    /// `"\(id)_\(key)"`.
+    func prefixedKey(_ key: String) -> String {
+        return "\(id)_\(key)"
+    }
 }

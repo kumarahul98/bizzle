@@ -2,6 +2,13 @@ import ActivityKit
 import WidgetKit
 import SwiftUI
 
+// MARK: - Shared UserDefaults container (App Group)
+
+/// Shared container that the live_activities Flutter plugin writes to.
+/// The suite name must match `kLiveActivityAppGroupId` in constants.dart
+/// (`group.com.travey.app`) and the App Group capability on both targets.
+private let sharedDefault = UserDefaults(suiteName: "group.com.travey.app")!
+
 // MARK: - Color helpers (Traevy token approximations for SwiftUI)
 
 private extension Color {
@@ -84,21 +91,22 @@ private struct StopButton: View {
 // MARK: - Lock-screen expanded view (Surface C)
 
 struct TraevyLockScreenView: View {
-    let context: ActivityViewContext<TraevyLiveActivityAttributes>
+    /// Pre-resolved values read from UserDefaults before the view is constructed.
+    let distanceFormatted: String
+    let direction: String
+    let isMoving: Bool
+    let startDateAsDate: Date
 
     var body: some View {
-        let state = context.state
-        let startDateAsDate = Date(timeIntervalSince1970: state.startDate / 1000.0)
-
         VStack(alignment: .leading, spacing: 8) {
             // Row 1: direction badge + moving/stuck chip
             HStack {
-                DirectionBadge(direction: state.direction)
+                DirectionBadge(direction: direction)
                 Spacer()
-                StatusChip(isMoving: state.isMoving)
+                StatusChip(isMoving: isMoving)
             }
 
-            // Row 2: elapsed timer (client-side ticking) + distance
+            // Row 2: elapsed timer (client-side ticking from startDate) + distance
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(
@@ -116,7 +124,7 @@ struct TraevyLockScreenView: View {
                 Spacer()
 
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text(state.distanceFormatted)
+                    Text(distanceFormatted)
                         .font(.system(size: 22, weight: .semibold, design: .monospaced))
                         .monospacedDigit()
 
@@ -137,14 +145,63 @@ struct TraevyLockScreenView: View {
 
 struct TraevyLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
-        ActivityConfiguration(for: TraevyLiveActivityAttributes.self) { context in
+        ActivityConfiguration(for: LiveActivitiesAppAttributes.self) { context in
+            // ----------------------------------------------------------------
+            // Read dynamic fields from the shared App Group UserDefaults.
+            // The plugin writes each Dart map key under "\(activityId)_\(key)".
+            // Use safe defaults so the first frame renders before the first update.
+            // ----------------------------------------------------------------
+            let distanceFormatted = sharedDefault.string(
+                forKey: context.attributes.prefixedKey("distanceFormatted")
+            ) ?? "0.0 km"
+
+            let direction = sharedDefault.string(
+                forKey: context.attributes.prefixedKey("direction")
+            ) ?? "to_office"
+
+            let isMoving = sharedDefault.bool(
+                forKey: context.attributes.prefixedKey("isMoving")
+            )
+
+            // startDate is sent as Double (ms epoch) — convert to Date for timerInterval.
+            let startDateMs = sharedDefault.double(
+                forKey: context.attributes.prefixedKey("startDate")
+            )
+            let startDateAsDate: Date = startDateMs > 0
+                ? Date(timeIntervalSince1970: startDateMs / 1000.0)
+                : Date()
+
             // Lock screen / notification banner presentation
-            TraevyLockScreenView(context: context)
-                .activityBackgroundTint(Color(.systemBackground))
+            TraevyLockScreenView(
+                distanceFormatted: distanceFormatted,
+                direction: direction,
+                isMoving: isMoving,
+                startDateAsDate: startDateAsDate
+            )
+            .activityBackgroundTint(Color(.systemBackground))
 
         } dynamicIsland: { context in
-            let state = context.state
-            let startDateAsDate = Date(timeIntervalSince1970: state.startDate / 1000.0)
+            // ----------------------------------------------------------------
+            // Read the same fields for Dynamic Island regions.
+            // ----------------------------------------------------------------
+            let distanceFormatted = sharedDefault.string(
+                forKey: context.attributes.prefixedKey("distanceFormatted")
+            ) ?? "0.0 km"
+
+            let direction = sharedDefault.string(
+                forKey: context.attributes.prefixedKey("direction")
+            ) ?? "to_office"
+
+            let isMoving = sharedDefault.bool(
+                forKey: context.attributes.prefixedKey("isMoving")
+            )
+
+            let startDateMs = sharedDefault.double(
+                forKey: context.attributes.prefixedKey("startDate")
+            )
+            let startDateAsDate: Date = startDateMs > 0
+                ? Date(timeIntervalSince1970: startDateMs / 1000.0)
+                : Date()
 
             return DynamicIsland {
                 // MARK: Expanded (long-press)
@@ -165,7 +222,7 @@ struct TraevyLiveActivityWidget: Widget {
 
                 DynamicIslandExpandedRegion(.trailing) {
                     VStack(alignment: .trailing, spacing: 2) {
-                        Text(state.distanceFormatted)
+                        Text(distanceFormatted)
                             .font(.system(size: 15, weight: .semibold, design: .monospaced))
                             .monospacedDigit()
 
@@ -177,8 +234,8 @@ struct TraevyLiveActivityWidget: Widget {
 
                 DynamicIslandExpandedRegion(.center) {
                     HStack(spacing: 8) {
-                        DirectionBadge(direction: state.direction)
-                        StatusChip(isMoving: state.isMoving)
+                        DirectionBadge(direction: direction)
+                        StatusChip(isMoving: isMoving)
                     }
                 }
 
@@ -189,7 +246,7 @@ struct TraevyLiveActivityWidget: Widget {
                 }
 
             } compactLeading: {
-                // MARK: Compact Leading — car icon + elapsed
+                // MARK: Compact Leading — car icon + elapsed timer
                 HStack(spacing: 4) {
                     Image(systemName: "car.fill")
                         .foregroundStyle(Color.accentColor)
@@ -207,10 +264,10 @@ struct TraevyLiveActivityWidget: Widget {
                 // MARK: Compact Trailing — status dot + distance
                 HStack(spacing: 3) {
                     Circle()
-                        .fill(state.isMoving ? Color.traevyMoving : Color.traevyStuck)
+                        .fill(isMoving ? Color.traevyMoving : Color.traevyStuck)
                         .frame(width: 6, height: 6)
 
-                    Text(state.distanceFormatted)
+                    Text(distanceFormatted)
                         .font(.system(size: 11, weight: .medium))
                 }
 
