@@ -3,10 +3,10 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: App Improvements
 status: planning
-last_updated: "2026-06-05T21:24:24.293Z"
-last_activity: 2026-06-05
+last_updated: "2026-06-06T00:00:00.000Z"
+last_activity: 2026-06-06
 progress:
-  total_phases: 0
+  total_phases: 6
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -17,17 +17,19 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-06-02)
+See: .planning/PROJECT.md (updated 2026-06-06)
 
 **Core value:** Show people the reality of their commute -- time wasted in traffic and how it changes over time.
-**Current focus:** Phase 14 — background-gps-platform-branch
+**Current focus:** Phase 17 — tracking-ui-fixes-quick-label (v0.3 App Improvements)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 17 — Tracking UI Fixes & Quick Label
 Plan: —
-Status: Defining requirements
-Last activity: 2026-06-05 — Milestone v0.3 started
+Status: planning
+Last activity: 2026-06-06 — v0.3 roadmap created (Phases 17-22, 6 phases, 0 complete)
+
+**v0.3 progress:** 0/6 phases complete
 
 ## Performance Metrics
 
@@ -47,6 +49,17 @@ Last activity: 2026-06-05 — Milestone v0.3 started
 | 15 | TBD | - | - |
 | 16 | TBD | - | - |
 
+**v0.3 Phases:**
+
+| Phase | Plans | Total | Avg/Plan |
+|-------|-------|-------|----------|
+| 17 | TBD | - | - |
+| 18 | TBD | - | - |
+| 19 | TBD | - | - |
+| 20 | TBD | - | - |
+| 21 | TBD | - | - |
+| 22 | TBD | - | - |
+
 *Updated after each plan completion*
 | Phase 12-ios-scaffolding-configuration P02 | 45min | 4 tasks | 9 files |
 | Phase 12 P03 | human-gated | 2 tasks | 3 files |
@@ -60,6 +73,9 @@ Last activity: 2026-06-05 — Milestone v0.3 started
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
+- [v0.3 Roadmap]: Phase 18 introduces the break/pause data model (schema migration); Phase 19 (full editing) depends on it
+- [v0.3 Roadmap]: Phase 22 (home-screen widget) sequenced last — highest platform-integration risk, and depends on Phase 18 state model for accurate widget state
+- [v0.3 Roadmap]: Phase 21 geofence labeling takes precedence over time-of-day heuristic only on a confident proximity match; purely additive (falls back to existing behavior with no Home/Office set)
 - [v0.2 Research]: No new packages needed — port is configuration + one platform branch
 - [v0.2 Research]: flutter_map (OSM) already in use — google_maps_flutter iOS setup is NOT needed
 - [v0.2 Research]: firebase_options.dart already carries iOS client config — iOS Firebase app pre-registered
@@ -83,8 +99,8 @@ Recent decisions affecting current work:
 
 ### Blockers/Concerns
 
-- BLOCKER (human): Xcode license not accepted on this machine — blocks `flutter build ios`, git operations. User must run `sudo xcodebuild -license accept` before Phase 12 can execute.
-- CONCERN (Phase 14): Background GPS is highest-risk phase — requires real-device commute validation. Plan-phase should flag for deeper research.
+- CONCERN (Phase 22): Home-screen widget is the highest platform-integration risk in v0.3 — native Android AppWidget + background trigger into the tracking service. Plan-phase should flag for deeper research.
+- NOTE (v0.2 paused): Xcode/device-gated v0.2 work (Phases 13/15/16 open) remains resumable; not a v0.3 blocker.
 
 ## Deferred Items (carried from v0.1)
 
@@ -106,6 +122,6 @@ Full checklist: `.planning/v0.1-DEVICE-CHECKLIST.md` (Groups A-I). Resume v0.1 c
 
 ## Session Continuity
 
-Last session: 2026-06-03T11:43:36.289Z
-Stopped at: Phase 15 context gathered (scope expanded: iOS Live Activity)
-Resume file: .planning/phases/15-notifications-permissions-onboarding-ux-on-ios/15-CONTEXT.md
+Last session: 2026-06-06 — v0.3 roadmap created
+Stopped at: Phase 17 planning (v0.3 App Improvements roadmap written, Phases 17-22)
+Resume file: .planning/ROADMAP.md (v0.3 App Improvements section)

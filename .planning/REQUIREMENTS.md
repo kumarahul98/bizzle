@@ -209,11 +209,22 @@ Which phases cover which requirements. Updated during roadmap creation.
 | IOS-12 | Phase 16 | Pending |
 | IOS-13 | Phase 15 | Pending |
 | IOS-14 | Phase 15 | Pending |
+| TRACK-09 | Phase 18 | Pending |
+| TRACK-10 | Phase 18 | Pending |
+| TRACK-11 | Phase 19 | Pending |
+| TRACK-12 | Phase 17 | Pending |
+| AUTH-04 | Phase 20 | Pending |
+| LOC-01 | Phase 21 | Pending |
+| LOC-02 | Phase 21 | Pending |
+| WIDGET-01 | Phase 22 | Pending |
+| UX-06 | Phase 17 | Pending |
 
 **Coverage:**
 - v1 requirements: 31 total — mapped to phases: 31 — unmapped: 0
 - v0.2 requirements: 14 total — mapped to phases: 14 — unmapped: 0
+- v0.3 requirements: 9 total — mapped to phases: 9 — unmapped: 0
 
 ---
 *Requirements defined: 2026-04-11*
 *Last updated: 2026-06-02 — added v0.2 (iOS Support) requirements IOS-01..IOS-12 (full Android→iOS parity); PLAT-01 promoted from v2. Traceability for IOS-* filled during v0.2 roadmap creation.*
+*Last updated: 2026-06-06 — v0.3 (App Improvements) roadmap created: TRACK-09..12, AUTH-04, LOC-01, LOC-02, WIDGET-01, UX-06 mapped to Phases 17-22.*
