@@ -8,6 +8,13 @@ import 'package:traevy/features/tracking/services/tracking_service_controller.da
 import 'package:traevy/features/tracking/services/trip_accumulator.dart';
 import 'package:traevy/shared/utils/formatters.dart';
 
+// TEMP la-diag UI — remove after diagnosis
+/// Global diagnostic sink for the Live Activity. Updated in-place as the
+/// service progresses so the on-screen banner always shows the latest state.
+/// Visible at release build; no dependency on debugPrint or logging.
+final ValueNotifier<String> liveActivityDiag =
+    ValueNotifier<String>('LA: (not started)');
+
 /// Dart bridge for the iOS Live Activity (IOS-13, D-08/D-09/D-10).
 ///
 /// Wraps the `live_activities` plugin to create, update, and dismiss the
@@ -59,6 +66,7 @@ class LiveActivityService {
   Future<void> init(TrackingServiceController controller) async {
     if (defaultTargetPlatform != TargetPlatform.iOS) return;
     debugPrint('[la-diag] init() called platform=$defaultTargetPlatform'); // TEMP la-diag
+    liveActivityDiag.value = 'LA init: platform=$defaultTargetPlatform …'; // TEMP la-diag UI
     try {
       await _plugin.init(
         appGroupId: kLiveActivityAppGroupId,
@@ -69,6 +77,8 @@ class LiveActivityService {
       debugPrint( // TEMP la-diag
         '[la-diag] init() plugin.init done appGroup=$kLiveActivityAppGroupId urlScheme=$kLiveActivityUrlScheme', // TEMP la-diag
       ); // TEMP la-diag
+      liveActivityDiag.value = // TEMP la-diag UI
+          'LA init ok: appGroup=$kLiveActivityAppGroupId scheme=$kLiveActivityUrlScheme'; // TEMP la-diag UI
       _plugin.urlSchemeStream().listen((data) {
         // T-15-11: exact-match host guard — only 'stop' triggers the action.
         // Any other URL or host is silently ignored (ASVS V5 input validation).
@@ -78,6 +88,7 @@ class LiveActivityService {
       });
     } on Object catch (e) {
       debugPrint('[la-diag] init() FAILED: $e'); // TEMP la-diag
+      liveActivityDiag.value = 'LA init FAILED: $e'; // TEMP la-diag UI
       // init failure is non-fatal: Live Activity is additive (T-15-13).
     }
   }
@@ -91,7 +102,14 @@ class LiveActivityService {
     debugPrint('[la-diag] start() called'); // TEMP la-diag
     final supported = await _isLiveActivitySupported();
     debugPrint('[la-diag] start() supportGate=$supported'); // TEMP la-diag
-    if (!supported) return;
+    if (!supported) {
+      // _isLiveActivitySupported has already set liveActivityDiag.value with
+      // the gate-component detail. Prefix it with the start context so the
+      // banner is self-contained. // TEMP la-diag UI
+      final prev = liveActivityDiag.value; // TEMP la-diag UI
+      liveActivityDiag.value = 'LA start: gate=FALSE | $prev'; // TEMP la-diag UI
+      return;
+    }
     final content = _contentState(snapshot, direction);
     debugPrint( // TEMP la-diag
       '[la-diag] start() calling createActivity id=$kLiveActivityId keys=${content.entries.map((e) => "${e.key}=${e.value}").join(", ")}', // TEMP la-diag
@@ -103,8 +121,10 @@ class LiveActivityService {
       );
       _activityId = id;
       debugPrint('[la-diag] start() createActivity returned activityId=$id'); // TEMP la-diag
+      liveActivityDiag.value = 'LA start: gate=ok | create=$id'; // TEMP la-diag UI
     } on Object catch (e) {
       debugPrint('[la-diag] start() createActivity THREW: $e'); // TEMP la-diag
+      liveActivityDiag.value = 'LA start: gate=ok | createTHREW: $e'; // TEMP la-diag UI
       // createActivity failure is non-fatal (T-15-13).
     }
   }
@@ -176,12 +196,16 @@ class LiveActivityService {
       debugPrint('[la-diag] support: areActivitiesSupported=$supported'); // TEMP la-diag
       if (!supported) {
         debugPrint('[la-diag] support: RESULT=false (areActivitiesSupported=false)'); // TEMP la-diag
+        liveActivityDiag.value = // TEMP la-diag UI
+            'support: supported=false enabled=? iOS=? gate=FALSE'; // TEMP la-diag UI
         return false;
       }
       final enabled = await _plugin.areActivitiesEnabled();
       debugPrint('[la-diag] support: areActivitiesEnabled=$enabled'); // TEMP la-diag
       if (!enabled) {
         debugPrint('[la-diag] support: RESULT=false (areActivitiesEnabled=false)'); // TEMP la-diag
+        liveActivityDiag.value = // TEMP la-diag UI
+            'support: supported=true enabled=false iOS=? gate=FALSE'; // TEMP la-diag UI
         return false;
       }
       final iosInfo = await DeviceInfoPlugin().iosInfo;
@@ -190,9 +214,12 @@ class LiveActivityService {
       debugPrint('[la-diag] support: iOSMajor=$major (raw=$systemVersion)'); // TEMP la-diag
       final result = major >= 17;
       debugPrint('[la-diag] support: RESULT=$result'); // TEMP la-diag
+      liveActivityDiag.value = // TEMP la-diag UI
+          'support: supported=true enabled=true iOS=$major(raw=$systemVersion) gate=$result'; // TEMP la-diag UI
       return result;
     } on Object catch (e) {
       debugPrint('[la-diag] support: EXCEPTION $e'); // TEMP la-diag
+      liveActivityDiag.value = 'support EXC: $e'; // TEMP la-diag UI
       // If the version check itself fails, default to unsupported — safe
       // degradation: tracking continues without Live Activity (T-15-13).
       return false;

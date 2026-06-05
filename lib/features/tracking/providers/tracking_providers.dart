@@ -355,6 +355,8 @@ class TrackingNotifier extends Notifier<TrackingState> {
     debugPrint( // TEMP la-diag
       '[la-diag] wiring: trackingStarting->Active transition, invoking liveActivityService.start()', // TEMP la-diag
     ); // TEMP la-diag
+    liveActivityDiag.value = // TEMP la-diag UI
+        'LA wiring: transition fired, calling start()'; // TEMP la-diag UI
     unawaited(
       ref
           .read(liveActivityServiceProvider)

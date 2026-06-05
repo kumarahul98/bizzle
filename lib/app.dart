@@ -12,6 +12,7 @@ import 'package:traevy/features/auth/screens/splash_screen.dart';
 import 'package:traevy/features/settings/providers/settings_providers.dart';
 import 'package:traevy/features/shell/main_shell.dart';
 import 'package:traevy/features/tracking/providers/backfill_provider.dart';
+import 'package:traevy/features/tracking/services/live_activity_service.dart';
 import 'package:traevy/sync/sync_engine.dart';
 
 /// Root widget for the Traevy app.
@@ -102,6 +103,14 @@ class TraevyApp extends ConsumerWidget {
       themeMode: themeMode,
       routes: kAppRoutes,
       home: home,
+      // TEMP la-diag UI — remove after diagnosis
+      builder: (context, child) => Stack(
+        children: [
+          child ?? const SizedBox.shrink(),
+          const _LaDiagBanner(),
+        ],
+      ),
+      // END TEMP la-diag UI
     );
   }
 
@@ -119,3 +128,48 @@ class TraevyApp extends ConsumerWidget {
     }
   }
 }
+
+// TEMP la-diag UI — remove after diagnosis
+/// Translucent always-visible banner at the top of every screen showing
+/// the current Live Activity diagnostic state. Works in release builds
+/// (reads [liveActivityDiag] ValueNotifier, no dependency on debugPrint).
+/// Ignores pointer events so it never blocks taps.
+class _LaDiagBanner extends StatelessWidget {
+  const _LaDiagBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: IgnorePointer(
+        child: SafeArea(
+          bottom: false,
+          child: ValueListenableBuilder<String>(
+            valueListenable: liveActivityDiag,
+            builder: (context, value, _) => Container(
+              width: double.infinity,
+              color: Colors.black.withValues(alpha: 0.85),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              child: Text(
+                value,
+                style: const TextStyle(
+                  color: Color(0xFFFFE000),
+                  fontSize: 10,
+                  fontFamily: 'monospace',
+                  decoration: TextDecoration.none,
+                  fontWeight: FontWeight.normal,
+                  height: 1.3,
+                ),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+// END TEMP la-diag UI
