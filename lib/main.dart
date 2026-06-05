@@ -83,17 +83,7 @@ Future<void> main() async {
     final timezoneInfo = await FlutterTimezone.getLocalTimezone();
     tz.setLocalLocation(tz.getLocation(timezoneInfo.identifier));
     debugPrint('[main] bootstrap: tz.local set to ${timezoneInfo.identifier}');
-    // TEMP diagnostic (Issue 4): confirm the zone that tz.local actually
-    // resolves to after setLocalLocation — surfaced in debug log as a
-    // greppable line.
-    debugPrint(
-      '[notif-diag] tz.local after setLocalLocation = ${tz.local.name}',
-    );
   } on Object catch (e) {
-    // TEMP diagnostic (Issue 4): UTC-fallback path — tz.local stays as UTC.
-    debugPrint(
-      '[notif-diag] tz.setLocalLocation FAILED — falling back to UTC: $e',
-    );
     debugPrint('[main] bootstrap: tz.setLocalLocation failed, using UTC: $e');
   }
 
