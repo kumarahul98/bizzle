@@ -6,11 +6,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/providers.dart';
 import 'package:traevy/features/settings/providers/settings_providers.dart';
+import 'package:traevy/features/tracking/services/live_activity_service.dart';
 import 'package:traevy/features/tracking/services/main_isolate_tracking_engine.dart';
 import 'package:traevy/features/tracking/services/tracking_event_source.dart';
 import 'package:traevy/features/tracking/services/tracking_notification_service.dart';
 import 'package:traevy/features/tracking/services/tracking_permission_service.dart';
 import 'package:traevy/features/tracking/services/tracking_service_controller.dart';
+import 'package:traevy/features/tracking/services/trip_accumulator.dart';
 import 'package:traevy/features/tracking/state/finalized_trip.dart';
 import 'package:traevy/features/tracking/state/tracking_state.dart';
 import 'package:traevy/features/trips/services/direction_label_service.dart';
@@ -68,6 +70,20 @@ trackingNotificationServiceProvider = Provider<TrackingNotificationService>(
   (ref) => TrackingNotificationService(),
   name: 'trackingNotificationServiceProvider',
 );
+
+/// [LiveActivityService] for the iOS 17+ Live Activity (IOS-13, D-08).
+///
+/// Keep-alive (no autoDispose) for the same reason as
+/// [trackingNotificationServiceProvider] — the url-scheme Stop-button listener
+/// and the _activityId state must survive widget disposal.
+///
+/// Initialisation (calling [LiveActivityService.init] with the controller) is
+/// done inside [TrackingNotifier.build] where the controller is available.
+final Provider<LiveActivityService> liveActivityServiceProvider =
+    Provider<LiveActivityService>(
+      (ref) => LiveActivityService(),
+      name: 'liveActivityServiceProvider',
+    );
 
 /// Platform-selected [TrackingEventSource].
 ///
@@ -171,6 +187,16 @@ class TrackingNotifier extends Notifier<TrackingState> {
       unawaited(_errorSub?.cancel());
       unawaited(_readySub?.cancel());
     });
+    // IOS-13: wire the Live Activity url-scheme Stop-button listener once the
+    // controller is available. No-op on Android (service self-gates in init).
+    unawaited(
+      ref
+          .read(liveActivityServiceProvider)
+          .init(ref.read(trackingServiceControllerProvider))
+          .catchError((Object _) {
+            // init failure is non-fatal — Live Activity is additive (T-15-13).
+          }),
+    );
     _attach();
     return const TrackingIdle();
   }
@@ -209,7 +235,15 @@ class TrackingNotifier extends Notifier<TrackingState> {
         final next = trackingActiveFromSnapshotMap(
           data.cast<String, Object?>(),
         );
+        // IOS-13: start the Live Activity on the first TrackingActive event
+        // (i.e. the TrackingStarting → TrackingActive transition). The service
+        // self-gates on iOS 17+ via _isLiveActivitySupported(); on all other
+        // platforms start() is a no-op. Subsequent snapshots go to update().
+        final wasStarting = state is TrackingStarting;
         state = next;
+        if (wasStarting) {
+          _startLiveActivity(next);
+        }
         _maybeRefreshNotification(next);
       },
       onError: (Object error, StackTrace stack) {
@@ -244,6 +278,16 @@ class TrackingNotifier extends Notifier<TrackingState> {
         // TrackingStarting / TrackingActive) we must not clobber it.
         if (state is TrackingStopping) {
           state = const TrackingIdle();
+          // IOS-13 Pitfall 4: on idle, sweep up any Live Activity orphaned by
+          // an app-kill mid-commute. endAll() is a no-op when there is no
+          // running Activity — calling it here is always safe.
+          unawaited(
+            ref.read(liveActivityServiceProvider).endAll().catchError((
+              Object _,
+            ) {
+              // endAll() failure is non-fatal (T-15-13).
+            }),
+          );
         }
       },
       onError: (Object error, StackTrace stack) {
@@ -280,10 +324,51 @@ class TrackingNotifier extends Notifier<TrackingState> {
     );
   }
 
+  /// Start the iOS 17+ Live Activity when the first [TrackingActive] event
+  /// arrives (the [TrackingStarting] → [TrackingActive] transition).
+  ///
+  /// The [LiveActivityService] self-gates on iOS 17+ via
+  /// [LiveActivityService._isLiveActivitySupported]; on Android and iOS < 17
+  /// this call is a no-op. Fire-and-forget to avoid blocking the synchronous
+  /// state-update path.
+  void _startLiveActivity(TrackingActive active) {
+    final prefs = ref.read(userPreferenceProvider).asData?.value;
+    final morning = prefs?.morningCutoffHour ?? kDefaultDirectionCutoffHour;
+    final evening = prefs?.eveningCutoffHour ?? kDefaultDirectionCutoffHour;
+    final direction = const DirectionLabelService().label(
+      active.startedAt.toLocal(),
+      morning,
+      evening,
+    );
+    // TrackingActive.currentSpeedKmh is the km/h value after the isolate-
+    // boundary conversion in trackingActiveFromSnapshotMap. Convert back to
+    // m/s for the TripSnapshot so LiveActivityService can compare against
+    // kStuckSpeedThresholdMs (which is m/s).
+    final snapshot = TripSnapshot(
+      startedAt: active.startedAt,
+      elapsedSeconds: active.elapsedSeconds,
+      distanceMeters: active.distanceMeters,
+      timeMovingSeconds: active.timeMovingSeconds,
+      timeStuckSeconds: active.timeStuckSeconds,
+      currentSpeedMs: active.currentSpeedKmh / 3.6,
+    );
+    unawaited(
+      ref
+          .read(liveActivityServiceProvider)
+          .start(snapshot, direction)
+          .catchError((Object _) {
+            // Live Activity start failure is non-fatal (T-15-13).
+          }),
+    );
+  }
+
   /// Refresh the foreground notification, throttled to once per
   /// [kTrackingNotificationRefreshInterval]. Resolves the trip's direction
   /// from the user's morning/evening cutoff prefs so the notification title
   /// and body match the in-app hero (review HIGH #2/3).
+  ///
+  /// Also updates the iOS 17+ Live Activity on the same 5s cadence (A2) so
+  /// both surfaces stay in sync without a separate throttle constant (IOS-13).
   void _maybeRefreshNotification(TrackingActive active) {
     final now = DateTime.now();
     final last = _lastNotificationUpdateAt;
@@ -313,6 +398,26 @@ class TrackingNotifier extends Notifier<TrackingState> {
           .catchError((Object _) {
             // POST_NOTIFICATIONS denied or platform channel error — tracking
             // continues, notification just doesn't refresh this tick.
+          }),
+    );
+    // IOS-13: update the Live Activity on the SAME 5s throttle (Assumption A2).
+    // The service no-ops if there is no active Activity (_activityId == null).
+    // Convert currentSpeedKmh → m/s for LiveActivityService (kStuckSpeedThresholdMs
+    // comparison requires m/s — same conversion as in _startLiveActivity).
+    final snapshot = TripSnapshot(
+      startedAt: active.startedAt,
+      elapsedSeconds: active.elapsedSeconds,
+      distanceMeters: active.distanceMeters,
+      timeMovingSeconds: active.timeMovingSeconds,
+      timeStuckSeconds: active.timeStuckSeconds,
+      currentSpeedMs: active.currentSpeedKmh / 3.6,
+    );
+    unawaited(
+      ref
+          .read(liveActivityServiceProvider)
+          .update(snapshot, direction)
+          .catchError((Object _) {
+            // Live Activity update failure is non-fatal (T-15-13).
           }),
     );
   }
@@ -411,6 +516,13 @@ class TrackingNotifier extends Notifier<TrackingState> {
     // kTrackingNotificationRefreshInterval.
     _lastNotificationUpdateAt = null;
     await ref.read(trackingServiceControllerProvider).stop();
+    // IOS-13: dismiss the Live Activity immediately when the trip stops.
+    // Fire-and-forget — the Activity ending must never block the stop path.
+    unawaited(
+      ref.read(liveActivityServiceProvider).end().catchError((Object _) {
+        // end() failure is non-fatal (T-15-13).
+      }),
+    );
   }
 
   /// Return the [PersistResult] produced by the most recent
