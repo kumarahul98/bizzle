@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: iOS Support
-status: verifying
+status: executing
 stopped_at: "Checkpoint: BLOCKING App-Group device-provisioning probe (Plan 15-01 Task 3)"
-last_updated: "2026-06-03T17:51:22.398Z"
-last_activity: 2026-06-03
+last_updated: "2026-06-05T19:26:23.305Z"
+last_activity: 2026-06-05
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 11
-  completed_plans: 9
+  completed_plans: 10
   percent: 40
 ---
 
@@ -25,14 +25,14 @@ See: .planning/PROJECT.md (updated 2026-06-02)
 
 ## Current Position
 
-Phase: 15 (notifications-permissions-onboarding-ux-on-ios) — IN PROGRESS, blocked on human device probe
-Plan: 3 of 5 complete (15-01 ✅ checkpoint, 15-02 ✅, 15-03 ✅)
-Status: BLOCKED — Plans 15-04 (native Swift Live Activity) + 15-05 (Dart bridge) gated on the App-Group device-provisioning probe (15-01 Task 3)
-Last activity: 2026-06-03
+Phase: 15 (notifications-permissions-onboarding-ux-on-ios) — IN PROGRESS
+Plan: 4 of 5 complete (15-01 ✅ checkpoint, 15-02 ✅, 15-03 ✅, 15-04 ✅)
+Status: Ready for final plan 15-05 (Dart bridge)
+Last activity: 2026-06-06
 
-Progress: [██████░░░░] 60% (3/5 plans — autonomous Dart track done; Live Activity track blocked)
+Progress: [█████████░] 91%
 
-**Resume after probe:** User runs the App-Group probe in Xcode on a real iPhone (see 15-01-SUMMARY.md). PASS → execute 15-04 then 15-05 as planned. FAIL → re-plan 15-04/15-05 for the no-App-Group fallback before any Swift.
+**Next:** Execute 15-05 (Dart bridge: LiveActivityService, iOS version gate, urlSchemeStream listener, TrackingServiceController integration).
 
 ## Performance Metrics
 
@@ -59,6 +59,7 @@ Progress: [██████░░░░] 60% (3/5 plans — autonomous Dart tr
 | Phase 14 P03 | 9min | - tasks | - files |
 | Phase 15 P01 | 25min | 2 tasks | 3 files |
 | Phase 15 P02 | 7 | 3 tasks | 8 files |
+| Phase 15 P04 | 40min | 2 tasks | 14 files |
 
 ## Accumulated Context
 
@@ -85,6 +86,9 @@ Recent decisions affecting current work:
 - [Phase ?]: Wave 0 RED scaffolds committed for all 5 test files before any Plan 02-05 implementation begins
 - [Phase ?]: IOS-11 test seam: forTesting(platformIsAndroid:) pattern chosen to avoid dart:io Platform in tests (RESEARCH.md Pitfall 2)
 - [Phase ?]: App-Group device-provisioning probe is a BLOCKING gate for Plan 04 — must report PASS or FAIL before Swift is written
+- [Phase 15 P04]: startDate typed as Double (ms epoch) in ContentState — live_activities UserDefaults/Codable bridge cannot decode Dart int as Swift Date
+- [Phase 15 P04]: Stop button uses SwiftUI Link(traevy://stop) not AppIntent — free-provisioning safe (no com.apple.developer.live-activity entitlement needed)
+- [Phase 15 P04]: Build cycle fix — Embed Foundation Extensions moved before Thin Binary in Runner build phases (ExtractAppIntentsMetadata cycle resolved)
 
 ### Pending Todos
 
@@ -116,6 +120,6 @@ Full checklist: `.planning/v0.1-DEVICE-CHECKLIST.md` (Groups A-I). Resume v0.1 c
 
 ## Session Continuity
 
-Last session: 2026-06-03T17:51:22.389Z
-Stopped at: Checkpoint: BLOCKING App-Group device-provisioning probe (Plan 15-01 Task 3)
+Last session: 2026-06-06T00:54:35.000Z
+Stopped at: Completed 15-04-PLAN.md (Live Activity Widget Extension — IOS-13 native half)
 Resume file: None
