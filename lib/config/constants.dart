@@ -782,6 +782,12 @@ const String kCopyConfirmCta = "Let's go";
 /// is not configured (D-15, UI-SPEC §D note).
 const String kCopySignInDisabledTooltip = 'Sign-in not configured';
 
+/// Skip action label on the first-run [LoginScreen] (Phase 20, D-04/D-05).
+///
+/// Tapping it sets `has_seen_onboarding = true` and lets the root gate route
+/// the guest straight into the app without signing in.
+const String kCopyLoginSkip = 'Skip — use without an account';
+
 /// Headline for the sign-in error state shown in the sheet when
 /// `AuthService.signIn()` throws a non-cancel exception (UI-SPEC §E).
 const String kCopySignInFailedHeadline = "Couldn't sign in.";

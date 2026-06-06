@@ -222,6 +222,7 @@ void main() {
           weekendReminder: false,
           weeklyNotificationEnabled: false,
           autoPauseEnabled: false,
+          hasSeenOnboarding: false,
         );
         await db.userPreferencesDao.upsert(prefs);
 
@@ -252,6 +253,7 @@ void main() {
           weekendReminder: false,
           weeklyNotificationEnabled: false,
           autoPauseEnabled: false,
+          hasSeenOnboarding: false,
         );
         await db.userPreferencesDao.upsert(prefs);
         await db.userPreferencesDao.backfillUserId('uid-first');
@@ -318,6 +320,7 @@ void main() {
           weekendReminder: false,
           weeklyNotificationEnabled: false,
           autoPauseEnabled: false,
+          hasSeenOnboarding: false,
         );
         await db.userPreferencesDao.upsert(prefs);
 

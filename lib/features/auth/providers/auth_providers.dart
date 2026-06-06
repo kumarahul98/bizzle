@@ -92,6 +92,7 @@ final Provider<AuthService> authServiceProvider = Provider<AuthService>(
     secureStorage: ref.watch(secureStorageProvider),
     tripsDao: ref.watch(tripsDaoProvider),
     prefsDao: ref.watch(userPreferencesDaoProvider),
+    syncQueueDao: ref.watch(syncQueueDaoProvider),
     db: ref.watch(appDatabaseProvider),
   ),
   name: 'authServiceProvider',

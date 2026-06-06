@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:traevy/config/constants.dart';
+import 'package:traevy/database/daos/sync_queue_dao.dart';
 import 'package:traevy/database/daos/trips_dao.dart';
 import 'package:traevy/database/daos/user_preferences_dao.dart';
 import 'package:traevy/database/database.dart';
@@ -22,7 +23,8 @@ import 'package:traevy/database/database.dart';
 ///   4. Call `firebaseAuth.signInWithCredential(credential)`.
 ///   5. Cache the Firebase ID token under [kFirebaseIdTokenKey] in
 ///      `flutter_secure_storage` (Android Keystore — CLAUDE.md, D-10).
-///   6. Backfill both DAOs transactionally (D-11, Pitfall 7 ordering).
+///   6. Backfill both DAOs and reconcile the guest sync-queue backlog
+///      transactionally (D-11/D-08, Pitfall 7 ordering).
 ///   7. Return `tripsChanged > 0` as the first-sign-in signal (D-12).
 ///
 /// Security invariants:
@@ -46,12 +48,14 @@ class AuthService {
     required FlutterSecureStorage secureStorage,
     required TripsDao tripsDao,
     required UserPreferencesDao prefsDao,
+    required SyncQueueDao syncQueueDao,
     FirebaseAuth? firebaseAuth,
     GoogleSignIn? googleSignIn,
     AppDatabase? db,
   }) : _secureStorage = secureStorage,
        _tripsDao = tripsDao,
        _prefsDao = prefsDao,
+       _syncQueueDao = syncQueueDao,
        _firebaseAuthOverride = firebaseAuth,
        _googleSignInOverride = googleSignIn,
        _db = db;
@@ -59,6 +63,7 @@ class AuthService {
   final FlutterSecureStorage _secureStorage;
   final TripsDao _tripsDao;
   final UserPreferencesDao _prefsDao;
+  final SyncQueueDao _syncQueueDao;
 
   // Lazy: accessed at signIn()-call time, not construction time, so test
   // code can construct AuthService without a live Firebase app.
@@ -126,9 +131,17 @@ class AuthService {
       value: firebaseIdToken,
     );
 
-    // Step 6: Backfill both DAOs atomically (D-11).
-    // uid captured before the transaction — build any value BEFORE the
-    // mutating call (Pitfall 3 discipline).
+    // Step 6: Backfill both DAOs atomically (D-11) and reconcile the guest
+    // sync-queue backlog (D-08). uid captured before the transaction — build
+    // any value BEFORE the mutating call (Pitfall 3 discipline).
+    //
+    // The queue reconcile runs AFTER both backfills inside the SAME
+    // transaction so trips, prefs, and the queue rewrite are atomic (Pitfall
+    // 7 ordering preserved). reconcilePendingUserId rewrites the stale
+    // `local_user` in any pending DELETE payload to the real uid so no
+    // `local_user` reference survives anywhere; create/update rows store a
+    // NULL payload and are left untouched (the engine re-reads the
+    // freshly-backfilled trip and the serializer omits userId).
     final uid = user.uid;
     var tripsChanged = 0;
     final db = _db;
@@ -136,12 +149,14 @@ class AuthService {
       await db.transaction(() async {
         tripsChanged = await _tripsDao.backfillUserId(uid);
         await _prefsDao.backfillUserId(uid);
+        await _syncQueueDao.reconcilePendingUserId(uid);
       });
     } else {
       // No AppDatabase injected (test-only path; signIn() is skipped
       // in all unit tests). Run the calls without a transaction wrapper.
       tripsChanged = await _tripsDao.backfillUserId(uid);
       await _prefsDao.backfillUserId(uid);
+      await _syncQueueDao.reconcilePendingUserId(uid);
     }
 
     // Step 7: Return the first-sign-in signal (D-12).

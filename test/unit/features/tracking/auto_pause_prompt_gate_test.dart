@@ -131,6 +131,7 @@ ProviderContainer _container({
           weekendReminder: false,
           weeklyNotificationEnabled: false,
           autoPauseEnabled: true,
+          hasSeenOnboarding: false,
         )
       : const UserPreferencesValue.defaults();
   return ProviderContainer(

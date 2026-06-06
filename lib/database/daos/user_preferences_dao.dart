@@ -31,6 +31,7 @@ class UserPreferencesValue {
     required this.weekendReminder,
     required this.weeklyNotificationEnabled,
     required this.autoPauseEnabled,
+    required this.hasSeenOnboarding,
   });
 
   /// The defaults used the first time the user launches the app —
@@ -44,7 +45,8 @@ class UserPreferencesValue {
       reminderTime = null,
       weekendReminder = false,
       weeklyNotificationEnabled = false,
-      autoPauseEnabled = false;
+      autoPauseEnabled = false,
+      hasSeenOnboarding = false;
 
   /// Owning user placeholder (Phase 8 replaces with Cognito sub).
   final String userId;
@@ -73,6 +75,11 @@ class UserPreferencesValue {
   /// True if the user has opted into auto-pause (Phase 18, D-10). Off by
   /// default so auto-pause is strictly opt-in.
   final bool autoPauseEnabled;
+
+  /// True once the first-run login wall has been cleared (Phase 20, D-01).
+  /// False on a fresh install (no row) so the gate shows the login screen
+  /// exactly once.
+  final bool hasSeenOnboarding;
 }
 
 /// Data-access object for the single-row user_preferences table.
@@ -110,6 +117,7 @@ class UserPreferencesDao extends DatabaseAccessor<AppDatabase>
       weekendReminder: row.weekendReminder,
       weeklyNotificationEnabled: row.weeklyNotificationEnabled,
       autoPauseEnabled: row.autoPauseEnabled,
+      hasSeenOnboarding: row.hasSeenOnboarding,
     );
   }
 
@@ -138,6 +146,7 @@ class UserPreferencesDao extends DatabaseAccessor<AppDatabase>
               weekendReminder: row.weekendReminder,
               weeklyNotificationEnabled: row.weeklyNotificationEnabled,
               autoPauseEnabled: row.autoPauseEnabled,
+              hasSeenOnboarding: row.hasSeenOnboarding,
             ),
     );
   }
@@ -182,6 +191,28 @@ class UserPreferencesDao extends DatabaseAccessor<AppDatabase>
         weekendReminder: Value<bool>(value.weekendReminder),
         weeklyNotificationEnabled: Value<bool>(value.weeklyNotificationEnabled),
         autoPauseEnabled: Value<bool>(value.autoPauseEnabled),
+        hasSeenOnboarding: Value<bool>(value.hasSeenOnboarding),
+      ),
+    );
+  }
+
+  /// Set the first-run flag (D-05). Single-column upsert so the gate is
+  /// stable across restarts. Targets the single row at `id = 1`; the first
+  /// write CREATES it (a fresh install has no row per D-04, so a guest Skip
+  /// must be able to create it), later writes update in place. All other
+  /// columns take their table defaults — i.e. the guest default state
+  /// (userId=local_user, darkMode=system, …) — consistent with
+  /// `getOrDefault()`.
+  ///
+  /// The single positional bool reads clearly at every call site
+  /// (`setHasSeenOnboarding(true)`); there is no second flag to confuse it
+  /// with, so the named-parameter lint is intentionally suppressed here.
+  // ignore: avoid_positional_boolean_parameters
+  Future<void> setHasSeenOnboarding(bool value) {
+    return into(userPreferences).insertOnConflictUpdate(
+      UserPreferencesCompanion.insert(
+        id: const Value<int>(_kUserPreferencesId),
+        hasSeenOnboarding: Value<bool>(value),
       ),
     );
   }

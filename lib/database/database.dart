@@ -37,7 +37,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -89,6 +89,23 @@ class AppDatabase extends _$AppDatabase {
         // unchanged and reads is_edited=false (T-19-01). Ordered AFTER the
         // from<3 branch so a v1/v2/v3 install runs every branch in sequence.
         await m.addColumn(trips, trips.isEdited);
+      }
+      if (from < 5 && to >= 5) {
+        // Phase 20 (D-01/D-02): v4 → v5 adds the boolean
+        // user_preferences.has_seen_onboarding column (default false) that
+        // drives the first-run login gate. Additive — no DROP/DELETE touches
+        // existing rows.
+        await m.addColumn(userPreferences, userPreferences.hasSeenOnboarding);
+        // D-02 returning-user guard: an install that reaches this migration
+        // has, by definition, already passed first-run. Flip the EXISTING
+        // single row (id = 1) to true so the login wall is FIRST-INSTALL
+        // ONLY — a returning user is never walled after an update. Fresh
+        // installs run onCreate (no row), so getOrDefault() returns false and
+        // the wall shows exactly once. Ordered AFTER the from<4 branch so a
+        // v1..v4 install runs every branch in sequence.
+        await customStatement(
+          'UPDATE user_preferences SET has_seen_onboarding = 1 WHERE id = 1',
+        );
       }
     },
     beforeOpen: (details) async {

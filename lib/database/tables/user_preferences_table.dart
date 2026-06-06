@@ -63,6 +63,19 @@ class UserPreferences extends Table {
   BoolColumn get autoPauseEnabled =>
       boolean().withDefault(const Constant(false))();
 
+  /// True once the user has cleared the first-run login wall (Phase 20,
+  /// D-01/D-02). Drives the root gate in `lib/app.dart`: while false a guest
+  /// sees the `LoginScreen`; after Skip or a successful Google sign-in it
+  /// flips true and the gate routes to the main shell.
+  ///
+  /// Default false. Added by schema migration v4 → v5; the migration's
+  /// returning-user guard (D-02) flips the EXISTING single row to true so a
+  /// pre-update install is NEVER walled — the login screen is first-INSTALL
+  /// only. Fresh installs run `onCreate` (no row) → `getOrDefault()` returns
+  /// false → the wall shows exactly once.
+  BoolColumn get hasSeenOnboarding =>
+      boolean().withDefault(const Constant(false))();
+
   @override
   Set<Column<Object>> get primaryKey => {id};
 }

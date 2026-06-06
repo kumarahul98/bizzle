@@ -63,6 +63,7 @@ Future<ThemeMode?> _resolvedThemeMode(
               weekendReminder: false,
               weeklyNotificationEnabled: false,
               autoPauseEnabled: false,
+              hasSeenOnboarding: false,
             ),
           ),
         ),

@@ -310,6 +310,9 @@ UserPreferencesValue _copyPrefs(
   weeklyNotificationEnabled:
       weeklyNotificationEnabled ?? prefs.weeklyNotificationEnabled,
   autoPauseEnabled: autoPauseEnabled ?? prefs.autoPauseEnabled,
+  // Preserve the first-run flag (Phase 20) — a settings write must never
+  // reset it and re-trigger the login wall.
+  hasSeenOnboarding: prefs.hasSeenOnboarding,
 );
 
 class _UnsetSentinel {

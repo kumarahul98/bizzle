@@ -36,6 +36,7 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:traevy/config/constants.dart';
+import 'package:traevy/database/daos/sync_queue_dao.dart';
 import 'package:traevy/database/daos/trips_dao.dart';
 import 'package:traevy/database/daos/user_preferences_dao.dart';
 
@@ -80,8 +81,7 @@ class _FakeSecureStorage implements FlutterSecureStorage {
     WebOptions? webOptions,
     WindowsOptions? wOptions,
     AppleOptions? mOptions,
-  }) async =>
-      _store[key];
+  }) async => _store[key];
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -123,6 +123,21 @@ class _FakeUserPreferencesDao implements UserPreferencesDao {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+/// Fake SyncQueueDao that records reconcilePendingUserId calls (Phase 20,
+/// D-08). signIn() reconciles the guest backlog inside its transaction.
+class _FakeSyncQueueDao implements SyncQueueDao {
+  final List<String> calls = <String>[];
+
+  @override
+  Future<int> reconcilePendingUserId(String newUserId) async {
+    calls.add('reconcilePendingUserId:$newUserId');
+    return 0;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 /// Fake AuthService dependency container used by each test.
 ///
 /// Calls through to the real `AuthService` constructor; injects fakes so
@@ -133,11 +148,13 @@ class _FakeAuthDependencies {
     int backfillResult = 1,
   }) : secureStorage = _FakeSecureStorage(),
        tripsDao = _FakeTripsDao(backfillResult: backfillResult),
-       prefsDao = _FakeUserPreferencesDao();
+       prefsDao = _FakeUserPreferencesDao(),
+       syncQueueDao = _FakeSyncQueueDao();
 
   final _FakeSecureStorage secureStorage;
   final _FakeTripsDao tripsDao;
   final _FakeUserPreferencesDao prefsDao;
+  final _FakeSyncQueueDao syncQueueDao;
 
   /// Creates an `AuthService` with the fake dependencies injected.
   ///
@@ -148,6 +165,7 @@ class _FakeAuthDependencies {
       secureStorage: secureStorage,
       tripsDao: tripsDao,
       prefsDao: prefsDao,
+      syncQueueDao: syncQueueDao,
     );
   }
 }
@@ -192,7 +210,10 @@ void main() {
         //   token substring appears in captured output.
         //
         // Full implementation requires the signIn() fake seam (Plan 09-03).
-        expect(true, isTrue); // placeholder assertion so the test structure is visible
+        expect(
+          true,
+          isTrue,
+        ); // placeholder assertion so the test structure is visible
       },
       skip: 'RED — requires signIn() fake seam (Plan 09-03)',
     );

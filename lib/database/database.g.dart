@@ -1581,6 +1581,21 @@ class $UserPreferencesTable extends UserPreferences
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _hasSeenOnboardingMeta = const VerificationMeta(
+    'hasSeenOnboarding',
+  );
+  @override
+  late final GeneratedColumn<bool> hasSeenOnboarding = GeneratedColumn<bool>(
+    'has_seen_onboarding',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("has_seen_onboarding" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1593,6 +1608,7 @@ class $UserPreferencesTable extends UserPreferences
     weekendReminder,
     weeklyNotificationEnabled,
     autoPauseEnabled,
+    hasSeenOnboarding,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1684,6 +1700,15 @@ class $UserPreferencesTable extends UserPreferences
         ),
       );
     }
+    if (data.containsKey('has_seen_onboarding')) {
+      context.handle(
+        _hasSeenOnboardingMeta,
+        hasSeenOnboarding.isAcceptableOrUnknown(
+          data['has_seen_onboarding']!,
+          _hasSeenOnboardingMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1732,6 +1757,10 @@ class $UserPreferencesTable extends UserPreferences
       autoPauseEnabled: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}auto_pause_enabled'],
+      )!,
+      hasSeenOnboarding: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}has_seen_onboarding'],
       )!,
     );
   }
@@ -1785,6 +1814,18 @@ class UserPreferencesRow extends DataClass
   /// v2 → v3; `withDefault(const Constant(false))` gives every existing
   /// row false automatically.
   final bool autoPauseEnabled;
+
+  /// True once the user has cleared the first-run login wall (Phase 20,
+  /// D-01/D-02). Drives the root gate in `lib/app.dart`: while false a guest
+  /// sees the [LoginScreen]; after Skip or a successful Google sign-in it
+  /// flips true and the gate routes to the main shell.
+  ///
+  /// Default false. Added by schema migration v4 → v5; the migration's
+  /// returning-user guard (D-02) flips the EXISTING single row to true so a
+  /// pre-update install is NEVER walled — the login screen is first-INSTALL
+  /// only. Fresh installs run `onCreate` (no row) → `getOrDefault()` returns
+  /// false → the wall shows exactly once.
+  final bool hasSeenOnboarding;
   const UserPreferencesRow({
     required this.id,
     required this.userId,
@@ -1796,6 +1837,7 @@ class UserPreferencesRow extends DataClass
     required this.weekendReminder,
     required this.weeklyNotificationEnabled,
     required this.autoPauseEnabled,
+    required this.hasSeenOnboarding,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1814,6 +1856,7 @@ class UserPreferencesRow extends DataClass
       weeklyNotificationEnabled,
     );
     map['auto_pause_enabled'] = Variable<bool>(autoPauseEnabled);
+    map['has_seen_onboarding'] = Variable<bool>(hasSeenOnboarding);
     return map;
   }
 
@@ -1831,6 +1874,7 @@ class UserPreferencesRow extends DataClass
       weekendReminder: Value(weekendReminder),
       weeklyNotificationEnabled: Value(weeklyNotificationEnabled),
       autoPauseEnabled: Value(autoPauseEnabled),
+      hasSeenOnboarding: Value(hasSeenOnboarding),
     );
   }
 
@@ -1852,6 +1896,7 @@ class UserPreferencesRow extends DataClass
         json['weeklyNotificationEnabled'],
       ),
       autoPauseEnabled: serializer.fromJson<bool>(json['autoPauseEnabled']),
+      hasSeenOnboarding: serializer.fromJson<bool>(json['hasSeenOnboarding']),
     );
   }
   @override
@@ -1870,6 +1915,7 @@ class UserPreferencesRow extends DataClass
         weeklyNotificationEnabled,
       ),
       'autoPauseEnabled': serializer.toJson<bool>(autoPauseEnabled),
+      'hasSeenOnboarding': serializer.toJson<bool>(hasSeenOnboarding),
     };
   }
 
@@ -1884,6 +1930,7 @@ class UserPreferencesRow extends DataClass
     bool? weekendReminder,
     bool? weeklyNotificationEnabled,
     bool? autoPauseEnabled,
+    bool? hasSeenOnboarding,
   }) => UserPreferencesRow(
     id: id ?? this.id,
     userId: userId ?? this.userId,
@@ -1896,6 +1943,7 @@ class UserPreferencesRow extends DataClass
     weeklyNotificationEnabled:
         weeklyNotificationEnabled ?? this.weeklyNotificationEnabled,
     autoPauseEnabled: autoPauseEnabled ?? this.autoPauseEnabled,
+    hasSeenOnboarding: hasSeenOnboarding ?? this.hasSeenOnboarding,
   );
   UserPreferencesRow copyWithCompanion(UserPreferencesCompanion data) {
     return UserPreferencesRow(
@@ -1923,6 +1971,9 @@ class UserPreferencesRow extends DataClass
       autoPauseEnabled: data.autoPauseEnabled.present
           ? data.autoPauseEnabled.value
           : this.autoPauseEnabled,
+      hasSeenOnboarding: data.hasSeenOnboarding.present
+          ? data.hasSeenOnboarding.value
+          : this.hasSeenOnboarding,
     );
   }
 
@@ -1938,7 +1989,8 @@ class UserPreferencesRow extends DataClass
           ..write('reminderTime: $reminderTime, ')
           ..write('weekendReminder: $weekendReminder, ')
           ..write('weeklyNotificationEnabled: $weeklyNotificationEnabled, ')
-          ..write('autoPauseEnabled: $autoPauseEnabled')
+          ..write('autoPauseEnabled: $autoPauseEnabled, ')
+          ..write('hasSeenOnboarding: $hasSeenOnboarding')
           ..write(')'))
         .toString();
   }
@@ -1955,6 +2007,7 @@ class UserPreferencesRow extends DataClass
     weekendReminder,
     weeklyNotificationEnabled,
     autoPauseEnabled,
+    hasSeenOnboarding,
   );
   @override
   bool operator ==(Object other) =>
@@ -1969,7 +2022,8 @@ class UserPreferencesRow extends DataClass
           other.reminderTime == this.reminderTime &&
           other.weekendReminder == this.weekendReminder &&
           other.weeklyNotificationEnabled == this.weeklyNotificationEnabled &&
-          other.autoPauseEnabled == this.autoPauseEnabled);
+          other.autoPauseEnabled == this.autoPauseEnabled &&
+          other.hasSeenOnboarding == this.hasSeenOnboarding);
 }
 
 class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
@@ -1983,6 +2037,7 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
   final Value<bool> weekendReminder;
   final Value<bool> weeklyNotificationEnabled;
   final Value<bool> autoPauseEnabled;
+  final Value<bool> hasSeenOnboarding;
   const UserPreferencesCompanion({
     this.id = const Value.absent(),
     this.userId = const Value.absent(),
@@ -1994,6 +2049,7 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
     this.weekendReminder = const Value.absent(),
     this.weeklyNotificationEnabled = const Value.absent(),
     this.autoPauseEnabled = const Value.absent(),
+    this.hasSeenOnboarding = const Value.absent(),
   });
   UserPreferencesCompanion.insert({
     this.id = const Value.absent(),
@@ -2006,6 +2062,7 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
     this.weekendReminder = const Value.absent(),
     this.weeklyNotificationEnabled = const Value.absent(),
     this.autoPauseEnabled = const Value.absent(),
+    this.hasSeenOnboarding = const Value.absent(),
   });
   static Insertable<UserPreferencesRow> custom({
     Expression<int>? id,
@@ -2018,6 +2075,7 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
     Expression<bool>? weekendReminder,
     Expression<bool>? weeklyNotificationEnabled,
     Expression<bool>? autoPauseEnabled,
+    Expression<bool>? hasSeenOnboarding,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -2031,6 +2089,7 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
       if (weeklyNotificationEnabled != null)
         'weekly_notification_enabled': weeklyNotificationEnabled,
       if (autoPauseEnabled != null) 'auto_pause_enabled': autoPauseEnabled,
+      if (hasSeenOnboarding != null) 'has_seen_onboarding': hasSeenOnboarding,
     });
   }
 
@@ -2045,6 +2104,7 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
     Value<bool>? weekendReminder,
     Value<bool>? weeklyNotificationEnabled,
     Value<bool>? autoPauseEnabled,
+    Value<bool>? hasSeenOnboarding,
   }) {
     return UserPreferencesCompanion(
       id: id ?? this.id,
@@ -2058,6 +2118,7 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
       weeklyNotificationEnabled:
           weeklyNotificationEnabled ?? this.weeklyNotificationEnabled,
       autoPauseEnabled: autoPauseEnabled ?? this.autoPauseEnabled,
+      hasSeenOnboarding: hasSeenOnboarding ?? this.hasSeenOnboarding,
     );
   }
 
@@ -2096,6 +2157,9 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
     if (autoPauseEnabled.present) {
       map['auto_pause_enabled'] = Variable<bool>(autoPauseEnabled.value);
     }
+    if (hasSeenOnboarding.present) {
+      map['has_seen_onboarding'] = Variable<bool>(hasSeenOnboarding.value);
+    }
     return map;
   }
 
@@ -2111,7 +2175,8 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
           ..write('reminderTime: $reminderTime, ')
           ..write('weekendReminder: $weekendReminder, ')
           ..write('weeklyNotificationEnabled: $weeklyNotificationEnabled, ')
-          ..write('autoPauseEnabled: $autoPauseEnabled')
+          ..write('autoPauseEnabled: $autoPauseEnabled, ')
+          ..write('hasSeenOnboarding: $hasSeenOnboarding')
           ..write(')'))
         .toString();
   }
@@ -3239,6 +3304,7 @@ typedef $$UserPreferencesTableCreateCompanionBuilder =
       Value<bool> weekendReminder,
       Value<bool> weeklyNotificationEnabled,
       Value<bool> autoPauseEnabled,
+      Value<bool> hasSeenOnboarding,
     });
 typedef $$UserPreferencesTableUpdateCompanionBuilder =
     UserPreferencesCompanion Function({
@@ -3252,6 +3318,7 @@ typedef $$UserPreferencesTableUpdateCompanionBuilder =
       Value<bool> weekendReminder,
       Value<bool> weeklyNotificationEnabled,
       Value<bool> autoPauseEnabled,
+      Value<bool> hasSeenOnboarding,
     });
 
 class $$UserPreferencesTableFilterComposer
@@ -3310,6 +3377,11 @@ class $$UserPreferencesTableFilterComposer
 
   ColumnFilters<bool> get autoPauseEnabled => $composableBuilder(
     column: $table.autoPauseEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get hasSeenOnboarding => $composableBuilder(
+    column: $table.hasSeenOnboarding,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -3372,6 +3444,11 @@ class $$UserPreferencesTableOrderingComposer
     column: $table.autoPauseEnabled,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get hasSeenOnboarding => $composableBuilder(
+    column: $table.hasSeenOnboarding,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$UserPreferencesTableAnnotationComposer
@@ -3426,6 +3503,11 @@ class $$UserPreferencesTableAnnotationComposer
     column: $table.autoPauseEnabled,
     builder: (column) => column,
   );
+
+  GeneratedColumn<bool> get hasSeenOnboarding => $composableBuilder(
+    column: $table.hasSeenOnboarding,
+    builder: (column) => column,
+  );
 }
 
 class $$UserPreferencesTableTableManager
@@ -3475,6 +3557,7 @@ class $$UserPreferencesTableTableManager
                 Value<bool> weekendReminder = const Value.absent(),
                 Value<bool> weeklyNotificationEnabled = const Value.absent(),
                 Value<bool> autoPauseEnabled = const Value.absent(),
+                Value<bool> hasSeenOnboarding = const Value.absent(),
               }) => UserPreferencesCompanion(
                 id: id,
                 userId: userId,
@@ -3486,6 +3569,7 @@ class $$UserPreferencesTableTableManager
                 weekendReminder: weekendReminder,
                 weeklyNotificationEnabled: weeklyNotificationEnabled,
                 autoPauseEnabled: autoPauseEnabled,
+                hasSeenOnboarding: hasSeenOnboarding,
               ),
           createCompanionCallback:
               ({
@@ -3499,6 +3583,7 @@ class $$UserPreferencesTableTableManager
                 Value<bool> weekendReminder = const Value.absent(),
                 Value<bool> weeklyNotificationEnabled = const Value.absent(),
                 Value<bool> autoPauseEnabled = const Value.absent(),
+                Value<bool> hasSeenOnboarding = const Value.absent(),
               }) => UserPreferencesCompanion.insert(
                 id: id,
                 userId: userId,
@@ -3510,6 +3595,7 @@ class $$UserPreferencesTableTableManager
                 weekendReminder: weekendReminder,
                 weeklyNotificationEnabled: weeklyNotificationEnabled,
                 autoPauseEnabled: autoPauseEnabled,
+                hasSeenOnboarding: hasSeenOnboarding,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
