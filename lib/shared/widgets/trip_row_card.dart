@@ -16,6 +16,7 @@ class TripRowCard extends StatelessWidget {
     required this.durationSeconds,
     required this.distanceMeters,
     required this.stuckSeconds,
+    this.isEdited = false,
     this.showDivider = true,
     this.onTap,
     super.key,
@@ -27,6 +28,11 @@ class TripRowCard extends StatelessWidget {
   final int durationSeconds;
   final double distanceMeters;
   final int stuckSeconds;
+
+  /// True for a trip that has been fully edited (Phase 19, D-04). Surfaces the
+  /// "~ estimated" hint on the row's stuck figure. Defaults to false so
+  /// existing call sites compile unchanged.
+  final bool isEdited;
   final bool showDivider;
   final VoidCallback? onTap;
 
@@ -64,8 +70,9 @@ class TripRowCard extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     radius: 18,
-                    backgroundColor:
-                        isOffice ? tokens.accentBg : tokens.movingBg,
+                    backgroundColor: isOffice
+                        ? tokens.accentBg
+                        : tokens.movingBg,
                     child: Icon(
                       isOffice
                           ? Icons.arrow_forward_rounded
@@ -81,6 +88,7 @@ class TripRowCard extends StatelessWidget {
                       durationLabel: _dur(durationSeconds),
                       timeRange: timeRange,
                       stuckMins: stuckSeconds ~/ 60,
+                      isEdited: isEdited,
                     ),
                   ),
                 ],
@@ -88,8 +96,7 @@ class TripRowCard extends StatelessWidget {
             ),
           ),
         ),
-        if (showDivider)
-          Divider(color: tokens.border, thickness: 1, height: 1),
+        if (showDivider) Divider(color: tokens.border, thickness: 1, height: 1),
       ],
     );
   }
