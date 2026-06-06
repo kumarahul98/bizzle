@@ -303,6 +303,7 @@ UserPreferencesValue _copyPrefs(
   weekendReminder: weekendReminder ?? prefs.weekendReminder,
   weeklyNotificationEnabled:
       weeklyNotificationEnabled ?? prefs.weeklyNotificationEnabled,
+  autoPauseEnabled: prefs.autoPauseEnabled,
 );
 
 class _UnsetSentinel {

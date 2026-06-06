@@ -62,6 +62,7 @@ Future<ThemeMode?> _resolvedThemeMode(
               reminderTime: null,
               weekendReminder: false,
               weeklyNotificationEnabled: false,
+              autoPauseEnabled: false,
             ),
           ),
         ),

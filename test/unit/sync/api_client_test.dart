@@ -12,20 +12,21 @@ void main() {
   const testBaseUrl = 'https://test.example/api';
 
   TripRow sampleTrip() => TripRow(
-        id: '11111111-1111-4111-8111-111111111111',
-        userId: kDefaultUserId,
-        startTime: DateTime.utc(2026, 5, 31, 8, 30),
-        endTime: DateTime.utc(2026, 5, 31, 9),
-        durationSeconds: 1800,
-        distanceMeters: 12500.5,
-        routePolyline: 'abc_polyline',
-        direction: kDirectionToOffice,
-        timeMovingSeconds: 1500,
-        timeStuckSeconds: 300,
-        isManualEntry: false,
-        createdAt: DateTime.utc(2026, 5, 31, 9, 0, 1),
-        updatedAt: DateTime.utc(2026, 5, 31, 9, 0, 2),
-      );
+    id: '11111111-1111-4111-8111-111111111111',
+    userId: kDefaultUserId,
+    startTime: DateTime.utc(2026, 5, 31, 8, 30),
+    endTime: DateTime.utc(2026, 5, 31, 9),
+    durationSeconds: 1800,
+    totalPausedSeconds: 0,
+    distanceMeters: 12500.5,
+    routePolyline: 'abc_polyline',
+    direction: kDirectionToOffice,
+    timeMovingSeconds: 1500,
+    timeStuckSeconds: 300,
+    isManualEntry: false,
+    createdAt: DateTime.utc(2026, 5, 31, 9, 0, 1),
+    updatedAt: DateTime.utc(2026, 5, 31, 9, 0, 2),
+  );
 
   // A token-getter that always returns the same token.
   Future<String?> Function({bool forceRefresh}) fixedToken(String token) =>
@@ -34,12 +35,11 @@ void main() {
   ApiClient build(
     MockClient client, {
     Future<String?> Function({bool forceRefresh})? getToken,
-  }) =>
-      ApiClient(
-        client: client,
-        baseUrl: testBaseUrl,
-        getToken: getToken ?? fixedToken('tok1'),
-      );
+  }) => ApiClient(
+    client: client,
+    baseUrl: testBaseUrl,
+    getToken: getToken ?? fixedToken('tok1'),
+  );
 
   group('ApiClient.syncTrips', () {
     test('POSTs to /trips/sync with Bearer header and {trips:[...]} body', () {
@@ -82,19 +82,21 @@ void main() {
       expect(tokens, ['Bearer tok1', 'Bearer tok2']);
     });
 
-    test('persistent 401 throws SyncException(statusCode:401, retryable:true)',
-        () async {
-      final client = MockClient((req) async => http.Response('{}', 401));
+    test(
+      'persistent 401 throws SyncException(statusCode:401, retryable:true)',
+      () async {
+        final client = MockClient((req) async => http.Response('{}', 401));
 
-      expect(
-        () => build(client).syncTrips([sampleTrip()]),
-        throwsA(
-          isA<SyncException>()
-              .having((e) => e.statusCode, 'statusCode', 401)
-              .having((e) => e.retryable, 'retryable', true),
-        ),
-      );
-    });
+        expect(
+          () => build(client).syncTrips([sampleTrip()]),
+          throwsA(
+            isA<SyncException>()
+                .having((e) => e.statusCode, 'statusCode', 401)
+                .having((e) => e.retryable, 'retryable', true),
+          ),
+        );
+      },
+    );
 
     test('503 throws SyncException(statusCode:503, retryable:true)', () {
       final client = MockClient((req) async => http.Response('{}', 503));
@@ -137,23 +139,25 @@ void main() {
       );
     });
 
-    test('a refresh-getter that throws surfaces as retryable SyncException',
-        () async {
-      final client = MockClient((req) async => http.Response('{}', 401));
-      Future<String?> getToken({bool forceRefresh = false}) async {
-        if (forceRefresh) throw http.ClientException('refresh failed');
-        return 'tok1';
-      }
+    test(
+      'a refresh-getter that throws surfaces as retryable SyncException',
+      () async {
+        final client = MockClient((req) async => http.Response('{}', 401));
+        Future<String?> getToken({bool forceRefresh = false}) async {
+          if (forceRefresh) throw http.ClientException('refresh failed');
+          return 'tok1';
+        }
 
-      await expectLater(
-        () => build(client, getToken: getToken).syncTrips([sampleTrip()]),
-        throwsA(
-          isA<SyncException>()
-              .having((e) => e.retryable, 'retryable', true)
-              .having((e) => e.notSignedIn, 'notSignedIn', false),
-        ),
-      );
-    });
+        await expectLater(
+          () => build(client, getToken: getToken).syncTrips([sampleTrip()]),
+          throwsA(
+            isA<SyncException>()
+                .having((e) => e.retryable, 'retryable', true)
+                .having((e) => e.notSignedIn, 'notSignedIn', false),
+          ),
+        );
+      },
+    );
 
     test('not signed in throws notSignedIn and makes no request', () async {
       var called = false;
@@ -222,11 +226,11 @@ void main() {
 
   group('ApiClient.restoreTrips', () {
     String envelope(List<Map<String, dynamic>> trips) => jsonEncode({
-          'statusCode': 200,
-          'body': {
-            'data': {'trips': trips},
-          },
-        });
+      'statusCode': 200,
+      'body': {
+        'data': {'trips': trips},
+      },
+    });
 
     test('unwraps the FULL envelope body.data.trips into companions', () async {
       final t1 = TripSerializer.toJson(sampleTrip());
@@ -275,21 +279,22 @@ void main() {
       );
     });
 
-    test('non-object top-level JSON throws retryable SyncException (HR-01)',
-        () {
-      // A top-level array — `as Map` would throw a TypeError; re-map it.
-      final client = MockClient(
-        (req) async => http.Response('[1,2,3]', 200),
-      );
+    test(
+      'non-object top-level JSON throws retryable SyncException (HR-01)',
+      () {
+        // A top-level array — `as Map` would throw a TypeError; re-map it.
+        final client = MockClient(
+          (req) async => http.Response('[1,2,3]', 200),
+        );
 
-      expect(
-        () => build(client).restoreTrips(),
-        throwsA(
-          isA<SyncException>()
-              .having((e) => e.retryable, 'retryable', true),
-        ),
-      );
-    });
+        expect(
+          () => build(client).restoreTrips(),
+          throwsA(
+            isA<SyncException>().having((e) => e.retryable, 'retryable', true),
+          ),
+        );
+      },
+    );
 
     test('a malformed trip element throws retryable SyncException (HR-01)', () {
       // Well-formed envelope, but a trip element is missing required keys /
@@ -306,8 +311,7 @@ void main() {
       expect(
         () => build(client).restoreTrips(),
         throwsA(
-          isA<SyncException>()
-              .having((e) => e.retryable, 'retryable', true),
+          isA<SyncException>().having((e) => e.retryable, 'retryable', true),
         ),
       );
     });

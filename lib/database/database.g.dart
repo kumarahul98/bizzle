@@ -60,6 +60,17 @@ class $TripsTable extends Trips with TableInfo<$TripsTable, TripRow> {
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _totalPausedSecondsMeta =
+      const VerificationMeta('totalPausedSeconds');
+  @override
+  late final GeneratedColumn<int> totalPausedSeconds = GeneratedColumn<int>(
+    'total_paused_seconds',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   static const VerificationMeta _distanceMetersMeta = const VerificationMeta(
     'distanceMeters',
   );
@@ -161,6 +172,7 @@ class $TripsTable extends Trips with TableInfo<$TripsTable, TripRow> {
     startTime,
     endTime,
     durationSeconds,
+    totalPausedSeconds,
     distanceMeters,
     routePolyline,
     direction,
@@ -219,6 +231,15 @@ class $TripsTable extends Trips with TableInfo<$TripsTable, TripRow> {
       );
     } else if (isInserting) {
       context.missing(_durationSecondsMeta);
+    }
+    if (data.containsKey('total_paused_seconds')) {
+      context.handle(
+        _totalPausedSecondsMeta,
+        totalPausedSeconds.isAcceptableOrUnknown(
+          data['total_paused_seconds']!,
+          _totalPausedSecondsMeta,
+        ),
+      );
     }
     if (data.containsKey('distance_meters')) {
       context.handle(
@@ -320,6 +341,10 @@ class $TripsTable extends Trips with TableInfo<$TripsTable, TripRow> {
         DriftSqlType.int,
         data['${effectivePrefix}duration_seconds'],
       )!,
+      totalPausedSeconds: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}total_paused_seconds'],
+      )!,
       distanceMeters: attachedDatabase.typeMapping.read(
         DriftSqlType.double,
         data['${effectivePrefix}distance_meters'],
@@ -375,9 +400,19 @@ class TripRow extends DataClass implements Insertable<TripRow> {
   /// Trip end timestamp, stored in UTC.
   final DateTime endTime;
 
-  /// Derived from `endTime - startTime` by the trip processor so stats
-  /// queries do not have to recompute per row.
+  /// ACTIVE trip duration in seconds (D-03). From Phase 18 onward this
+  /// means wall-clock time MINUS `totalPausedSeconds` (time spent paused),
+  /// computed by finalize. STORAGE is unchanged from Phase 1 — only the
+  /// MEANING is redefined. Historical rows are unaffected: with no breaks
+  /// `totalPausedSeconds` is 0, so active duration equals wall-clock.
   final int durationSeconds;
+
+  /// Denormalized aggregate of all paused time for this trip, in seconds
+  /// (D-02). Default 0 keeps every existing v1/v2 row safe across the
+  /// v3 migration — rows that never paused read 0. Written by finalize
+  /// (Plan 02) from the sum of `trip_breaks` segment durations, and stored
+  /// here so the daily-log list and stats render without a JOIN.
+  final int totalPausedSeconds;
 
   /// Distance from the GPS provider, in meters.
   final double distanceMeters;
@@ -415,6 +450,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
     required this.startTime,
     required this.endTime,
     required this.durationSeconds,
+    required this.totalPausedSeconds,
     required this.distanceMeters,
     this.routePolyline,
     required this.direction,
@@ -432,6 +468,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
     map['start_time'] = Variable<DateTime>(startTime);
     map['end_time'] = Variable<DateTime>(endTime);
     map['duration_seconds'] = Variable<int>(durationSeconds);
+    map['total_paused_seconds'] = Variable<int>(totalPausedSeconds);
     map['distance_meters'] = Variable<double>(distanceMeters);
     if (!nullToAbsent || routePolyline != null) {
       map['route_polyline'] = Variable<String>(routePolyline);
@@ -452,6 +489,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
       startTime: Value(startTime),
       endTime: Value(endTime),
       durationSeconds: Value(durationSeconds),
+      totalPausedSeconds: Value(totalPausedSeconds),
       distanceMeters: Value(distanceMeters),
       routePolyline: routePolyline == null && nullToAbsent
           ? const Value.absent()
@@ -476,6 +514,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
       startTime: serializer.fromJson<DateTime>(json['startTime']),
       endTime: serializer.fromJson<DateTime>(json['endTime']),
       durationSeconds: serializer.fromJson<int>(json['durationSeconds']),
+      totalPausedSeconds: serializer.fromJson<int>(json['totalPausedSeconds']),
       distanceMeters: serializer.fromJson<double>(json['distanceMeters']),
       routePolyline: serializer.fromJson<String?>(json['routePolyline']),
       direction: serializer.fromJson<String>(json['direction']),
@@ -495,6 +534,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
       'startTime': serializer.toJson<DateTime>(startTime),
       'endTime': serializer.toJson<DateTime>(endTime),
       'durationSeconds': serializer.toJson<int>(durationSeconds),
+      'totalPausedSeconds': serializer.toJson<int>(totalPausedSeconds),
       'distanceMeters': serializer.toJson<double>(distanceMeters),
       'routePolyline': serializer.toJson<String?>(routePolyline),
       'direction': serializer.toJson<String>(direction),
@@ -512,6 +552,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
     DateTime? startTime,
     DateTime? endTime,
     int? durationSeconds,
+    int? totalPausedSeconds,
     double? distanceMeters,
     Value<String?> routePolyline = const Value.absent(),
     String? direction,
@@ -526,6 +567,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
     startTime: startTime ?? this.startTime,
     endTime: endTime ?? this.endTime,
     durationSeconds: durationSeconds ?? this.durationSeconds,
+    totalPausedSeconds: totalPausedSeconds ?? this.totalPausedSeconds,
     distanceMeters: distanceMeters ?? this.distanceMeters,
     routePolyline: routePolyline.present
         ? routePolyline.value
@@ -546,6 +588,9 @@ class TripRow extends DataClass implements Insertable<TripRow> {
       durationSeconds: data.durationSeconds.present
           ? data.durationSeconds.value
           : this.durationSeconds,
+      totalPausedSeconds: data.totalPausedSeconds.present
+          ? data.totalPausedSeconds.value
+          : this.totalPausedSeconds,
       distanceMeters: data.distanceMeters.present
           ? data.distanceMeters.value
           : this.distanceMeters,
@@ -575,6 +620,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
           ..write('startTime: $startTime, ')
           ..write('endTime: $endTime, ')
           ..write('durationSeconds: $durationSeconds, ')
+          ..write('totalPausedSeconds: $totalPausedSeconds, ')
           ..write('distanceMeters: $distanceMeters, ')
           ..write('routePolyline: $routePolyline, ')
           ..write('direction: $direction, ')
@@ -594,6 +640,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
     startTime,
     endTime,
     durationSeconds,
+    totalPausedSeconds,
     distanceMeters,
     routePolyline,
     direction,
@@ -612,6 +659,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
           other.startTime == this.startTime &&
           other.endTime == this.endTime &&
           other.durationSeconds == this.durationSeconds &&
+          other.totalPausedSeconds == this.totalPausedSeconds &&
           other.distanceMeters == this.distanceMeters &&
           other.routePolyline == this.routePolyline &&
           other.direction == this.direction &&
@@ -628,6 +676,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
   final Value<DateTime> startTime;
   final Value<DateTime> endTime;
   final Value<int> durationSeconds;
+  final Value<int> totalPausedSeconds;
   final Value<double> distanceMeters;
   final Value<String?> routePolyline;
   final Value<String> direction;
@@ -643,6 +692,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
     this.startTime = const Value.absent(),
     this.endTime = const Value.absent(),
     this.durationSeconds = const Value.absent(),
+    this.totalPausedSeconds = const Value.absent(),
     this.distanceMeters = const Value.absent(),
     this.routePolyline = const Value.absent(),
     this.direction = const Value.absent(),
@@ -659,6 +709,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
     required DateTime startTime,
     required DateTime endTime,
     required int durationSeconds,
+    this.totalPausedSeconds = const Value.absent(),
     required double distanceMeters,
     this.routePolyline = const Value.absent(),
     required String direction,
@@ -682,6 +733,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
     Expression<DateTime>? startTime,
     Expression<DateTime>? endTime,
     Expression<int>? durationSeconds,
+    Expression<int>? totalPausedSeconds,
     Expression<double>? distanceMeters,
     Expression<String>? routePolyline,
     Expression<String>? direction,
@@ -698,6 +750,8 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
       if (startTime != null) 'start_time': startTime,
       if (endTime != null) 'end_time': endTime,
       if (durationSeconds != null) 'duration_seconds': durationSeconds,
+      if (totalPausedSeconds != null)
+        'total_paused_seconds': totalPausedSeconds,
       if (distanceMeters != null) 'distance_meters': distanceMeters,
       if (routePolyline != null) 'route_polyline': routePolyline,
       if (direction != null) 'direction': direction,
@@ -716,6 +770,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
     Value<DateTime>? startTime,
     Value<DateTime>? endTime,
     Value<int>? durationSeconds,
+    Value<int>? totalPausedSeconds,
     Value<double>? distanceMeters,
     Value<String?>? routePolyline,
     Value<String>? direction,
@@ -732,6 +787,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
       startTime: startTime ?? this.startTime,
       endTime: endTime ?? this.endTime,
       durationSeconds: durationSeconds ?? this.durationSeconds,
+      totalPausedSeconds: totalPausedSeconds ?? this.totalPausedSeconds,
       distanceMeters: distanceMeters ?? this.distanceMeters,
       routePolyline: routePolyline ?? this.routePolyline,
       direction: direction ?? this.direction,
@@ -761,6 +817,9 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
     }
     if (durationSeconds.present) {
       map['duration_seconds'] = Variable<int>(durationSeconds.value);
+    }
+    if (totalPausedSeconds.present) {
+      map['total_paused_seconds'] = Variable<int>(totalPausedSeconds.value);
     }
     if (distanceMeters.present) {
       map['distance_meters'] = Variable<double>(distanceMeters.value);
@@ -800,6 +859,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
           ..write('startTime: $startTime, ')
           ..write('endTime: $endTime, ')
           ..write('durationSeconds: $durationSeconds, ')
+          ..write('totalPausedSeconds: $totalPausedSeconds, ')
           ..write('distanceMeters: $distanceMeters, ')
           ..write('routePolyline: $routePolyline, ')
           ..write('direction: $direction, ')
@@ -1448,6 +1508,21 @@ class $UserPreferencesTable extends UserPreferences
         ),
         defaultValue: const Constant(false),
       );
+  static const VerificationMeta _autoPauseEnabledMeta = const VerificationMeta(
+    'autoPauseEnabled',
+  );
+  @override
+  late final GeneratedColumn<bool> autoPauseEnabled = GeneratedColumn<bool>(
+    'auto_pause_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("auto_pause_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1459,6 +1534,7 @@ class $UserPreferencesTable extends UserPreferences
     reminderTime,
     weekendReminder,
     weeklyNotificationEnabled,
+    autoPauseEnabled,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1541,6 +1617,15 @@ class $UserPreferencesTable extends UserPreferences
         ),
       );
     }
+    if (data.containsKey('auto_pause_enabled')) {
+      context.handle(
+        _autoPauseEnabledMeta,
+        autoPauseEnabled.isAcceptableOrUnknown(
+          data['auto_pause_enabled']!,
+          _autoPauseEnabledMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1586,6 +1671,10 @@ class $UserPreferencesTable extends UserPreferences
         DriftSqlType.bool,
         data['${effectivePrefix}weekly_notification_enabled'],
       )!,
+      autoPauseEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}auto_pause_enabled'],
+      )!,
     );
   }
 
@@ -1630,6 +1719,14 @@ class UserPreferencesRow extends DataClass
   /// Default false so no notification fires until the user enables it.
   /// Added by schema migration v1 → v2 (D-07, D-13).
   final bool weeklyNotificationEnabled;
+
+  /// True if the user has opted into auto-pause (Phase 18, D-10).
+  ///
+  /// Off by default so auto-pause is strictly opt-in: existing users see
+  /// no behaviour change until they enable it. Added by schema migration
+  /// v2 → v3; `withDefault(const Constant(false))` gives every existing
+  /// row false automatically.
+  final bool autoPauseEnabled;
   const UserPreferencesRow({
     required this.id,
     required this.userId,
@@ -1640,6 +1737,7 @@ class UserPreferencesRow extends DataClass
     this.reminderTime,
     required this.weekendReminder,
     required this.weeklyNotificationEnabled,
+    required this.autoPauseEnabled,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1657,6 +1755,7 @@ class UserPreferencesRow extends DataClass
     map['weekly_notification_enabled'] = Variable<bool>(
       weeklyNotificationEnabled,
     );
+    map['auto_pause_enabled'] = Variable<bool>(autoPauseEnabled);
     return map;
   }
 
@@ -1673,6 +1772,7 @@ class UserPreferencesRow extends DataClass
           : Value(reminderTime),
       weekendReminder: Value(weekendReminder),
       weeklyNotificationEnabled: Value(weeklyNotificationEnabled),
+      autoPauseEnabled: Value(autoPauseEnabled),
     );
   }
 
@@ -1693,6 +1793,7 @@ class UserPreferencesRow extends DataClass
       weeklyNotificationEnabled: serializer.fromJson<bool>(
         json['weeklyNotificationEnabled'],
       ),
+      autoPauseEnabled: serializer.fromJson<bool>(json['autoPauseEnabled']),
     );
   }
   @override
@@ -1710,6 +1811,7 @@ class UserPreferencesRow extends DataClass
       'weeklyNotificationEnabled': serializer.toJson<bool>(
         weeklyNotificationEnabled,
       ),
+      'autoPauseEnabled': serializer.toJson<bool>(autoPauseEnabled),
     };
   }
 
@@ -1723,6 +1825,7 @@ class UserPreferencesRow extends DataClass
     Value<String?> reminderTime = const Value.absent(),
     bool? weekendReminder,
     bool? weeklyNotificationEnabled,
+    bool? autoPauseEnabled,
   }) => UserPreferencesRow(
     id: id ?? this.id,
     userId: userId ?? this.userId,
@@ -1734,6 +1837,7 @@ class UserPreferencesRow extends DataClass
     weekendReminder: weekendReminder ?? this.weekendReminder,
     weeklyNotificationEnabled:
         weeklyNotificationEnabled ?? this.weeklyNotificationEnabled,
+    autoPauseEnabled: autoPauseEnabled ?? this.autoPauseEnabled,
   );
   UserPreferencesRow copyWithCompanion(UserPreferencesCompanion data) {
     return UserPreferencesRow(
@@ -1758,6 +1862,9 @@ class UserPreferencesRow extends DataClass
       weeklyNotificationEnabled: data.weeklyNotificationEnabled.present
           ? data.weeklyNotificationEnabled.value
           : this.weeklyNotificationEnabled,
+      autoPauseEnabled: data.autoPauseEnabled.present
+          ? data.autoPauseEnabled.value
+          : this.autoPauseEnabled,
     );
   }
 
@@ -1772,7 +1879,8 @@ class UserPreferencesRow extends DataClass
           ..write('reminderEnabled: $reminderEnabled, ')
           ..write('reminderTime: $reminderTime, ')
           ..write('weekendReminder: $weekendReminder, ')
-          ..write('weeklyNotificationEnabled: $weeklyNotificationEnabled')
+          ..write('weeklyNotificationEnabled: $weeklyNotificationEnabled, ')
+          ..write('autoPauseEnabled: $autoPauseEnabled')
           ..write(')'))
         .toString();
   }
@@ -1788,6 +1896,7 @@ class UserPreferencesRow extends DataClass
     reminderTime,
     weekendReminder,
     weeklyNotificationEnabled,
+    autoPauseEnabled,
   );
   @override
   bool operator ==(Object other) =>
@@ -1801,7 +1910,8 @@ class UserPreferencesRow extends DataClass
           other.reminderEnabled == this.reminderEnabled &&
           other.reminderTime == this.reminderTime &&
           other.weekendReminder == this.weekendReminder &&
-          other.weeklyNotificationEnabled == this.weeklyNotificationEnabled);
+          other.weeklyNotificationEnabled == this.weeklyNotificationEnabled &&
+          other.autoPauseEnabled == this.autoPauseEnabled);
 }
 
 class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
@@ -1814,6 +1924,7 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
   final Value<String?> reminderTime;
   final Value<bool> weekendReminder;
   final Value<bool> weeklyNotificationEnabled;
+  final Value<bool> autoPauseEnabled;
   const UserPreferencesCompanion({
     this.id = const Value.absent(),
     this.userId = const Value.absent(),
@@ -1824,6 +1935,7 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
     this.reminderTime = const Value.absent(),
     this.weekendReminder = const Value.absent(),
     this.weeklyNotificationEnabled = const Value.absent(),
+    this.autoPauseEnabled = const Value.absent(),
   });
   UserPreferencesCompanion.insert({
     this.id = const Value.absent(),
@@ -1835,6 +1947,7 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
     this.reminderTime = const Value.absent(),
     this.weekendReminder = const Value.absent(),
     this.weeklyNotificationEnabled = const Value.absent(),
+    this.autoPauseEnabled = const Value.absent(),
   });
   static Insertable<UserPreferencesRow> custom({
     Expression<int>? id,
@@ -1846,6 +1959,7 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
     Expression<String>? reminderTime,
     Expression<bool>? weekendReminder,
     Expression<bool>? weeklyNotificationEnabled,
+    Expression<bool>? autoPauseEnabled,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -1858,6 +1972,7 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
       if (weekendReminder != null) 'weekend_reminder': weekendReminder,
       if (weeklyNotificationEnabled != null)
         'weekly_notification_enabled': weeklyNotificationEnabled,
+      if (autoPauseEnabled != null) 'auto_pause_enabled': autoPauseEnabled,
     });
   }
 
@@ -1871,6 +1986,7 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
     Value<String?>? reminderTime,
     Value<bool>? weekendReminder,
     Value<bool>? weeklyNotificationEnabled,
+    Value<bool>? autoPauseEnabled,
   }) {
     return UserPreferencesCompanion(
       id: id ?? this.id,
@@ -1883,6 +1999,7 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
       weekendReminder: weekendReminder ?? this.weekendReminder,
       weeklyNotificationEnabled:
           weeklyNotificationEnabled ?? this.weeklyNotificationEnabled,
+      autoPauseEnabled: autoPauseEnabled ?? this.autoPauseEnabled,
     );
   }
 
@@ -1918,6 +2035,9 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
         weeklyNotificationEnabled.value,
       );
     }
+    if (autoPauseEnabled.present) {
+      map['auto_pause_enabled'] = Variable<bool>(autoPauseEnabled.value);
+    }
     return map;
   }
 
@@ -1932,7 +2052,330 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
           ..write('reminderEnabled: $reminderEnabled, ')
           ..write('reminderTime: $reminderTime, ')
           ..write('weekendReminder: $weekendReminder, ')
-          ..write('weeklyNotificationEnabled: $weeklyNotificationEnabled')
+          ..write('weeklyNotificationEnabled: $weeklyNotificationEnabled, ')
+          ..write('autoPauseEnabled: $autoPauseEnabled')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $TripBreaksTable extends TripBreaks
+    with TableInfo<$TripBreaksTable, TripBreakRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $TripBreaksTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _tripIdMeta = const VerificationMeta('tripId');
+  @override
+  late final GeneratedColumn<String> tripId = GeneratedColumn<String>(
+    'trip_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES trips (id)',
+    ),
+  );
+  static const VerificationMeta _startTimeMeta = const VerificationMeta(
+    'startTime',
+  );
+  @override
+  late final GeneratedColumn<DateTime> startTime = GeneratedColumn<DateTime>(
+    'start_time',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _endTimeMeta = const VerificationMeta(
+    'endTime',
+  );
+  @override
+  late final GeneratedColumn<DateTime> endTime = GeneratedColumn<DateTime>(
+    'end_time',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, tripId, startTime, endTime];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'trip_breaks';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<TripBreakRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('trip_id')) {
+      context.handle(
+        _tripIdMeta,
+        tripId.isAcceptableOrUnknown(data['trip_id']!, _tripIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_tripIdMeta);
+    }
+    if (data.containsKey('start_time')) {
+      context.handle(
+        _startTimeMeta,
+        startTime.isAcceptableOrUnknown(data['start_time']!, _startTimeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_startTimeMeta);
+    }
+    if (data.containsKey('end_time')) {
+      context.handle(
+        _endTimeMeta,
+        endTime.isAcceptableOrUnknown(data['end_time']!, _endTimeMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  TripBreakRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return TripBreakRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      tripId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}trip_id'],
+      )!,
+      startTime: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}start_time'],
+      )!,
+      endTime: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}end_time'],
+      ),
+    );
+  }
+
+  @override
+  $TripBreaksTable createAlias(String alias) {
+    return $TripBreaksTable(attachedDatabase, alias);
+  }
+}
+
+class TripBreakRow extends DataClass implements Insertable<TripBreakRow> {
+  /// Client-generated UUID v4 primary key. Never null.
+  final String id;
+
+  /// Owning trip. Hard FK to `trips.id`, enforced by
+  /// `PRAGMA foreign_keys = ON` (D-01, T-18-02).
+  final String tripId;
+
+  /// Break start timestamp (pause), stored in UTC.
+  final DateTime startTime;
+
+  /// Break end timestamp (resume), stored in UTC. Null while the break is
+  /// open; finalize closes every segment so a persisted trip never has a
+  /// null `endTime` (D-05, D-07).
+  final DateTime? endTime;
+  const TripBreakRow({
+    required this.id,
+    required this.tripId,
+    required this.startTime,
+    this.endTime,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['trip_id'] = Variable<String>(tripId);
+    map['start_time'] = Variable<DateTime>(startTime);
+    if (!nullToAbsent || endTime != null) {
+      map['end_time'] = Variable<DateTime>(endTime);
+    }
+    return map;
+  }
+
+  TripBreaksCompanion toCompanion(bool nullToAbsent) {
+    return TripBreaksCompanion(
+      id: Value(id),
+      tripId: Value(tripId),
+      startTime: Value(startTime),
+      endTime: endTime == null && nullToAbsent
+          ? const Value.absent()
+          : Value(endTime),
+    );
+  }
+
+  factory TripBreakRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return TripBreakRow(
+      id: serializer.fromJson<String>(json['id']),
+      tripId: serializer.fromJson<String>(json['tripId']),
+      startTime: serializer.fromJson<DateTime>(json['startTime']),
+      endTime: serializer.fromJson<DateTime?>(json['endTime']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'tripId': serializer.toJson<String>(tripId),
+      'startTime': serializer.toJson<DateTime>(startTime),
+      'endTime': serializer.toJson<DateTime?>(endTime),
+    };
+  }
+
+  TripBreakRow copyWith({
+    String? id,
+    String? tripId,
+    DateTime? startTime,
+    Value<DateTime?> endTime = const Value.absent(),
+  }) => TripBreakRow(
+    id: id ?? this.id,
+    tripId: tripId ?? this.tripId,
+    startTime: startTime ?? this.startTime,
+    endTime: endTime.present ? endTime.value : this.endTime,
+  );
+  TripBreakRow copyWithCompanion(TripBreaksCompanion data) {
+    return TripBreakRow(
+      id: data.id.present ? data.id.value : this.id,
+      tripId: data.tripId.present ? data.tripId.value : this.tripId,
+      startTime: data.startTime.present ? data.startTime.value : this.startTime,
+      endTime: data.endTime.present ? data.endTime.value : this.endTime,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TripBreakRow(')
+          ..write('id: $id, ')
+          ..write('tripId: $tripId, ')
+          ..write('startTime: $startTime, ')
+          ..write('endTime: $endTime')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, tripId, startTime, endTime);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is TripBreakRow &&
+          other.id == this.id &&
+          other.tripId == this.tripId &&
+          other.startTime == this.startTime &&
+          other.endTime == this.endTime);
+}
+
+class TripBreaksCompanion extends UpdateCompanion<TripBreakRow> {
+  final Value<String> id;
+  final Value<String> tripId;
+  final Value<DateTime> startTime;
+  final Value<DateTime?> endTime;
+  final Value<int> rowid;
+  const TripBreaksCompanion({
+    this.id = const Value.absent(),
+    this.tripId = const Value.absent(),
+    this.startTime = const Value.absent(),
+    this.endTime = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  TripBreaksCompanion.insert({
+    required String id,
+    required String tripId,
+    required DateTime startTime,
+    this.endTime = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       tripId = Value(tripId),
+       startTime = Value(startTime);
+  static Insertable<TripBreakRow> custom({
+    Expression<String>? id,
+    Expression<String>? tripId,
+    Expression<DateTime>? startTime,
+    Expression<DateTime>? endTime,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (tripId != null) 'trip_id': tripId,
+      if (startTime != null) 'start_time': startTime,
+      if (endTime != null) 'end_time': endTime,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  TripBreaksCompanion copyWith({
+    Value<String>? id,
+    Value<String>? tripId,
+    Value<DateTime>? startTime,
+    Value<DateTime?>? endTime,
+    Value<int>? rowid,
+  }) {
+    return TripBreaksCompanion(
+      id: id ?? this.id,
+      tripId: tripId ?? this.tripId,
+      startTime: startTime ?? this.startTime,
+      endTime: endTime ?? this.endTime,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (tripId.present) {
+      map['trip_id'] = Variable<String>(tripId.value);
+    }
+    if (startTime.present) {
+      map['start_time'] = Variable<DateTime>(startTime.value);
+    }
+    if (endTime.present) {
+      map['end_time'] = Variable<DateTime>(endTime.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TripBreaksCompanion(')
+          ..write('id: $id, ')
+          ..write('tripId: $tripId, ')
+          ..write('startTime: $startTime, ')
+          ..write('endTime: $endTime, ')
+          ..write('rowid: $rowid')
           ..write(')'))
         .toString();
   }
@@ -1946,6 +2389,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $UserPreferencesTable userPreferences = $UserPreferencesTable(
     this,
   );
+  late final $TripBreaksTable tripBreaks = $TripBreaksTable(this);
   late final Index idxTripsStartTime = Index(
     'idx_trips_start_time',
     'CREATE INDEX idx_trips_start_time ON trips (start_time)',
@@ -1959,6 +2403,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final UserPreferencesDao userPreferencesDao = UserPreferencesDao(
     this as AppDatabase,
   );
+  late final TripBreaksDao tripBreaksDao = TripBreaksDao(this as AppDatabase);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -1967,6 +2412,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     trips,
     syncQueue,
     userPreferences,
+    tripBreaks,
     idxTripsStartTime,
     idxTripsDirectionStart,
   ];
@@ -1979,6 +2425,7 @@ typedef $$TripsTableCreateCompanionBuilder =
       required DateTime startTime,
       required DateTime endTime,
       required int durationSeconds,
+      Value<int> totalPausedSeconds,
       required double distanceMeters,
       Value<String?> routePolyline,
       required String direction,
@@ -1996,6 +2443,7 @@ typedef $$TripsTableUpdateCompanionBuilder =
       Value<DateTime> startTime,
       Value<DateTime> endTime,
       Value<int> durationSeconds,
+      Value<int> totalPausedSeconds,
       Value<double> distanceMeters,
       Value<String?> routePolyline,
       Value<String> direction,
@@ -2006,6 +2454,29 @@ typedef $$TripsTableUpdateCompanionBuilder =
       Value<DateTime> updatedAt,
       Value<int> rowid,
     });
+
+final class $$TripsTableReferences
+    extends BaseReferences<_$AppDatabase, $TripsTable, TripRow> {
+  $$TripsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static MultiTypedResultKey<$TripBreaksTable, List<TripBreakRow>>
+  _tripBreaksRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.tripBreaks,
+    aliasName: $_aliasNameGenerator(db.trips.id, db.tripBreaks.tripId),
+  );
+
+  $$TripBreaksTableProcessedTableManager get tripBreaksRefs {
+    final manager = $$TripBreaksTableTableManager(
+      $_db,
+      $_db.tripBreaks,
+    ).filter((f) => f.tripId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_tripBreaksRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
 
 class $$TripsTableFilterComposer extends Composer<_$AppDatabase, $TripsTable> {
   $$TripsTableFilterComposer({
@@ -2037,6 +2508,11 @@ class $$TripsTableFilterComposer extends Composer<_$AppDatabase, $TripsTable> {
 
   ColumnFilters<int> get durationSeconds => $composableBuilder(
     column: $table.durationSeconds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get totalPausedSeconds => $composableBuilder(
+    column: $table.totalPausedSeconds,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2079,6 +2555,31 @@ class $$TripsTableFilterComposer extends Composer<_$AppDatabase, $TripsTable> {
     column: $table.updatedAt,
     builder: (column) => ColumnFilters(column),
   );
+
+  Expression<bool> tripBreaksRefs(
+    Expression<bool> Function($$TripBreaksTableFilterComposer f) f,
+  ) {
+    final $$TripBreaksTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.tripBreaks,
+      getReferencedColumn: (t) => t.tripId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TripBreaksTableFilterComposer(
+            $db: $db,
+            $table: $db.tripBreaks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$TripsTableOrderingComposer
@@ -2112,6 +2613,11 @@ class $$TripsTableOrderingComposer
 
   ColumnOrderings<int> get durationSeconds => $composableBuilder(
     column: $table.durationSeconds,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get totalPausedSeconds => $composableBuilder(
+    column: $table.totalPausedSeconds,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -2182,6 +2688,11 @@ class $$TripsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<int> get totalPausedSeconds => $composableBuilder(
+    column: $table.totalPausedSeconds,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<double> get distanceMeters => $composableBuilder(
     column: $table.distanceMeters,
     builder: (column) => column,
@@ -2215,6 +2726,31 @@ class $$TripsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  Expression<T> tripBreaksRefs<T extends Object>(
+    Expression<T> Function($$TripBreaksTableAnnotationComposer a) f,
+  ) {
+    final $$TripBreaksTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.tripBreaks,
+      getReferencedColumn: (t) => t.tripId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TripBreaksTableAnnotationComposer(
+            $db: $db,
+            $table: $db.tripBreaks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$TripsTableTableManager
@@ -2228,9 +2764,9 @@ class $$TripsTableTableManager
           $$TripsTableAnnotationComposer,
           $$TripsTableCreateCompanionBuilder,
           $$TripsTableUpdateCompanionBuilder,
-          (TripRow, BaseReferences<_$AppDatabase, $TripsTable, TripRow>),
+          (TripRow, $$TripsTableReferences),
           TripRow,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool tripBreaksRefs})
         > {
   $$TripsTableTableManager(_$AppDatabase db, $TripsTable table)
     : super(
@@ -2250,6 +2786,7 @@ class $$TripsTableTableManager
                 Value<DateTime> startTime = const Value.absent(),
                 Value<DateTime> endTime = const Value.absent(),
                 Value<int> durationSeconds = const Value.absent(),
+                Value<int> totalPausedSeconds = const Value.absent(),
                 Value<double> distanceMeters = const Value.absent(),
                 Value<String?> routePolyline = const Value.absent(),
                 Value<String> direction = const Value.absent(),
@@ -2265,6 +2802,7 @@ class $$TripsTableTableManager
                 startTime: startTime,
                 endTime: endTime,
                 durationSeconds: durationSeconds,
+                totalPausedSeconds: totalPausedSeconds,
                 distanceMeters: distanceMeters,
                 routePolyline: routePolyline,
                 direction: direction,
@@ -2282,6 +2820,7 @@ class $$TripsTableTableManager
                 required DateTime startTime,
                 required DateTime endTime,
                 required int durationSeconds,
+                Value<int> totalPausedSeconds = const Value.absent(),
                 required double distanceMeters,
                 Value<String?> routePolyline = const Value.absent(),
                 required String direction,
@@ -2297,6 +2836,7 @@ class $$TripsTableTableManager
                 startTime: startTime,
                 endTime: endTime,
                 durationSeconds: durationSeconds,
+                totalPausedSeconds: totalPausedSeconds,
                 distanceMeters: distanceMeters,
                 routePolyline: routePolyline,
                 direction: direction,
@@ -2308,9 +2848,37 @@ class $$TripsTableTableManager
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) =>
+                    (e.readTable(table), $$TripsTableReferences(db, table, e)),
+              )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback: ({tripBreaksRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [if (tripBreaksRefs) db.tripBreaks],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (tripBreaksRefs)
+                    await $_getPrefetchedData<
+                      TripRow,
+                      $TripsTable,
+                      TripBreakRow
+                    >(
+                      currentTable: table,
+                      referencedTable: $$TripsTableReferences
+                          ._tripBreaksRefsTable(db),
+                      managerFromTypedResult: (p0) =>
+                          $$TripsTableReferences(db, table, p0).tripBreaksRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where((e) => e.tripId == item.id),
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
         ),
       );
 }
@@ -2325,9 +2893,9 @@ typedef $$TripsTableProcessedTableManager =
       $$TripsTableAnnotationComposer,
       $$TripsTableCreateCompanionBuilder,
       $$TripsTableUpdateCompanionBuilder,
-      (TripRow, BaseReferences<_$AppDatabase, $TripsTable, TripRow>),
+      (TripRow, $$TripsTableReferences),
       TripRow,
-      PrefetchHooks Function()
+      PrefetchHooks Function({bool tripBreaksRefs})
     >;
 typedef $$SyncQueueTableCreateCompanionBuilder =
     SyncQueueCompanion Function({
@@ -2593,6 +3161,7 @@ typedef $$UserPreferencesTableCreateCompanionBuilder =
       Value<String?> reminderTime,
       Value<bool> weekendReminder,
       Value<bool> weeklyNotificationEnabled,
+      Value<bool> autoPauseEnabled,
     });
 typedef $$UserPreferencesTableUpdateCompanionBuilder =
     UserPreferencesCompanion Function({
@@ -2605,6 +3174,7 @@ typedef $$UserPreferencesTableUpdateCompanionBuilder =
       Value<String?> reminderTime,
       Value<bool> weekendReminder,
       Value<bool> weeklyNotificationEnabled,
+      Value<bool> autoPauseEnabled,
     });
 
 class $$UserPreferencesTableFilterComposer
@@ -2658,6 +3228,11 @@ class $$UserPreferencesTableFilterComposer
 
   ColumnFilters<bool> get weeklyNotificationEnabled => $composableBuilder(
     column: $table.weeklyNotificationEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get autoPauseEnabled => $composableBuilder(
+    column: $table.autoPauseEnabled,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -2715,6 +3290,11 @@ class $$UserPreferencesTableOrderingComposer
     column: $table.weeklyNotificationEnabled,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get autoPauseEnabled => $composableBuilder(
+    column: $table.autoPauseEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$UserPreferencesTableAnnotationComposer
@@ -2762,6 +3342,11 @@ class $$UserPreferencesTableAnnotationComposer
 
   GeneratedColumn<bool> get weeklyNotificationEnabled => $composableBuilder(
     column: $table.weeklyNotificationEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get autoPauseEnabled => $composableBuilder(
+    column: $table.autoPauseEnabled,
     builder: (column) => column,
   );
 }
@@ -2812,6 +3397,7 @@ class $$UserPreferencesTableTableManager
                 Value<String?> reminderTime = const Value.absent(),
                 Value<bool> weekendReminder = const Value.absent(),
                 Value<bool> weeklyNotificationEnabled = const Value.absent(),
+                Value<bool> autoPauseEnabled = const Value.absent(),
               }) => UserPreferencesCompanion(
                 id: id,
                 userId: userId,
@@ -2822,6 +3408,7 @@ class $$UserPreferencesTableTableManager
                 reminderTime: reminderTime,
                 weekendReminder: weekendReminder,
                 weeklyNotificationEnabled: weeklyNotificationEnabled,
+                autoPauseEnabled: autoPauseEnabled,
               ),
           createCompanionCallback:
               ({
@@ -2834,6 +3421,7 @@ class $$UserPreferencesTableTableManager
                 Value<String?> reminderTime = const Value.absent(),
                 Value<bool> weekendReminder = const Value.absent(),
                 Value<bool> weeklyNotificationEnabled = const Value.absent(),
+                Value<bool> autoPauseEnabled = const Value.absent(),
               }) => UserPreferencesCompanion.insert(
                 id: id,
                 userId: userId,
@@ -2844,6 +3432,7 @@ class $$UserPreferencesTableTableManager
                 reminderTime: reminderTime,
                 weekendReminder: weekendReminder,
                 weeklyNotificationEnabled: weeklyNotificationEnabled,
+                autoPauseEnabled: autoPauseEnabled,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
@@ -2874,6 +3463,305 @@ typedef $$UserPreferencesTableProcessedTableManager =
       UserPreferencesRow,
       PrefetchHooks Function()
     >;
+typedef $$TripBreaksTableCreateCompanionBuilder =
+    TripBreaksCompanion Function({
+      required String id,
+      required String tripId,
+      required DateTime startTime,
+      Value<DateTime?> endTime,
+      Value<int> rowid,
+    });
+typedef $$TripBreaksTableUpdateCompanionBuilder =
+    TripBreaksCompanion Function({
+      Value<String> id,
+      Value<String> tripId,
+      Value<DateTime> startTime,
+      Value<DateTime?> endTime,
+      Value<int> rowid,
+    });
+
+final class $$TripBreaksTableReferences
+    extends BaseReferences<_$AppDatabase, $TripBreaksTable, TripBreakRow> {
+  $$TripBreaksTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $TripsTable _tripIdTable(_$AppDatabase db) => db.trips.createAlias(
+    $_aliasNameGenerator(db.tripBreaks.tripId, db.trips.id),
+  );
+
+  $$TripsTableProcessedTableManager get tripId {
+    final $_column = $_itemColumn<String>('trip_id')!;
+
+    final manager = $$TripsTableTableManager(
+      $_db,
+      $_db.trips,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_tripIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$TripBreaksTableFilterComposer
+    extends Composer<_$AppDatabase, $TripBreaksTable> {
+  $$TripBreaksTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get startTime => $composableBuilder(
+    column: $table.startTime,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get endTime => $composableBuilder(
+    column: $table.endTime,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$TripsTableFilterComposer get tripId {
+    final $$TripsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.tripId,
+      referencedTable: $db.trips,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TripsTableFilterComposer(
+            $db: $db,
+            $table: $db.trips,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$TripBreaksTableOrderingComposer
+    extends Composer<_$AppDatabase, $TripBreaksTable> {
+  $$TripBreaksTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get startTime => $composableBuilder(
+    column: $table.startTime,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get endTime => $composableBuilder(
+    column: $table.endTime,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$TripsTableOrderingComposer get tripId {
+    final $$TripsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.tripId,
+      referencedTable: $db.trips,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TripsTableOrderingComposer(
+            $db: $db,
+            $table: $db.trips,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$TripBreaksTableAnnotationComposer
+    extends Composer<_$AppDatabase, $TripBreaksTable> {
+  $$TripBreaksTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get startTime =>
+      $composableBuilder(column: $table.startTime, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get endTime =>
+      $composableBuilder(column: $table.endTime, builder: (column) => column);
+
+  $$TripsTableAnnotationComposer get tripId {
+    final $$TripsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.tripId,
+      referencedTable: $db.trips,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TripsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.trips,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$TripBreaksTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $TripBreaksTable,
+          TripBreakRow,
+          $$TripBreaksTableFilterComposer,
+          $$TripBreaksTableOrderingComposer,
+          $$TripBreaksTableAnnotationComposer,
+          $$TripBreaksTableCreateCompanionBuilder,
+          $$TripBreaksTableUpdateCompanionBuilder,
+          (TripBreakRow, $$TripBreaksTableReferences),
+          TripBreakRow,
+          PrefetchHooks Function({bool tripId})
+        > {
+  $$TripBreaksTableTableManager(_$AppDatabase db, $TripBreaksTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$TripBreaksTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$TripBreaksTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$TripBreaksTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> tripId = const Value.absent(),
+                Value<DateTime> startTime = const Value.absent(),
+                Value<DateTime?> endTime = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => TripBreaksCompanion(
+                id: id,
+                tripId: tripId,
+                startTime: startTime,
+                endTime: endTime,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String tripId,
+                required DateTime startTime,
+                Value<DateTime?> endTime = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => TripBreaksCompanion.insert(
+                id: id,
+                tripId: tripId,
+                startTime: startTime,
+                endTime: endTime,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$TripBreaksTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({tripId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (tripId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.tripId,
+                                referencedTable: $$TripBreaksTableReferences
+                                    ._tripIdTable(db),
+                                referencedColumn: $$TripBreaksTableReferences
+                                    ._tripIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$TripBreaksTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $TripBreaksTable,
+      TripBreakRow,
+      $$TripBreaksTableFilterComposer,
+      $$TripBreaksTableOrderingComposer,
+      $$TripBreaksTableAnnotationComposer,
+      $$TripBreaksTableCreateCompanionBuilder,
+      $$TripBreaksTableUpdateCompanionBuilder,
+      (TripBreakRow, $$TripBreaksTableReferences),
+      TripBreakRow,
+      PrefetchHooks Function({bool tripId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -2884,4 +3772,6 @@ class $AppDatabaseManager {
       $$SyncQueueTableTableManager(_db, _db.syncQueue);
   $$UserPreferencesTableTableManager get userPreferences =>
       $$UserPreferencesTableTableManager(_db, _db.userPreferences);
+  $$TripBreaksTableTableManager get tripBreaks =>
+      $$TripBreaksTableTableManager(_db, _db.tripBreaks);
 }

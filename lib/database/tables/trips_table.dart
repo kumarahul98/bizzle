@@ -30,8 +30,7 @@ class Trips extends Table {
 
   /// Owning user. Defaults to `kDefaultUserId`. Phase 8 auth rewrites
   /// existing rows with the Cognito subject when authentication lands.
-  TextColumn get userId =>
-      text().withDefault(const Constant(kDefaultUserId))();
+  TextColumn get userId => text().withDefault(const Constant(kDefaultUserId))();
 
   /// Trip start timestamp, stored in UTC.
   DateTimeColumn get startTime => dateTime()();
@@ -39,9 +38,20 @@ class Trips extends Table {
   /// Trip end timestamp, stored in UTC.
   DateTimeColumn get endTime => dateTime()();
 
-  /// Derived from `endTime - startTime` by the trip processor so stats
-  /// queries do not have to recompute per row.
+  /// ACTIVE trip duration in seconds (D-03). From Phase 18 onward this
+  /// means wall-clock time MINUS `totalPausedSeconds` (time spent paused),
+  /// computed by finalize. STORAGE is unchanged from Phase 1 — only the
+  /// MEANING is redefined. Historical rows are unaffected: with no breaks
+  /// `totalPausedSeconds` is 0, so active duration equals wall-clock.
   IntColumn get durationSeconds => integer()();
+
+  /// Denormalized aggregate of all paused time for this trip, in seconds
+  /// (D-02). Default 0 keeps every existing v1/v2 row safe across the
+  /// v3 migration — rows that never paused read 0. Written by finalize
+  /// (Plan 02) from the sum of `trip_breaks` segment durations, and stored
+  /// here so the daily-log list and stats render without a JOIN.
+  IntColumn get totalPausedSeconds =>
+      integer().withDefault(const Constant(0))();
 
   /// Distance from the GPS provider, in meters.
   RealColumn get distanceMeters => real()();
@@ -69,13 +79,11 @@ class Trips extends Table {
 
   /// Insertion time. Defaults to `CURRENT_TIMESTAMP` so the DAO does
   /// not have to set it explicitly.
-  DateTimeColumn get createdAt =>
-      dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 
   /// Last-modified time. Currently updated manually by the DAO on
   /// every write; future Phase 3 code may move this to a trigger.
-  DateTimeColumn get updatedAt =>
-      dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 
   @override
   Set<Column<Object>> get primaryKey => {id};

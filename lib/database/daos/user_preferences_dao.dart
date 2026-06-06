@@ -30,19 +30,21 @@ class UserPreferencesValue {
     required this.reminderTime,
     required this.weekendReminder,
     required this.weeklyNotificationEnabled,
+    required this.autoPauseEnabled,
   });
 
   /// The defaults used the first time the user launches the app —
   /// before the single row exists in the table (D-04).
   const UserPreferencesValue.defaults()
-      : userId = kDefaultUserId,
-        darkMode = kDarkModeSystem,
-        morningCutoffHour = kDefaultDirectionCutoffHour,
-        eveningCutoffHour = kDefaultDirectionCutoffHour,
-        reminderEnabled = false,
-        reminderTime = null,
-        weekendReminder = false,
-        weeklyNotificationEnabled = false;
+    : userId = kDefaultUserId,
+      darkMode = kDarkModeSystem,
+      morningCutoffHour = kDefaultDirectionCutoffHour,
+      eveningCutoffHour = kDefaultDirectionCutoffHour,
+      reminderEnabled = false,
+      reminderTime = null,
+      weekendReminder = false,
+      weeklyNotificationEnabled = false,
+      autoPauseEnabled = false;
 
   /// Owning user placeholder (Phase 8 replaces with Cognito sub).
   final String userId;
@@ -67,6 +69,10 @@ class UserPreferencesValue {
 
   /// True if weekly summary notification is enabled (D-07, D-13).
   final bool weeklyNotificationEnabled;
+
+  /// True if the user has opted into auto-pause (Phase 18, D-10). Off by
+  /// default so auto-pause is strictly opt-in.
+  final bool autoPauseEnabled;
 }
 
 /// Data-access object for the single-row user_preferences table.
@@ -88,9 +94,9 @@ class UserPreferencesDao extends DatabaseAccessor<AppDatabase>
   /// the row in `AppDatabase.migration.onCreate` — that would race
   /// with first-run reads and complicate future schema upgrades.
   Future<UserPreferencesValue> getOrDefault() async {
-    final row = await (select(userPreferences)
-          ..where((p) => p.id.equals(_kUserPreferencesId)))
-        .getSingleOrNull();
+    final row = await (select(
+      userPreferences,
+    )..where((p) => p.id.equals(_kUserPreferencesId))).getSingleOrNull();
     if (row == null) {
       return const UserPreferencesValue.defaults();
     }
@@ -103,6 +109,7 @@ class UserPreferencesDao extends DatabaseAccessor<AppDatabase>
       reminderTime: row.reminderTime,
       weekendReminder: row.weekendReminder,
       weeklyNotificationEnabled: row.weeklyNotificationEnabled,
+      autoPauseEnabled: row.autoPauseEnabled,
     );
   }
 
@@ -116,23 +123,23 @@ class UserPreferencesDao extends DatabaseAccessor<AppDatabase>
   ///
   /// See D-04 in `.planning/phases/07-polish-notifications/07-CONTEXT.md`.
   Stream<UserPreferencesValue> watch() {
-    return (select(userPreferences)
-          ..where((p) => p.id.equals(_kUserPreferencesId)))
-        .watchSingleOrNull()
-        .map(
-          (row) => row == null
-              ? const UserPreferencesValue.defaults()
-              : UserPreferencesValue(
-                  userId: row.userId,
-                  darkMode: row.darkMode,
-                  morningCutoffHour: row.morningCutoffHour,
-                  eveningCutoffHour: row.eveningCutoffHour,
-                  reminderEnabled: row.reminderEnabled,
-                  reminderTime: row.reminderTime,
-                  weekendReminder: row.weekendReminder,
-                  weeklyNotificationEnabled: row.weeklyNotificationEnabled,
-                ),
-        );
+    return (select(
+      userPreferences,
+    )..where((p) => p.id.equals(_kUserPreferencesId))).watchSingleOrNull().map(
+      (row) => row == null
+          ? const UserPreferencesValue.defaults()
+          : UserPreferencesValue(
+              userId: row.userId,
+              darkMode: row.darkMode,
+              morningCutoffHour: row.morningCutoffHour,
+              eveningCutoffHour: row.eveningCutoffHour,
+              reminderEnabled: row.reminderEnabled,
+              reminderTime: row.reminderTime,
+              weekendReminder: row.weekendReminder,
+              weeklyNotificationEnabled: row.weeklyNotificationEnabled,
+              autoPauseEnabled: row.autoPauseEnabled,
+            ),
+    );
   }
 
   /// Rewrite the single user-preferences row's `userId` from
@@ -173,8 +180,8 @@ class UserPreferencesDao extends DatabaseAccessor<AppDatabase>
         reminderEnabled: Value<bool>(value.reminderEnabled),
         reminderTime: Value<String?>(value.reminderTime),
         weekendReminder: Value<bool>(value.weekendReminder),
-        weeklyNotificationEnabled:
-            Value<bool>(value.weeklyNotificationEnabled),
+        weeklyNotificationEnabled: Value<bool>(value.weeklyNotificationEnabled),
+        autoPauseEnabled: Value<bool>(value.autoPauseEnabled),
       ),
     );
   }

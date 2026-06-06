@@ -214,8 +214,7 @@ Future<_FakeUserPreferencesDao> _pumpSettingsScreen(
         ),
         if (syncEngine != null)
           syncEngineProvider.overrideWithValue(syncEngine),
-        if (apiClient != null)
-          apiClientProvider.overrideWithValue(apiClient),
+        if (apiClient != null) apiClientProvider.overrideWithValue(apiClient),
         if (restoreDb != null)
           tripsDaoProvider.overrideWithValue(restoreDb.tripsDao),
         if (restoreDb != null)
@@ -360,6 +359,7 @@ void main() {
             reminderTime: null,
             weekendReminder: false,
             weeklyNotificationEnabled: true,
+            autoPauseEnabled: false,
           ),
           notificationService: fakeNotif,
         );
@@ -423,6 +423,7 @@ void main() {
             reminderTime: '08:00',
             weekendReminder: false,
             weeklyNotificationEnabled: false,
+            autoPauseEnabled: false,
           ),
         );
         await _scrollTo(tester, find.text('Daily reminder'));

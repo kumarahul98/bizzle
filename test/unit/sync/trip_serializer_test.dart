@@ -6,37 +6,39 @@ import 'package:traevy/sync/trip_serializer.dart';
 void main() {
   // A representative GPS-recorded trip with a polyline and non-zero metrics.
   TripRow gpsTrip() => TripRow(
-        id: '11111111-1111-4111-8111-111111111111',
-        userId: kDefaultUserId,
-        startTime: DateTime.utc(2026, 5, 31, 8, 30),
-        endTime: DateTime.utc(2026, 5, 31, 9),
-        durationSeconds: 1800,
-        distanceMeters: 12500.5,
-        routePolyline: 'abc_polyline',
-        direction: kDirectionToOffice,
-        timeMovingSeconds: 1500,
-        timeStuckSeconds: 300,
-        isManualEntry: false,
-        createdAt: DateTime.utc(2026, 5, 31, 9, 0, 1),
-        updatedAt: DateTime.utc(2026, 5, 31, 9, 0, 2),
-      );
+    id: '11111111-1111-4111-8111-111111111111',
+    userId: kDefaultUserId,
+    startTime: DateTime.utc(2026, 5, 31, 8, 30),
+    endTime: DateTime.utc(2026, 5, 31, 9),
+    durationSeconds: 1800,
+    totalPausedSeconds: 0,
+    distanceMeters: 12500.5,
+    routePolyline: 'abc_polyline',
+    direction: kDirectionToOffice,
+    timeMovingSeconds: 1500,
+    timeStuckSeconds: 300,
+    isManualEntry: false,
+    createdAt: DateTime.utc(2026, 5, 31, 9, 0, 1),
+    updatedAt: DateTime.utc(2026, 5, 31, 9, 0, 2),
+  );
 
   // A manually-entered trip: no GPS, so the numeric fields are 0 and the
   // polyline is null. Mirrors the bug-manual-entry note (Pitfall 7).
   TripRow manualTrip() => TripRow(
-        id: '22222222-2222-4222-8222-222222222222',
-        userId: kDefaultUserId,
-        startTime: DateTime.utc(2026, 5, 31, 18),
-        endTime: DateTime.utc(2026, 5, 31, 18, 45),
-        durationSeconds: 0,
-        distanceMeters: 0,
-        direction: kDirectionToHome,
-        timeMovingSeconds: 0,
-        timeStuckSeconds: 0,
-        isManualEntry: true,
-        createdAt: DateTime.utc(2026, 5, 31, 18, 45, 1),
-        updatedAt: DateTime.utc(2026, 5, 31, 18, 45, 2),
-      );
+    id: '22222222-2222-4222-8222-222222222222',
+    userId: kDefaultUserId,
+    startTime: DateTime.utc(2026, 5, 31, 18),
+    endTime: DateTime.utc(2026, 5, 31, 18, 45),
+    durationSeconds: 0,
+    totalPausedSeconds: 0,
+    distanceMeters: 0,
+    direction: kDirectionToHome,
+    timeMovingSeconds: 0,
+    timeStuckSeconds: 0,
+    isManualEntry: true,
+    createdAt: DateTime.utc(2026, 5, 31, 18, 45, 1),
+    updatedAt: DateTime.utc(2026, 5, 31, 18, 45, 2),
+  );
 
   group('TripSerializer.toJson', () {
     test('produces exactly the zod tripSchema key set, minus userId', () {
@@ -67,8 +69,11 @@ void main() {
 
       for (final key in ['startTime', 'endTime', 'createdAt', 'updatedAt']) {
         expect(json[key], isA<String>());
-        expect((json[key]! as String).endsWith('Z'), isTrue,
-            reason: '$key must end with Z');
+        expect(
+          (json[key]! as String).endsWith('Z'),
+          isTrue,
+          reason: '$key must end with Z',
+        );
       }
     });
 
@@ -80,6 +85,7 @@ void main() {
         startTime: localStart,
         endTime: localStart.add(const Duration(minutes: 30)),
         durationSeconds: 1800,
+        totalPausedSeconds: 0,
         distanceMeters: 100,
         direction: kDirectionToOffice,
         timeMovingSeconds: 1800,
@@ -98,19 +104,21 @@ void main() {
       );
     });
 
-    test('manual-entry serializes numerics as 0 (not null) and polyline null',
-        () {
-      final json = TripSerializer.toJson(manualTrip());
+    test(
+      'manual-entry serializes numerics as 0 (not null) and polyline null',
+      () {
+        final json = TripSerializer.toJson(manualTrip());
 
-      expect(json['durationSeconds'], 0);
-      expect(json['distanceMeters'], 0);
-      expect(json['timeMovingSeconds'], 0);
-      expect(json['timeStuckSeconds'], 0);
-      expect(json['routePolyline'], isNull);
-      // The numeric fields are present and numeric, never null.
-      expect(json['durationSeconds'], isA<num>());
-      expect(json['distanceMeters'], isA<num>());
-    });
+        expect(json['durationSeconds'], 0);
+        expect(json['distanceMeters'], 0);
+        expect(json['timeMovingSeconds'], 0);
+        expect(json['timeStuckSeconds'], 0);
+        expect(json['routePolyline'], isNull);
+        // The numeric fields are present and numeric, never null.
+        expect(json['durationSeconds'], isA<num>());
+        expect(json['distanceMeters'], isA<num>());
+      },
+    );
 
     test('direction passes through unchanged as the stored literal', () {
       expect(

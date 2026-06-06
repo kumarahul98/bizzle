@@ -20,8 +20,7 @@ class UserPreferences extends Table {
 
   /// Owning user. Defaults to `kDefaultUserId`; Phase 8 replaces this
   /// with the Cognito sub.
-  TextColumn get userId =>
-      text().withDefault(const Constant(kDefaultUserId))();
+  TextColumn get userId => text().withDefault(const Constant(kDefaultUserId))();
 
   /// `'system'`, `'light'`, or `'dark'`. Default: `kDarkModeSystem`.
   TextColumn get darkMode =>
@@ -53,6 +52,15 @@ class UserPreferences extends Table {
   /// Default false so no notification fires until the user enables it.
   /// Added by schema migration v1 → v2 (D-07, D-13).
   BoolColumn get weeklyNotificationEnabled =>
+      boolean().withDefault(const Constant(false))();
+
+  /// True if the user has opted into auto-pause (Phase 18, D-10).
+  ///
+  /// Off by default so auto-pause is strictly opt-in: existing users see
+  /// no behaviour change until they enable it. Added by schema migration
+  /// v2 → v3; `withDefault(const Constant(false))` gives every existing
+  /// row false automatically.
+  BoolColumn get autoPauseEnabled =>
       boolean().withDefault(const Constant(false))();
 
   @override

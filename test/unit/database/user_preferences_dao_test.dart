@@ -22,18 +22,20 @@ void main() {
       await db.close();
     });
 
-    test('getOrDefault returns hardcoded defaults when row absent (D-04)',
-        () async {
-      final value = await db.userPreferencesDao.getOrDefault();
+    test(
+      'getOrDefault returns hardcoded defaults when row absent (D-04)',
+      () async {
+        final value = await db.userPreferencesDao.getOrDefault();
 
-      expect(value.userId, kDefaultUserId);
-      expect(value.darkMode, kDarkModeSystem);
-      expect(value.morningCutoffHour, kDefaultDirectionCutoffHour);
-      expect(value.eveningCutoffHour, kDefaultDirectionCutoffHour);
-      expect(value.reminderEnabled, isFalse);
-      expect(value.reminderTime, isNull);
-      expect(value.weekendReminder, isFalse);
-    });
+        expect(value.userId, kDefaultUserId);
+        expect(value.darkMode, kDarkModeSystem);
+        expect(value.morningCutoffHour, kDefaultDirectionCutoffHour);
+        expect(value.eveningCutoffHour, kDefaultDirectionCutoffHour);
+        expect(value.reminderEnabled, isFalse);
+        expect(value.reminderTime, isNull);
+        expect(value.weekendReminder, isFalse);
+      },
+    );
 
     test('upsert then getOrDefault returns the upserted value', () async {
       const updated = UserPreferencesValue(
@@ -45,6 +47,7 @@ void main() {
         reminderTime: '08:30',
         weekendReminder: true,
         weeklyNotificationEnabled: true,
+        autoPauseEnabled: true,
       );
 
       await db.userPreferencesDao.upsert(updated);
@@ -56,6 +59,7 @@ void main() {
       expect(read.reminderEnabled, isTrue);
       expect(read.reminderTime, '08:30');
       expect(read.weekendReminder, isTrue);
+      expect(read.autoPauseEnabled, isTrue);
     });
 
     test('upsert is idempotent — second upsert overwrites first', () async {
@@ -68,6 +72,7 @@ void main() {
         reminderTime: '08:30',
         weekendReminder: true,
         weeklyNotificationEnabled: true,
+        autoPauseEnabled: true,
       );
       const second = UserPreferencesValue(
         userId: kDefaultUserId,
@@ -78,6 +83,7 @@ void main() {
         reminderTime: null,
         weekendReminder: false,
         weeklyNotificationEnabled: false,
+        autoPauseEnabled: false,
       );
 
       await db.userPreferencesDao.upsert(first);
@@ -88,10 +94,10 @@ void main() {
       expect(read.morningCutoffHour, 10);
       expect(read.reminderEnabled, isFalse);
       expect(read.reminderTime, isNull);
+      expect(read.autoPauseEnabled, isFalse);
     });
 
-    test(
-        'watch() emits UserPreferencesValue.defaults() when no row exists '
+    test('watch() emits UserPreferencesValue.defaults() when no row exists '
         '(first launch)', () async {
       final value = await db.userPreferencesDao.watch().first;
 
@@ -103,6 +109,7 @@ void main() {
       expect(value.reminderTime, isNull);
       expect(value.weekendReminder, isFalse);
       expect(value.weeklyNotificationEnabled, isFalse);
+      expect(value.autoPauseEnabled, isFalse);
     });
 
     test('watch() emits updated value after upsert()', () async {
@@ -115,6 +122,7 @@ void main() {
         reminderTime: '08:30',
         weekendReminder: true,
         weeklyNotificationEnabled: true,
+        autoPauseEnabled: true,
       );
 
       await db.userPreferencesDao.upsert(updated);
