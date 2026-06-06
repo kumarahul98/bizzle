@@ -484,7 +484,7 @@ Note: Phases 1-7 deliver the complete local-first experience without any authent
 
 ### v0.3 Phase Checklist
 
-- [ ] **Phase 17: Tracking UI Fixes & Quick Label** - Fix the elapsed-timer overflow and add a quick to-home/to-office label selector during and after tracking
+- [x] **Phase 17: Tracking UI Fixes & Quick Label** - Fix the elapsed-timer overflow and add a quick to-home/to-office label selector during and after tracking ✓ 2026-06-06
 - [ ] **Phase 18: Trip Pause & Breaks** - Pause/resume an active trip for breaks (paused time excluded from stats) with an optional auto-pause prompt
 - [ ] **Phase 19: Full Trip Editing** - Edit start time, end time, and individual break segments with duration and traffic stats recomputed
 - [ ] **Phase 20: First-Run Login with Skip** - First-install login screen with a Skip (use-without-account) option; sync stays disabled until later sign-in

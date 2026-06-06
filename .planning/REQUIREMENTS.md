@@ -105,7 +105,7 @@ Android-facing UX fixes and features requested 2026-06-06. Built on branch `gsd/
 - [ ] **TRACK-09**: User can pause and resume an active commute (for a break — snack/meeting) without ending the trip; paused time is excluded from duration and moving/stuck stats
 - [ ] **TRACK-10**: User can enable an auto-pause prompt — when an active trip appears stationary beyond a threshold, a notification offers to pause the trip
 - [ ] **TRACK-11**: User can edit all details of a trip — start time, end time, and individual break/pause segments — with duration and traffic stats recomputed
-- [ ] **TRACK-12**: User can set or change a trip's direction (to-home / to-office) via a quick label selector during tracking and from the trip view
+- [x] **TRACK-12**: User can set or change a trip's direction (to-home / to-office) via a quick label selector during tracking and from the trip view
 
 ### First-Run & Auth
 
@@ -122,7 +122,7 @@ Android-facing UX fixes and features requested 2026-06-06. Built on branch `gsd/
 
 ### Display Fixes
 
-- [ ] **UX-06**: The active-tracking elapsed timer always renders fully on screen — never wrapping the last digit to a new line or clipping — regardless of elapsed duration
+- [x] **UX-06**: The active-tracking elapsed timer always renders fully on screen — never wrapping the last digit to a new line or clipping — regardless of elapsed duration
 
 ## v2 Requirements
 
@@ -212,12 +212,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TRACK-09 | Phase 18 | Pending |
 | TRACK-10 | Phase 18 | Pending |
 | TRACK-11 | Phase 19 | Pending |
-| TRACK-12 | Phase 17 | Pending |
+| TRACK-12 | Phase 17 | Complete |
 | AUTH-04 | Phase 20 | Pending |
 | LOC-01 | Phase 21 | Pending |
 | LOC-02 | Phase 21 | Pending |
 | WIDGET-01 | Phase 22 | Pending |
-| UX-06 | Phase 17 | Pending |
+| UX-06 | Phase 17 | Complete |
 
 **Coverage:**
 - v1 requirements: 31 total — mapped to phases: 31 — unmapped: 0
