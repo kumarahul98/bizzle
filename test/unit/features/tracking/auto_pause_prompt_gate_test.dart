@@ -17,8 +17,8 @@ import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:traevy/config/constants.dart';
-import 'package:traevy/database/database.dart';
 import 'package:traevy/database/daos/user_preferences_dao.dart';
+import 'package:traevy/database/database.dart';
 import 'package:traevy/features/settings/providers/settings_providers.dart';
 import 'package:traevy/features/tracking/providers/tracking_providers.dart';
 import 'package:traevy/features/tracking/services/tracking_event_source.dart';
@@ -167,29 +167,31 @@ void main() {
       await db.close();
     });
 
-    test('enabled → prompt signal posts the notification once per signal',
-        () async {
-      final container = _container(
-        source: source,
-        notifications: notifications,
-        db: db,
-        autoPauseEnabled: true,
-      );
-      addTearDown(container.dispose);
-      // Build the real notifier so _attach subscribes to onAutoPausePrompt.
-      container.read(trackingStateProvider.notifier);
-      // Keep userPreferenceProvider subscribed and wait until it is in the
-      // data state (the gate reads it synchronously via `asData`).
-      await _awaitPrefsData(container);
+    test(
+      'enabled → prompt signal posts the notification once per signal',
+      () async {
+        final container = _container(
+          source: source,
+          notifications: notifications,
+          db: db,
+          autoPauseEnabled: true,
+        );
+        addTearDown(container.dispose);
+        // Build the real notifier so _attach subscribes to onAutoPausePrompt.
+        container.read(trackingStateProvider.notifier);
+        // Keep userPreferenceProvider subscribed and wait until it is in the
+        // data state (the gate reads it synchronously via `asData`).
+        await _awaitPrefsData(container);
 
-      source.promptController.add(null);
-      await Future<void>.delayed(Duration.zero);
-      expect(notifications.autoPausePromptCalls, 1);
+        source.promptController.add(null);
+        await Future<void>.delayed(Duration.zero);
+        expect(notifications.autoPausePromptCalls, 1);
 
-      source.promptController.add(null);
-      await Future<void>.delayed(Duration.zero);
-      expect(notifications.autoPausePromptCalls, 2);
-    });
+        source.promptController.add(null);
+        await Future<void>.delayed(Duration.zero);
+        expect(notifications.autoPausePromptCalls, 2);
+      },
+    );
 
     test('disabled (default OFF) → prompt signal NEVER posts (SC#5)', () async {
       final container = _container(

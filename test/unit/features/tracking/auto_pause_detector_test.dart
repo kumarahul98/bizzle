@@ -20,17 +20,17 @@ import 'package:traevy/features/tracking/services/auto_pause_detector.dart';
 void main() {
   group('AutoPauseDetector', () {
     test('below threshold never prompts', () {
-      final detector = AutoPauseDetector(thresholdSeconds: 60);
-      detector.onStuckInterval(10);
-      detector.onStuckInterval(20);
-      detector.onStuckInterval(29); // 59 < 60
+      final detector = AutoPauseDetector(thresholdSeconds: 60)
+        ..onStuckInterval(10)
+        ..onStuckInterval(20)
+        ..onStuckInterval(29); // 59 < 60
       expect(detector.shouldPrompt(), isFalse);
       expect(detector.stuckStreakSecondsForTest, 59);
     });
 
     test('streak crossing the threshold prompts exactly once', () {
-      final detector = AutoPauseDetector(thresholdSeconds: 60);
-      detector.onStuckInterval(40);
+      final detector = AutoPauseDetector(thresholdSeconds: 60)
+        ..onStuckInterval(40);
       expect(detector.shouldPrompt(), isFalse); // 40 < 60
       detector.onStuckInterval(20); // 60 == threshold
       // First poll after crossing → true.
@@ -42,20 +42,21 @@ void main() {
     test(
       'still-stuck after a prompt does not prompt again (once per streak)',
       () {
-        final detector = AutoPauseDetector(thresholdSeconds: 60);
-        detector.onStuckInterval(60);
+        final detector = AutoPauseDetector(thresholdSeconds: 60)
+          ..onStuckInterval(60);
         expect(detector.shouldPrompt(), isTrue);
         // Keep accumulating stuck time WITHOUT any movement.
-        detector.onStuckInterval(120);
-        detector.onStuckInterval(120);
+        detector
+          ..onStuckInterval(120)
+          ..onStuckInterval(120);
         expect(detector.shouldPrompt(), isFalse);
         expect(detector.stuckStreakSecondsForTest, 300);
       },
     );
 
     test('movement resets the streak and re-arms (re-arm after movement)', () {
-      final detector = AutoPauseDetector(thresholdSeconds: 60);
-      detector.onStuckInterval(60);
+      final detector = AutoPauseDetector(thresholdSeconds: 60)
+        ..onStuckInterval(60);
       expect(detector.shouldPrompt(), isTrue);
 
       // Movement resumes — streak resets, latch re-arms.
@@ -73,20 +74,21 @@ void main() {
       // Alternate small stuck bursts with movement: each moving interval
       // resets the streak, so it can never grow to the threshold.
       for (var i = 0; i < 20; i++) {
-        detector.onStuckInterval(30); // well under 60
-        detector.onMovingInterval();
+        detector
+          ..onStuckInterval(30) // well under 60
+          ..onMovingInterval();
         expect(detector.shouldPrompt(), isFalse);
         expect(detector.stuckStreakSecondsForTest, 0);
       }
     });
 
     test('accumulates only across uninterrupted stuck intervals', () {
-      final detector = AutoPauseDetector(thresholdSeconds: 100);
-      detector.onStuckInterval(30);
-      detector.onStuckInterval(30); // streak 60
-      detector.onMovingInterval(); // reset
-      detector.onStuckInterval(30);
-      detector.onStuckInterval(30); // streak 60 again, never 120
+      final detector = AutoPauseDetector(thresholdSeconds: 100)
+        ..onStuckInterval(30)
+        ..onStuckInterval(30) // streak 60
+        ..onMovingInterval() // reset
+        ..onStuckInterval(30)
+        ..onStuckInterval(30); // streak 60 again, never 120
       expect(detector.shouldPrompt(), isFalse);
       expect(detector.stuckStreakSecondsForTest, 60);
     });
@@ -94,9 +96,8 @@ void main() {
     test('uses the production threshold constant by default arithmetic', () {
       final detector = AutoPauseDetector(
         thresholdSeconds: kAutoPauseStationaryThresholdSeconds,
-      );
+      )..onStuckInterval(kAutoPauseStationaryThresholdSeconds - 1);
       // One second short of 15 minutes → no prompt.
-      detector.onStuckInterval(kAutoPauseStationaryThresholdSeconds - 1);
       expect(detector.shouldPrompt(), isFalse);
       // Crossing the 15-minute boundary → prompt once.
       detector.onStuckInterval(1);
