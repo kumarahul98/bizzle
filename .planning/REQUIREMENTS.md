@@ -109,7 +109,7 @@ Android-facing UX fixes and features requested 2026-06-06. Built on branch `gsd/
 
 ### First-Run & Auth
 
-- [ ] **AUTH-04**: On first install the user sees a login screen with a "Skip" option that lets them use the app locally without signing in; sync stays disabled until they sign in later from settings
+- [x] **AUTH-04**: On first install the user sees a login screen with a "Skip" option that lets them use the app locally without signing in; sync stays disabled until they sign in later from settings
 
 ### Saved Locations
 
@@ -213,7 +213,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TRACK-10 | Phase 18 | Complete |
 | TRACK-11 | Phase 19 | Complete |
 | TRACK-12 | Phase 17 | Complete |
-| AUTH-04 | Phase 20 | Pending |
+| AUTH-04 | Phase 20 | Complete |
 | LOC-01 | Phase 21 | Pending |
 | LOC-02 | Phase 21 | Pending |
 | WIDGET-01 | Phase 22 | Pending |

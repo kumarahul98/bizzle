@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: App Improvements
 status: in-progress
-stopped_at: Phase 20 plan 01 complete (gate+flag+sync-reconcile); 20-02 next (guest indicator)
-last_updated: "2026-06-06T13:10:00.000Z"
-last_activity: 2026-06-06 -- Phase 20 plan 01 complete (510 tests green)
+stopped_at: Phase 20 complete (first-run login + skip); Phase 21 next (Home/Office geofence)
+last_updated: "2026-06-06T13:30:00.000Z"
+last_activity: 2026-06-06 -- Phase 20 complete (514 tests green)
 progress:
   total_phases: 6
-  completed_phases: 3
-  total_plans: 9
-  completed_plans: 9
-  percent: 55
+  completed_phases: 4
+  total_plans: 10
+  completed_plans: 10
+  percent: 67
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-06)
 
 **Core value:** Show people the reality of their commute -- time wasted in traffic and how it changes over time.
-**Current focus:** Phase 20 — first-run-login-with-skip (v0.3 App Improvements)
+**Current focus:** Phase 21 — home-office-locations-geofence (v0.3 App Improvements)
 
 ## Current Position
 
-Phase: 20 — First-Run Login with Skip (in progress)
-Plan: 01 of 2 complete — 20-02 next (guest "not connected" indicator)
-Status: 20-01 done (510 tests green) — schema v5 has_seen_onboarding flag + returning-user migration guard, no-flash root gate, LoginScreen with Skip, sign-in sync-backlog reconcile
-Last activity: 2026-06-06 -- Phase 20 plan 01 complete
+Phase: 21 — Home & Office Locations + Geofence Auto-Label (next; planning)
+Plan: —
+Status: Phase 20 complete (514 tests green) — first-run LoginScreen w/ Skip, no-flash gate, has_seen_onboarding flag, guest "not connected" indicator, sign-in sync reconcile
+Last activity: 2026-06-06 -- Phase 20 complete
 
-**v0.3 progress:** 3/6 phases complete (17, 18, 19 done); Phase 20 at 1/2 plans
+**v0.3 progress:** 4/6 phases complete (17, 18, 19, 20 done)
 
 ## Performance Metrics
 
