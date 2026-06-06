@@ -189,6 +189,55 @@ const String kTrackingBreakCountSingularLabel = '1 break';
 /// `{n}` is replaced with the break count, e.g. `'2 breaks'`.
 const String kTrackingBreakCountPluralTemplate = '{n} breaks';
 
+// --- Phase 18 (Plan 04): opt-in auto-pause prompt (TRACK-10, D-10/11/12) ---
+
+/// Continuous STUCK seconds the active trip must accumulate — uninterrupted by
+/// any moving interval — before the app prompts the user to pause (Phase 18,
+/// D-10/D-11). Default 15 minutes.
+///
+/// Detection keys off the accumulator's OWN stuck classification
+/// (`prev.speed < kStuckSpeedThresholdMs`), never raw `Position.speed`: any
+/// moving interval resets the streak, so stop-and-go micro-movement cannot
+/// false-trigger and the core stuck-time metric stays intact (D-11). No second
+/// speed threshold is introduced — `AutoPauseDetector` consumes the same
+/// classification the accumulator already computes.
+const int kAutoPauseStationaryThresholdSeconds = 15 * 60;
+
+/// flutter_local_notifications id for the auto-pause prompt (Phase 18, D-12).
+///
+/// DISTINCT from [kTrackingNotificationId] (1001 — the ongoing foreground
+/// notification) so the prompt is a SEPARATE, dismissible shade entry that
+/// never collides with or replaces the recording notification.
+const int kAutoPauseNotificationId = 1002;
+
+/// Action id for the Pause button on the auto-pause prompt (Phase 18, D-12).
+/// Both notification response handlers match this exact id (V5 validation,
+/// T-18-12) before routing to [kTrackingPauseCommand]; everything else is
+/// ignored, so a spoofed/stale action id cannot toggle pause.
+const String kTrackingAutoPauseActionId = 'auto_pause';
+
+/// User-facing label for the Pause action button on the auto-pause prompt
+/// (Phase 18, D-12). Tapping it fires the same `kTrackingPauseCommand` path the
+/// active-hero Pause button uses — prompt only, never silent auto-pause.
+const String kTrackingAutoPauseActionLabel = 'Pause';
+
+/// Title for the auto-pause prompt notification (Phase 18, D-12).
+const String kAutoPauseNotificationTitle = "You've been stopped a while";
+
+/// Body for the auto-pause prompt notification (Phase 18, D-12). Plain copy —
+/// the user taps Pause to suspend recording, or ignores it to keep recording.
+const String kAutoPauseNotificationBody =
+    'Pause this commute? Time stopped here will be excluded from your stats.';
+
+/// SettingsRow title for the opt-in auto-pause toggle (Phase 18, D-10).
+const String kSettingsAutoPauseLabel = 'Auto-pause when stationary';
+
+/// SettingsRow subtitle copy when auto-pause is enabled (Phase 18, D-10).
+const String kSettingsAutoPauseOnSubtitle = 'ON';
+
+/// SettingsRow subtitle copy when auto-pause is disabled (Phase 18, D-10).
+const String kSettingsAutoPauseOffSubtitle = 'OFF';
+
 /// iOS notification category id for the active-commute notification (08-10).
 /// Categories define which actions appear when the notification is expanded
 /// on iOS. Matches the Android action set (Open + Stop) so the cross-platform

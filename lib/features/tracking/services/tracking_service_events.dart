@@ -60,6 +60,24 @@ const String kTrackingResumeCommand = 'resume_tracking';
 /// lat/lng coordinates per T-02-07).
 const String kTrackingErrorEvent = 'tracking_error';
 
+/// Event name for the auto-pause prompt signal from service → UI isolate
+/// (Phase 18, Plan 04, D-11/D-12).
+///
+/// The service isolate runs the `AutoPauseDetector` alongside the accumulator
+/// and invokes this channel ONCE per stationary streak when the uninterrupted
+/// stuck streak crosses `kAutoPauseStationaryThresholdSeconds` and the trip is
+/// not already paused. Like every isolate signal, NO payload crosses the
+/// boundary — only the channel name (a primitive String).
+///
+/// The UI isolate (`TrackingNotifier`) listens and, ONLY when the user has
+/// opted in (`user_preferences.auto_pause_enabled` — read UI-side where Drift
+/// lives), turns the signal into
+/// `TrackingNotificationService.showAutoPausePrompt()`.
+/// Keeping the notification post UI-isolate-side mirrors the D-14 plumbing for
+/// the recording notification; gating the post on the opt-in flag UI-side keeps
+/// SC#5 intact (OFF → no prompt) without round-tripping prefs into the isolate.
+const String kAutoPausePromptEvent = 'auto_pause_prompt';
+
 /// Event name for the service-ready signal from service → UI isolate.
 ///
 /// The service isolate emits this immediately after
