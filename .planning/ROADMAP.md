@@ -505,8 +505,13 @@ Note: Phases 1-7 deliver the complete local-first experience without any authent
   3. From the trip view (detail/edit), the user can change a trip's direction via the same quick selector and the change persists in Drift
   4. The quick label selector visually indicates the current direction (including the auto-labeled default) so the user can confirm or override it
 
-**Plans**: TBD
+**Plans**: 2 plans
 **UI hint**: yes
+
+Plans:
+
+- [ ] 17-01-PLAN.md — Fix the active-tracking elapsed timer (ElapsedDisplay) so the HH:MM:SS mono timer never wraps/clips at 2-digit hours or large text-scale (UX-06)
+- [ ] 17-02-PLAN.md — Quick to-office/to-home direction selector: active-screen segmented toggle with manual override (live + at finalize) and a 1-tap trip-detail toggle reusing the edit DAO path (TRACK-12)
 
 ### Phase 18: Trip Pause & Breaks
 
