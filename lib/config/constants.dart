@@ -756,6 +756,15 @@ const String kCopySignInSheetSubtext =
 /// Shown in the Account section when the user is in the guest auth state.
 const String kCopySettingsGuestSignIn = 'Sign in to back up';
 
+/// Tooltip / semantics label for the guest "not connected" indicator on the
+/// dashboard header (Phase 20, AUTH-04, SC#3, D-06).
+///
+/// The indicator is a passive `cloud_off` IconButton shown ONLY in guest
+/// mode; tapping it opens the sign-in sheet. The copy is calm (states the
+/// fact + the remedy) and non-nagging — there is no auto-shown snackbar.
+const String kCopyGuestNotConnectedTooltip =
+    'Not connected — sign in to back up';
+
 /// Settings screen signed-in account "Sign out" row label.
 ///
 /// Shown in the Account section only when the user is signed in. Tapping it
