@@ -223,12 +223,13 @@ void main() {
       () async {
         // Instantiate the notifier and the prefs subscription, then seed a
         // value and pump a microtask so `.asData` is populated.
-        container.read(trackingStateProvider);
-        container.listen(
-          userPreferenceProvider,
-          (previous, next) {},
-          fireImmediately: true,
-        );
+        container
+          ..read(trackingStateProvider)
+          ..listen(
+            userPreferenceProvider,
+            (previous, next) {},
+            fireImmediately: true,
+          );
         prefsController.add(const UserPreferencesValue.defaults());
         await Future<void>.delayed(Duration.zero);
 

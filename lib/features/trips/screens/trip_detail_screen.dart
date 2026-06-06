@@ -10,6 +10,7 @@ import 'package:traevy/config/theme.dart';
 import 'package:traevy/database/daos/trips_dao.dart';
 import 'package:traevy/database/database.dart';
 import 'package:traevy/database/providers.dart';
+import 'package:traevy/features/tracking/widgets/direction_segmented_toggle.dart';
 import 'package:traevy/features/trips/providers/trip_management_providers.dart';
 import 'package:traevy/features/trips/services/trip_actions.dart'
     as trip_actions;
@@ -91,6 +92,40 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
     );
     if (!context.mounted) return;
     await _loadTrip();
+  }
+
+  /// Quick direction change from the trip detail toggle (TRACK-12, D-07).
+  ///
+  /// Reuses the existing `tripManagementProvider.editTrip` DAO path — the
+  /// same atomic updateTrip + enqueueUpdate the edit sheet uses — passing the
+  /// trip's existing UTC start/end and the newly-selected direction, then
+  /// reloads so the title + toggle reflect the change. No new persistence
+  /// path is introduced.
+  Future<void> _handleDirectionChanged(
+    TripRow trip,
+    String newDirection,
+  ) async {
+    if (newDirection == trip.direction) return;
+    final messenger = ScaffoldMessenger.of(context);
+    await ref
+        .read(tripManagementProvider.notifier)
+        .editTrip(
+          tripId: trip.id,
+          direction: newDirection,
+          startTimeUtc: trip.startTime,
+          endTimeUtc: trip.endTime,
+        );
+    if (!mounted) return;
+    final state = ref.read(tripManagementProvider);
+    if (state is TripManagementSaved) {
+      ref.read(tripManagementProvider.notifier).reset();
+      await _loadTrip();
+    } else if (state is TripManagementError) {
+      ref.read(tripManagementProvider.notifier).reset();
+      messenger.showSnackBar(
+        const SnackBar(content: Text("Couldn't save the trip. Try again.")),
+      );
+    }
   }
 
   Future<void> _handleDelete() async {
@@ -177,6 +212,8 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
           onOptions: _showOptionsMenu,
           onEdit: () => _handleEdit(trip),
           onDelete: _handleDelete,
+          onDirectionChanged: (direction) =>
+              _handleDirectionChanged(trip, direction),
         ),
       ),
     );
@@ -190,6 +227,7 @@ class _TripDetailBody extends StatelessWidget {
     required this.onOptions,
     required this.onEdit,
     required this.onDelete,
+    required this.onDirectionChanged,
   });
 
   final TripRow trip;
@@ -197,6 +235,7 @@ class _TripDetailBody extends StatelessWidget {
   final VoidCallback onOptions;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final ValueChanged<String> onDirectionChanged;
 
   String _commutePartOfDay(DateTime startTime) {
     final local = startTime.toLocal();
@@ -206,10 +245,16 @@ class _TripDetailBody extends StatelessWidget {
   }
 
   String _directionDisplayName(String direction) {
-    if (direction == kDirectionToOffice) return 'To office';
-    if (direction == kDirectionToHome) return 'To home';
+    if (direction == kDirectionToOffice) return kDirectionToOfficeLabel;
+    if (direction == kDirectionToHome) return kDirectionToHomeLabel;
     return 'Trip';
   }
+
+  /// Map the stored direction to a value the [DirectionSegmentedToggle] can
+  /// select. Any legacy / unknown value falls back to to-office so the toggle
+  /// always renders a valid selection; the user can then pick the correct one.
+  String _toggleSelected(String direction) =>
+      direction == kDirectionToHome ? kDirectionToHome : kDirectionToOffice;
 
   @override
   Widget build(BuildContext context) {
@@ -308,6 +353,14 @@ class _TripDetailBody extends StatelessWidget {
                     letterSpacing: -0.6,
                     color: onSurface,
                   ),
+                ),
+                const SizedBox(height: 12),
+                // Quick 1-tap direction toggle (TRACK-12, D-07). Writes via
+                // the existing editTrip DAO path; the screen reloads on save
+                // so this selection reflects the persisted value.
+                DirectionSegmentedToggle(
+                  selected: _toggleSelected(trip.direction),
+                  onSelected: onDirectionChanged,
                 ),
                 const SizedBox(height: 16),
 

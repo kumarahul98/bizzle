@@ -3,17 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/config/theme.dart';
-import 'package:traevy/features/settings/providers/settings_providers.dart';
 import 'package:traevy/features/tracking/providers/tracking_providers.dart';
 import 'package:traevy/features/tracking/services/tracking_service_controller.dart';
 import 'package:traevy/features/tracking/state/tracking_state.dart';
+import 'package:traevy/features/tracking/widgets/direction_segmented_toggle.dart';
 import 'package:traevy/features/tracking/widgets/elapsed_display.dart';
 import 'package:traevy/features/tracking/widgets/recording_header.dart';
 import 'package:traevy/features/tracking/widgets/stop_button.dart';
 import 'package:traevy/features/tracking/widgets/tracking_error_layout.dart';
 import 'package:traevy/features/tracking/widgets/tracking_status_layout.dart';
 import 'package:traevy/features/tracking/widgets/tracking_tiles_row.dart';
-import 'package:traevy/features/trips/services/direction_label_service.dart';
 import 'package:traevy/shared/widgets/section_label.dart';
 
 const double _kButtonDiameter = 124;
@@ -94,7 +93,15 @@ class HeroRecordCard extends ConsumerWidget {
               distanceMeters: distanceMeters,
               currentSpeedKmh: currentSpeedKmh,
               timeStuckSeconds: timeStuckSeconds,
-              direction: _resolveDirection(ref, startedAt),
+              // D-05: header label + toggle selection both come from the
+              // notifier's resolved direction (override ?? auto-label). Watch
+              // prefs so the first frame and any pref change rebuild the label.
+              direction: ref
+                  .watch(trackingStateProvider.notifier)
+                  .resolvedDirection(startedAt),
+              onDirectionSelected: (direction) => ref
+                  .read(trackingStateProvider.notifier)
+                  .setDirection(direction),
               onStop: () => ref.read(trackingStateProvider.notifier).stop(),
             ),
           TrackingStopping() => const TrackingStatusLayout(
@@ -107,23 +114,6 @@ class HeroRecordCard extends ConsumerWidget {
           ),
         },
       ),
-    );
-  }
-
-  /// Derive the direction label using the user's morning/evening cutoff
-  /// preferences and the trip's start time (local). Falls back to the
-  /// schema default cutoff when prefs haven't loaded yet so the very
-  /// first frame after Start doesn't render the wrong direction.
-  static String _resolveDirection(WidgetRef ref, DateTime startedAt) {
-    final prefs = ref.watch(userPreferenceProvider).asData?.value;
-    final morning =
-        prefs?.morningCutoffHour ?? kDefaultDirectionCutoffHour;
-    final evening =
-        prefs?.eveningCutoffHour ?? kDefaultDirectionCutoffHour;
-    return const DirectionLabelService().label(
-      startedAt.toLocal(),
-      morning,
-      evening,
     );
   }
 
@@ -215,13 +205,14 @@ class _HeroIdle extends StatelessWidget {
   }
 }
 
-class _HeroActive extends StatelessWidget {
+class _HeroActive extends StatefulWidget {
   const _HeroActive({
     required this.elapsedSeconds,
     required this.distanceMeters,
     required this.currentSpeedKmh,
     required this.timeStuckSeconds,
     required this.direction,
+    required this.onDirectionSelected,
     required this.onStop,
   });
 
@@ -230,10 +221,36 @@ class _HeroActive extends StatelessWidget {
   final double currentSpeedKmh;
   final int timeStuckSeconds;
   final String direction;
+  final ValueChanged<String> onDirectionSelected;
   final VoidCallback onStop;
 
-  String get _directionLabel =>
-      direction == kDirectionToHome ? 'To home' : 'To office';
+  @override
+  State<_HeroActive> createState() => _HeroActiveState();
+}
+
+class _HeroActiveState extends State<_HeroActive> {
+  // Optimistic selection so the header label + toggle flip on the same frame
+  // as the tap (TRACK-12, D-05). setDirection does not emit a new
+  // TrackingState, so this local mirror drives the immediate rebuild; the
+  // resolved direction from the notifier reconciles it on the next snapshot.
+  late String _selected = widget.direction;
+
+  @override
+  void didUpdateWidget(_HeroActive oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.direction != oldWidget.direction) {
+      _selected = widget.direction;
+    }
+  }
+
+  void _onDirectionSelected(String direction) {
+    setState(() => _selected = direction);
+    widget.onDirectionSelected(direction);
+  }
+
+  String get _directionLabel => _selected == kDirectionToHome
+      ? kDirectionToHomeLabel
+      : kDirectionToOfficeLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -241,17 +258,22 @@ class _HeroActive extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         RecordingHeader(directionLabel: _directionLabel),
-        const SizedBox(height: 16),
-        ElapsedDisplay(durationSeconds: elapsedSeconds),
-        const SizedBox(height: 24),
-        TrackingTilesRow(
-          elapsedSeconds: elapsedSeconds,
-          distanceMeters: distanceMeters,
-          currentSpeedKmh: currentSpeedKmh,
-          timeStuckSeconds: timeStuckSeconds,
+        const SizedBox(height: 12),
+        DirectionSegmentedToggle(
+          selected: _selected,
+          onSelected: _onDirectionSelected,
         ),
         const SizedBox(height: 16),
-        StopButton(onPressed: onStop),
+        ElapsedDisplay(durationSeconds: widget.elapsedSeconds),
+        const SizedBox(height: 24),
+        TrackingTilesRow(
+          elapsedSeconds: widget.elapsedSeconds,
+          distanceMeters: widget.distanceMeters,
+          currentSpeedKmh: widget.currentSpeedKmh,
+          timeStuckSeconds: widget.timeStuckSeconds,
+        ),
+        const SizedBox(height: 16),
+        StopButton(onPressed: widget.onStop),
       ],
     );
   }
