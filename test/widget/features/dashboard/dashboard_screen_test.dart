@@ -44,13 +44,13 @@ class _IdleTrackingNotifier extends TrackingNotifier {
 class _ActiveTrackingNotifier extends TrackingNotifier {
   @override
   TrackingState build() => TrackingActive(
-        startedAt: DateTime.now(),
-        elapsedSeconds: 600,
-        distanceMeters: 3000,
-        currentSpeedKmh: 0,
-        timeMovingSeconds: 400,
-        timeStuckSeconds: 200,
-      );
+    startedAt: DateTime.now(),
+    elapsedSeconds: 600,
+    distanceMeters: 3000,
+    currentSpeedKmh: 0,
+    timeMovingSeconds: 400,
+    timeStuckSeconds: 200,
+  );
 }
 
 typedef _PermissionHarness = ({
@@ -153,8 +153,34 @@ StatsSummary _makeStatsSummary() {
     toHomeAvgSeconds: 1900,
     weekdayAverages: <int?>[1800, 1800, 1800, 1800, 1800, null, null],
     dailyTotalsLast28Days: <int>[
-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
     ],
     hasAnyTrips: true,
   );
@@ -210,24 +236,27 @@ void main() {
     // ------------------------------------------------------------------
 
     testWidgets('renders DashboardScreen as app root', (tester) async {
-      final harness =
-          _buildFakePermissionService(TrackingPermissionStatus.fullyGranted);
+      final harness = _buildFakePermissionService(
+        TrackingPermissionStatus.fullyGranted,
+      );
       await _pumpDashboardScreen(tester, permissionService: harness.service);
 
       expect(find.byType(DashboardScreen), findsOneWidget);
     });
 
     testWidgets('renders HomeHeader', (tester) async {
-      final harness =
-          _buildFakePermissionService(TrackingPermissionStatus.fullyGranted);
+      final harness = _buildFakePermissionService(
+        TrackingPermissionStatus.fullyGranted,
+      );
       await _pumpDashboardScreen(tester, permissionService: harness.service);
 
       expect(find.byType(HomeHeader), findsOneWidget);
     });
 
     testWidgets('renders HeroRecordCard with START button', (tester) async {
-      final harness =
-          _buildFakePermissionService(TrackingPermissionStatus.fullyGranted);
+      final harness = _buildFakePermissionService(
+        TrackingPermissionStatus.fullyGranted,
+      );
       await _pumpDashboardScreen(tester, permissionService: harness.service);
 
       expect(find.byType(HeroRecordCard), findsOneWidget);
@@ -235,45 +264,61 @@ void main() {
     });
 
     testWidgets('renders TodaySection', (tester) async {
-      final harness =
-          _buildFakePermissionService(TrackingPermissionStatus.fullyGranted);
+      final harness = _buildFakePermissionService(
+        TrackingPermissionStatus.fullyGranted,
+      );
       await _pumpDashboardScreen(tester, permissionService: harness.service);
 
       expect(find.byType(TodaySection), findsOneWidget);
     });
 
     testWidgets('renders WeekLossCard', (tester) async {
-      final harness =
-          _buildFakePermissionService(TrackingPermissionStatus.fullyGranted);
+      final harness = _buildFakePermissionService(
+        TrackingPermissionStatus.fullyGranted,
+      );
       await _pumpDashboardScreen(tester, permissionService: harness.service);
 
       expect(find.byType(WeekLossCard), findsOneWidget);
     });
 
     testWidgets('shows InProgressCard when tracking is active', (tester) async {
-      final harness =
-          _buildFakePermissionService(TrackingPermissionStatus.fullyGranted);
+      final harness = _buildFakePermissionService(
+        TrackingPermissionStatus.fullyGranted,
+      );
       await _pumpDashboardScreen(
         tester,
         permissionService: harness.service,
         trackingNotifierFactory: _ActiveTrackingNotifier.new,
       );
 
+      // Phase 18: the active hero gained a Pause/Resume button, making it
+      // taller, so TodaySection (which hosts InProgressCard) starts below the
+      // viewport. The dashboard uses a lazy CustomScrollView, so scroll the
+      // card into view before asserting — it exists, it was just unbuilt.
+      await tester.scrollUntilVisible(
+        find.byType(InProgressCard),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+
       expect(find.byType(InProgressCard), findsOneWidget);
     });
 
     testWidgets('hides InProgressCard when tracking is idle', (tester) async {
-      final harness =
-          _buildFakePermissionService(TrackingPermissionStatus.fullyGranted);
+      final harness = _buildFakePermissionService(
+        TrackingPermissionStatus.fullyGranted,
+      );
       await _pumpDashboardScreen(tester, permissionService: harness.service);
 
       expect(find.byType(InProgressCard), findsNothing);
     });
 
-    testWidgets('shows EmptySlotRow placeholders when no trips today',
-        (tester) async {
-      final harness =
-          _buildFakePermissionService(TrackingPermissionStatus.fullyGranted);
+    testWidgets('shows EmptySlotRow placeholders when no trips today', (
+      tester,
+    ) async {
+      final harness = _buildFakePermissionService(
+        TrackingPermissionStatus.fullyGranted,
+      );
       await _pumpDashboardScreen(
         tester,
         permissionService: harness.service,
@@ -285,8 +330,9 @@ void main() {
     });
 
     testWidgets('shows TripRowCard for each trip today', (tester) async {
-      final harness =
-          _buildFakePermissionService(TrackingPermissionStatus.fullyGranted);
+      final harness = _buildFakePermissionService(
+        TrackingPermissionStatus.fullyGranted,
+      );
       await _pumpDashboardScreen(
         tester,
         permissionService: harness.service,
@@ -302,47 +348,51 @@ void main() {
     // ------------------------------------------------------------------
 
     testWidgets(
-        'tapping START when idle with permanentlyDenied shows settings dialog '
-        'instead of navigating', (tester) async {
-      final harness = _buildFakePermissionService(
-        TrackingPermissionStatus.permanentlyDenied,
-      );
-      await _pumpDashboardScreen(tester, permissionService: harness.service);
+      'tapping START when idle with permanentlyDenied shows settings dialog '
+      'instead of navigating',
+      (tester) async {
+        final harness = _buildFakePermissionService(
+          TrackingPermissionStatus.permanentlyDenied,
+        );
+        await _pumpDashboardScreen(tester, permissionService: harness.service);
 
-      await tester.tap(find.text('START'));
-      await tester.pump();
-      await tester.pump();
+        await tester.tap(find.text('START'));
+        await tester.pump();
+        await tester.pump();
 
-      // Dialog is present; in-place hero remained on the dashboard.
-      expect(find.text('Location permission denied'), findsOneWidget);
-      expect(
-        find.widgetWithText(FilledButton, 'Open settings'),
-        findsOneWidget,
-      );
-      expect(find.byType(DashboardScreen), findsOneWidget);
-      expect(harness.openSettingsCalls(), 0);
-    });
+        // Dialog is present; in-place hero remained on the dashboard.
+        expect(find.text('Location permission denied'), findsOneWidget);
+        expect(
+          find.widgetWithText(FilledButton, 'Open settings'),
+          findsOneWidget,
+        );
+        expect(find.byType(DashboardScreen), findsOneWidget);
+        expect(harness.openSettingsCalls(), 0);
+      },
+    );
 
     testWidgets(
-        'tapping START when idle with notificationDenied shows notification '
-        'dialog and does NOT navigate to the tracking route', (tester) async {
-      final harness = _buildFakePermissionService(
-        TrackingPermissionStatus.notificationDenied,
-      );
-      await _pumpDashboardScreen(tester, permissionService: harness.service);
+      'tapping START when idle with notificationDenied shows notification '
+      'dialog and does NOT navigate to the tracking route',
+      (tester) async {
+        final harness = _buildFakePermissionService(
+          TrackingPermissionStatus.notificationDenied,
+        );
+        await _pumpDashboardScreen(tester, permissionService: harness.service);
 
-      await tester.tap(find.text('START'));
-      await tester.pump();
-      await tester.pump();
+        await tester.tap(find.text('START'));
+        await tester.pump();
+        await tester.pump();
 
-      expect(find.text('Notifications required'), findsOneWidget);
-      expect(
-        find.widgetWithText(FilledButton, 'Open settings'),
-        findsOneWidget,
-      );
-      expect(find.byType(DashboardScreen), findsOneWidget);
-      expect(harness.openSettingsCalls(), 0);
-    });
+        expect(find.text('Notifications required'), findsOneWidget);
+        expect(
+          find.widgetWithText(FilledButton, 'Open settings'),
+          findsOneWidget,
+        );
+        expect(find.byType(DashboardScreen), findsOneWidget);
+        expect(harness.openSettingsCalls(), 0);
+      },
+    );
 
     testWidgets(
       'tapping START when idle with fullyGranted invokes notifier.start() '

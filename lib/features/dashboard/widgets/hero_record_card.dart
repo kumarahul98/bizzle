@@ -8,6 +8,8 @@ import 'package:traevy/features/tracking/services/tracking_service_controller.da
 import 'package:traevy/features/tracking/state/tracking_state.dart';
 import 'package:traevy/features/tracking/widgets/direction_segmented_toggle.dart';
 import 'package:traevy/features/tracking/widgets/elapsed_display.dart';
+import 'package:traevy/features/tracking/widgets/pause_resume_button.dart';
+import 'package:traevy/features/tracking/widgets/paused_indicators.dart';
 import 'package:traevy/features/tracking/widgets/recording_header.dart';
 import 'package:traevy/features/tracking/widgets/stop_button.dart';
 import 'package:traevy/features/tracking/widgets/tracking_error_layout.dart';
@@ -87,12 +89,18 @@ class HeroRecordCard extends ConsumerWidget {
             :final distanceMeters,
             :final currentSpeedKmh,
             :final timeStuckSeconds,
+            :final isPaused,
+            :final breakCount,
           ) =>
             _HeroActive(
               elapsedSeconds: elapsedSeconds,
               distanceMeters: distanceMeters,
               currentSpeedKmh: currentSpeedKmh,
               timeStuckSeconds: timeStuckSeconds,
+              // Phase 18 (D-08): the paused/running treatment + break count are
+              // driven purely by the snapshot — the hero is a dumb terminal.
+              isPaused: isPaused,
+              breakCount: breakCount,
               // D-05: header label + toggle selection both come from the
               // notifier's resolved direction (override ?? auto-label). Watch
               // prefs so the first frame and any pref change rebuild the label.
@@ -103,6 +111,8 @@ class HeroRecordCard extends ConsumerWidget {
                   .read(trackingStateProvider.notifier)
                   .setDirection(direction),
               onStop: () => ref.read(trackingStateProvider.notifier).stop(),
+              onPause: () => ref.read(trackingStateProvider.notifier).pause(),
+              onResume: () => ref.read(trackingStateProvider.notifier).resume(),
             ),
           TrackingStopping() => const TrackingStatusLayout(
             label: 'Saving trip...',
@@ -211,18 +221,26 @@ class _HeroActive extends StatefulWidget {
     required this.distanceMeters,
     required this.currentSpeedKmh,
     required this.timeStuckSeconds,
+    required this.isPaused,
+    required this.breakCount,
     required this.direction,
     required this.onDirectionSelected,
     required this.onStop,
+    required this.onPause,
+    required this.onResume,
   });
 
   final int elapsedSeconds;
   final double distanceMeters;
   final double currentSpeedKmh;
   final int timeStuckSeconds;
+  final bool isPaused;
+  final int breakCount;
   final String direction;
   final ValueChanged<String> onDirectionSelected;
   final VoidCallback onStop;
+  final VoidCallback onPause;
+  final VoidCallback onResume;
 
   @override
   State<_HeroActive> createState() => _HeroActiveState();
@@ -254,17 +272,32 @@ class _HeroActiveState extends State<_HeroActive> {
 
   @override
   Widget build(BuildContext context) {
+    final isPaused = widget.isPaused;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         RecordingHeader(directionLabel: _directionLabel),
+        if (isPaused) ...const <Widget>[
+          SizedBox(height: 12),
+          Center(child: PausedBadge()),
+        ],
         const SizedBox(height: 12),
         DirectionSegmentedToggle(
           selected: _selected,
           onSelected: _onDirectionSelected,
         ),
         const SizedBox(height: 16),
-        ElapsedDisplay(durationSeconds: widget.elapsedSeconds),
+        // Phase 18 (D-09): while paused the elapsed value already arrives
+        // FROZEN from the snapshot (no local clock) — we just dim it so the
+        // paused state reads as visually distinct without changing the timer.
+        Opacity(
+          opacity: isPaused ? 0.4 : 1,
+          child: ElapsedDisplay(durationSeconds: widget.elapsedSeconds),
+        ),
+        if (widget.breakCount > 0) ...<Widget>[
+          const SizedBox(height: 10),
+          BreakCountChip(breakCount: widget.breakCount),
+        ],
         const SizedBox(height: 24),
         TrackingTilesRow(
           elapsedSeconds: widget.elapsedSeconds,
@@ -273,6 +306,11 @@ class _HeroActiveState extends State<_HeroActive> {
           timeStuckSeconds: widget.timeStuckSeconds,
         ),
         const SizedBox(height: 16),
+        PauseResumeButton(
+          isPaused: isPaused,
+          onPressed: isPaused ? widget.onResume : widget.onPause,
+        ),
+        const SizedBox(height: 12),
         StopButton(onPressed: widget.onStop),
       ],
     );
