@@ -140,6 +140,20 @@ class TrackingServiceController {
     await _source.stop();
   }
 
+  /// Suspend the active trip (Phase 18, D-08). Thin passthrough to the
+  /// platform-selected [TrackingEventSource]; the engine opens a break span on
+  /// its accumulator and reflects `isPaused: true` on the next snapshot. The
+  /// trip is NEVER ended — it resumes as one continuous record.
+  Future<void> pause() async {
+    await _source.pause();
+  }
+
+  /// Resume a paused trip (Phase 18, D-08). Thin passthrough — closes the open
+  /// break span; the next snapshot carries `isPaused: false`.
+  Future<void> resume() async {
+    await _source.resume();
+  }
+
   /// Atomically persist a finalized trip.
   ///
   /// Three outcomes, each a final variant of [PersistResult]:

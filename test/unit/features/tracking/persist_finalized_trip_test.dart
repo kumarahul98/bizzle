@@ -36,6 +36,12 @@ class _FakeTrackingEventSource implements TrackingEventSource {
 
   @override
   Future<void> stop() async {}
+
+  @override
+  Future<void> pause() async {}
+
+  @override
+  Future<void> resume() async {}
 }
 
 /// Fake [TrackingNotificationService] that records every `dismiss` /

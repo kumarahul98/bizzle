@@ -58,6 +58,16 @@ abstract interface class TrackingEventSource {
   /// Stop tracking. Fire-and-forget; the engine responds asynchronously via
   /// [onFinalized].
   Future<void> stop();
+
+  /// Suspend the current trip without ending it (Phase 18, D-08). The trip
+  /// keeps recording as ONE continuous record; the accumulator opens a break
+  /// span. Fire-and-forget: the engine reflects the paused state on the next
+  /// `onState` snapshot (`isPaused: true`), never synchronously.
+  Future<void> pause();
+
+  /// Resume a paused trip (Phase 18, D-08). Closes the open break span; the
+  /// next `onState` snapshot carries `isPaused: false`.
+  Future<void> resume();
 }
 
 /// Android implementation of [TrackingEventSource]. Thin passthrough to the
@@ -82,20 +92,17 @@ final class FbsTrackingEventSource implements TrackingEventSource {
   final FlutterBackgroundService _service;
 
   @override
-  Stream<Map<String, dynamic>?> get onState =>
-      _service.on(kTrackingStateEvent);
+  Stream<Map<String, dynamic>?> get onState => _service.on(kTrackingStateEvent);
 
   @override
   Stream<Map<String, dynamic>?> get onFinalized =>
       _service.on(kTripFinalizedEvent);
 
   @override
-  Stream<Map<String, dynamic>?> get onError =>
-      _service.on(kTrackingErrorEvent);
+  Stream<Map<String, dynamic>?> get onError => _service.on(kTrackingErrorEvent);
 
   @override
-  Stream<Map<String, dynamic>?> get onReady =>
-      _service.on(kServiceReadyEvent);
+  Stream<Map<String, dynamic>?> get onReady => _service.on(kServiceReadyEvent);
 
   @override
   Future<bool> start() => _service.startService();
@@ -103,5 +110,18 @@ final class FbsTrackingEventSource implements TrackingEventSource {
   @override
   Future<void> stop() async {
     _service.invoke(kStopTrackingEvent);
+  }
+
+  @override
+  Future<void> pause() async {
+    // ONLY the command name (a primitive String) crosses the isolate
+    // boundary — no payload (T-18-08). The service-isolate handler routes on
+    // the channel name alone.
+    _service.invoke(kTrackingPauseCommand);
+  }
+
+  @override
+  Future<void> resume() async {
+    _service.invoke(kTrackingResumeCommand);
   }
 }

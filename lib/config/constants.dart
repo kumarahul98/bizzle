@@ -168,6 +168,27 @@ const String kTrackingOpenActionId = 'open_app';
 /// User-facing label for the Open action button (08-10).
 const String kTrackingOpenActionLabel = 'Open';
 
+/// User-facing label for the active-hero Pause button (Phase 18, D-09). Shown
+/// while a trip is running; tapping it suspends recording.
+const String kTrackingPauseLabel = 'Pause';
+
+/// User-facing label for the active-hero Resume button (Phase 18, D-09). Shown
+/// while a trip is paused; tapping it continues the same trip.
+const String kTrackingResumeLabel = 'Resume';
+
+/// Badge text shown on the hero while a trip is paused (Phase 18, D-09). The
+/// distinct PAUSED visual state pairs this badge with a dimmed, frozen timer.
+const String kTrackingPausedBadgeLabel = 'PAUSED';
+
+/// Break-count indicator text when exactly one break has been taken (Phase 18,
+/// D-09). Kept separate from [kTrackingBreakCountPluralTemplate] so the
+/// singular/plural choice is data, not a string concatenation in the widget.
+const String kTrackingBreakCountSingularLabel = '1 break';
+
+/// Break-count indicator template for two-or-more breaks (Phase 18, D-09).
+/// `{n}` is replaced with the break count, e.g. `'2 breaks'`.
+const String kTrackingBreakCountPluralTemplate = '{n} breaks';
+
 /// iOS notification category id for the active-commute notification (08-10).
 /// Categories define which actions appear when the notification is expanded
 /// on iOS. Matches the Android action set (Open + Stop) so the cross-platform

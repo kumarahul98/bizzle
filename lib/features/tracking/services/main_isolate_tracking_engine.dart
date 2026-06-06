@@ -68,11 +68,9 @@ final class MainIsolateTrackingEngine implements TrackingEventSource {
     LocationSettings Function()? locationSettingsBuilder,
   }) : _positionStreamFactory =
            positionStreamFactory ??
-           (
-             (settings) => Geolocator.getPositionStream(
-               locationSettings: settings,
-             )
-           ),
+           ((settings) => Geolocator.getPositionStream(
+             locationSettings: settings,
+           )),
        _locationSettingsBuilder =
            locationSettingsBuilder ?? buildLocationSettings;
 
@@ -90,8 +88,7 @@ final class MainIsolateTrackingEngine implements TrackingEventSource {
   Stream<Map<String, dynamic>?> get onState => _stateController.stream;
 
   @override
-  Stream<Map<String, dynamic>?> get onFinalized =>
-      _finalizedController.stream;
+  Stream<Map<String, dynamic>?> get onFinalized => _finalizedController.stream;
 
   @override
   Stream<Map<String, dynamic>?> get onError => _errorController.stream;
@@ -162,6 +159,23 @@ final class MainIsolateTrackingEngine implements TrackingEventSource {
       final trip = accumulator.finalize(DateTime.now().toUtc());
       _finalizedController.add(trip.toMap());
     }
+  }
+
+  @override
+  Future<void> pause() async {
+    // Phase 18 (D-08): pause/resume toggle this engine's own accumulator
+    // directly — there is no second isolate to invoke. The next uiTimer tick
+    // emits a snapshot whose `isPaused` reflects the new state, so the
+    // dumb-terminal UI updates from that, not from this call. Guarded by the
+    // stop-race flag so a late pause cannot touch a finalized accumulator.
+    if (_stopping) return;
+    _accumulator?.pause(DateTime.now().toUtc());
+  }
+
+  @override
+  Future<void> resume() async {
+    if (_stopping) return;
+    _accumulator?.resume(DateTime.now().toUtc());
   }
 
   /// Test-only accessor — exposes the accumulator so stop-race tests can

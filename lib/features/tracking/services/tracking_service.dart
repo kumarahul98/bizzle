@@ -135,6 +135,23 @@ Future<void> trackingServiceOnStart(ServiceInstance service) async {
     );
   });
 
+  // Phase 18 (D-08): pause/resume only TOGGLE the accumulator — they do NOT
+  // cancel the position subscription or stop the service. The very next
+  // uiTimer tick emits a snapshot whose `isPaused` reflects the new state, so
+  // the dumb-terminal UI updates from that snapshot, never from a local
+  // action. Both handlers early-return when `stopping` is set (T-18-10): a
+  // late pause racing the Stop handler must not touch a finalized accumulator,
+  // mirroring the stop-race guard above.
+  service.on(kTrackingPauseCommand).listen((_) {
+    if (stopping) return;
+    accumulator.pause(DateTime.now().toUtc());
+  });
+
+  service.on(kTrackingResumeCommand).listen((_) {
+    if (stopping) return;
+    accumulator.resume(DateTime.now().toUtc());
+  });
+
   service.on(kStopTrackingEvent).listen((_) async {
     // Order matters: set the flag BEFORE cancelling the subscription so
     // any in-flight listener callback early-returns instead of touching

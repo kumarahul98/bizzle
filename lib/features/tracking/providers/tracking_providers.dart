@@ -466,6 +466,30 @@ class TrackingNotifier extends Notifier<TrackingState> {
     await ref.read(trackingServiceControllerProvider).stop();
   }
 
+  /// Suspend the active trip (Phase 18, D-08, SC#1). No-op unless the state is
+  /// [TrackingActive] — the Pause button only renders while active, so this is
+  /// a defensive re-entry guard.
+  ///
+  /// DUMB TERMINAL CONTRACT (D-08): this method sets NO local paused state. It
+  /// forwards the command to the engine and returns; the displayed paused flag
+  /// arrives later via the next snapshot's `isPaused` decoded in
+  /// [trackingActiveFromSnapshotMap]. Because the UI never runs its own pause
+  /// clock, the displayed state can never diverge from the accumulator — after
+  /// a backgrounding/kill the UI reconnects and the first snapshot dictates the
+  /// paused/running display (T-18-09, automatic recovery).
+  Future<void> pause() async {
+    if (state is! TrackingActive) return;
+    await ref.read(trackingServiceControllerProvider).pause();
+  }
+
+  /// Resume a paused trip (Phase 18, D-08, SC#1). No-op unless the state is
+  /// [TrackingActive]. Like [pause], sets NO local state — the next snapshot's
+  /// `isPaused: false` flips the UI back to the running treatment.
+  Future<void> resume() async {
+    if (state is! TrackingActive) return;
+    await ref.read(trackingServiceControllerProvider).resume();
+  }
+
   /// Return the [PersistResult] produced by the most recent
   /// `onFinalized` cycle, and clear the slot. The tracking screen
   /// calls this from a `ref.listen(trackingStateProvider, ...)` when

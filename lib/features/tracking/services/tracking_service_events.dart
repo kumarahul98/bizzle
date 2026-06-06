@@ -35,6 +35,22 @@ const String kTripFinalizedEvent = 'trip_finalized';
 /// Event name for the stop command from UI → service isolate.
 const String kStopTrackingEvent = 'stop_tracking';
 
+/// Event name for the pause command from UI → service isolate (Phase 18,
+/// D-08). Mirrors [kStopTrackingEvent] exactly: the UI isolate
+/// `invoke`s this channel name (a primitive String — the ONLY thing that
+/// crosses the isolate boundary), and the service-isolate handler responds by
+/// calling `accumulator.pause(now UTC)`. Unlike Stop it does NOT cancel the
+/// position subscription or stop the service — it only toggles the
+/// accumulator, so the very next `kTrackingStateEvent` snapshot carries
+/// `isPaused: true` and the dumb-terminal UI reflects it.
+const String kTrackingPauseCommand = 'pause_tracking';
+
+/// Event name for the resume command from UI → service isolate (Phase 18,
+/// D-08). The mirror image of [kTrackingPauseCommand]: the service-isolate
+/// handler calls `accumulator.resume(now UTC)`, closing the open break and
+/// emitting `isPaused: false` on the next snapshot.
+const String kTrackingResumeCommand = 'resume_tracking';
+
 /// Event name for an unrecoverable service-isolate failure (e.g. the
 /// Geolocator position stream emits an error mid-trip). The service
 /// isolate invokes this channel with a `{'reason': <string>}` payload —
