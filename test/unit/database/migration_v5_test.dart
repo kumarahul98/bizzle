@@ -43,9 +43,9 @@ void main() {
         await oldDb
             .into(oldDb.userPreferences)
             .insert(
-              RawValuesInsertable<dynamic>({
-                'id': const Variable<int>(1),
-                'user_id': const Variable<String>(kDefaultUserId),
+              const RawValuesInsertable<dynamic>({
+                'id': Variable<int>(1),
+                'user_id': Variable<String>(kDefaultUserId),
               }),
             );
 
