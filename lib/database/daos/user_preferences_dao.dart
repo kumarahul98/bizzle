@@ -249,4 +249,39 @@ class UserPreferencesDao extends DatabaseAccessor<AppDatabase>
       ),
     );
   }
+
+  /// Persist the user's Home anchor coordinate (Phase 21, LOC-01, D-12).
+  ///
+  /// Single-column upsert mirroring [setHasSeenOnboarding]: targets the single
+  /// row at `id = 1`; the first write CREATES it (a fresh install has no row
+  /// per D-04), later writes update only `home_lat`/`home_lng` in place. Every
+  /// other column keeps its existing value (or table default on first write),
+  /// so saving Home never disturbs Office, notification, or theme settings.
+  ///
+  /// PII note (T-21-02-01): [lat]/[lng] are PII-adjacent. They are written to
+  /// local Drift only and must NEVER be logged or sent to any backend here.
+  Future<void> setHomeLocation(double lat, double lng) {
+    return into(userPreferences).insertOnConflictUpdate(
+      UserPreferencesCompanion.insert(
+        id: const Value<int>(_kUserPreferencesId),
+        homeLat: Value<double?>(lat),
+        homeLng: Value<double?>(lng),
+      ),
+    );
+  }
+
+  /// Persist the user's Office anchor coordinate (Phase 21, LOC-01, D-12).
+  ///
+  /// See [setHomeLocation] — identical single-row, single-pair upsert for the
+  /// `office_lat`/`office_lng` columns. PII-adjacent (T-21-02-01): local-only,
+  /// never logged.
+  Future<void> setOfficeLocation(double lat, double lng) {
+    return into(userPreferences).insertOnConflictUpdate(
+      UserPreferencesCompanion.insert(
+        id: const Value<int>(_kUserPreferencesId),
+        officeLat: Value<double?>(lat),
+        officeLng: Value<double?>(lng),
+      ),
+    );
+  }
 }

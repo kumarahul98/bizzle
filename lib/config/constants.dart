@@ -1014,3 +1014,51 @@ const String kDirectionSourceGeofence = 'geofence';
 /// row reads `time` after the additive v6 migration — they were all
 /// time-labeled (SC#5).
 const String kDirectionSourceTime = 'time';
+
+// --- LOC-01 location picker (Plan 02) -------------------------------------
+
+/// Subtitle shown on a Home/Office settings row when no coordinate is saved
+/// yet (D-13: a never-set slot reads "Not set", never Null Island).
+const String kCopyLocationNotSet = 'Not set';
+
+/// Label for the Home location settings row (LOC-01).
+const String kSettingsHomeLocationLabel = 'Home location';
+
+/// Label for the Office location settings row (LOC-01).
+const String kSettingsOfficeLocationLabel = 'Office location';
+
+/// Title of the "Commute" settings section that groups the Home/Office rows.
+const String kSettingsLocationsSectionTitle = 'Commute';
+
+/// App-bar / confirm-button copy for the Home picker (LOC-01).
+const String kLocationPickerHomeTitle = 'Set home';
+
+/// App-bar / confirm-button copy for the Office picker (LOC-01).
+const String kLocationPickerOfficeTitle = 'Set office';
+
+/// Confirm-button label for the Home picker.
+const String kLocationPickerSetHomeButton = 'Set home here';
+
+/// Confirm-button label for the Office picker.
+const String kLocationPickerSetOfficeButton = 'Set office here';
+
+/// SnackBar copy shown after a Home location is saved.
+const String kLocationPickerHomeSavedSnack = 'Home location saved';
+
+/// SnackBar copy shown after an Office location is saved.
+const String kLocationPickerOfficeSavedSnack = 'Office location saved';
+
+/// Default map-camera latitude when no saved coord, no device location, and no
+/// recent trip exist (D-13: a sane non-(0,0) start, NOT Null Island). Centred
+/// on Bengaluru, India — the project's primary locale.
+const double kMapDefaultCenterLat = 12.9716;
+
+/// Default map-camera longitude (see [kMapDefaultCenterLat]).
+const double kMapDefaultCenterLng = 77.5946;
+
+/// Initial zoom level for the location picker map (street-level so the user can
+/// place the crosshair precisely).
+const double kLocationPickerInitialZoom = 15;
+
+/// Size (logical pixels) of the fixed centre crosshair icon on the picker.
+const double kLocationPickerCrosshairSize = 40;

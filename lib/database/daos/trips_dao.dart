@@ -105,6 +105,26 @@ class TripsDao extends DatabaseAccessor<AppDatabase> with _$TripsDaoMixin {
     return (select(trips)..where((t) => t.id.equals(id))).getSingleOrNull();
   }
 
+  /// Fetch the full row (including polyline) of the most recent GPS trip, or
+  /// null if no GPS trip exists (LOC-01, D-13 picker init fallback).
+  ///
+  /// Ordered by `startTime` desc and filtered to `is_manual_entry = false` so
+  /// the row is guaranteed to carry a recorded route. Used only to seed the
+  /// location-picker camera when no saved anchor and no device location are
+  /// available — never on a hot path.
+  Future<TripRow?> mostRecentGpsTrip() {
+    return (select(trips)
+          ..where((t) => t.isManualEntry.equals(false))
+          ..orderBy([
+            (t) => OrderingTerm(
+              expression: t.startTime,
+              mode: OrderingMode.desc,
+            ),
+          ])
+          ..limit(1))
+        .getSingleOrNull();
+  }
+
   /// Insert a new trip. Callers construct a `TripsCompanion.insert(...)`
   /// with all required fields; Drift validates non-null constraints at
   /// compile time via the generated companion.

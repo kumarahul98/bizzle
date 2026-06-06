@@ -10,9 +10,11 @@ import 'package:traevy/features/auth/models/auth_state.dart';
 import 'package:traevy/features/auth/providers/auth_providers.dart';
 import 'package:traevy/features/auth/widgets/sign_in_sheet.dart';
 import 'package:traevy/features/settings/providers/settings_providers.dart';
+import 'package:traevy/features/settings/screens/location_picker_screen.dart';
 import 'package:traevy/features/settings/widgets/account_row.dart';
 import 'package:traevy/features/settings/widgets/cloud_sync_row.dart';
 import 'package:traevy/features/settings/widgets/restore_row.dart';
+import 'package:traevy/features/settings/widgets/saved_location_tile.dart';
 import 'package:traevy/features/settings/widgets/settings_row.dart';
 import 'package:traevy/features/settings/widgets/settings_section.dart';
 import 'package:traevy/shared/widgets/traevy_toggle.dart';
@@ -47,6 +49,7 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               ),
               const _AccountSection(),
+              const _LocationsSection(),
               _RecordingSection(prefs: prefs, ref: ref),
               _NotificationsSection(prefs: prefs, ref: ref),
               _AppearanceSection(prefs: prefs, ref: ref),
@@ -120,6 +123,41 @@ class _AccountSection extends ConsumerWidget {
     return SettingsSection(
       title: kSettingsAccountSectionTitle,
       children: rows,
+    );
+  }
+}
+
+/// Commute-anchor section (Phase 21, LOC-01): the Home and Office location
+/// rows. Each [SavedLocationTile] reflects the saved coord (or "Not set") and
+/// opens the full-screen map picker for that slot on tap. Purely additive —
+/// with nothing set both rows simply read [kCopyLocationNotSet].
+class _LocationsSection extends StatelessWidget {
+  const _LocationsSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return SettingsSection(
+      title: kSettingsLocationsSectionTitle,
+      children: <Widget>[
+        SavedLocationTile(
+          isHome: true,
+          onTap: () => _openPicker(context, isHome: true),
+        ),
+        SavedLocationTile(
+          isHome: false,
+          onTap: () => _openPicker(context, isHome: false),
+        ),
+      ],
+    );
+  }
+
+  void _openPicker(BuildContext context, {required bool isHome}) {
+    unawaited(
+      Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => LocationPickerScreen(isHome: isHome),
+        ),
+      ),
     );
   }
 }

@@ -258,18 +258,21 @@ void main() {
     });
 
     testWidgets(
-      'renders 4 SettingsSection blocks',
+      'renders 5 SettingsSection blocks',
       (tester) async {
         await _pumpSettingsScreen(tester);
-        expect(find.byType(SettingsSection), findsNWidgets(4));
+        // Account, Commute (Phase 21 LOC-01), Recording, Notifications,
+        // Appearance.
+        expect(find.byType(SettingsSection), findsNWidgets(5));
       },
     );
 
     testWidgets(
-      'renders ACCOUNT, RECORDING, NOTIFICATIONS, APPEARANCE labels',
+      'renders ACCOUNT, COMMUTE, RECORDING, NOTIFICATIONS, APPEARANCE labels',
       (tester) async {
         await _pumpSettingsScreen(tester);
         expect(find.text('ACCOUNT'), findsOneWidget);
+        expect(find.text('COMMUTE'), findsOneWidget);
         expect(find.text('RECORDING'), findsOneWidget);
         expect(find.text('NOTIFICATIONS'), findsOneWidget);
         expect(find.text('APPEARANCE'), findsOneWidget);
