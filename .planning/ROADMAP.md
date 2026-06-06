@@ -526,7 +526,11 @@ Plans:
   4. With auto-pause enabled in settings, when an active trip appears stationary beyond the configured threshold the app posts a notification offering to pause the trip
   5. The auto-pause prompt is opt-in (off by default) and dismissing it leaves the trip recording normally
 
-**Plans**: TBD
+**Plans**: 4 plans
+- [ ] 18-01-PLAN.md — Schema v2→v3: trip_breaks table + total_paused_seconds + auto_pause_enabled + DAO + migration test
+- [ ] 18-02-PLAN.md — Accumulator pause model (excludes paused distance/time, frozen elapsed) + finalize breaks + persist
+- [ ] 18-03-PLAN.md — Cross-isolate pause/resume commands + active-tracking PAUSED UI + break count
+- [ ] 18-04-PLAN.md — Opt-in auto-pause: settings toggle + stuck-streak detector + Pause-action notification
 **UI hint**: yes
 
 ### Phase 19: Full Trip Editing
