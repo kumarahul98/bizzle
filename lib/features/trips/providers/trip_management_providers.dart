@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/database.dart';
 import 'package:traevy/database/providers.dart';
+import 'package:traevy/features/trips/services/trip_edit_recompute.dart';
 import 'package:uuid/uuid.dart';
 
 /// Finite state for trip edit, delete, and manual-entry operations.
@@ -49,21 +50,45 @@ class TripManagementNotifier extends Notifier<TripManagementState> {
   @override
   TripManagementState build() => const TripManagementIdle();
 
-  /// Edit an existing trip's direction and times.
+  /// Edit an existing trip — the single write path for BOTH the
+  /// direction-only edit and the Phase 19 full edit (D-12).
   ///
-  /// Wraps `TripsDao.updateTrip` and `SyncQueueDao.enqueueUpdate` in a
-  /// single `AppDatabase.transaction` for atomicity (D-08).
-  /// [startTimeUtc] and [endTimeUtc] must be UTC DateTimes.
+  /// Wraps every write in one `AppDatabase.transaction` for atomicity
+  /// (D-08/D-12). [startTimeUtc] and [endTimeUtc] must be UTC DateTimes.
+  ///
+  /// Direction-only path (the original callers — edit_trip_sheet,
+  /// trip_detail's `_handleDirectionChanged`): pass only the four required
+  /// args. `durationSeconds` is recomputed from the window, the
+  /// moving/stuck/paused columns are left untouched (`Value.absent()`),
+  /// `is_edited` is NOT set, and existing breaks are NOT touched — so the
+  /// write is byte-for-byte what it was before Phase 19.
+  ///
+  /// Full-edit path (Plan 02's edit sheet): in addition to the four args,
+  /// pass [breaks] (the validated/clamped segments — non-null even if
+  /// empty), the recomputed [totalPausedSeconds]/[timeMovingSeconds]/
+  /// [timeStuckSeconds], a [durationSecondsOverride] (the recomputed active
+  /// duration), and `markEdited: true`. The notifier does NOT recompute —
+  /// the sheet computes via [TripEditRecompute] and passes the numbers, so
+  /// the math stays pure and unit-tested while the notifier stays I/O-only.
+  /// When [breaks] is non-null the trip's existing breaks are replaced
+  /// wholesale (delete-all → insert) inside the same transaction.
   Future<void> editTrip({
     required String tripId,
     required String direction,
     required DateTime startTimeUtc,
     required DateTime endTimeUtc,
+    List<EditBreakSegment>? breaks,
+    int? totalPausedSeconds,
+    int? timeMovingSeconds,
+    int? timeStuckSeconds,
+    int? durationSecondsOverride,
+    bool markEdited = false,
   }) async {
     state = const TripManagementSaving();
     try {
       final db = ref.read(appDatabaseProvider);
       final tripsDao = ref.read(tripsDaoProvider);
+      final breaksDao = ref.read(tripBreaksDaoProvider);
       final syncDao = ref.read(syncQueueDaoProvider);
       await db.transaction(() async {
         await tripsDao.updateTrip(
@@ -73,11 +98,40 @@ class TripManagementNotifier extends Notifier<TripManagementState> {
             startTime: Value(startTimeUtc),
             endTime: Value(endTimeUtc),
             durationSeconds: Value(
-              endTimeUtc.difference(startTimeUtc).inSeconds,
+              durationSecondsOverride ??
+                  endTimeUtc.difference(startTimeUtc).inSeconds,
             ),
+            // Full-edit-only columns: written only when markEdited is true,
+            // otherwise left absent so the direction-only path is unchanged.
+            totalPausedSeconds: markEdited
+                ? Value(totalPausedSeconds ?? 0)
+                : const Value.absent(),
+            timeMovingSeconds: markEdited
+                ? Value(timeMovingSeconds ?? 0)
+                : const Value.absent(),
+            timeStuckSeconds: markEdited
+                ? Value(timeStuckSeconds ?? 0)
+                : const Value.absent(),
+            isEdited: markEdited ? const Value(true) : const Value.absent(),
             updatedAt: Value(DateTime.now().toUtc()),
           ),
         );
+        // Wholesale break replace — only when the caller supplied breaks.
+        // Breaks are replaced, not diffed, so each row gets a fresh UUID.
+        if (breaks != null) {
+          await breaksDao.deleteBreaksForTrip(tripId);
+          if (breaks.isNotEmpty) {
+            await breaksDao.insertBreaks([
+              for (final segment in breaks)
+                TripBreaksCompanion.insert(
+                  id: const Uuid().v4(),
+                  tripId: tripId,
+                  startTime: segment.start,
+                  endTime: Value<DateTime>(segment.end),
+                ),
+            ]);
+          }
+        }
         await syncDao.enqueueUpdate(tripId);
       });
       state = const TripManagementSaved();
