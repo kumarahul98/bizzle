@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: App Improvements
-status: planning
-stopped_at: Phase 17 complete; Phase 18 next (Trip Pause & Breaks)
-last_updated: "2026-06-06T04:04:29.146Z"
-last_activity: 2026-06-06 -- Phase 17 marked complete
+status: in-progress
+stopped_at: Phase 18 plans 01-02 complete (pause/break data model + persistence); Plan 18-03 next (pause UI wiring)
+last_updated: "2026-06-06T05:35:50.182Z"
+last_activity: 2026-06-06 -- Phase 18 Plan 02 complete (pause-aware accumulator + break persistence)
 progress:
   total_phases: 6
   completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
+  total_plans: 6
+  completed_plans: 4
   percent: 17
 ---
 
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 
 ## Current Position
 
-Phase: 18 — Trip Pause & Breaks (next; planning)
-Plan: —
-Status: Phase 17 complete (407 tests green); starting Phase 18
-Last activity: 2026-06-06 -- Phase 17 complete
+Phase: 18 — Trip Pause & Breaks (in progress)
+Plan: 02 complete — next is 18-03 (pause UI wiring)
+Status: 18-01 (schema v3) + 18-02 (pause-aware accumulator + break persistence) done; 426 tests green
+Last activity: 2026-06-06 -- Phase 18 Plan 02 complete
 
-**v0.3 progress:** 1/6 phases complete (17 done)
+**v0.3 progress:** 1/6 phases complete (17 done); Phase 18 at 2/4 plans
 
 ## Performance Metrics
 
@@ -66,6 +66,7 @@ Last activity: 2026-06-06 -- Phase 17 complete
 | Phase 12 P03 | human-gated | 2 tasks | 3 files |
 | Phase 14 P02 | 30 | 3 tasks | 9 files |
 | Phase 14 P03 | 9min | - tasks | - files |
+| Phase 18 P02 | 52min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -75,6 +76,9 @@ Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
 - [v0.3 Roadmap]: Phase 18 introduces the break/pause data model (schema migration); Phase 19 (full editing) depends on it
+- [Phase 18-02]: Frozen elapsed subtracts only CLOSED paused segments; the open break is excluded by freezing refNow at the pause instant — snapshot.pausedSeconds DOES include the open span (UI), but elapsedSeconds does NOT (frozen timer)
+- [Phase 18-02]: Break-list value equality uses per-element mapEquals (flutter/foundation) instead of package:collection DeepCollectionEquality — avoids a non-transitive depend_on_referenced_packages lint, no pubspec change
+- [Phase 18-02]: Break segments cross the service→UI isolate boundary as List<Map<String,Object?>> of UTC microseconds (startUs/endUs); breaks persist to trip_breaks + total_paused_seconds inside the existing atomic transaction — sync contract unchanged (breaks stay local this phase)
 - [v0.3 Roadmap]: Phase 22 (home-screen widget) sequenced last — highest platform-integration risk, and depends on Phase 18 state model for accurate widget state
 - [v0.3 Roadmap]: Phase 21 geofence labeling takes precedence over time-of-day heuristic only on a confident proximity match; purely additive (falls back to existing behavior with no Home/Office set)
 - [v0.2 Research]: No new packages needed — port is configuration + one platform branch

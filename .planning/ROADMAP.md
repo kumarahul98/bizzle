@@ -527,8 +527,8 @@ Plans:
   5. The auto-pause prompt is opt-in (off by default) and dismissing it leaves the trip recording normally
 
 **Plans**: 4 plans
-- [ ] 18-01-PLAN.md — Schema v2→v3: trip_breaks table + total_paused_seconds + auto_pause_enabled + DAO + migration test
-- [ ] 18-02-PLAN.md — Accumulator pause model (excludes paused distance/time, frozen elapsed) + finalize breaks + persist
+- [x] 18-01-PLAN.md — Schema v2→v3: trip_breaks table + total_paused_seconds + auto_pause_enabled + DAO + migration test
+- [x] 18-02-PLAN.md — Accumulator pause model (excludes paused distance/time, frozen elapsed) + finalize breaks + persist
 - [ ] 18-03-PLAN.md — Cross-isolate pause/resume commands + active-tracking PAUSED UI + break count
 - [ ] 18-04-PLAN.md — Opt-in auto-pause: settings toggle + stuck-streak detector + Pause-action notification
 **UI hint**: yes
@@ -607,7 +607,7 @@ Note: Phase 17 is a small, independent UI fix + quick-label and is the safe firs
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 17. Tracking UI Fixes & Quick Label | v0.3 | 0/TBD | Not started | - |
-| 18. Trip Pause & Breaks | v0.3 | 0/TBD | Not started | - |
+| 18. Trip Pause & Breaks | v0.3 | 2/4 | In Progress|  |
 | 19. Full Trip Editing | v0.3 | 0/TBD | Not started | - |
 | 20. First-Run Login with Skip | v0.3 | 0/TBD | Not started | - |
 | 21. Home & Office Locations + Geofence Auto-Label | v0.3 | 0/TBD | Not started | - |
