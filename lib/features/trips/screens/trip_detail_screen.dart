@@ -14,7 +14,9 @@ import 'package:traevy/features/tracking/widgets/direction_segmented_toggle.dart
 import 'package:traevy/features/trips/providers/trip_management_providers.dart';
 import 'package:traevy/features/trips/services/trip_actions.dart'
     as trip_actions;
+import 'package:traevy/features/trips/services/trip_edit_recompute.dart';
 import 'package:traevy/features/trips/widgets/edit_trip_sheet.dart';
+import 'package:traevy/features/trips/widgets/estimated_hint.dart';
 import 'package:traevy/features/trips/widgets/traffic_insight_card.dart';
 import 'package:traevy/features/trips/widgets/trip_timeline.dart';
 import 'package:traevy/shared/utils/formatters.dart';
@@ -80,15 +82,29 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
     timeMovingSeconds: row.timeMovingSeconds,
     timeStuckSeconds: row.timeStuckSeconds,
     isManualEntry: row.isManualEntry,
+    isEdited: row.isEdited,
   );
 
   Future<void> _handleEdit(TripRow trip) async {
+    // Seed the sheet's break editor with the trip's existing closed breaks.
+    // Open breaks (null end) never exist on a finalized trip, but skip them
+    // defensively so the sheet only ever receives closed segments.
+    final rows = await ref.read(tripBreaksDaoProvider).breaksForTrip(trip.id);
+    if (!mounted) return;
+    final initialBreaks = <EditBreakSegment>[
+      for (final r in rows)
+        if (r.endTime != null)
+          EditBreakSegment(start: r.startTime, end: r.endTime!),
+    ];
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: true,
-      builder: (sheetContext) => EditTripSheet(summary: _summaryFromRow(trip)),
+      builder: (sheetContext) => EditTripSheet(
+        summary: _summaryFromRow(trip),
+        initialBreaks: initialBreaks,
+      ),
     );
     if (!context.mounted) return;
     await _loadTrip();
@@ -402,6 +418,10 @@ class _TripDetailBody extends StatelessWidget {
                           color: tokens.stuck,
                         ),
                       ),
+                      if (trip.isEdited) ...<Widget>[
+                        const SizedBox(width: 8),
+                        const EstimatedHint(size: 12),
+                      ],
                     ],
                   ),
 
