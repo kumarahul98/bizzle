@@ -52,6 +52,10 @@ class _FakeTrackingEventSource implements TrackingEventSource {
       const Stream<Map<String, dynamic>?>.empty();
 
   @override
+  Stream<Map<String, dynamic>?> get onAutoPausePrompt =>
+      const Stream<Map<String, dynamic>?>.empty();
+
+  @override
   Future<bool> start() async => true;
 
   @override

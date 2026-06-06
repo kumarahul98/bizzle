@@ -30,6 +30,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:traevy/config/constants.dart';
+import 'package:traevy/features/tracking/services/auto_pause_detector.dart';
 import 'package:traevy/features/tracking/services/location_settings_builder.dart';
 import 'package:traevy/features/tracking/services/tracking_service_events.dart';
 import 'package:traevy/features/tracking/services/trip_accumulator.dart';
@@ -81,6 +82,14 @@ Future<void> trackingServiceOnStart(ServiceInstance service) async {
   }
 
   final accumulator = TripAccumulator(startedAt: DateTime.now().toUtc());
+  // Phase 18 (Plan 04, D-11): the auto-pause detector runs SERVICE-SIDE,
+  // alongside the accumulator, consuming the SAME stuck/moving classification
+  // addSample() returns — never raw speed, never a second threshold. It fires
+  // at most once per uninterrupted stuck streak; the UI isolate gates the
+  // actual prompt on the opt-in pref (so OFF → no prompt, SC#5).
+  final autoPauseDetector = AutoPauseDetector(
+    thresholdSeconds: kAutoPauseStationaryThresholdSeconds,
+  );
   var stopping = false;
   StreamSubscription<Position>? positionSub;
   Timer? uiTimer;
@@ -100,7 +109,23 @@ Future<void> trackingServiceOnStart(ServiceInstance service) async {
       // `stopping` flag short-circuits those late samples before they
       // touch the accumulator. See 02-RESEARCH §8 stop-race.
       if (stopping) return;
-      accumulator.addSample(position);
+      final interval = accumulator.addSample(position);
+      // Phase 18 (Plan 04, D-11/D-12): feed each ATTRIBUTED interval's
+      // classification into the detector. A moving interval resets the streak
+      // and re-arms; a stuck interval extends it. When the uninterrupted stuck
+      // streak first crosses the threshold AND the trip is not already paused,
+      // signal the UI isolate ONCE — it posts the prompt only if the user opted
+      // in. NO payload crosses the boundary (T-18-08), just the channel name.
+      if (interval != null) {
+        if (interval.stuck) {
+          autoPauseDetector.onStuckInterval(interval.seconds);
+        } else {
+          autoPauseDetector.onMovingInterval();
+        }
+        if (!accumulator.isPaused && autoPauseDetector.shouldPrompt()) {
+          service.invoke(kAutoPausePromptEvent);
+        }
+      }
     },
     onError: (Object error, StackTrace stack) async {
       // Mid-trip position stream failure path (WR-01). Examples: the

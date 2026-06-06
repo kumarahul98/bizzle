@@ -51,6 +51,13 @@ abstract interface class TrackingEventSource {
   /// fbs, no ready signal (D-07: CoreLocation shows its own indicator).
   Stream<Map<String, dynamic>?> get onReady;
 
+  /// Auto-pause prompt signal (Phase 18 Plan 04, D-11/D-12). Emitted ONCE per
+  /// uninterrupted stationary streak when the trip looks stuck beyond the
+  /// threshold and is not already paused. Carries NO payload — only the signal.
+  /// The UI isolate (`TrackingNotifier`) posts the actual notification, and
+  /// ONLY when the user has opted into auto-pause (so OFF → no prompt, SC#5).
+  Stream<Map<String, dynamic>?> get onAutoPausePrompt;
+
   /// Start tracking. Returns `true` if the underlying service/engine started
   /// successfully, `false` if a pre-flight check blocked the start.
   Future<bool> start();
@@ -103,6 +110,10 @@ final class FbsTrackingEventSource implements TrackingEventSource {
 
   @override
   Stream<Map<String, dynamic>?> get onReady => _service.on(kServiceReadyEvent);
+
+  @override
+  Stream<Map<String, dynamic>?> get onAutoPausePrompt =>
+      _service.on(kAutoPausePromptEvent);
 
   @override
   Future<bool> start() => _service.startService();

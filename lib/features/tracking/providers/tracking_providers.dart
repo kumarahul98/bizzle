@@ -154,6 +154,7 @@ class TrackingNotifier extends Notifier<TrackingState> {
   StreamSubscription<Map<String, dynamic>?>? _finalizeSub;
   StreamSubscription<Map<String, dynamic>?>? _errorSub;
   StreamSubscription<Map<String, dynamic>?>? _readySub;
+  StreamSubscription<Map<String, dynamic>?>? _autoPausePromptSub;
   PersistResult? _lastPersistResult;
   // Notification refresh throttle (08-10 review HIGH #5). The 1 Hz snapshot
   // rate would call showRecording() ~2700 times on a 45-min trip, all of
@@ -177,6 +178,7 @@ class TrackingNotifier extends Notifier<TrackingState> {
       unawaited(_finalizeSub?.cancel());
       unawaited(_errorSub?.cancel());
       unawaited(_readySub?.cancel());
+      unawaited(_autoPausePromptSub?.cancel());
     });
     _attach();
     return const TrackingIdle();
@@ -205,6 +207,29 @@ class TrackingNotifier extends Notifier<TrackingState> {
       onError: (Object error, StackTrace stack) {
         // onReady channel errored — non-fatal. The notification
         // may lack the Stop button but tracking is otherwise unaffected.
+      },
+    );
+    // Phase 18 (Plan 04, D-11/D-12, SC#5): the service isolate signals once
+    // per stuck streak. The OPT-IN gate lives HERE, on the UI isolate, where
+    // Drift (and `user_preferences.auto_pause_enabled`) is reachable — so
+    // detection stays service-side while the prompt is only ever posted when
+    // the user has opted in. With auto-pause OFF (default) NO prompt is posted.
+    _autoPausePromptSub = source.onAutoPausePrompt.listen(
+      (data) async {
+        final prefs = ref.read(userPreferenceProvider).asData?.value;
+        if (prefs == null || !prefs.autoPauseEnabled) return;
+        try {
+          await ref
+              .read(trackingNotificationServiceProvider)
+              .showAutoPausePrompt();
+        } on Object {
+          // POST_NOTIFICATIONS denied or platform channel error — tracking
+          // continues; the prompt just isn't shown this streak.
+        }
+      },
+      onError: (Object error, StackTrace stack) {
+        // auto-pause prompt channel errored — non-fatal. Tracking and the
+        // foreground notification are unaffected; only this prompt is lost.
       },
     );
     _stateSub = source.onState.listen(
@@ -387,6 +412,10 @@ class TrackingNotifier extends Notifier<TrackingState> {
     if (!identical(_readySub, except)) {
       unawaited(_readySub?.cancel());
       _readySub = null;
+    }
+    if (!identical(_autoPausePromptSub, except)) {
+      unawaited(_autoPausePromptSub?.cancel());
+      _autoPausePromptSub = null;
     }
   }
 

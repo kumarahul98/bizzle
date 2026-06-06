@@ -166,16 +166,28 @@ class TripAccumulator {
   /// accuracy worse than [kTrackingMaxAcceptableAccuracyMeters] are
   /// silently dropped. After [finalize] has been called, further calls
   /// are no-ops.
-  void addSample(Position p) {
-    if (_finalized) return;
-    if (p.accuracy > kTrackingMaxAcceptableAccuracyMeters) return;
+  ///
+  /// Returns the interval's classification for the prev → curr pair when this
+  /// sample ATTRIBUTED time — `(stuck: prev.speed < kStuckSpeedThresholdMs,
+  /// seconds: rounded interval)` — or `null` when no time was attributed (the
+  /// sample was dropped on the accuracy gate, was the first sample, had a
+  /// zero/negative delta, arrived while paused, or the gap exceeded
+  /// [kTrackingMaxAttributableGapSeconds]). The internal moving/stuck/distance
+  /// counters remain authoritative; the return value is purely informational so
+  /// the service isolate can feed the SAME classification into the
+  /// `AutoPauseDetector` without re-deriving speed or introducing a second
+  /// threshold (Phase 18 Plan 04, D-11). Existing callers may ignore the return
+  /// — `void`-style `accumulator.addSample(p);` is still valid.
+  ({bool stuck, int seconds})? addSample(Position p) {
+    if (_finalized) return null;
+    if (p.accuracy > kTrackingMaxAcceptableAccuracyMeters) return null;
 
     final prev = _lastAccepted;
     if (prev == null) {
       _lastAccepted = p;
       _lastAcceptedAt = p.timestamp;
       _samples.add(p);
-      return;
+      return null;
     }
 
     final deltaMillis = p.timestamp.difference(prev.timestamp).inMilliseconds;
@@ -186,7 +198,7 @@ class TripAccumulator {
       _samples.add(p);
       _lastAccepted = p;
       _lastAcceptedAt = p.timestamp;
-      return;
+      return null;
     }
 
     // Phase 18 (D-05): while paused, keep the sample in the polyline so the
@@ -200,7 +212,7 @@ class TripAccumulator {
       _samples.add(p);
       _lastAccepted = p;
       _lastAcceptedAt = p.timestamp;
-      return;
+      return null;
     }
     final deltaSec = deltaMillis / 1000.0;
 
@@ -218,6 +230,7 @@ class TripAccumulator {
     // kTrackingMaxAttributableGapSeconds don't move the moving/stuck
     // buckets, because we have no evidence the user was actually
     // moving during the black hole (tunnel, GPS dropout, suspend).
+    ({bool stuck, int seconds})? interval;
     if (deltaSec <= kTrackingMaxAttributableGapSeconds) {
       final deltaSecInt = deltaSec.round();
       // D-03: prev.speed classifies the prev → curr INTERVAL.
@@ -225,16 +238,21 @@ class TripAccumulator {
       // constants.dart so the comparison is unit-correct against the
       // m/s value from geolocator with zero per-sample conversion
       // overhead (Pitfall 2).
-      if (prev.speed >= kStuckSpeedThresholdMs) {
-        _timeMovingSeconds += deltaSecInt;
-      } else {
+      final stuck = prev.speed < kStuckSpeedThresholdMs;
+      if (stuck) {
         _timeStuckSeconds += deltaSecInt;
+      } else {
+        _timeMovingSeconds += deltaSecInt;
       }
+      // Phase 18 (D-11): hand the service isolate the SAME classification the
+      // counters above used — never a second speed comparison.
+      interval = (stuck: stuck, seconds: deltaSecInt);
     }
 
     _lastAccepted = p;
     _lastAcceptedAt = p.timestamp;
     _samples.add(p);
+    return interval;
   }
 
   /// Begin a break at [at] (UTC). Idempotent: a `pause` while already paused
@@ -355,6 +373,11 @@ class TripAccumulator {
       breaks: breakMaps,
     );
   }
+
+  /// Whether a break is currently open (Phase 18). Public so the service
+  /// isolate can gate the auto-pause prompt on `!isPaused` — a prompt must
+  /// never fire while the trip is already paused (Plan 04, D-12).
+  bool get isPaused => _isPaused;
 
   /// For testing: current distance accumulator in meters.
   @visibleForTesting
