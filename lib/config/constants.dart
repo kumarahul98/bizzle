@@ -917,3 +917,52 @@ const int kIosTrackingDistanceFilterMeters = 0;
 const String kTrackingReducedAccuracyBlockedMessage =
     'Precise location is required to track your commute. '
     'Enable it in Settings → Privacy → Location Services → Traevy.';
+
+// Phase 19 — Full Trip Editing (TRACK-11)
+//
+// Validation messages (D-08): surfaced inline by the Plan 02 edit sheet
+// when `TripEditRecompute.validate` rejects an edit. The service maps each
+// failing rule to one of these constants — never to hardcoded English — so
+// the copy lives in one place and the service stays UI-agnostic.
+
+/// Shown when the edited end time is at or before the edited start time.
+const String kEditValidationEndBeforeStart =
+    'End time must be after start time.';
+
+/// Shown when a break falls outside the (edited) trip window (D-05).
+const String kEditValidationBreakOutsideWindow =
+    'A break falls outside the trip times.';
+
+/// Shown when a break's end is at or before its start (D-06).
+const String kEditValidationBreakZeroLength =
+    'A break must end after it starts.';
+
+/// Shown when two breaks overlap OR merely touch (D-07).
+const String kEditValidationBreakOverlap =
+    'Breaks cannot overlap or touch — merge them into one.';
+
+/// Snackbar shown after a save where breaks were clamped/dropped to fit the
+/// new, shorter trip window (D-10).
+const String kEditBreaksAdjustedSnackbar =
+    'Some breaks were adjusted to fit the new trip times.';
+
+/// Inline label on moving/stuck figures of an edited trip (D-04). Edited
+/// traffic stats are derived via proportional rescale, not measured.
+const String kEditEstimatedHintLabel = '~ estimated';
+
+/// Tooltip expanding on [kEditEstimatedHintLabel].
+const String kEditEstimatedHintTooltip =
+    'These figures were re-estimated after you edited the trip, not measured '
+    'from GPS.';
+
+/// Section header for the breaks list in the Plan 02 edit sheet.
+const String kEditBreaksSectionLabel = 'Breaks';
+
+/// Add-break action label in the Plan 02 edit sheet.
+const String kEditAddBreakLabel = 'Add break';
+
+/// Start date/time field label in the Plan 02 edit sheet.
+const String kEditStartDateTimeLabel = 'Start';
+
+/// End date/time field label in the Plan 02 edit sheet.
+const String kEditEndDateTimeLabel = 'End';
