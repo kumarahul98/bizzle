@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: App Improvements
 status: in-progress
-stopped_at: Phase 18 plans 01-02 complete (pause/break data model + persistence); Plan 18-03 next (pause UI wiring)
-last_updated: "2026-06-06T05:35:50.182Z"
-last_activity: 2026-06-06 -- Phase 18 Plan 02 complete (pause-aware accumulator + break persistence)
+stopped_at: Phase 18 complete (pause/breaks + auto-pause); Phase 19 next (Full Trip Editing)
+last_updated: "2026-06-06T06:23:55.556Z"
+last_activity: 2026-06-06 -- Phase 18 complete (453 tests green)
 progress:
   total_phases: 6
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 6
-  completed_plans: 4
-  percent: 17
+  completed_plans: 6
+  percent: 33
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-06)
 
 **Core value:** Show people the reality of their commute -- time wasted in traffic and how it changes over time.
-**Current focus:** Phase 18 — trip-pause-breaks (v0.3 App Improvements)
+**Current focus:** Phase 19 — full-trip-editing (v0.3 App Improvements)
 
 ## Current Position
 
-Phase: 18 — Trip Pause & Breaks (in progress)
-Plan: 02 complete — next is 18-03 (pause UI wiring)
-Status: 18-01 (schema v3) + 18-02 (pause-aware accumulator + break persistence) done; 426 tests green
-Last activity: 2026-06-06 -- Phase 18 Plan 02 complete
+Phase: 19 — Full Trip Editing (next; planning)
+Plan: —
+Status: Phase 18 complete (453 tests green) — pause/resume, breaks persisted, opt-in auto-pause
+Last activity: 2026-06-06 -- Phase 18 complete
 
-**v0.3 progress:** 1/6 phases complete (17 done); Phase 18 at 2/4 plans
+**v0.3 progress:** 2/6 phases complete (17, 18 done)
 
 ## Performance Metrics
 
