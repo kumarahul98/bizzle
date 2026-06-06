@@ -18,6 +18,7 @@ void main() {
     timeMovingSeconds: 1500,
     timeStuckSeconds: 300,
     isManualEntry: false,
+    isEdited: false,
     createdAt: DateTime.utc(2026, 5, 31, 9, 0, 1),
     updatedAt: DateTime.utc(2026, 5, 31, 9, 0, 2),
   );
@@ -36,6 +37,7 @@ void main() {
     timeMovingSeconds: 0,
     timeStuckSeconds: 0,
     isManualEntry: true,
+    isEdited: false,
     createdAt: DateTime.utc(2026, 5, 31, 18, 45, 1),
     updatedAt: DateTime.utc(2026, 5, 31, 18, 45, 2),
   );
@@ -91,6 +93,7 @@ void main() {
         timeMovingSeconds: 1800,
         timeStuckSeconds: 0,
         isManualEntry: false,
+        isEdited: false,
         createdAt: localStart,
         updatedAt: localStart,
       );

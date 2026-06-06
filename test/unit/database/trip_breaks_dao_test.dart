@@ -42,7 +42,7 @@ void main() {
     }
 
     test(
-      'deleteBreaksForTrip removes only the target trip\'s breaks',
+      'deleteBreaksForTrip removes only the target trip breaks',
       () async {
         final tripA = await insertParentTrip();
         final tripB = await insertParentTrip();

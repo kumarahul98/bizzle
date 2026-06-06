@@ -24,6 +24,7 @@ void main() {
     timeMovingSeconds: 1500,
     timeStuckSeconds: 300,
     isManualEntry: false,
+    isEdited: false,
     createdAt: DateTime.utc(2026, 5, 31, 9, 0, 1),
     updatedAt: DateTime.utc(2026, 5, 31, 9, 0, 2),
   );
