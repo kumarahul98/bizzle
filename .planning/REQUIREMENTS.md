@@ -114,7 +114,7 @@ Android-facing UX fixes and features requested 2026-06-06. Built on branch `gsd/
 ### Saved Locations
 
 - [ ] **LOC-01**: User can set their Home and Office locations (map/coordinate picker) and persist them in preferences
-- [ ] **LOC-02**: Trips are auto-labeled to-home / to-office based on the proximity of trip start/end to the saved Home/Office locations, taking precedence over the time-of-day heuristic when a confident match exists
+- [x] **LOC-02**: Trips are auto-labeled to-home / to-office based on the proximity of trip start/end to the saved Home/Office locations, taking precedence over the time-of-day heuristic when a confident match exists
 
 ### Home-Screen Widget
 
@@ -215,7 +215,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TRACK-12 | Phase 17 | Complete |
 | AUTH-04 | Phase 20 | Complete |
 | LOC-01 | Phase 21 | Pending |
-| LOC-02 | Phase 21 | Pending |
+| LOC-02 | Phase 21 | Complete |
 | WIDGET-01 | Phase 22 | Pending |
 | UX-06 | Phase 17 | Complete |
 

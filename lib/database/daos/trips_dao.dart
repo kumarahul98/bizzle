@@ -215,6 +215,55 @@ class TripsDao extends DatabaseAccessor<AppDatabase> with _$TripsDaoMixin {
     );
   }
 
+  /// All trips eligible for geofence direction relabelling (Phase 21, LOC-02).
+  ///
+  /// Returns rows where:
+  ///   * `direction_source != kDirectionSourceManual` — a user's manual pick
+  ///     is NEVER overwritten (T-21-03-01),
+  ///   * `is_manual_entry = false` — manual entries have no polyline to decode,
+  ///   * `route_polyline` is non-null and non-empty — the resolver needs
+  ///     start/end coordinates from the encoded route.
+  ///
+  /// Ordered by `start_time ASC` (oldest first) — not functionally required
+  /// but makes debugging predictable.
+  Future<List<TripRow>> geofenceBackfillCandidates() {
+    return (select(trips)
+          ..where(
+            (t) =>
+                t.directionSource.equals(kDirectionSourceManual).not() &
+                t.isManualEntry.equals(false) &
+                t.routePolyline.isNotNull() &
+                t.routePolyline.length.isBiggerThanValue(0),
+          )
+          ..orderBy([
+            (t) => OrderingTerm(
+              expression: t.startTime,
+              mode: OrderingMode.asc,
+            ),
+          ]))
+        .get();
+  }
+
+  /// Rewrite the direction label and provenance source for a single trip
+  /// (Phase 21, LOC-02 backfill).
+  ///
+  /// Used by `GeofenceBackfillService` to stamp `direction_source = geofence`
+  /// on trips matched by proximity. Updates `updatedAt` to preserve the audit
+  /// trail without touching any other column.
+  Future<void> updateDirectionAndSource(
+    String tripId,
+    String direction,
+    String source,
+  ) {
+    return (update(trips)..where((t) => t.id.equals(tripId))).write(
+      TripsCompanion(
+        direction: Value(direction),
+        directionSource: Value(source),
+        updatedAt: Value(DateTime.now().toUtc()),
+      ),
+    );
+  }
+
   TripSummary _toSummary(TripRow r) => TripSummary(
     id: r.id,
     startTime: r.startTime,

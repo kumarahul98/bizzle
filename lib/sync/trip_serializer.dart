@@ -23,19 +23,19 @@ class TripSerializer {
 
   /// Serialize a [TripRow] to the backend trip JSON map (D-04). Omits `userId`.
   static Map<String, dynamic> toJson(TripRow t) => <String, dynamic>{
-        'id': t.id,
-        'startTime': t.startTime.toUtc().toIso8601String(),
-        'endTime': t.endTime.toUtc().toIso8601String(),
-        'durationSeconds': t.durationSeconds,
-        'distanceMeters': t.distanceMeters,
-        'routePolyline': t.routePolyline,
-        'direction': t.direction,
-        'timeMovingSeconds': t.timeMovingSeconds,
-        'timeStuckSeconds': t.timeStuckSeconds,
-        'isManualEntry': t.isManualEntry,
-        'createdAt': t.createdAt.toUtc().toIso8601String(),
-        'updatedAt': t.updatedAt.toUtc().toIso8601String(),
-      };
+    'id': t.id,
+    'startTime': t.startTime.toUtc().toIso8601String(),
+    'endTime': t.endTime.toUtc().toIso8601String(),
+    'durationSeconds': t.durationSeconds,
+    'distanceMeters': t.distanceMeters,
+    'routePolyline': t.routePolyline,
+    'direction': t.direction,
+    'timeMovingSeconds': t.timeMovingSeconds,
+    'timeStuckSeconds': t.timeStuckSeconds,
+    'isManualEntry': t.isManualEntry,
+    'createdAt': t.createdAt.toUtc().toIso8601String(),
+    'updatedAt': t.updatedAt.toUtc().toIso8601String(),
+  };
 
   /// Parse a server trip JSON object into a [TripsCompanion] (D-08). ISO
   /// strings become UTC `DateTime`s; `userId` is intentionally NOT set so the

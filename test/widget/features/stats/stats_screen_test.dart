@@ -126,7 +126,9 @@ void main() {
       tester,
     ) async {
       final now = DateTime.now();
-      final monday = now.subtract(Duration(days: now.weekday - DateTime.monday));
+      final monday = now.subtract(
+        Duration(days: now.weekday - DateTime.monday),
+      );
       final pinnedTrip = _trip(
         DateTime(monday.year, monday.month, monday.day, 8),
         durationSeconds: 3600,

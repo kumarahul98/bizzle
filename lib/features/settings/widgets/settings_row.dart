@@ -46,9 +46,11 @@ class SettingsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = Theme.of(context).extension<TraevyTokensExt>()!;
-    final labelColor =
-        dangerous ? tokens.record : Theme.of(context).colorScheme.onSurface;
-    final effectiveTrailing = trailing ??
+    final labelColor = dangerous
+        ? tokens.record
+        : Theme.of(context).colorScheme.onSurface;
+    final effectiveTrailing =
+        trailing ??
         (onTap == null
             ? null
             : Icon(

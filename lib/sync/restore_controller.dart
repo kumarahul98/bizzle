@@ -74,8 +74,9 @@ class RestoreController extends Notifier<RestoreState> {
       // TripSerializer.fromJson internally (HIGH-3). No forked mapper.
       final companions = await ref.read(apiClientProvider).restoreTrips();
       // Plan 03 / MEDIUM-3: one Drift batch, dedupe-by-UUID, NEW-row count.
-      final inserted =
-          await ref.read(tripsDaoProvider).insertOrIgnoreTrips(companions);
+      final inserted = await ref
+          .read(tripsDaoProvider)
+          .insertOrIgnoreTrips(companions);
       state = RestoreSuccess(inserted);
     } on Object {
       // Caught internally (T-11-03-02): a failed restore becomes RestoreError,
@@ -89,8 +90,7 @@ class RestoreController extends Notifier<RestoreState> {
 /// flow state. Matches the manual-provider convention in
 /// `lib/database/providers.dart`. Plan 03's Settings restore row binds to this.
 final NotifierProvider<RestoreController, RestoreState>
-    restoreControllerProvider =
-    NotifierProvider<RestoreController, RestoreState>(
+restoreControllerProvider = NotifierProvider<RestoreController, RestoreState>(
   RestoreController.new,
   name: 'restoreControllerProvider',
 );

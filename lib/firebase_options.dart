@@ -63,7 +63,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '1076279794226',
     projectId: 'travey-298a7',
     storageBucket: 'travey-298a7.firebasestorage.app',
-    iosClientId: '1076279794226-6h24q245801r9pca45v2e2tpjiocde64.apps.googleusercontent.com',
+    iosClientId:
+        '1076279794226-6h24q245801r9pca45v2e2tpjiocde64.apps.googleusercontent.com',
     iosBundleId: 'com.travey.app',
   );
 }

@@ -488,7 +488,7 @@ Note: Phases 1-7 deliver the complete local-first experience without any authent
 - [x] **Phase 18: Trip Pause & Breaks** - Pause/resume an active trip for breaks (paused time excluded from stats) with an optional auto-pause prompt ✓ 2026-06-06
 - [x] **Phase 19: Full Trip Editing** - Edit start time, end time, and individual break segments with duration and traffic stats recomputed ✓ 2026-06-06
 - [x] **Phase 20: First-Run Login with Skip** - First-install login screen with a Skip (use-without-account) option; sync stays disabled until later sign-in ✓ 2026-06-06
-- [ ] **Phase 21: Home & Office Locations + Geofence Auto-Label** - Set Home & Office locations and auto-label trip direction by proximity, taking precedence over the time-of-day heuristic
+- [x] **Phase 21: Home & Office Locations + Geofence Auto-Label** - Set Home & Office locations and auto-label trip direction by proximity, taking precedence over the time-of-day heuristic (completed 2026-06-06)
 - [ ] **Phase 22: Home-Screen Widget** - Android home-screen widget that starts/stops a commute with one tap and reflects the current tracking state
 
 ---
@@ -610,5 +610,5 @@ Note: Phase 17 is a small, independent UI fix + quick-label and is the safe firs
 | 18. Trip Pause & Breaks | v0.3 | 2/4 | In Progress|  |
 | 19. Full Trip Editing | v0.3 | 0/TBD | Not started | - |
 | 20. First-Run Login with Skip | v0.3 | 0/TBD | Not started | - |
-| 21. Home & Office Locations + Geofence Auto-Label | v0.3 | 0/TBD | Not started | - |
+| 21. Home & Office Locations + Geofence Auto-Label | v0.3 | 3/3 | Complete   | 2026-06-06 |
 | 22. Home-Screen Widget | v0.3 | 0/TBD | Not started | - |

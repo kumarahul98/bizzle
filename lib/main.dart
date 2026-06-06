@@ -79,8 +79,9 @@ Future<void> main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-    await GoogleSignIn.instance
-        .initialize(serverClientId: kGoogleServerClientId);
+    await GoogleSignIn.instance.initialize(
+      serverClientId: kGoogleServerClientId,
+    );
     firebaseReady = true;
   } on Object catch (_) {
     firebaseReady = false;

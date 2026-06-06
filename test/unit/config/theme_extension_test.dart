@@ -260,6 +260,5 @@ class _StubThemeExtension extends ThemeExtension<TraevyTokensExt> {
   ThemeExtension<TraevyTokensExt> lerp(
     covariant ThemeExtension<TraevyTokensExt>? other,
     double t,
-  ) =>
-      this;
+  ) => this;
 }

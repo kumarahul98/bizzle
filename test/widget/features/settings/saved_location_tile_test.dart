@@ -71,7 +71,9 @@ void main() {
       expect(find.text(kCopyLocationNotSet), findsOneWidget);
     });
 
-    testWidgets('shows "Not set" when the Office coord is null', (tester) async {
+    testWidgets('shows "Not set" when the Office coord is null', (
+      tester,
+    ) async {
       await _pumpTile(tester, isHome: false, prefs: _prefs());
       expect(find.text(kSettingsOfficeLocationLabel), findsOneWidget);
       expect(find.text(kCopyLocationNotSet), findsOneWidget);

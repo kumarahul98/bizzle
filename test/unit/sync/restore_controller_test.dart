@@ -91,19 +91,21 @@ void main() {
   // -------------------------------------------------------------------------
 
   group('TripsDao.insertOrIgnoreTrips', () {
-    test('Test A: all-new companions insert and return the full count',
-        () async {
-      final inserted = await db.tripsDao.insertOrIgnoreTrips(<TripsCompanion>[
-        _companion('t1'),
-        _companion('t2'),
-        _companion('t3'),
-      ]);
+    test(
+      'Test A: all-new companions insert and return the full count',
+      () async {
+        final inserted = await db.tripsDao.insertOrIgnoreTrips(<TripsCompanion>[
+          _companion('t1'),
+          _companion('t2'),
+          _companion('t3'),
+        ]);
 
-      expect(inserted, 3);
-      expect(await db.tripsDao.findById('t1'), isNotNull);
-      expect(await db.tripsDao.findById('t2'), isNotNull);
-      expect(await db.tripsDao.findById('t3'), isNotNull);
-    });
+        expect(inserted, 3);
+        expect(await db.tripsDao.findById('t1'), isNotNull);
+        expect(await db.tripsDao.findById('t2'), isNotNull);
+        expect(await db.tripsDao.findById('t3'), isNotNull);
+      },
+    );
 
     test(
       'Test B: existing UUIDs are skipped (not overwritten); only NEW rows '
@@ -138,8 +140,9 @@ void main() {
     );
 
     test('Test B2: empty list returns 0 and writes nothing', () async {
-      final inserted =
-          await db.tripsDao.insertOrIgnoreTrips(const <TripsCompanion>[]);
+      final inserted = await db.tripsDao.insertOrIgnoreTrips(
+        const <TripsCompanion>[],
+      );
       expect(inserted, 0);
       final all = await db.select(db.trips).get();
       expect(all, isEmpty);
@@ -204,56 +207,62 @@ void main() {
       expect((await db.select(db.trips).get()).length, 2);
     });
 
-    test('Test E: already up to date → RestoreSuccess(0), DB unchanged',
-        () async {
-      await db.tripsDao.insertOrIgnoreTrips(<TripsCompanion>[
-        _companion('x1'),
-        _companion('x2'),
-      ]);
+    test(
+      'Test E: already up to date → RestoreSuccess(0), DB unchanged',
+      () async {
+        await db.tripsDao.insertOrIgnoreTrips(<TripsCompanion>[
+          _companion('x1'),
+          _companion('x2'),
+        ]);
 
-      final api = _FakeApiClient(<TripsCompanion>[
-        _companion('x1'),
-        _companion('x2'),
-      ]);
-      final container = containerWith(api);
+        final api = _FakeApiClient(<TripsCompanion>[
+          _companion('x1'),
+          _companion('x2'),
+        ]);
+        final container = containerWith(api);
 
-      await container.read(restoreControllerProvider.notifier).restore();
+        await container.read(restoreControllerProvider.notifier).restore();
 
-      final state = container.read(restoreControllerProvider);
-      expect(state, isA<RestoreSuccess>());
-      expect((state as RestoreSuccess).count, 0);
-      expect((await db.select(db.trips).get()).length, 2);
-    });
+        final state = container.read(restoreControllerProvider);
+        expect(state, isA<RestoreSuccess>());
+        expect((state as RestoreSuccess).count, 0);
+        expect((await db.select(db.trips).get()).length, 2);
+      },
+    );
 
-    test('Test F: ApiClient throws → RestoreError, DB unchanged, no rethrow',
-        () async {
-      final api = _FakeApiClient(
-        const <TripsCompanion>[],
-        throwOnRestore: true,
-      );
-      final container = containerWith(api);
+    test(
+      'Test F: ApiClient throws → RestoreError, DB unchanged, no rethrow',
+      () async {
+        final api = _FakeApiClient(
+          const <TripsCompanion>[],
+          throwOnRestore: true,
+        );
+        final container = containerWith(api);
 
-      // Must NOT throw out of restore() (errors caught internally).
-      await container.read(restoreControllerProvider.notifier).restore();
+        // Must NOT throw out of restore() (errors caught internally).
+        await container.read(restoreControllerProvider.notifier).restore();
 
-      final state = container.read(restoreControllerProvider);
-      expect(state, isA<RestoreError>());
-      expect(await db.select(db.trips).get(), isEmpty);
-    });
+        final state = container.read(restoreControllerProvider);
+        expect(state, isA<RestoreError>());
+        expect(await db.select(db.trips).get(), isEmpty);
+      },
+    );
 
-    test('restore enqueues ZERO sync_queue rows (D-08 — download only)',
-        () async {
-      final api = _FakeApiClient(<TripsCompanion>[
-        _companion('s1'),
-        _companion('s2'),
-      ]);
-      final container = containerWith(api);
+    test(
+      'restore enqueues ZERO sync_queue rows (D-08 — download only)',
+      () async {
+        final api = _FakeApiClient(<TripsCompanion>[
+          _companion('s1'),
+          _companion('s2'),
+        ]);
+        final container = containerWith(api);
 
-      await container.read(restoreControllerProvider.notifier).restore();
+        await container.read(restoreControllerProvider.notifier).restore();
 
-      final pending = await db.syncQueueDao.watchPending().first;
-      expect(pending, isEmpty);
-    });
+        final pending = await db.syncQueueDao.watchPending().first;
+        expect(pending, isEmpty);
+      },
+    );
 
     test('starts at RestoreIdle and transitions through restoring', () async {
       final api = _FakeApiClient(const <TripsCompanion>[]);

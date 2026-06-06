@@ -9,6 +9,7 @@ import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/providers.dart';
 import 'package:traevy/features/settings/widgets/location_picker_confirm_bar.dart';
 import 'package:traevy/features/settings/widgets/location_picker_crosshair.dart';
+import 'package:traevy/features/trips/providers/geofence_backfill_provider.dart';
 import 'package:traevy/shared/utils/formatters.dart';
 
 /// Resolves the device's current location for the picker, or null if it is
@@ -65,7 +66,9 @@ class _LocationPickerScreenState extends ConsumerState<LocationPickerScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _resolveInitialCenter());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _resolveInitialCenter(),
+    );
   }
 
   Future<void> _resolveInitialCenter() async {
@@ -112,6 +115,8 @@ class _LocationPickerScreenState extends ConsumerState<LocationPickerScreen> {
     } else {
       await dao.setOfficeLocation(center.latitude, center.longitude);
     }
+    // LOC-02: re-label historical trips now that the anchor has changed.
+    ref.invalidate(geofenceBackfillProvider);
     if (!mounted) return;
     navigator.pop();
     messenger.showSnackBar(
@@ -153,7 +158,8 @@ class _LocationPickerScreenState extends ConsumerState<LocationPickerScreen> {
   /// the returned coordinate.
   static Future<LatLng?> _defaultCurrentLocation() async {
     final permission = await Geolocator.checkPermission();
-    final granted = permission == LocationPermission.always ||
+    final granted =
+        permission == LocationPermission.always ||
         permission == LocationPermission.whileInUse;
     if (!granted) return null;
     try {

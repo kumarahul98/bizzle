@@ -81,9 +81,13 @@ void main() {
         // Two samples needed so the accumulator can compute a distance
         // interval (it needs a prev sample to diff against).
         final p1 = _pos(lat: 0, lng: 0, timestamp: t0);
-        final p2 = _pos(lat: 0.01, lng: 0, timestamp: t0.add(
-          const Duration(seconds: 3),
-        ));
+        final p2 = _pos(
+          lat: 0.01,
+          lng: 0,
+          timestamp: t0.add(
+            const Duration(seconds: 3),
+          ),
+        );
         controller.add(p1);
         controller.add(p2);
 
@@ -158,7 +162,8 @@ void main() {
         expect(
           sampleReachedAccumulator,
           isFalse,
-          reason: 'stopping flag must be set before cancel() so synchronous '
+          reason:
+              'stopping flag must be set before cancel() so synchronous '
               'post-stop samples are dropped',
         );
 
@@ -180,12 +185,20 @@ void main() {
         // Push N=3 pre-stop samples.
         final pre = [
           _pos(lat: 0, lng: 0, timestamp: t0),
-          _pos(lat: 0.001, lng: 0, timestamp: t0.add(
-            const Duration(seconds: 3),
-          )),
-          _pos(lat: 0.002, lng: 0, timestamp: t0.add(
-            const Duration(seconds: 6),
-          )),
+          _pos(
+            lat: 0.001,
+            lng: 0,
+            timestamp: t0.add(
+              const Duration(seconds: 3),
+            ),
+          ),
+          _pos(
+            lat: 0.002,
+            lng: 0,
+            timestamp: t0.add(
+              const Duration(seconds: 6),
+            ),
+          ),
         ];
         for (final p in pre) {
           controller.add(p);
