@@ -162,6 +162,12 @@ class TrackingNotifier extends Notifier<TrackingState> {
   // calls instead. Reset on stop so the next trip's first snapshot lands
   // immediately.
   DateTime? _lastNotificationUpdateAt;
+  // TRACK-12 (D-05/D-06): manual direction override set from the active-trip
+  // segmented toggle. When non-null it wins over the time-of-day auto-label
+  // both live (resolvedDirection → notification + header) and at finalize
+  // (passed as directionOverride into persistFinalizedTrip). Reset to null in
+  // stop() so the next trip starts from the heuristic again.
+  String? _manualDirectionOverride;
 
   @override
   TrackingState build() {
@@ -235,7 +241,12 @@ class TrackingNotifier extends Notifier<TrackingState> {
         final trip = FinalizedTripCodec.fromEventMap(data);
         final result = await ref
             .read(trackingServiceControllerProvider)
-            .persistFinalizedTrip(trip);
+            .persistFinalizedTrip(
+              trip,
+              // D-06: the manual override (if the user picked a direction on
+              // the active-trip toggle) wins over the time-of-day heuristic.
+              directionOverride: _manualDirectionOverride,
+            );
         _lastPersistResult = result;
         // Defense-in-depth (WR-02): only transition back to idle if the
         // state is still TrackingStopping. If a concurrent caller (e.g.
@@ -292,14 +303,9 @@ class TrackingNotifier extends Notifier<TrackingState> {
       return;
     }
     _lastNotificationUpdateAt = now;
-    final prefs = ref.read(userPreferenceProvider).asData?.value;
-    final morning = prefs?.morningCutoffHour ?? kDefaultDirectionCutoffHour;
-    final evening = prefs?.eveningCutoffHour ?? kDefaultDirectionCutoffHour;
-    final direction = const DirectionLabelService().label(
-      active.startedAt.toLocal(),
-      morning,
-      evening,
-    );
+    // D-05: the notification reflects the resolved direction — the manual
+    // override when set, else the time-of-day auto-label.
+    final direction = resolvedDirection(active.startedAt);
     unawaited(
       ref
           .read(trackingNotificationServiceProvider)
@@ -314,6 +320,49 @@ class TrackingNotifier extends Notifier<TrackingState> {
             // continues, notification just doesn't refresh this tick.
           }),
     );
+  }
+
+  /// Resolve the direction for a trip that started at [startedAt] (UTC).
+  ///
+  /// TRACK-12 (D-05): returns the manual override when the user has picked a
+  /// direction on the active-trip toggle, else the [DirectionLabelService]
+  /// time-of-day auto-label computed from the user's morning/evening cutoff
+  /// prefs (falling back to [kDefaultDirectionCutoffHour] until prefs load).
+  /// This is the single source consumed by both [_maybeRefreshNotification]
+  /// and the hero header label, so the override propagates everywhere live.
+  String resolvedDirection(DateTime startedAt) {
+    final override = _manualDirectionOverride;
+    if (override != null) return override;
+    final prefs = ref.read(userPreferenceProvider).asData?.value;
+    final morning = prefs?.morningCutoffHour ?? kDefaultDirectionCutoffHour;
+    final evening = prefs?.eveningCutoffHour ?? kDefaultDirectionCutoffHour;
+    return const DirectionLabelService().label(
+      startedAt.toLocal(),
+      morning,
+      evening,
+    );
+  }
+
+  /// Set the manual direction override from the active-trip segmented toggle.
+  ///
+  /// TRACK-12 (D-05): [direction] MUST be [kDirectionToOffice] or
+  /// [kDirectionToHome] — the toggle only emits those two constants, and the
+  /// assert is a defence-in-depth tamper guard (T-17-02) so no arbitrary
+  /// string can reach `trips.direction` via this path. When a trip is active,
+  /// resets the notification throttle and refreshes immediately so the header
+  /// label and foreground notification flip to the chosen direction on the
+  /// same frame.
+  void setDirection(String direction) {
+    assert(
+      direction == kDirectionToOffice || direction == kDirectionToHome,
+      'setDirection only accepts kDirectionToOffice or kDirectionToHome',
+    );
+    _manualDirectionOverride = direction;
+    final current = state;
+    if (current is TrackingActive) {
+      _lastNotificationUpdateAt = null;
+      _maybeRefreshNotification(current);
+    }
   }
 
   /// Cancel every event-source subscription except [except]. Used by the
@@ -409,6 +458,10 @@ class TrackingNotifier extends Notifier<TrackingState> {
     // refreshes the notification immediately rather than waiting up to
     // kTrackingNotificationRefreshInterval.
     _lastNotificationUpdateAt = null;
+    // TRACK-12 (D-05): clear the manual direction override so the next trip
+    // starts from the time-of-day heuristic rather than inheriting this
+    // trip's choice.
+    _manualDirectionOverride = null;
     await ref.read(trackingServiceControllerProvider).stop();
   }
 

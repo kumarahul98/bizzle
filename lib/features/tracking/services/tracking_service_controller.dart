@@ -157,7 +157,18 @@ class TrackingServiceController {
   /// defaults to [kDefaultUserId] at the DB level (D-02), so we do not set
   /// it here. The `sync_queue` row has `payload = null` (D-13) — the sync
   /// engine re-reads the fresh trip row at sync time.
-  Future<PersistResult> persistFinalizedTrip(FinalizedTrip trip) async {
+  ///
+  /// TRACK-12 (D-06): if [directionOverride] is non-null (the user picked a
+  /// direction on the active-tracking toggle), it is written to
+  /// `trips.direction` instead of the time-of-day auto-label — the manual
+  /// choice wins over the heuristic. When [directionOverride] is null the
+  /// behaviour is byte-for-byte identical to the pre-Phase-17 auto-label
+  /// path. No Drift schema change accompanies this — the value still lands in
+  /// the existing `direction` column.
+  Future<PersistResult> persistFinalizedTrip(
+    FinalizedTrip trip, {
+    String? directionOverride,
+  }) async {
     if (trip.durationSeconds < kMinTripDurationSeconds ||
         trip.distanceMeters < kMinTripDistanceMeters) {
       await _notifications.dismiss();
@@ -169,11 +180,13 @@ class TrackingServiceController {
       // (Pitfall 2).
       final prefs = await _userPreferencesDao.getOrDefault();
       const labeler = DirectionLabelService();
-      final direction = labeler.label(
+      final autoLabel = labeler.label(
         trip.startTime.toLocal(),
         prefs.morningCutoffHour,
         prefs.eveningCutoffHour,
       );
+      // D-06: the manual override (if any) wins over the heuristic.
+      final direction = directionOverride ?? autoLabel;
       await _database.transaction(() async {
         await _tripsDao.insertTrip(
           TripsCompanion.insert(

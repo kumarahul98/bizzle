@@ -631,6 +631,23 @@ const String kBrandFullName = 'Traevy';
 /// `flutterfire configure` and locating the web client in GCP Credentials.
 ///
 /// See D-10/D-10a in `.planning/phases/09-authentication/09-RESEARCH.md`.
+// ---------------------------------------------------------------------------
+// Phase 17 — Tracking UI fixes & quick direction label (TRACK-12)
+// ---------------------------------------------------------------------------
+
+/// Display label for the to-office segment of the [DirectionSegmentedToggle]
+/// quick direction selector (TRACK-12, D-04). Mirrors the wording used by the
+/// edit-trip sheet's SegmentedButton so the two surfaces read identically.
+const String kDirectionToOfficeLabel = 'To office';
+
+/// Display label for the to-home segment of the [DirectionSegmentedToggle]
+/// quick direction selector (TRACK-12, D-04).
+const String kDirectionToHomeLabel = 'To home';
+
+// ---------------------------------------------------------------------------
+// Phase 9 — Authentication (Firebase Auth + Google Sign-In) continued
+// ---------------------------------------------------------------------------
+
 const String kGoogleServerClientId =
     '1076279794226-lfbgqa0td7dtal7ch6s5l6928huo5ij7.apps.googleusercontent.com';
 
