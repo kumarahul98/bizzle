@@ -132,6 +132,10 @@ ProviderContainer _container({
           weeklyNotificationEnabled: false,
           autoPauseEnabled: true,
           hasSeenOnboarding: false,
+          homeLat: null,
+          homeLng: null,
+          officeLat: null,
+          officeLng: null,
         )
       : const UserPreferencesValue.defaults();
   return ProviderContainer(

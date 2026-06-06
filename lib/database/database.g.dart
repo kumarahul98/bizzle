@@ -104,6 +104,18 @@ class $TripsTable extends Trips with TableInfo<$TripsTable, TripRow> {
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _directionSourceMeta = const VerificationMeta(
+    'directionSource',
+  );
+  @override
+  late final GeneratedColumn<String> directionSource = GeneratedColumn<String>(
+    'direction_source',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(kDirectionSourceTime),
+  );
   static const VerificationMeta _timeMovingSecondsMeta = const VerificationMeta(
     'timeMovingSeconds',
   );
@@ -191,6 +203,7 @@ class $TripsTable extends Trips with TableInfo<$TripsTable, TripRow> {
     distanceMeters,
     routePolyline,
     direction,
+    directionSource,
     timeMovingSeconds,
     timeStuckSeconds,
     isManualEntry,
@@ -284,6 +297,15 @@ class $TripsTable extends Trips with TableInfo<$TripsTable, TripRow> {
       );
     } else if (isInserting) {
       context.missing(_directionMeta);
+    }
+    if (data.containsKey('direction_source')) {
+      context.handle(
+        _directionSourceMeta,
+        directionSource.isAcceptableOrUnknown(
+          data['direction_source']!,
+          _directionSourceMeta,
+        ),
+      );
     }
     if (data.containsKey('time_moving_seconds')) {
       context.handle(
@@ -379,6 +401,10 @@ class $TripsTable extends Trips with TableInfo<$TripsTable, TripRow> {
         DriftSqlType.string,
         data['${effectivePrefix}direction'],
       )!,
+      directionSource: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}direction_source'],
+      )!,
       timeMovingSeconds: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}time_moving_seconds'],
@@ -452,6 +478,18 @@ class TripRow extends DataClass implements Insertable<TripRow> {
   /// cutoff, always user-editable from the trip detail screen.
   final String direction;
 
+  /// Durable record of WHO set [direction] (Phase 21, D-02): one of
+  /// [kDirectionSourceManual], [kDirectionSourceGeofence], or
+  /// [kDirectionSourceTime].
+  ///
+  /// Default `'time'` keeps every existing v5 row safe and correct across the
+  /// additive v6 migration — historical rows were all time-labeled (SC#5).
+  /// Finalize writes `geofence` when the END coord matched a saved anchor,
+  /// `manual` when the user overrode, else `time` (D-10). Every manual write
+  /// path stamps `manual` (D-03). The Plan 03 backfill re-labels ONLY rows
+  /// where this is NOT `manual`, so a user's pick is never clobbered (SC#4).
+  final String directionSource;
+
   /// Time the device reported speed ≥ 10 km/h (kSpeedThresholdKmh).
   final int timeMovingSeconds;
 
@@ -490,6 +528,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
     required this.distanceMeters,
     this.routePolyline,
     required this.direction,
+    required this.directionSource,
     required this.timeMovingSeconds,
     required this.timeStuckSeconds,
     required this.isManualEntry,
@@ -511,6 +550,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
       map['route_polyline'] = Variable<String>(routePolyline);
     }
     map['direction'] = Variable<String>(direction);
+    map['direction_source'] = Variable<String>(directionSource);
     map['time_moving_seconds'] = Variable<int>(timeMovingSeconds);
     map['time_stuck_seconds'] = Variable<int>(timeStuckSeconds);
     map['is_manual_entry'] = Variable<bool>(isManualEntry);
@@ -533,6 +573,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
           ? const Value.absent()
           : Value(routePolyline),
       direction: Value(direction),
+      directionSource: Value(directionSource),
       timeMovingSeconds: Value(timeMovingSeconds),
       timeStuckSeconds: Value(timeStuckSeconds),
       isManualEntry: Value(isManualEntry),
@@ -557,6 +598,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
       distanceMeters: serializer.fromJson<double>(json['distanceMeters']),
       routePolyline: serializer.fromJson<String?>(json['routePolyline']),
       direction: serializer.fromJson<String>(json['direction']),
+      directionSource: serializer.fromJson<String>(json['directionSource']),
       timeMovingSeconds: serializer.fromJson<int>(json['timeMovingSeconds']),
       timeStuckSeconds: serializer.fromJson<int>(json['timeStuckSeconds']),
       isManualEntry: serializer.fromJson<bool>(json['isManualEntry']),
@@ -578,6 +620,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
       'distanceMeters': serializer.toJson<double>(distanceMeters),
       'routePolyline': serializer.toJson<String?>(routePolyline),
       'direction': serializer.toJson<String>(direction),
+      'directionSource': serializer.toJson<String>(directionSource),
       'timeMovingSeconds': serializer.toJson<int>(timeMovingSeconds),
       'timeStuckSeconds': serializer.toJson<int>(timeStuckSeconds),
       'isManualEntry': serializer.toJson<bool>(isManualEntry),
@@ -597,6 +640,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
     double? distanceMeters,
     Value<String?> routePolyline = const Value.absent(),
     String? direction,
+    String? directionSource,
     int? timeMovingSeconds,
     int? timeStuckSeconds,
     bool? isManualEntry,
@@ -615,6 +659,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
         ? routePolyline.value
         : this.routePolyline,
     direction: direction ?? this.direction,
+    directionSource: directionSource ?? this.directionSource,
     timeMovingSeconds: timeMovingSeconds ?? this.timeMovingSeconds,
     timeStuckSeconds: timeStuckSeconds ?? this.timeStuckSeconds,
     isManualEntry: isManualEntry ?? this.isManualEntry,
@@ -641,6 +686,9 @@ class TripRow extends DataClass implements Insertable<TripRow> {
           ? data.routePolyline.value
           : this.routePolyline,
       direction: data.direction.present ? data.direction.value : this.direction,
+      directionSource: data.directionSource.present
+          ? data.directionSource.value
+          : this.directionSource,
       timeMovingSeconds: data.timeMovingSeconds.present
           ? data.timeMovingSeconds.value
           : this.timeMovingSeconds,
@@ -668,6 +716,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
           ..write('distanceMeters: $distanceMeters, ')
           ..write('routePolyline: $routePolyline, ')
           ..write('direction: $direction, ')
+          ..write('directionSource: $directionSource, ')
           ..write('timeMovingSeconds: $timeMovingSeconds, ')
           ..write('timeStuckSeconds: $timeStuckSeconds, ')
           ..write('isManualEntry: $isManualEntry, ')
@@ -689,6 +738,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
     distanceMeters,
     routePolyline,
     direction,
+    directionSource,
     timeMovingSeconds,
     timeStuckSeconds,
     isManualEntry,
@@ -709,6 +759,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
           other.distanceMeters == this.distanceMeters &&
           other.routePolyline == this.routePolyline &&
           other.direction == this.direction &&
+          other.directionSource == this.directionSource &&
           other.timeMovingSeconds == this.timeMovingSeconds &&
           other.timeStuckSeconds == this.timeStuckSeconds &&
           other.isManualEntry == this.isManualEntry &&
@@ -727,6 +778,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
   final Value<double> distanceMeters;
   final Value<String?> routePolyline;
   final Value<String> direction;
+  final Value<String> directionSource;
   final Value<int> timeMovingSeconds;
   final Value<int> timeStuckSeconds;
   final Value<bool> isManualEntry;
@@ -744,6 +796,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
     this.distanceMeters = const Value.absent(),
     this.routePolyline = const Value.absent(),
     this.direction = const Value.absent(),
+    this.directionSource = const Value.absent(),
     this.timeMovingSeconds = const Value.absent(),
     this.timeStuckSeconds = const Value.absent(),
     this.isManualEntry = const Value.absent(),
@@ -762,6 +815,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
     required double distanceMeters,
     this.routePolyline = const Value.absent(),
     required String direction,
+    this.directionSource = const Value.absent(),
     required int timeMovingSeconds,
     required int timeStuckSeconds,
     this.isManualEntry = const Value.absent(),
@@ -787,6 +841,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
     Expression<double>? distanceMeters,
     Expression<String>? routePolyline,
     Expression<String>? direction,
+    Expression<String>? directionSource,
     Expression<int>? timeMovingSeconds,
     Expression<int>? timeStuckSeconds,
     Expression<bool>? isManualEntry,
@@ -806,6 +861,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
       if (distanceMeters != null) 'distance_meters': distanceMeters,
       if (routePolyline != null) 'route_polyline': routePolyline,
       if (direction != null) 'direction': direction,
+      if (directionSource != null) 'direction_source': directionSource,
       if (timeMovingSeconds != null) 'time_moving_seconds': timeMovingSeconds,
       if (timeStuckSeconds != null) 'time_stuck_seconds': timeStuckSeconds,
       if (isManualEntry != null) 'is_manual_entry': isManualEntry,
@@ -826,6 +882,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
     Value<double>? distanceMeters,
     Value<String?>? routePolyline,
     Value<String>? direction,
+    Value<String>? directionSource,
     Value<int>? timeMovingSeconds,
     Value<int>? timeStuckSeconds,
     Value<bool>? isManualEntry,
@@ -844,6 +901,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
       distanceMeters: distanceMeters ?? this.distanceMeters,
       routePolyline: routePolyline ?? this.routePolyline,
       direction: direction ?? this.direction,
+      directionSource: directionSource ?? this.directionSource,
       timeMovingSeconds: timeMovingSeconds ?? this.timeMovingSeconds,
       timeStuckSeconds: timeStuckSeconds ?? this.timeStuckSeconds,
       isManualEntry: isManualEntry ?? this.isManualEntry,
@@ -884,6 +942,9 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
     if (direction.present) {
       map['direction'] = Variable<String>(direction.value);
     }
+    if (directionSource.present) {
+      map['direction_source'] = Variable<String>(directionSource.value);
+    }
     if (timeMovingSeconds.present) {
       map['time_moving_seconds'] = Variable<int>(timeMovingSeconds.value);
     }
@@ -920,6 +981,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
           ..write('distanceMeters: $distanceMeters, ')
           ..write('routePolyline: $routePolyline, ')
           ..write('direction: $direction, ')
+          ..write('directionSource: $directionSource, ')
           ..write('timeMovingSeconds: $timeMovingSeconds, ')
           ..write('timeStuckSeconds: $timeStuckSeconds, ')
           ..write('isManualEntry: $isManualEntry, ')
@@ -1596,6 +1658,50 @@ class $UserPreferencesTable extends UserPreferences
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _homeLatMeta = const VerificationMeta(
+    'homeLat',
+  );
+  @override
+  late final GeneratedColumn<double> homeLat = GeneratedColumn<double>(
+    'home_lat',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _homeLngMeta = const VerificationMeta(
+    'homeLng',
+  );
+  @override
+  late final GeneratedColumn<double> homeLng = GeneratedColumn<double>(
+    'home_lng',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _officeLatMeta = const VerificationMeta(
+    'officeLat',
+  );
+  @override
+  late final GeneratedColumn<double> officeLat = GeneratedColumn<double>(
+    'office_lat',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _officeLngMeta = const VerificationMeta(
+    'officeLng',
+  );
+  @override
+  late final GeneratedColumn<double> officeLng = GeneratedColumn<double>(
+    'office_lng',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1609,6 +1715,10 @@ class $UserPreferencesTable extends UserPreferences
     weeklyNotificationEnabled,
     autoPauseEnabled,
     hasSeenOnboarding,
+    homeLat,
+    homeLng,
+    officeLat,
+    officeLng,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1709,6 +1819,30 @@ class $UserPreferencesTable extends UserPreferences
         ),
       );
     }
+    if (data.containsKey('home_lat')) {
+      context.handle(
+        _homeLatMeta,
+        homeLat.isAcceptableOrUnknown(data['home_lat']!, _homeLatMeta),
+      );
+    }
+    if (data.containsKey('home_lng')) {
+      context.handle(
+        _homeLngMeta,
+        homeLng.isAcceptableOrUnknown(data['home_lng']!, _homeLngMeta),
+      );
+    }
+    if (data.containsKey('office_lat')) {
+      context.handle(
+        _officeLatMeta,
+        officeLat.isAcceptableOrUnknown(data['office_lat']!, _officeLatMeta),
+      );
+    }
+    if (data.containsKey('office_lng')) {
+      context.handle(
+        _officeLngMeta,
+        officeLng.isAcceptableOrUnknown(data['office_lng']!, _officeLngMeta),
+      );
+    }
     return context;
   }
 
@@ -1762,6 +1896,22 @@ class $UserPreferencesTable extends UserPreferences
         DriftSqlType.bool,
         data['${effectivePrefix}has_seen_onboarding'],
       )!,
+      homeLat: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}home_lat'],
+      ),
+      homeLng: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}home_lng'],
+      ),
+      officeLat: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}office_lat'],
+      ),
+      officeLng: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}office_lng'],
+      ),
     );
   }
 
@@ -1817,7 +1967,7 @@ class UserPreferencesRow extends DataClass
 
   /// True once the user has cleared the first-run login wall (Phase 20,
   /// D-01/D-02). Drives the root gate in `lib/app.dart`: while false a guest
-  /// sees the [LoginScreen]; after Skip or a successful Google sign-in it
+  /// sees the `LoginScreen`; after Skip or a successful Google sign-in it
   /// flips true and the gate routes to the main shell.
   ///
   /// Default false. Added by schema migration v4 → v5; the migration's
@@ -1826,6 +1976,25 @@ class UserPreferencesRow extends DataClass
   /// only. Fresh installs run `onCreate` (no row) → `getOrDefault()` returns
   /// false → the wall shows exactly once.
   final bool hasSeenOnboarding;
+
+  /// Saved Home latitude (Phase 21, D-01). Null = not set; single-row table.
+  ///
+  /// PII-adjacent — this coordinate reveals where the user lives. NEVER log it
+  /// (T-21-03). Stored locally in Drift only; no sync field carries it.
+  /// Added by schema migration v5 → v6 (additive); existing rows read null.
+  final double? homeLat;
+
+  /// Saved Home longitude (Phase 21, D-01). Null = not set. PII-adjacent —
+  /// NEVER log (T-21-03). Added by schema migration v5 → v6 (additive).
+  final double? homeLng;
+
+  /// Saved Office latitude (Phase 21, D-01). Null = not set. PII-adjacent —
+  /// NEVER log (T-21-03). Added by schema migration v5 → v6 (additive).
+  final double? officeLat;
+
+  /// Saved Office longitude (Phase 21, D-01). Null = not set. PII-adjacent —
+  /// NEVER log (T-21-03). Added by schema migration v5 → v6 (additive).
+  final double? officeLng;
   const UserPreferencesRow({
     required this.id,
     required this.userId,
@@ -1838,6 +2007,10 @@ class UserPreferencesRow extends DataClass
     required this.weeklyNotificationEnabled,
     required this.autoPauseEnabled,
     required this.hasSeenOnboarding,
+    this.homeLat,
+    this.homeLng,
+    this.officeLat,
+    this.officeLng,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1857,6 +2030,18 @@ class UserPreferencesRow extends DataClass
     );
     map['auto_pause_enabled'] = Variable<bool>(autoPauseEnabled);
     map['has_seen_onboarding'] = Variable<bool>(hasSeenOnboarding);
+    if (!nullToAbsent || homeLat != null) {
+      map['home_lat'] = Variable<double>(homeLat);
+    }
+    if (!nullToAbsent || homeLng != null) {
+      map['home_lng'] = Variable<double>(homeLng);
+    }
+    if (!nullToAbsent || officeLat != null) {
+      map['office_lat'] = Variable<double>(officeLat);
+    }
+    if (!nullToAbsent || officeLng != null) {
+      map['office_lng'] = Variable<double>(officeLng);
+    }
     return map;
   }
 
@@ -1875,6 +2060,18 @@ class UserPreferencesRow extends DataClass
       weeklyNotificationEnabled: Value(weeklyNotificationEnabled),
       autoPauseEnabled: Value(autoPauseEnabled),
       hasSeenOnboarding: Value(hasSeenOnboarding),
+      homeLat: homeLat == null && nullToAbsent
+          ? const Value.absent()
+          : Value(homeLat),
+      homeLng: homeLng == null && nullToAbsent
+          ? const Value.absent()
+          : Value(homeLng),
+      officeLat: officeLat == null && nullToAbsent
+          ? const Value.absent()
+          : Value(officeLat),
+      officeLng: officeLng == null && nullToAbsent
+          ? const Value.absent()
+          : Value(officeLng),
     );
   }
 
@@ -1897,6 +2094,10 @@ class UserPreferencesRow extends DataClass
       ),
       autoPauseEnabled: serializer.fromJson<bool>(json['autoPauseEnabled']),
       hasSeenOnboarding: serializer.fromJson<bool>(json['hasSeenOnboarding']),
+      homeLat: serializer.fromJson<double?>(json['homeLat']),
+      homeLng: serializer.fromJson<double?>(json['homeLng']),
+      officeLat: serializer.fromJson<double?>(json['officeLat']),
+      officeLng: serializer.fromJson<double?>(json['officeLng']),
     );
   }
   @override
@@ -1916,6 +2117,10 @@ class UserPreferencesRow extends DataClass
       ),
       'autoPauseEnabled': serializer.toJson<bool>(autoPauseEnabled),
       'hasSeenOnboarding': serializer.toJson<bool>(hasSeenOnboarding),
+      'homeLat': serializer.toJson<double?>(homeLat),
+      'homeLng': serializer.toJson<double?>(homeLng),
+      'officeLat': serializer.toJson<double?>(officeLat),
+      'officeLng': serializer.toJson<double?>(officeLng),
     };
   }
 
@@ -1931,6 +2136,10 @@ class UserPreferencesRow extends DataClass
     bool? weeklyNotificationEnabled,
     bool? autoPauseEnabled,
     bool? hasSeenOnboarding,
+    Value<double?> homeLat = const Value.absent(),
+    Value<double?> homeLng = const Value.absent(),
+    Value<double?> officeLat = const Value.absent(),
+    Value<double?> officeLng = const Value.absent(),
   }) => UserPreferencesRow(
     id: id ?? this.id,
     userId: userId ?? this.userId,
@@ -1944,6 +2153,10 @@ class UserPreferencesRow extends DataClass
         weeklyNotificationEnabled ?? this.weeklyNotificationEnabled,
     autoPauseEnabled: autoPauseEnabled ?? this.autoPauseEnabled,
     hasSeenOnboarding: hasSeenOnboarding ?? this.hasSeenOnboarding,
+    homeLat: homeLat.present ? homeLat.value : this.homeLat,
+    homeLng: homeLng.present ? homeLng.value : this.homeLng,
+    officeLat: officeLat.present ? officeLat.value : this.officeLat,
+    officeLng: officeLng.present ? officeLng.value : this.officeLng,
   );
   UserPreferencesRow copyWithCompanion(UserPreferencesCompanion data) {
     return UserPreferencesRow(
@@ -1974,6 +2187,10 @@ class UserPreferencesRow extends DataClass
       hasSeenOnboarding: data.hasSeenOnboarding.present
           ? data.hasSeenOnboarding.value
           : this.hasSeenOnboarding,
+      homeLat: data.homeLat.present ? data.homeLat.value : this.homeLat,
+      homeLng: data.homeLng.present ? data.homeLng.value : this.homeLng,
+      officeLat: data.officeLat.present ? data.officeLat.value : this.officeLat,
+      officeLng: data.officeLng.present ? data.officeLng.value : this.officeLng,
     );
   }
 
@@ -1990,7 +2207,11 @@ class UserPreferencesRow extends DataClass
           ..write('weekendReminder: $weekendReminder, ')
           ..write('weeklyNotificationEnabled: $weeklyNotificationEnabled, ')
           ..write('autoPauseEnabled: $autoPauseEnabled, ')
-          ..write('hasSeenOnboarding: $hasSeenOnboarding')
+          ..write('hasSeenOnboarding: $hasSeenOnboarding, ')
+          ..write('homeLat: $homeLat, ')
+          ..write('homeLng: $homeLng, ')
+          ..write('officeLat: $officeLat, ')
+          ..write('officeLng: $officeLng')
           ..write(')'))
         .toString();
   }
@@ -2008,6 +2229,10 @@ class UserPreferencesRow extends DataClass
     weeklyNotificationEnabled,
     autoPauseEnabled,
     hasSeenOnboarding,
+    homeLat,
+    homeLng,
+    officeLat,
+    officeLng,
   );
   @override
   bool operator ==(Object other) =>
@@ -2023,7 +2248,11 @@ class UserPreferencesRow extends DataClass
           other.weekendReminder == this.weekendReminder &&
           other.weeklyNotificationEnabled == this.weeklyNotificationEnabled &&
           other.autoPauseEnabled == this.autoPauseEnabled &&
-          other.hasSeenOnboarding == this.hasSeenOnboarding);
+          other.hasSeenOnboarding == this.hasSeenOnboarding &&
+          other.homeLat == this.homeLat &&
+          other.homeLng == this.homeLng &&
+          other.officeLat == this.officeLat &&
+          other.officeLng == this.officeLng);
 }
 
 class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
@@ -2038,6 +2267,10 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
   final Value<bool> weeklyNotificationEnabled;
   final Value<bool> autoPauseEnabled;
   final Value<bool> hasSeenOnboarding;
+  final Value<double?> homeLat;
+  final Value<double?> homeLng;
+  final Value<double?> officeLat;
+  final Value<double?> officeLng;
   const UserPreferencesCompanion({
     this.id = const Value.absent(),
     this.userId = const Value.absent(),
@@ -2050,6 +2283,10 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
     this.weeklyNotificationEnabled = const Value.absent(),
     this.autoPauseEnabled = const Value.absent(),
     this.hasSeenOnboarding = const Value.absent(),
+    this.homeLat = const Value.absent(),
+    this.homeLng = const Value.absent(),
+    this.officeLat = const Value.absent(),
+    this.officeLng = const Value.absent(),
   });
   UserPreferencesCompanion.insert({
     this.id = const Value.absent(),
@@ -2063,6 +2300,10 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
     this.weeklyNotificationEnabled = const Value.absent(),
     this.autoPauseEnabled = const Value.absent(),
     this.hasSeenOnboarding = const Value.absent(),
+    this.homeLat = const Value.absent(),
+    this.homeLng = const Value.absent(),
+    this.officeLat = const Value.absent(),
+    this.officeLng = const Value.absent(),
   });
   static Insertable<UserPreferencesRow> custom({
     Expression<int>? id,
@@ -2076,6 +2317,10 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
     Expression<bool>? weeklyNotificationEnabled,
     Expression<bool>? autoPauseEnabled,
     Expression<bool>? hasSeenOnboarding,
+    Expression<double>? homeLat,
+    Expression<double>? homeLng,
+    Expression<double>? officeLat,
+    Expression<double>? officeLng,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -2090,6 +2335,10 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
         'weekly_notification_enabled': weeklyNotificationEnabled,
       if (autoPauseEnabled != null) 'auto_pause_enabled': autoPauseEnabled,
       if (hasSeenOnboarding != null) 'has_seen_onboarding': hasSeenOnboarding,
+      if (homeLat != null) 'home_lat': homeLat,
+      if (homeLng != null) 'home_lng': homeLng,
+      if (officeLat != null) 'office_lat': officeLat,
+      if (officeLng != null) 'office_lng': officeLng,
     });
   }
 
@@ -2105,6 +2354,10 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
     Value<bool>? weeklyNotificationEnabled,
     Value<bool>? autoPauseEnabled,
     Value<bool>? hasSeenOnboarding,
+    Value<double?>? homeLat,
+    Value<double?>? homeLng,
+    Value<double?>? officeLat,
+    Value<double?>? officeLng,
   }) {
     return UserPreferencesCompanion(
       id: id ?? this.id,
@@ -2119,6 +2372,10 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
           weeklyNotificationEnabled ?? this.weeklyNotificationEnabled,
       autoPauseEnabled: autoPauseEnabled ?? this.autoPauseEnabled,
       hasSeenOnboarding: hasSeenOnboarding ?? this.hasSeenOnboarding,
+      homeLat: homeLat ?? this.homeLat,
+      homeLng: homeLng ?? this.homeLng,
+      officeLat: officeLat ?? this.officeLat,
+      officeLng: officeLng ?? this.officeLng,
     );
   }
 
@@ -2160,6 +2417,18 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
     if (hasSeenOnboarding.present) {
       map['has_seen_onboarding'] = Variable<bool>(hasSeenOnboarding.value);
     }
+    if (homeLat.present) {
+      map['home_lat'] = Variable<double>(homeLat.value);
+    }
+    if (homeLng.present) {
+      map['home_lng'] = Variable<double>(homeLng.value);
+    }
+    if (officeLat.present) {
+      map['office_lat'] = Variable<double>(officeLat.value);
+    }
+    if (officeLng.present) {
+      map['office_lng'] = Variable<double>(officeLng.value);
+    }
     return map;
   }
 
@@ -2176,7 +2445,11 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
           ..write('weekendReminder: $weekendReminder, ')
           ..write('weeklyNotificationEnabled: $weeklyNotificationEnabled, ')
           ..write('autoPauseEnabled: $autoPauseEnabled, ')
-          ..write('hasSeenOnboarding: $hasSeenOnboarding')
+          ..write('hasSeenOnboarding: $hasSeenOnboarding, ')
+          ..write('homeLat: $homeLat, ')
+          ..write('homeLng: $homeLng, ')
+          ..write('officeLat: $officeLat, ')
+          ..write('officeLng: $officeLng')
           ..write(')'))
         .toString();
   }
@@ -2552,6 +2825,7 @@ typedef $$TripsTableCreateCompanionBuilder =
       required double distanceMeters,
       Value<String?> routePolyline,
       required String direction,
+      Value<String> directionSource,
       required int timeMovingSeconds,
       required int timeStuckSeconds,
       Value<bool> isManualEntry,
@@ -2571,6 +2845,7 @@ typedef $$TripsTableUpdateCompanionBuilder =
       Value<double> distanceMeters,
       Value<String?> routePolyline,
       Value<String> direction,
+      Value<String> directionSource,
       Value<int> timeMovingSeconds,
       Value<int> timeStuckSeconds,
       Value<bool> isManualEntry,
@@ -2653,6 +2928,11 @@ class $$TripsTableFilterComposer extends Composer<_$AppDatabase, $TripsTable> {
 
   ColumnFilters<String> get direction => $composableBuilder(
     column: $table.direction,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get directionSource => $composableBuilder(
+    column: $table.directionSource,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2766,6 +3046,11 @@ class $$TripsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get directionSource => $composableBuilder(
+    column: $table.directionSource,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get timeMovingSeconds => $composableBuilder(
     column: $table.timeMovingSeconds,
     builder: (column) => ColumnOrderings(column),
@@ -2840,6 +3125,11 @@ class $$TripsTableAnnotationComposer
 
   GeneratedColumn<String> get direction =>
       $composableBuilder(column: $table.direction, builder: (column) => column);
+
+  GeneratedColumn<String> get directionSource => $composableBuilder(
+    column: $table.directionSource,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<int> get timeMovingSeconds => $composableBuilder(
     column: $table.timeMovingSeconds,
@@ -2928,6 +3218,7 @@ class $$TripsTableTableManager
                 Value<double> distanceMeters = const Value.absent(),
                 Value<String?> routePolyline = const Value.absent(),
                 Value<String> direction = const Value.absent(),
+                Value<String> directionSource = const Value.absent(),
                 Value<int> timeMovingSeconds = const Value.absent(),
                 Value<int> timeStuckSeconds = const Value.absent(),
                 Value<bool> isManualEntry = const Value.absent(),
@@ -2945,6 +3236,7 @@ class $$TripsTableTableManager
                 distanceMeters: distanceMeters,
                 routePolyline: routePolyline,
                 direction: direction,
+                directionSource: directionSource,
                 timeMovingSeconds: timeMovingSeconds,
                 timeStuckSeconds: timeStuckSeconds,
                 isManualEntry: isManualEntry,
@@ -2964,6 +3256,7 @@ class $$TripsTableTableManager
                 required double distanceMeters,
                 Value<String?> routePolyline = const Value.absent(),
                 required String direction,
+                Value<String> directionSource = const Value.absent(),
                 required int timeMovingSeconds,
                 required int timeStuckSeconds,
                 Value<bool> isManualEntry = const Value.absent(),
@@ -2981,6 +3274,7 @@ class $$TripsTableTableManager
                 distanceMeters: distanceMeters,
                 routePolyline: routePolyline,
                 direction: direction,
+                directionSource: directionSource,
                 timeMovingSeconds: timeMovingSeconds,
                 timeStuckSeconds: timeStuckSeconds,
                 isManualEntry: isManualEntry,
@@ -3305,6 +3599,10 @@ typedef $$UserPreferencesTableCreateCompanionBuilder =
       Value<bool> weeklyNotificationEnabled,
       Value<bool> autoPauseEnabled,
       Value<bool> hasSeenOnboarding,
+      Value<double?> homeLat,
+      Value<double?> homeLng,
+      Value<double?> officeLat,
+      Value<double?> officeLng,
     });
 typedef $$UserPreferencesTableUpdateCompanionBuilder =
     UserPreferencesCompanion Function({
@@ -3319,6 +3617,10 @@ typedef $$UserPreferencesTableUpdateCompanionBuilder =
       Value<bool> weeklyNotificationEnabled,
       Value<bool> autoPauseEnabled,
       Value<bool> hasSeenOnboarding,
+      Value<double?> homeLat,
+      Value<double?> homeLng,
+      Value<double?> officeLat,
+      Value<double?> officeLng,
     });
 
 class $$UserPreferencesTableFilterComposer
@@ -3382,6 +3684,26 @@ class $$UserPreferencesTableFilterComposer
 
   ColumnFilters<bool> get hasSeenOnboarding => $composableBuilder(
     column: $table.hasSeenOnboarding,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get homeLat => $composableBuilder(
+    column: $table.homeLat,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get homeLng => $composableBuilder(
+    column: $table.homeLng,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get officeLat => $composableBuilder(
+    column: $table.officeLat,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get officeLng => $composableBuilder(
+    column: $table.officeLng,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -3449,6 +3771,26 @@ class $$UserPreferencesTableOrderingComposer
     column: $table.hasSeenOnboarding,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<double> get homeLat => $composableBuilder(
+    column: $table.homeLat,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get homeLng => $composableBuilder(
+    column: $table.homeLng,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get officeLat => $composableBuilder(
+    column: $table.officeLat,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get officeLng => $composableBuilder(
+    column: $table.officeLng,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$UserPreferencesTableAnnotationComposer
@@ -3508,6 +3850,18 @@ class $$UserPreferencesTableAnnotationComposer
     column: $table.hasSeenOnboarding,
     builder: (column) => column,
   );
+
+  GeneratedColumn<double> get homeLat =>
+      $composableBuilder(column: $table.homeLat, builder: (column) => column);
+
+  GeneratedColumn<double> get homeLng =>
+      $composableBuilder(column: $table.homeLng, builder: (column) => column);
+
+  GeneratedColumn<double> get officeLat =>
+      $composableBuilder(column: $table.officeLat, builder: (column) => column);
+
+  GeneratedColumn<double> get officeLng =>
+      $composableBuilder(column: $table.officeLng, builder: (column) => column);
 }
 
 class $$UserPreferencesTableTableManager
@@ -3558,6 +3912,10 @@ class $$UserPreferencesTableTableManager
                 Value<bool> weeklyNotificationEnabled = const Value.absent(),
                 Value<bool> autoPauseEnabled = const Value.absent(),
                 Value<bool> hasSeenOnboarding = const Value.absent(),
+                Value<double?> homeLat = const Value.absent(),
+                Value<double?> homeLng = const Value.absent(),
+                Value<double?> officeLat = const Value.absent(),
+                Value<double?> officeLng = const Value.absent(),
               }) => UserPreferencesCompanion(
                 id: id,
                 userId: userId,
@@ -3570,6 +3928,10 @@ class $$UserPreferencesTableTableManager
                 weeklyNotificationEnabled: weeklyNotificationEnabled,
                 autoPauseEnabled: autoPauseEnabled,
                 hasSeenOnboarding: hasSeenOnboarding,
+                homeLat: homeLat,
+                homeLng: homeLng,
+                officeLat: officeLat,
+                officeLng: officeLng,
               ),
           createCompanionCallback:
               ({
@@ -3584,6 +3946,10 @@ class $$UserPreferencesTableTableManager
                 Value<bool> weeklyNotificationEnabled = const Value.absent(),
                 Value<bool> autoPauseEnabled = const Value.absent(),
                 Value<bool> hasSeenOnboarding = const Value.absent(),
+                Value<double?> homeLat = const Value.absent(),
+                Value<double?> homeLng = const Value.absent(),
+                Value<double?> officeLat = const Value.absent(),
+                Value<double?> officeLng = const Value.absent(),
               }) => UserPreferencesCompanion.insert(
                 id: id,
                 userId: userId,
@@ -3596,6 +3962,10 @@ class $$UserPreferencesTableTableManager
                 weeklyNotificationEnabled: weeklyNotificationEnabled,
                 autoPauseEnabled: autoPauseEnabled,
                 hasSeenOnboarding: hasSeenOnboarding,
+                homeLat: homeLat,
+                homeLng: homeLng,
+                officeLat: officeLat,
+                officeLng: officeLng,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

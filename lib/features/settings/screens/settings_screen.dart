@@ -313,6 +313,13 @@ UserPreferencesValue _copyPrefs(
   // Preserve the first-run flag (Phase 20) — a settings write must never
   // reset it and re-trigger the login wall.
   hasSeenOnboarding: prefs.hasSeenOnboarding,
+  // Preserve the Phase 21 Home/Office coords — a generic settings write must
+  // never zero them. Plan 02 (picker) adds the dedicated setters that mutate
+  // these; this copy only carries them through unchanged.
+  homeLat: prefs.homeLat,
+  homeLng: prefs.homeLng,
+  officeLat: prefs.officeLat,
+  officeLng: prefs.officeLng,
 );
 
 class _UnsetSentinel {

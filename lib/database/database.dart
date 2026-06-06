@@ -37,7 +37,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -106,6 +106,20 @@ class AppDatabase extends _$AppDatabase {
         await customStatement(
           'UPDATE user_preferences SET has_seen_onboarding = 1 WHERE id = 1',
         );
+      }
+      if (from < 6 && to >= 6) {
+        // Phase 21 (D-01/D-02, T-21-01): additive-only v5 → v6 migration. Adds
+        // four nullable Home/Office coordinate columns on user_preferences and
+        // the trips.direction_source column (default 'time'). No UPDATE/DROP
+        // touches existing rows, so every historical commute survives unchanged
+        // and reads direction_source='time' with null coords (SC#5). Ordered
+        // AFTER the from<5 branch so a v1..v5 install runs every branch in
+        // sequence.
+        await m.addColumn(userPreferences, userPreferences.homeLat);
+        await m.addColumn(userPreferences, userPreferences.homeLng);
+        await m.addColumn(userPreferences, userPreferences.officeLat);
+        await m.addColumn(userPreferences, userPreferences.officeLng);
+        await m.addColumn(trips, trips.directionSource);
       }
     },
     beforeOpen: (details) async {

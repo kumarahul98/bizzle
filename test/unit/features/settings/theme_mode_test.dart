@@ -68,6 +68,10 @@ Future<ThemeMode?> _resolvedThemeMode(
               // test asserts only the resolved themeMode; the gate itself is
               // covered by test/widget/app_gate_test.dart.
               hasSeenOnboarding: true,
+              homeLat: null,
+              homeLng: null,
+              officeLat: null,
+              officeLng: null,
             ),
           ),
         ),

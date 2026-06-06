@@ -65,6 +65,19 @@ class Trips extends Table {
   /// cutoff, always user-editable from the trip detail screen.
   TextColumn get direction => text()();
 
+  /// Durable record of WHO set [direction] (Phase 21, D-02): one of
+  /// [kDirectionSourceManual], [kDirectionSourceGeofence], or
+  /// [kDirectionSourceTime].
+  ///
+  /// Default `'time'` keeps every existing v5 row safe and correct across the
+  /// additive v6 migration — historical rows were all time-labeled (SC#5).
+  /// Finalize writes `geofence` when the END coord matched a saved anchor,
+  /// `manual` when the user overrode, else `time` (D-10). Every manual write
+  /// path stamps `manual` (D-03). The Plan 03 backfill re-labels ONLY rows
+  /// where this is NOT `manual`, so a user's pick is never clobbered (SC#4).
+  TextColumn get directionSource =>
+      text().withDefault(const Constant(kDirectionSourceTime))();
+
   /// Time the device reported speed ≥ 10 km/h (kSpeedThresholdKmh).
   IntColumn get timeMovingSeconds => integer()();
 

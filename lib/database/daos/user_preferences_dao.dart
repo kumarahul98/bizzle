@@ -32,6 +32,10 @@ class UserPreferencesValue {
     required this.weeklyNotificationEnabled,
     required this.autoPauseEnabled,
     required this.hasSeenOnboarding,
+    required this.homeLat,
+    required this.homeLng,
+    required this.officeLat,
+    required this.officeLng,
   });
 
   /// The defaults used the first time the user launches the app —
@@ -46,7 +50,11 @@ class UserPreferencesValue {
       weekendReminder = false,
       weeklyNotificationEnabled = false,
       autoPauseEnabled = false,
-      hasSeenOnboarding = false;
+      hasSeenOnboarding = false,
+      homeLat = null,
+      homeLng = null,
+      officeLat = null,
+      officeLng = null;
 
   /// Owning user placeholder (Phase 8 replaces with Cognito sub).
   final String userId;
@@ -80,6 +88,19 @@ class UserPreferencesValue {
   /// False on a fresh install (no row) so the gate shows the login screen
   /// exactly once.
   final bool hasSeenOnboarding;
+
+  /// Saved Home latitude (Phase 21, D-01). Null = not set. PII-adjacent —
+  /// never log this coordinate (T-21-03).
+  final double? homeLat;
+
+  /// Saved Home longitude (Phase 21, D-01). Null = not set. PII-adjacent.
+  final double? homeLng;
+
+  /// Saved Office latitude (Phase 21, D-01). Null = not set. PII-adjacent.
+  final double? officeLat;
+
+  /// Saved Office longitude (Phase 21, D-01). Null = not set. PII-adjacent.
+  final double? officeLng;
 }
 
 /// Data-access object for the single-row user_preferences table.
@@ -118,6 +139,10 @@ class UserPreferencesDao extends DatabaseAccessor<AppDatabase>
       weeklyNotificationEnabled: row.weeklyNotificationEnabled,
       autoPauseEnabled: row.autoPauseEnabled,
       hasSeenOnboarding: row.hasSeenOnboarding,
+      homeLat: row.homeLat,
+      homeLng: row.homeLng,
+      officeLat: row.officeLat,
+      officeLng: row.officeLng,
     );
   }
 
@@ -147,6 +172,10 @@ class UserPreferencesDao extends DatabaseAccessor<AppDatabase>
               weeklyNotificationEnabled: row.weeklyNotificationEnabled,
               autoPauseEnabled: row.autoPauseEnabled,
               hasSeenOnboarding: row.hasSeenOnboarding,
+              homeLat: row.homeLat,
+              homeLng: row.homeLng,
+              officeLat: row.officeLat,
+              officeLng: row.officeLng,
             ),
     );
   }
@@ -192,6 +221,10 @@ class UserPreferencesDao extends DatabaseAccessor<AppDatabase>
         weeklyNotificationEnabled: Value<bool>(value.weeklyNotificationEnabled),
         autoPauseEnabled: Value<bool>(value.autoPauseEnabled),
         hasSeenOnboarding: Value<bool>(value.hasSeenOnboarding),
+        homeLat: Value<double?>(value.homeLat),
+        homeLng: Value<double?>(value.homeLng),
+        officeLat: Value<double?>(value.officeLat),
+        officeLng: Value<double?>(value.officeLng),
       ),
     );
   }

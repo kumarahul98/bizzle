@@ -76,6 +76,25 @@ class UserPreferences extends Table {
   BoolColumn get hasSeenOnboarding =>
       boolean().withDefault(const Constant(false))();
 
+  /// Saved Home latitude (Phase 21, D-01). Null = not set; single-row table.
+  ///
+  /// PII-adjacent — this coordinate reveals where the user lives. NEVER log it
+  /// (T-21-03). Stored locally in Drift only; no sync field carries it.
+  /// Added by schema migration v5 → v6 (additive); existing rows read null.
+  RealColumn get homeLat => real().nullable()();
+
+  /// Saved Home longitude (Phase 21, D-01). Null = not set. PII-adjacent —
+  /// NEVER log (T-21-03). Added by schema migration v5 → v6 (additive).
+  RealColumn get homeLng => real().nullable()();
+
+  /// Saved Office latitude (Phase 21, D-01). Null = not set. PII-adjacent —
+  /// NEVER log (T-21-03). Added by schema migration v5 → v6 (additive).
+  RealColumn get officeLat => real().nullable()();
+
+  /// Saved Office longitude (Phase 21, D-01). Null = not set. PII-adjacent —
+  /// NEVER log (T-21-03). Added by schema migration v5 → v6 (additive).
+  RealColumn get officeLng => real().nullable()();
+
   @override
   Set<Column<Object>> get primaryKey => {id};
 }

@@ -68,10 +68,11 @@ void main() {
         //    auto_pause_enabled) are asserted below to prove the v2 → v3 step
         //    still preserves data. Migrating to the terminal version is also
         //    required so the real DAO's getOrDefault() can read every column
-        //    (has_seen_onboarding was added at v5).
+        //    (has_seen_onboarding was added at v5; the Phase 21 coords +
+        //    direction_source at v6).
         final migratedDb = AppDatabase(schema.newConnection());
         addTearDown(migratedDb.close);
-        await verifier.migrateAndValidate(migratedDb, 5);
+        await verifier.migrateAndValidate(migratedDb, 6);
 
         // 3a. The previously-inserted trip still exists after migration.
         final tripRow = await migratedDb.tripsDao.findById(tripId);

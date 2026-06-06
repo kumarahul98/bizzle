@@ -981,3 +981,36 @@ const String kEditStartDateTimeLabel = 'Start';
 
 /// End date/time field label in the Plan 02 edit sheet.
 const String kEditEndDateTimeLabel = 'End';
+
+// ---------------------------------------------------------------------------
+// Phase 21 — Home & Office Locations + Geofence Auto-Label (LOC-01, LOC-02)
+// ---------------------------------------------------------------------------
+
+/// Confident-match radius (meters) for the geofence direction resolver (D-05).
+///
+/// The trip's END coordinate must lie strictly within this distance of a saved
+/// Home/Office anchor (`Geolocator.distanceBetween(...) < kGeofenceRadiusMeters`)
+/// to label the trip by that anchor. A point exactly at the radius is OUTSIDE
+/// (D-06). 250 m balances GPS endpoint jitter and parking-lot drift against the
+/// risk of a Home and Office that sit close together overlapping.
+const double kGeofenceRadiusMeters = 250;
+
+/// `trips.direction_source` literal: the user explicitly set this direction
+/// (Phase 17 quick toggle or the Phase 19 edit sheet) — D-02/D-03.
+///
+/// This is the durable "who set this" record. A manual choice is
+/// authoritative: the Plan 03 backfill re-labels ONLY rows whose source is NOT
+/// this value, so a user's pick is never clobbered (SC#4).
+const String kDirectionSourceManual = 'manual';
+
+/// `trips.direction_source` literal: the direction was derived from the
+/// geofence resolver at finalize (END coord matched a saved anchor) — D-02/D-10.
+const String kDirectionSourceGeofence = 'geofence';
+
+/// `trips.direction_source` literal: the direction fell back to the time-of-day
+/// heuristic (no manual override and no confident geofence match) — D-02/D-09.
+///
+/// This is the DB default for `trips.direction_source`, so every pre-Phase-21
+/// row reads `time` after the additive v6 migration — they were all
+/// time-labeled (SC#5).
+const String kDirectionSourceTime = 'time';

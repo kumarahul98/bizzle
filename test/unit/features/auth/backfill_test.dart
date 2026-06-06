@@ -223,6 +223,10 @@ void main() {
           weeklyNotificationEnabled: false,
           autoPauseEnabled: false,
           hasSeenOnboarding: false,
+          homeLat: null,
+          homeLng: null,
+          officeLat: null,
+          officeLng: null,
         );
         await db.userPreferencesDao.upsert(prefs);
 
@@ -254,6 +258,10 @@ void main() {
           weeklyNotificationEnabled: false,
           autoPauseEnabled: false,
           hasSeenOnboarding: false,
+          homeLat: null,
+          homeLng: null,
+          officeLat: null,
+          officeLng: null,
         );
         await db.userPreferencesDao.upsert(prefs);
         await db.userPreferencesDao.backfillUserId('uid-first');
@@ -321,6 +329,10 @@ void main() {
           weeklyNotificationEnabled: false,
           autoPauseEnabled: false,
           hasSeenOnboarding: false,
+          homeLat: null,
+          homeLng: null,
+          officeLat: null,
+          officeLng: null,
         );
         await db.userPreferencesDao.upsert(prefs);
 

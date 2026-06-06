@@ -57,6 +57,10 @@ UserPreferencesValue _prefs({required bool hasSeenOnboarding}) {
     weeklyNotificationEnabled: false,
     autoPauseEnabled: false,
     hasSeenOnboarding: hasSeenOnboarding,
+    homeLat: null,
+    homeLng: null,
+    officeLat: null,
+    officeLng: null,
   );
 }
 

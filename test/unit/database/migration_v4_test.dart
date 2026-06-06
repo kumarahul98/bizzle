@@ -56,11 +56,16 @@ void main() {
             );
         await oldDb.close();
 
-        // 2. Run the real v3 → v4 migration and validate the resulting schema
-        //    against the generated v4 snapshot (DDL diff applies cleanly).
+        // 2. Run the real migration up to the terminal version and validate
+        //    the resulting schema against the generated snapshot (DDL diff
+        //    applies cleanly). The v3 → v4 step still runs as part of the
+        //    stepwise upgrade; migrating to the terminal version is required so
+        //    the real DAO's findById() can read every column (Phase 20's
+        //    has_seen_onboarding and Phase 21's coords + direction_source were
+        //    added after v4).
         final migratedDb = AppDatabase(schema.newConnection());
         addTearDown(migratedDb.close);
-        await verifier.migrateAndValidate(migratedDb, 4);
+        await verifier.migrateAndValidate(migratedDb, 6);
 
         // 3a. The previously-inserted trip still exists after migration with
         //     its existing columns intact.

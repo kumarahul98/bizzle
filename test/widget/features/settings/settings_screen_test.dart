@@ -361,6 +361,10 @@ void main() {
             weeklyNotificationEnabled: true,
             autoPauseEnabled: false,
             hasSeenOnboarding: false,
+            homeLat: null,
+            homeLng: null,
+            officeLat: null,
+            officeLng: null,
           ),
           notificationService: fakeNotif,
         );
@@ -481,6 +485,10 @@ void main() {
             weeklyNotificationEnabled: false,
             autoPauseEnabled: false,
             hasSeenOnboarding: false,
+            homeLat: null,
+            homeLng: null,
+            officeLat: null,
+            officeLng: null,
           ),
         );
         await _scrollTo(tester, find.text('Daily reminder'));

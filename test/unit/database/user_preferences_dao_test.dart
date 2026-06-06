@@ -49,6 +49,10 @@ void main() {
         weeklyNotificationEnabled: true,
         autoPauseEnabled: true,
         hasSeenOnboarding: false,
+        homeLat: null,
+        homeLng: null,
+        officeLat: null,
+        officeLng: null,
       );
 
       await db.userPreferencesDao.upsert(updated);
@@ -75,6 +79,10 @@ void main() {
         weeklyNotificationEnabled: true,
         autoPauseEnabled: true,
         hasSeenOnboarding: false,
+        homeLat: null,
+        homeLng: null,
+        officeLat: null,
+        officeLng: null,
       );
       const second = UserPreferencesValue(
         userId: kDefaultUserId,
@@ -87,6 +95,10 @@ void main() {
         weeklyNotificationEnabled: false,
         autoPauseEnabled: false,
         hasSeenOnboarding: false,
+        homeLat: null,
+        homeLng: null,
+        officeLat: null,
+        officeLng: null,
       );
 
       await db.userPreferencesDao.upsert(first);
@@ -127,6 +139,10 @@ void main() {
         weeklyNotificationEnabled: true,
         autoPauseEnabled: true,
         hasSeenOnboarding: false,
+        homeLat: null,
+        homeLng: null,
+        officeLat: null,
+        officeLng: null,
       );
 
       await db.userPreferencesDao.upsert(updated);
@@ -188,6 +204,10 @@ void main() {
           weeklyNotificationEnabled: true,
           autoPauseEnabled: true,
           hasSeenOnboarding: false,
+          homeLat: null,
+          homeLng: null,
+          officeLat: null,
+          officeLng: null,
         );
         await db.userPreferencesDao.upsert(prior);
 
