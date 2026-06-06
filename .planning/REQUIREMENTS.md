@@ -104,7 +104,7 @@ Android-facing UX fixes and features requested 2026-06-06. Built on branch `gsd/
 
 - [x] **TRACK-09**: User can pause and resume an active commute (for a break — snack/meeting) without ending the trip; paused time is excluded from duration and moving/stuck stats
 - [x] **TRACK-10**: User can enable an auto-pause prompt — when an active trip appears stationary beyond a threshold, a notification offers to pause the trip
-- [ ] **TRACK-11**: User can edit all details of a trip — start time, end time, and individual break/pause segments — with duration and traffic stats recomputed
+- [x] **TRACK-11**: User can edit all details of a trip — start time, end time, and individual break/pause segments — with duration and traffic stats recomputed
 - [x] **TRACK-12**: User can set or change a trip's direction (to-home / to-office) via a quick label selector during tracking and from the trip view
 
 ### First-Run & Auth
@@ -211,7 +211,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | IOS-14 | Phase 15 | Pending |
 | TRACK-09 | Phase 18 | Complete |
 | TRACK-10 | Phase 18 | Complete |
-| TRACK-11 | Phase 19 | Pending |
+| TRACK-11 | Phase 19 | Complete |
 | TRACK-12 | Phase 17 | Complete |
 | AUTH-04 | Phase 20 | Pending |
 | LOC-01 | Phase 21 | Pending |

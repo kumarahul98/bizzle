@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: App Improvements
 status: in-progress
-stopped_at: Phase 18 complete (pause/breaks + auto-pause); Phase 19 next (Full Trip Editing)
-last_updated: "2026-06-06T06:23:55.556Z"
-last_activity: 2026-06-06 -- Phase 18 complete (453 tests green)
+stopped_at: Phase 19 complete (full trip editing); Phase 20 next (First-Run Login with Skip)
+last_updated: "2026-06-06T07:30:00.000Z"
+last_activity: 2026-06-06 -- Phase 19 complete (495 tests green)
 progress:
   total_phases: 6
-  completed_phases: 2
-  total_plans: 6
-  completed_plans: 6
-  percent: 33
+  completed_phases: 3
+  total_plans: 8
+  completed_plans: 8
+  percent: 50
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-06)
 
 **Core value:** Show people the reality of their commute -- time wasted in traffic and how it changes over time.
-**Current focus:** Phase 19 — full-trip-editing (v0.3 App Improvements)
+**Current focus:** Phase 20 — first-run-login-with-skip (v0.3 App Improvements)
 
 ## Current Position
 
-Phase: 19 — Full Trip Editing (next; planning)
+Phase: 20 — First-Run Login with Skip (next; planning)
 Plan: —
-Status: Phase 18 complete (453 tests green) — pause/resume, breaks persisted, opt-in auto-pause
-Last activity: 2026-06-06 -- Phase 18 complete
+Status: Phase 19 complete (495 tests green) — editable start/end + breaks, proportional stat recompute, is_edited "estimated" hint, sync re-queue
+Last activity: 2026-06-06 -- Phase 19 complete
 
-**v0.3 progress:** 2/6 phases complete (17, 18 done)
+**v0.3 progress:** 3/6 phases complete (17, 18, 19 done)
 
 ## Performance Metrics
 
