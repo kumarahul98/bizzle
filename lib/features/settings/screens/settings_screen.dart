@@ -47,7 +47,7 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               ),
               const _AccountSection(),
-              _RecordingSection(prefs: prefs),
+              _RecordingSection(prefs: prefs, ref: ref),
               _NotificationsSection(prefs: prefs, ref: ref),
               _AppearanceSection(prefs: prefs, ref: ref),
             ],
@@ -125,8 +125,9 @@ class _AccountSection extends ConsumerWidget {
 }
 
 class _RecordingSection extends StatelessWidget {
-  const _RecordingSection({required this.prefs});
+  const _RecordingSection({required this.prefs, required this.ref});
   final UserPreferencesValue prefs;
+  final WidgetRef ref;
 
   @override
   Widget build(BuildContext context) {
@@ -141,11 +142,19 @@ class _RecordingSection extends StatelessWidget {
           // expose cutoff updates. Rendered without onTap so no chevron
           // is shown.
         ),
-        const SettingsRow(
-          label: 'Auto-pause on stop',
-          // UserPreferences does not yet carry this flag — placeholder
-          // until Phase 9 backlog wires it. Toggle is visual-only.
-          trailing: TraevyToggle(value: true, onChanged: _noopBool),
+        // Phase 18 (Plan 04, TRACK-10, D-10): real opt-in auto-pause toggle
+        // bound to user_preferences.auto_pause_enabled (default OFF). No
+        // notification side-effect — flipping it only upserts the preference;
+        // the service-side detector reads the gate live via the UI isolate.
+        SettingsRow(
+          label: kSettingsAutoPauseLabel,
+          subtitle: prefs.autoPauseEnabled
+              ? kSettingsAutoPauseOnSubtitle
+              : kSettingsAutoPauseOffSubtitle,
+          trailing: TraevyToggle(
+            value: prefs.autoPauseEnabled,
+            onChanged: (v) => unawaited(_toggleAutoPause(ref, prefs, v)),
+          ),
         ),
       ],
     );
@@ -254,10 +263,6 @@ Future<String?> _openThemePicker(BuildContext context, String current) {
   );
 }
 
-/// No-op handler for the visual-only Auto-pause placeholder toggle. Lifted to
-/// a top-level function so the enclosing row can be declared `const`.
-void _noopBool(bool _) {}
-
 // ---------------------------------------------------------------------------
 // Helpers — copy + format
 // ---------------------------------------------------------------------------
@@ -291,6 +296,7 @@ UserPreferencesValue _copyPrefs(
   Object? reminderTime = const _UnsetSentinel(),
   bool? weekendReminder,
   bool? weeklyNotificationEnabled,
+  bool? autoPauseEnabled,
 }) => UserPreferencesValue(
   userId: prefs.userId,
   darkMode: darkMode ?? prefs.darkMode,
@@ -303,7 +309,7 @@ UserPreferencesValue _copyPrefs(
   weekendReminder: weekendReminder ?? prefs.weekendReminder,
   weeklyNotificationEnabled:
       weeklyNotificationEnabled ?? prefs.weeklyNotificationEnabled,
-  autoPauseEnabled: prefs.autoPauseEnabled,
+  autoPauseEnabled: autoPauseEnabled ?? prefs.autoPauseEnabled,
 );
 
 class _UnsetSentinel {
@@ -348,6 +354,20 @@ Future<void> _toggleReminder(
   } else {
     await service.cancelReminder();
   }
+}
+
+/// Persist the opt-in auto-pause preference (Phase 18 Plan 04, TRACK-10,
+/// D-10). Unlike the notification toggles this has NO side-effect — auto-pause
+/// has no scheduled alarm; the service-side detector reads the flag live via
+/// the UI isolate, so flipping it only needs the upsert.
+Future<void> _toggleAutoPause(
+  WidgetRef ref,
+  UserPreferencesValue prefs,
+  bool value,
+) async {
+  await ref
+      .read(userPreferencesDaoProvider)
+      .upsert(_copyPrefs(prefs, autoPauseEnabled: value));
 }
 
 Future<void> _toggleWeekend(
