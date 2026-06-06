@@ -356,6 +356,14 @@ class TrackingNotifier extends Notifier<TrackingState> {
   /// prefs (falling back to [kDefaultDirectionCutoffHour] until prefs load).
   /// This is the single source consumed by both [_maybeRefreshNotification]
   /// and the hero header label, so the override propagates everywhere live.
+  ///
+  /// Phase 21 (D-10): the AUTHORITATIVE geofence resolution happens at finalize
+  /// (in `TrackingServiceController.persistFinalizedTrip`), NOT here, because
+  /// the geofence policy keys off the trip's END coord — which only exists once
+  /// the trip is finalized. Mid-trip there is no end coord, so the live header /
+  /// notification preview deliberately stays `override ?? time`; the geofence
+  /// label is applied when the trip is persisted. This keeps the live hot path
+  /// free of any Drift coord read.
   String resolvedDirection(DateTime startedAt) {
     final override = _manualDirectionOverride;
     if (override != null) return override;

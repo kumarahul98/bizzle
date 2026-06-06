@@ -12,6 +12,8 @@ import 'package:traevy/features/tracking/services/tracking_event_source.dart';
 import 'package:traevy/features/tracking/services/tracking_notification_service.dart';
 import 'package:traevy/features/tracking/state/finalized_trip.dart';
 import 'package:traevy/features/trips/services/direction_label_service.dart';
+import 'package:traevy/features/trips/services/geofence_direction_resolver.dart';
+import 'package:traevy/shared/utils/polyline_codec.dart';
 import 'package:uuid/uuid.dart';
 
 /// UI-isolate wrapper around the platform-selected [TrackingEventSource].
@@ -179,11 +181,21 @@ class TrackingServiceController {
   ///
   /// TRACK-12 (D-06): if [directionOverride] is non-null (the user picked a
   /// direction on the active-tracking toggle), it is written to
-  /// `trips.direction` instead of the time-of-day auto-label — the manual
-  /// choice wins over the heuristic. When [directionOverride] is null the
-  /// behaviour is byte-for-byte identical to the pre-Phase-17 auto-label
-  /// path. No Drift schema change accompanies this — the value still lands in
-  /// the existing `direction` column.
+  /// `trips.direction` instead of any auto-label — the manual choice wins.
+  ///
+  /// Phase 21 (D-09/D-10): the direction is resolved with the precedence
+  /// `directionOverride ?? geofence ?? time`. The geofence step decodes the
+  /// polyline's first/last points, runs the pure [GeofenceDirectionResolver]
+  /// against the user's saved Home/Office coords, and uses the result when the
+  /// END coord confidently matched an anchor. `trips.direction_source` records
+  /// which path won (`manual`/`geofence`/`time`) so the Plan 03 backfill can
+  /// safely re-label only non-manual rows (D-03/SC#4). When no Home/Office is
+  /// set the resolver returns null and the behaviour collapses to the exact
+  /// pre-Phase-21 `override ?? time` path — purely additive (SC#5).
+  ///
+  /// PII guard (T-21-02): the decoded endpoints are LOCAL variables consumed by
+  /// the pure resolver — they are never logged and never persisted as raw
+  /// coords. Only the resulting label + source land in the trips row.
   Future<PersistResult> persistFinalizedTrip(
     FinalizedTrip trip, {
     String? directionOverride,
@@ -204,8 +216,39 @@ class TrackingServiceController {
         prefs.morningCutoffHour,
         prefs.eveningCutoffHour,
       );
-      // D-06: the manual override (if any) wins over the heuristic.
-      final direction = directionOverride ?? autoLabel;
+      // Phase 21 (D-10): decode the polyline endpoints (may be empty for a
+      // manual/short trip) and run the pure geofence resolver against the saved
+      // Home/Office coords. These coords are local-only (T-21-02).
+      //
+      // The decode is guarded: a malformed/corrupt polyline must NEVER fail the
+      // persist (which would lose a completed commute). On any decode error we
+      // fall back to no endpoints → geofence returns null → time label. PII
+      // guard (T-21-02): the error is swallowed without logging, so no
+      // coordinate-bearing diagnostic can leak.
+      List<({double lat, double lng})> points;
+      try {
+        points = decodePolyline(trip.encodedPolyline);
+      } on Object {
+        points = const [];
+      }
+      final start = points.isEmpty ? null : points.first;
+      final end = points.isEmpty ? null : points.last;
+      final geofenceLabel = const GeofenceDirectionResolver().resolve(
+        start: start,
+        end: end,
+        homeLat: prefs.homeLat,
+        homeLng: prefs.homeLng,
+        officeLat: prefs.officeLat,
+        officeLng: prefs.officeLng,
+      );
+      // D-06/D-09: precedence is override ?? geofence ?? time.
+      final direction = directionOverride ?? geofenceLabel ?? autoLabel;
+      // D-02/D-10: record which path produced the direction.
+      final directionSource = directionOverride != null
+          ? kDirectionSourceManual
+          : geofenceLabel != null
+          ? kDirectionSourceGeofence
+          : kDirectionSourceTime;
       await _database.transaction(() async {
         await _tripsDao.insertTrip(
           TripsCompanion.insert(
@@ -215,6 +258,7 @@ class TrackingServiceController {
             durationSeconds: trip.durationSeconds,
             distanceMeters: trip.distanceMeters,
             direction: direction,
+            directionSource: Value<String>(directionSource),
             timeMovingSeconds: trip.timeMovingSeconds,
             timeStuckSeconds: trip.timeStuckSeconds,
             routePolyline: Value<String?>(trip.encodedPolyline),

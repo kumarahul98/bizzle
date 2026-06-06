@@ -72,6 +72,14 @@ class TripManagementNotifier extends Notifier<TripManagementState> {
   /// the math stays pure and unit-tested while the notifier stays I/O-only.
   /// When [breaks] is non-null the trip's existing breaks are replaced
   /// wholesale (delete-all → insert) inside the same transaction.
+  ///
+  /// Phase 21 (D-03): every editTrip call stamps `direction_source = manual`
+  /// because both call sites are a user explicitly setting the direction (the
+  /// Phase 17 quick toggle and the Phase 19 edit sheet). This makes a user's
+  /// pick backfill-proof — the Plan 03 geofence backfill re-labels ONLY rows
+  /// whose source is NOT manual (SC#4). `insertManualTrip` is NOT tagged: a
+  /// manual entry has no GPS to geofence and the user does not pick a direction
+  /// at create, so it keeps the DB default `time` (D-11).
   Future<void> editTrip({
     required String tripId,
     required String direction,
@@ -95,6 +103,12 @@ class TripManagementNotifier extends Notifier<TripManagementState> {
           TripsCompanion(
             id: Value(tripId),
             direction: Value(direction),
+            // Phase 21 (D-03): every editTrip call is the user setting the
+            // direction (the Phase 17 quick toggle via _handleDirectionChanged
+            // AND the Phase 19 edit sheet both route here), so stamp
+            // direction_source=manual. This is what guarantees the Plan 03
+            // backfill never clobbers a user's choice (SC#4).
+            directionSource: const Value(kDirectionSourceManual),
             startTime: Value(startTimeUtc),
             endTime: Value(endTimeUtc),
             durationSeconds: Value(

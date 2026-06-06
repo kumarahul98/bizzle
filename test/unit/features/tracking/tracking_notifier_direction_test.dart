@@ -15,6 +15,7 @@ import 'package:traevy/features/tracking/services/tracking_service_controller.da
 import 'package:traevy/features/tracking/state/finalized_trip.dart';
 import 'package:traevy/features/tracking/state/tracking_state.dart';
 import 'package:traevy/features/trips/services/direction_label_service.dart';
+import 'package:traevy/shared/utils/polyline_codec.dart';
 
 /// TRACK-12 (D-05 / D-06): the manual direction override must win over the
 /// time-of-day auto-label both at finalize (persist) and live (resolved
@@ -110,7 +111,14 @@ FinalizedTrip _buildTrip({
     distanceMeters: distanceMeters,
     timeMovingSeconds: durationSeconds,
     timeStuckSeconds: 0,
-    encodedPolyline: 'encoded',
+    // A REAL encoded polyline (Phase 21 finalize decodes it for the geofence
+    // resolver). These endpoints are arbitrary; with no Home/Office coords set
+    // the resolver returns null, so the direction collapses to override ?? time
+    // exactly as before — these tests still exercise the D-06 override path.
+    encodedPolyline: encodePolyline(const [
+      (lat: 1.0, lng: 1.0),
+      (lat: 2.0, lng: 2.0),
+    ]),
   );
 }
 

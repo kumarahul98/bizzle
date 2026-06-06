@@ -21,6 +21,7 @@ void main() {
     distanceMeters: 12500.5,
     routePolyline: 'abc_polyline',
     direction: kDirectionToOffice,
+    directionSource: kDirectionSourceTime,
     timeMovingSeconds: 1500,
     timeStuckSeconds: 300,
     isManualEntry: false,
