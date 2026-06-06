@@ -42,6 +42,39 @@ void main() {
     }
 
     test(
+      'deleteBreaksForTrip removes only the target trip\'s breaks',
+      () async {
+        final tripA = await insertParentTrip();
+        final tripB = await insertParentTrip();
+
+        Future<void> insertTwoBreaks(String tripId) {
+          return db.tripBreaksDao.insertBreaks([
+            TripBreaksCompanion.insert(
+              id: uuid.v4(),
+              tripId: tripId,
+              startTime: DateTime.utc(2026, 1, 1, 8, 10),
+              endTime: Value<DateTime>(DateTime.utc(2026, 1, 1, 8, 15)),
+            ),
+            TripBreaksCompanion.insert(
+              id: uuid.v4(),
+              tripId: tripId,
+              startTime: DateTime.utc(2026, 1, 1, 8, 40),
+              endTime: Value<DateTime>(DateTime.utc(2026, 1, 1, 8, 45)),
+            ),
+          ]);
+        }
+
+        await insertTwoBreaks(tripA);
+        await insertTwoBreaks(tripB);
+
+        await db.tripBreaksDao.deleteBreaksForTrip(tripA);
+
+        expect(await db.tripBreaksDao.breaksForTrip(tripA), isEmpty);
+        expect(await db.tripBreaksDao.breaksForTrip(tripB), hasLength(2));
+      },
+    );
+
+    test(
       'insertBreaks + breaksForTrip round-trips ordered by startTime',
       () async {
         final tripId = await insertParentTrip();

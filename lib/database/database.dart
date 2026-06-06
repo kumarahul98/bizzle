@@ -37,7 +37,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -49,7 +49,12 @@ class AppDatabase extends _$AppDatabase {
       // fresh-install reads and complicates future migrations.
     },
     onUpgrade: (m, from, to) async {
-      if (from < 2) {
+      // Each branch is guarded by both `from` (has this step NOT yet run on
+      // this install?) and `to` (is the migration actually targeting at
+      // least this version?). The `to` guard keeps stepwise migrations
+      // correct now that more than one terminal version exists: a verifier
+      // migrating v2 → v3 must NOT also apply the v4 step (D-04).
+      if (from < 2 && to >= 2) {
         // D-13: adds weeklyNotificationEnabled boolean column to
         // user_preferences. Default false provided by
         // withDefault(const Constant(false)) in the table definition
@@ -59,7 +64,7 @@ class AppDatabase extends _$AppDatabase {
           userPreferences.weeklyNotificationEnabled,
         );
       }
-      if (from < 3) {
+      if (from < 3 && to >= 3) {
         // Phase 18 (D-01/D-02/D-10): additive-only v2 → v3 migration.
         // Creates the normalized trip_breaks table and adds two columns
         // with safe defaults. No UPDATE/DROP touches existing trip rows,
@@ -76,6 +81,14 @@ class AppDatabase extends _$AppDatabase {
           userPreferences,
           userPreferences.autoPauseEnabled,
         );
+      }
+      if (from < 4 && to >= 4) {
+        // Phase 19 (D-04): additive-only v3 → v4 migration. Adds a single
+        // boolean trips.is_edited column with default false. No UPDATE/DROP
+        // touches existing trip rows, so every historical commute survives
+        // unchanged and reads is_edited=false (T-19-01). Ordered AFTER the
+        // from<3 branch so a v1/v2/v3 install runs every branch in sequence.
+        await m.addColumn(trips, trips.isEdited);
       }
     },
     beforeOpen: (details) async {

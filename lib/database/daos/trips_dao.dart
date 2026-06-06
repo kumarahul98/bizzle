@@ -32,6 +32,7 @@ class TripSummary {
     required this.timeMovingSeconds,
     required this.timeStuckSeconds,
     required this.isManualEntry,
+    this.isEdited = false,
   });
 
   /// UUID of the trip (matches `Trips.id`).
@@ -60,6 +61,13 @@ class TripSummary {
 
   /// True if the user typed this trip in by hand (no GPS capture).
   final bool isManualEntry;
+
+  /// True once the user has saved a full edit of this trip (Phase 19,
+  /// D-04). Drives the "~ estimated" hint on moving/stuck in list/detail
+  /// views — edited traffic figures are derived (proportional rescale),
+  /// not measured. Defaults to `false` so pre-Phase-19 call sites and
+  /// tests that build a `TripSummary` without it stay unchanged.
+  final bool isEdited;
 }
 
 /// Data-access object for the `trips` table.
@@ -182,9 +190,9 @@ class TripsDao extends DatabaseAccessor<AppDatabase> with _$TripsDaoMixin {
   /// `kDefaultUserId` rows are touched; real-uid rows are untouched.
   /// Never use `update(trips).replace(row)` for partial updates.
   Future<int> backfillUserId(String newUserId) {
-    return (update(trips)
-          ..where((t) => t.userId.equals(kDefaultUserId)))
-        .write(TripsCompanion(userId: Value(newUserId)));
+    return (update(trips)..where((t) => t.userId.equals(kDefaultUserId))).write(
+      TripsCompanion(userId: Value(newUserId)),
+    );
   }
 
   TripSummary _toSummary(TripRow r) => TripSummary(
@@ -197,5 +205,6 @@ class TripsDao extends DatabaseAccessor<AppDatabase> with _$TripsDaoMixin {
     timeMovingSeconds: r.timeMovingSeconds,
     timeStuckSeconds: r.timeStuckSeconds,
     isManualEntry: r.isManualEntry,
+    isEdited: r.isEdited,
   );
 }

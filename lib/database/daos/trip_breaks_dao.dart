@@ -38,6 +38,18 @@ class TripBreaksDao extends DatabaseAccessor<AppDatabase>
         .get();
   }
 
+  /// Delete every break segment for [tripId].
+  ///
+  /// First step of Plan 02's atomic full-edit (D-12): the write path
+  /// DELETEs all existing breaks for the trip then INSERTs the validated,
+  /// clamped replacements inside ONE `db.transaction`. The WHERE clause
+  /// scopes the delete to a single trip — other trips' breaks are never
+  /// touched. The parent trip row is never deleted, so this is FK-safe
+  /// under `PRAGMA foreign_keys = ON`.
+  Future<void> deleteBreaksForTrip(String tripId) {
+    return (delete(tripBreaks)..where((b) => b.tripId.equals(tripId))).go();
+  }
+
   /// Reactive stream of break segments for [tripId], ordered by
   /// `startTime` ascending. Mirrors [breaksForTrip] for widgets that need
   /// live updates (e.g. Phase 19 segment editing).

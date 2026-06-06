@@ -77,6 +77,16 @@ class Trips extends Table {
   BoolColumn get isManualEntry =>
       boolean().withDefault(const Constant(false))();
 
+  /// `true` once the user has saved a full edit of this trip (Phase 19,
+  /// D-04). Set true by any successful full edit; the default `false`
+  /// keeps every historical v1/v2/v3 row safe across the additive v4
+  /// migration (no UPDATE/DROP of existing rows). The trip detail / row
+  /// UI shows a "~ estimated" hint on the moving/stuck figures when this
+  /// is true, because Phase 18 deletes raw speed samples at finalize, so
+  /// re-edited moving/stuck are DERIVED via proportional rescale (D-01),
+  /// not measured from GPS.
+  BoolColumn get isEdited => boolean().withDefault(const Constant(false))();
+
   /// Insertion time. Defaults to `CURRENT_TIMESTAMP` so the DAO does
   /// not have to set it explicitly.
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
