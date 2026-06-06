@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: App Improvements
-status: completed
-stopped_at: Phase 23 context gathered
-last_updated: "2026-06-06T07:37:49.054Z"
-last_activity: 2026-06-06 -- Phase 19 complete
+status: in-progress
+stopped_at: Phase 20 plan 01 complete (gate+flag+sync-reconcile); 20-02 next (guest indicator)
+last_updated: "2026-06-06T13:10:00.000Z"
+last_activity: 2026-06-06 -- Phase 20 plan 01 complete (510 tests green)
 progress:
   total_phases: 6
   completed_phases: 3
-  total_plans: 10
-  completed_plans: 8
-  percent: 50
+  total_plans: 9
+  completed_plans: 9
+  percent: 55
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 
 ## Current Position
 
-Phase: 20 — First-Run Login with Skip (next; planning)
-Plan: —
-Status: Phase 19 complete (495 tests green) — editable start/end + breaks, proportional stat recompute, is_edited "estimated" hint, sync re-queue
-Last activity: 2026-06-06 -- Phase 19 complete
+Phase: 20 — First-Run Login with Skip (in progress)
+Plan: 01 of 2 complete — 20-02 next (guest "not connected" indicator)
+Status: 20-01 done (510 tests green) — schema v5 has_seen_onboarding flag + returning-user migration guard, no-flash root gate, LoginScreen with Skip, sign-in sync-backlog reconcile
+Last activity: 2026-06-06 -- Phase 20 plan 01 complete
 
-**v0.3 progress:** 3/6 phases complete (17, 18, 19 done)
+**v0.3 progress:** 3/6 phases complete (17, 18, 19 done); Phase 20 at 1/2 plans
 
 ## Performance Metrics
 
@@ -127,6 +127,6 @@ Full checklist: `.planning/v0.1-DEVICE-CHECKLIST.md` (Groups A-I). Resume v0.1 c
 
 ## Session Continuity
 
-Last session: 2026-06-06T07:37:49.046Z
-Stopped at: Phase 23 context gathered
-Resume file: .planning/phases/23-automatic-cloud-sync-restore/23-CONTEXT.md
+Last session: 2026-06-06 (overnight v0.3 autonomous build)
+Stopped at: Phase 20 plan 01 complete; 20-02 next
+Resume file: .planning/v0.3-OVERNIGHT-LOG.md
