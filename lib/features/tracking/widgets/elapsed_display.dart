@@ -23,13 +23,22 @@ class ElapsedDisplay extends StatelessWidget {
       children: <Widget>[
         const SectionLabel(text: 'Elapsed', fontSize: 11),
         const SizedBox(height: 8),
-        Text(
-          _formatElapsed(durationSeconds),
-          style: TraevyFonts.mono(
-            size: 76,
-            weight: FontWeight.w500,
-            color: onSurface,
-            letterSpacing: -3,
+        SizedBox(
+          width: double.infinity,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              _formatElapsed(durationSeconds),
+              maxLines: 1,
+              softWrap: false,
+              style: TraevyFonts.mono(
+                size: 76,
+                weight: FontWeight.w500,
+                color: onSurface,
+                letterSpacing: -3,
+                fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
+              ),
+            ),
           ),
         ),
       ],

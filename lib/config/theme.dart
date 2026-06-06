@@ -220,17 +220,22 @@ class TraevyFonts {
   /// [weight] — `fontWeight`, defaults to [FontWeight.w400].
   /// [color] — `color`, optional.
   /// [letterSpacing] — `letterSpacing`, defaults to 0.
+  /// [fontFeatures] — OpenType `fontFeatures`, optional. Pass
+  /// `[FontFeature.tabularFigures()]` to lock per-digit advance width so
+  /// numeric displays (e.g. the elapsed timer) do not jitter as digits change.
   static TextStyle mono({
     required double size,
     FontWeight weight = FontWeight.w400,
     Color? color,
     double letterSpacing = 0,
+    List<FontFeature>? fontFeatures,
   }) => TextStyle(
     fontFamily: kFontMono,
     fontSize: size,
     fontWeight: weight,
     color: color,
     letterSpacing: letterSpacing,
+    fontFeatures: fontFeatures,
   );
 }
 
