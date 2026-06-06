@@ -112,6 +112,7 @@ final Provider<TrackingServiceController> trackingServiceControllerProvider =
         syncQueueDao: ref.watch(syncQueueDaoProvider),
         notifications: ref.watch(trackingNotificationServiceProvider),
         userPreferencesDao: ref.watch(userPreferencesDaoProvider),
+        tripBreaksDao: ref.watch(tripBreaksDaoProvider),
       ),
       name: 'trackingServiceControllerProvider',
     );

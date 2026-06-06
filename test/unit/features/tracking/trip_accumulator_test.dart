@@ -427,8 +427,8 @@ void main() {
       expect(movingBefore, 5);
 
       // Pause, then feed two more samples spanning real distance/time.
-      acc.pause(start.add(const Duration(seconds: 5)));
       acc
+        ..pause(start.add(const Duration(seconds: 5)))
         ..addSample(
           _pos(
             lat: 37.7900,
@@ -671,7 +671,8 @@ void main() {
         );
 
         final map = trip.toMap();
-        // The serialized breaks must be a List of primitive maps (isolate-safe).
+        // The serialized breaks must be a List of primitive maps
+        // (isolate-safe).
         final encodedBreaks = map['breaks'];
         expect(encodedBreaks, isA<List<Object?>>());
         expect(map['totalPausedSeconds'], 300);

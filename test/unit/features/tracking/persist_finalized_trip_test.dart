@@ -84,6 +84,8 @@ FinalizedTrip _buildTrip({
   required double distanceMeters,
   String? id,
   String encodedPolyline = 'encoded',
+  int totalPausedSeconds = 0,
+  List<Map<String, Object?>> breaks = const <Map<String, Object?>>[],
 }) {
   final start = DateTime.utc(2026, 4, 12, 8);
   return FinalizedTrip(
@@ -95,6 +97,8 @@ FinalizedTrip _buildTrip({
     timeMovingSeconds: durationSeconds,
     timeStuckSeconds: 0,
     encodedPolyline: encodedPolyline,
+    totalPausedSeconds: totalPausedSeconds,
+    breaks: breaks,
   );
 }
 
@@ -119,6 +123,7 @@ void main() {
         syncQueueDao: db.syncQueueDao,
         notifications: notifications,
         userPreferencesDao: db.userPreferencesDao,
+        tripBreaksDao: db.tripBreaksDao,
       );
     });
 
@@ -214,11 +219,24 @@ void main() {
           syncQueueDao: throwingDao,
           notifications: notifications,
           userPreferencesDao: db.userPreferencesDao,
+          tripBreaksDao: db.tripBreaksDao,
         );
+        final start = DateTime.utc(2026, 4, 12, 8);
         final trip = _buildTrip(
           durationSeconds: 180,
           distanceMeters: 1500,
           id: 'trip-rollback-1',
+          totalPausedSeconds: 30,
+          breaks: <Map<String, Object?>>[
+            <String, Object?>{
+              'startUs': start
+                  .add(const Duration(seconds: 60))
+                  .microsecondsSinceEpoch,
+              'endUs': start
+                  .add(const Duration(seconds: 90))
+                  .microsecondsSinceEpoch,
+            },
+          ],
         );
 
         final result = await throwingController.persistFinalizedTrip(trip);
@@ -228,6 +246,11 @@ void main() {
         expect(summaries, isEmpty);
         final pending = await db.syncQueueDao.watchPending().first;
         expect(pending, isEmpty);
+        // T-18-06: no break row survives the atomic rollback.
+        final breakRows = await db.tripBreaksDao.breaksForTrip(
+          'trip-rollback-1',
+        );
+        expect(breakRows, isEmpty);
         // dismiss still called even on failure (T-02-20).
         expect(notifications.dismissCalls, 1);
       },
@@ -255,6 +278,81 @@ void main() {
         expect(result, isA<PersistSaved>());
         final summaries = await db.tripsDao.watchAllSummaries().first;
         expect(summaries.single.direction, isNot(kDirectionUnknown));
+      },
+    );
+
+    test(
+      'persists break rows + total_paused_seconds atomically (Phase 18, D-07)',
+      () async {
+        final start = DateTime.utc(2026, 4, 12, 8);
+        final firstBreakStart = start.add(const Duration(seconds: 60));
+        final firstBreakEnd = start.add(const Duration(seconds: 90));
+        final secondBreakStart = start.add(const Duration(seconds: 200));
+        final secondBreakEnd = start.add(const Duration(seconds: 260));
+        final trip = _buildTrip(
+          durationSeconds: 600,
+          distanceMeters: 3000,
+          id: 'trip-with-breaks',
+          totalPausedSeconds: 90, // 30 + 60
+          breaks: <Map<String, Object?>>[
+            <String, Object?>{
+              'startUs': firstBreakStart.microsecondsSinceEpoch,
+              'endUs': firstBreakEnd.microsecondsSinceEpoch,
+            },
+            <String, Object?>{
+              'startUs': secondBreakStart.microsecondsSinceEpoch,
+              'endUs': secondBreakEnd.microsecondsSinceEpoch,
+            },
+          ],
+        );
+
+        final result = await controller.persistFinalizedTrip(trip);
+
+        expect(result, isA<PersistSaved>());
+
+        // The trips row carries the aggregate.
+        final row = await db.tripsDao.findById('trip-with-breaks');
+        expect(row, isNotNull);
+        expect(row!.totalPausedSeconds, 90);
+
+        // Two normalized break rows, chronological, UTC start/end preserved.
+        final breakRows = await db.tripBreaksDao.breaksForTrip(
+          'trip-with-breaks',
+        );
+        expect(breakRows, hasLength(2));
+        expect(breakRows.every((b) => b.tripId == 'trip-with-breaks'), isTrue);
+        expect(breakRows.every((b) => b.id.isNotEmpty), isTrue);
+        expect(breakRows.first.startTime.toUtc(), firstBreakStart);
+        expect(breakRows.first.endTime?.toUtc(), firstBreakEnd);
+        expect(breakRows.last.startTime.toUtc(), secondBreakStart);
+        expect(breakRows.last.endTime?.toUtc(), secondBreakEnd);
+
+        // The trip + sync row landed in the SAME transaction.
+        final pending = await db.syncQueueDao.watchPending().first;
+        expect(pending, hasLength(1));
+        expect(pending.single.tripId, 'trip-with-breaks');
+      },
+    );
+
+    test(
+      'no-break trip writes zero break rows and total_paused_seconds 0',
+      () async {
+        final trip = _buildTrip(
+          durationSeconds: 120,
+          distanceMeters: 800,
+          id: 'trip-no-breaks',
+        );
+
+        final result = await controller.persistFinalizedTrip(trip);
+
+        expect(result, isA<PersistSaved>());
+        final row = await db.tripsDao.findById('trip-no-breaks');
+        expect(row, isNotNull);
+        expect(row!.totalPausedSeconds, 0);
+        final breakRows = await db.tripBreaksDao.breaksForTrip(
+          'trip-no-breaks',
+        );
+        expect(breakRows, isEmpty);
       },
     );
   });

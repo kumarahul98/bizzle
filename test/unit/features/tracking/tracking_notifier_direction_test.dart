@@ -136,6 +136,7 @@ void main() {
         syncQueueDao: db.syncQueueDao,
         notifications: _NoopNotifications(),
         userPreferencesDao: db.userPreferencesDao,
+        tripBreaksDao: db.tripBreaksDao,
       );
     });
 

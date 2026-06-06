@@ -82,6 +82,7 @@ class _RecordingController extends TrackingServiceController {
     required super.syncQueueDao,
     required super.notifications,
     required super.userPreferencesDao,
+    required super.tripBreaksDao,
   });
 
   int startCalls = 0;
@@ -139,6 +140,7 @@ void main() {
         syncQueueDao: db.syncQueueDao,
         notifications: _NoopNotifications(),
         userPreferencesDao: db.userPreferencesDao,
+        tripBreaksDao: db.tripBreaksDao,
       );
       container = ProviderContainer(
         overrides: [

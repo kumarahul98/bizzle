@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/daos/sync_queue_dao.dart';
+import 'package:traevy/database/daos/trip_breaks_dao.dart';
 import 'package:traevy/database/daos/trips_dao.dart';
 import 'package:traevy/database/daos/user_preferences_dao.dart';
 import 'package:traevy/database/database.dart';
@@ -11,6 +12,7 @@ import 'package:traevy/features/tracking/services/tracking_event_source.dart';
 import 'package:traevy/features/tracking/services/tracking_notification_service.dart';
 import 'package:traevy/features/tracking/state/finalized_trip.dart';
 import 'package:traevy/features/trips/services/direction_label_service.dart';
+import 'package:uuid/uuid.dart';
 
 /// UI-isolate wrapper around the platform-selected [TrackingEventSource].
 /// Thin by design — all tracking logic (GPS stream, accumulator, 1 Hz
@@ -46,6 +48,7 @@ class TrackingServiceController {
     required SyncQueueDao syncQueueDao,
     required TrackingNotificationService notifications,
     required UserPreferencesDao userPreferencesDao,
+    required TripBreaksDao tripBreaksDao,
     LocationAccuracyGate? accuracyGate,
   }) : _source = source,
        _database = database,
@@ -53,6 +56,7 @@ class TrackingServiceController {
        _syncQueueDao = syncQueueDao,
        _notifications = notifications,
        _userPreferencesDao = userPreferencesDao,
+       _tripBreaksDao = tripBreaksDao,
        _accuracyGate = accuracyGate ?? LocationAccuracyGate();
 
   final TrackingEventSource _source;
@@ -61,6 +65,7 @@ class TrackingServiceController {
   final SyncQueueDao _syncQueueDao;
   final TrackingNotificationService _notifications;
   final UserPreferencesDao _userPreferencesDao;
+  final TripBreaksDao _tripBreaksDao;
   final LocationAccuracyGate _accuracyGate;
 
   /// Start tracking. Returns `true` if the engine started successfully,
@@ -199,8 +204,19 @@ class TrackingServiceController {
             timeMovingSeconds: trip.timeMovingSeconds,
             timeStuckSeconds: trip.timeStuckSeconds,
             routePolyline: Value<String?>(trip.encodedPolyline),
+            // Phase 18 (D-07): the ACTIVE-duration aggregate. Unset would keep
+            // the DB default 0, but writing it explicitly keeps the trip row
+            // and its break rows internally consistent.
+            totalPausedSeconds: Value<int>(trip.totalPausedSeconds),
           ),
         );
+        // Phase 18 (D-07, T-18-06): break rows land in the SAME transaction as
+        // the trip + sync row — atomic, all-or-nothing. The FK to trips.id is
+        // satisfied because the trip insert above runs first.
+        final breakRows = _breakRowsFor(trip);
+        if (breakRows.isNotEmpty) {
+          await _tripBreaksDao.insertBreaks(breakRows);
+        }
         await _syncQueueDao.enqueueCreate(trip.id);
       });
       await _notifications.dismiss();
@@ -209,6 +225,32 @@ class TrackingServiceController {
       await _notifications.dismiss();
       return PersistFailed(error);
     }
+  }
+
+  /// Build the `trip_breaks` companions for [trip]'s primitive break list
+  /// (Phase 18, D-07). Each break map carries UTC-microsecond `startUs` /
+  /// `endUs` ints; we decode them back to UTC `DateTime`s and stamp a fresh
+  /// UUID per row. The list is empty for a trip that never paused.
+  List<TripBreaksCompanion> _breakRowsFor(FinalizedTrip trip) {
+    const uuid = Uuid();
+    return trip.breaks
+        .map(
+          (b) => TripBreaksCompanion.insert(
+            id: uuid.v4(),
+            tripId: trip.id,
+            startTime: DateTime.fromMicrosecondsSinceEpoch(
+              b['startUs']! as int,
+              isUtc: true,
+            ),
+            endTime: Value<DateTime>(
+              DateTime.fromMicrosecondsSinceEpoch(
+                b['endUs']! as int,
+                isUtc: true,
+              ),
+            ),
+          ),
+        )
+        .toList(growable: false);
   }
 }
 
