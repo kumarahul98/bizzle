@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: App Improvements
 status: in-progress
-stopped_at: Phase 20 complete (first-run login + skip); Phase 21 next (Home/Office geofence)
-last_updated: "2026-06-06T13:30:00.000Z"
-last_activity: 2026-06-06 -- Phase 20 complete (514 tests green)
+stopped_at: Phase 21 plan 02 complete (location picker UI); plan 03 next (geofence backfill)
+last_updated: "2026-06-06T15:34:00.000Z"
+last_activity: 2026-06-06 -- Phase 21 plan 02 complete (541 tests green)
 progress:
   total_phases: 6
   completed_phases: 4
-  total_plans: 10
-  completed_plans: 10
-  percent: 67
+  total_plans: 12
+  completed_plans: 12
+  percent: 83
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 
 ## Current Position
 
-Phase: 21 — Home & Office Locations + Geofence Auto-Label (next; planning)
-Plan: —
-Status: Phase 20 complete (514 tests green) — first-run LoginScreen w/ Skip, no-flash gate, has_seen_onboarding flag, guest "not connected" indicator, sign-in sync reconcile
-Last activity: 2026-06-06 -- Phase 20 complete
+Phase: 21 — Home & Office Locations + Geofence Auto-Label (in progress)
+Plan: 2 of 3 complete
+Status: Plan 21-02 complete (541 tests green) — LocationPickerScreen, SavedLocationTile, prefs setters, Commute section in settings
+Last activity: 2026-06-06 -- Phase 21 plan 02 complete
 
-**v0.3 progress:** 4/6 phases complete (17, 18, 19, 20 done)
+**v0.3 progress:** 4/6 phases complete (17, 18, 19, 20 done); Phase 21 plan 03 next (geofence backfill)
 
 ## Performance Metrics
 
@@ -127,6 +127,6 @@ Full checklist: `.planning/v0.1-DEVICE-CHECKLIST.md` (Groups A-I). Resume v0.1 c
 
 ## Session Continuity
 
-Last session: 2026-06-06 (overnight v0.3 autonomous build)
-Stopped at: Phase 20 plan 01 complete; 20-02 next
-Resume file: .planning/v0.3-OVERNIGHT-LOG.md
+Last session: 2026-06-06 21:00 IST
+Stopped at: Phase 21 plan 02 complete (location picker UI); plan 03 next (geofence backfill)
+Resume file: None
