@@ -306,6 +306,7 @@ class SyncEngine {
   /// blocked by the MEDIUM-2 guard), re-enqueues terminally-failed rows, then
   /// drains.
   Future<void> retryFailed() async {
+    _lastAutoRetry = _now();
     _clearBackoff();
     await _queueDao.resetFailed();
     await processPending();

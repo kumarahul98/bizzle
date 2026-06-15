@@ -21,6 +21,7 @@ class ConflictResolutionSheet extends ConsumerStatefulWidget {
 
 class _ConflictResolutionSheetState extends ConsumerState<ConflictResolutionSheet> {
   final Map<String, String> _resolutions = {}; // tripId -> action
+  final Map<String, Map<String, String>> _mergeSelections = {}; // tripId -> field -> 'local'/'cloud'
 
   Future<void> _applyAll(String defaultAction) async {
     final tripsDao = ref.read(tripsDaoProvider);
@@ -38,8 +39,24 @@ class _ConflictResolutionSheetState extends ConsumerState<ConflictResolutionShee
         updatedAt: drift.Value(DateTime.now().toUtc()),
       );
       
-      if (action == kConflictUseCloud || action == kConflictMerge) {
+      if (action == kConflictUseCloud) {
         await tripsDao.updateTrip(companion);
+        resolvedCount++;
+      } else if (action == kConflictMerge) {
+        final localTrip = conflict.localTrip;
+        final cloudTrip = conflict.cloudTrip;
+        final selections = _mergeSelections[localTrip.id] ?? {};
+        
+        final merged = cloudTrip.copyWith(
+          id: drift.Value(localTrip.id),
+          startTime: selections['startTime'] == 'local' ? drift.Value(localTrip.startTime) : cloudTrip.startTime,
+          endTime: selections['endTime'] == 'local' ? drift.Value(localTrip.endTime) : cloudTrip.endTime,
+          durationSeconds: selections['durationSeconds'] == 'local' ? drift.Value(localTrip.durationSeconds) : cloudTrip.durationSeconds,
+          distanceMeters: selections['distanceMeters'] == 'local' ? drift.Value(localTrip.distanceMeters) : cloudTrip.distanceMeters,
+          direction: selections['direction'] == 'local' ? drift.Value(localTrip.direction) : cloudTrip.direction,
+          updatedAt: drift.Value(DateTime.now().toUtc()),
+        );
+        await tripsDao.updateTrip(merged);
         resolvedCount++;
       }
     }
@@ -95,6 +112,34 @@ class _ConflictResolutionSheetState extends ConsumerState<ConflictResolutionShee
                         groupValue: selectedAction,
                         onChanged: (val) => setState(() => _resolutions[tripId] = val!),
                       ),
+                      if (selectedAction == kConflictMerge)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 32.0, right: 16.0, bottom: 8.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              for (final field in ['startTime', 'endTime', 'durationSeconds', 'distanceMeters', 'direction'])
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(field),
+                                    SegmentedButton<String>(
+                                      segments: const [
+                                        ButtonSegment(value: 'local', label: Text('Local')),
+                                        ButtonSegment(value: 'cloud', label: Text('Cloud')),
+                                      ],
+                                      selected: { _mergeSelections[tripId]?[field] ?? 'cloud' },
+                                      onSelectionChanged: (set) {
+                                        setState(() {
+                                          _mergeSelections.putIfAbsent(tripId, () => {})[field] = set.first;
+                                        });
+                                      },
+                                    ),
+                                  ],
+                                ),
+                            ],
+                          ),
+                        ),
                     ],
                   );
                 },
