@@ -110,6 +110,7 @@ Source: `lib/config/theme_extension.dart` — token hex table
 |-----------|----------|-------------|
 | `SyncStuckBanner` | `lib/features/dashboard/widgets/sync_stuck_banner.dart` | Dismissible `MaterialBanner` on dashboard header, shown when `SyncFailed` and auto-retry window exhausted. Mirrors `PermissionBanner` structure. |
 | `AutoRestoreToast` | Inline in auth sign-in flow | `SnackBar` shown after auto-restore completes — uses existing `kSettingsRestoreResultTemplate` / `kSettingsRestoreUpToDate` copy constants. No new widget class needed; called from the auth listener. |
+| `ConflictResolutionSheet` | `lib/features/settings/widgets/conflict_resolution_sheet.dart` | Bottom sheet for resolving sync conflicts during restore. Supports bulk and per-trip overrides. |
 
 Source: `lib/features/tracking/widgets/permission_banner.dart` (pattern reference), `lib/features/settings/widgets/restore_row.dart` (copy/toast pattern)
 
@@ -121,6 +122,10 @@ All copy MUST be added as `const String k…` constants in `lib/config/constants
 
 | Element | Constant name | Copy |
 |---------|--------------|------|
+| Conflict sheet title | `kConflictResolutionTitle` | `'Resolve Sync Conflicts'` |
+| Conflict action keep local | `kConflictKeepLocal` | `'Keep local'` |
+| Conflict action use cloud | `kConflictUseCloud` | `'Use cloud'` |
+| Conflict action merge | `kConflictMerge` | `'Merge'` |
 | Auto-restore success (0 trips) | `kAutoRestoreUpToDate` | `'Already up to date'` *(reuse existing `kSettingsRestoreUpToDate`)* |
 | Auto-restore success (N trips) | `kAutoRestoreResultTemplate` | `'Restored N trips'` *(reuse existing `kSettingsRestoreResultTemplate` + noun)* |
 | Auto-restore in-progress | `kAutoRestoreInProgress` | `'Restoring your trips…'` |
