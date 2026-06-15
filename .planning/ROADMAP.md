@@ -489,7 +489,9 @@ Note: Phases 1-7 deliver the complete local-first experience without any authent
 - [x] **Phase 19: Full Trip Editing** - Edit start time, end time, and individual break segments with duration and traffic stats recomputed ✓ 2026-06-06
 - [x] **Phase 20: First-Run Login with Skip** - First-install login screen with a Skip (use-without-account) option; sync stays disabled until later sign-in ✓ 2026-06-06
 - [x] **Phase 21: Home & Office Locations + Geofence Auto-Label** - Set Home & Office locations and auto-label trip direction by proximity, taking precedence over the time-of-day heuristic (completed 2026-06-06)
-- [ ] **Phase 22: Home-Screen Widget** - Android home-screen widget that starts/stops a commute with one tap and reflects the current tracking state
+- [x] **Phase 22: Home-Screen Widget** - Android home-screen widget that starts/stops a commute with one tap and reflects the current tracking state ✓ 2026-06-09
+- [ ] **Phase 24: Automatic Cloud Sync & Restore** - Auto-restore cloud trips on sign-in, immediate sync on trip finish, and automatic re-attempt of previously-failed sync items
+- [ ] **Phase 25: Interrupted-Trip Recovery** - Detect a mid-trip force-quit / app-clear / OS interruption, log it, and offer to resume or discard the interrupted trip on next launch
 
 ---
 
@@ -600,15 +602,62 @@ Plans:
 ## v0.3 Progress
 
 **Execution Order:**
-v0.3 phases execute in numeric order after the (paused) v0.2 phases: 17 -> 18 -> 19 -> 20 -> 21 -> 22
+v0.3 phases execute in numeric order after the (paused) v0.2 phases: 17 -> 18 -> 19 -> 20 -> 21 -> 22 -> 23 -> 24 -> 25
 
 Note: Phase 17 is a small, independent UI fix + quick-label and is the safe first phase. Phase 18 introduces the break/pause data model (schema migration) that Phase 19 (full editing) depends on. Phases 20 and 21 are largely independent of the tracking-data work and build on existing auth/onboarding and settings/preferences. Phase 22 (home-screen widget) has the highest platform-integration risk and lands last, after the pause/resume state model exists so the widget can reflect accurate state.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 17. Tracking UI Fixes & Quick Label | v0.3 | 0/TBD | Not started | - |
-| 18. Trip Pause & Breaks | v0.3 | 2/4 | In Progress|  |
-| 19. Full Trip Editing | v0.3 | 0/TBD | Not started | - |
-| 20. First-Run Login with Skip | v0.3 | 0/TBD | Not started | - |
-| 21. Home & Office Locations + Geofence Auto-Label | v0.3 | 3/3 | Complete   | 2026-06-06 |
-| 22. Home-Screen Widget | v0.3 | 0/TBD | Not started | - |
+| 17. Tracking UI Fixes & Quick Label | v0.3 | 2/2 | Complete | 2026-06-06 |
+| 18. Trip Pause & Breaks | v0.3 | 4/4 | Complete | 2026-06-06 |
+| 19. Full Trip Editing | v0.3 | 2/2 | Complete | 2026-06-06 |
+| 20. First-Run Login with Skip | v0.3 | 1/1 | Complete | 2026-06-06 |
+| 21. Home & Office Locations + Geofence Auto-Label | v0.3 | 3/3 | Complete | 2026-06-06 |
+| 22. Home-Screen Widget | v0.3 | 1/1 | Complete | 2026-06-09 |
+| 24. Automatic Cloud Sync & Restore | v0.3 | 0/TBD | Not started | - |
+| 25. Interrupted-Trip Recovery | v0.3 | 0/TBD | Not started | - |
+
+### Phase 23: Resolve Deferred UAT Items
+
+**Goal**: Execute and resolve deferred UAT and verification items from v0.1 checklist.
+**Depends on**: Phase 22
+**Requirements**: UAT-01
+**Success Criteria** (what must be TRUE):
+
+  1. A deferred UAT verification item is automated or manually closed.
+  2. The tracking system stability is verified via integration tests.
+
+**Plans**: TBD
+**UI hint**: no
+
+### Phase 24: Automatic Cloud Sync & Restore
+
+**Goal**: Cloud sync and restore become hands-off — signing in restores cloud trips automatically, finished trips sync immediately, and sync items that previously failed are retried automatically instead of getting stuck
+**Depends on**: Phase 11 (sync engine, ApiClient, RestoreController, sync_queue), Phase 20 (sign-in-later flow that triggers restore)
+**Requirements**: SYNC-04, SYNC-05
+**Success Criteria** (what must be TRUE):
+
+  1. When the user signs in (fresh install, new device, or sign-in-later from settings), their cloud trips are restored into Drift automatically without any manual "Restore" tap, deduplicating by trip UUID so existing local trips are never duplicated
+  2. A finished trip is enqueued and synced to the cloud immediately on save when online (no waiting for the next app resume / connectivity event)
+  3. Sync items that previously exhausted their retries (status failed) are automatically re-attempted on a later trigger, and recover to synced once the backend is reachable
+  4. All of the above remain background-only and never block the UI; the manual Restore action still works as a fallback
+  5. Auto-restore runs once per sign-in (not on every launch) and surfaces clear progress/outcome to the user
+
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 25: Interrupted-Trip Recovery
+
+**Goal**: A commute that is interrupted by a force-quit, app-clear, or OS-level kill is never silently lost — its state is persisted continuously, and on next launch the user is told about the interrupted trip and can resume or discard it
+**Depends on**: Phase 2 (core tracking service), Phase 18 (pause/resume + break-segment state model that must be persisted/restored accurately)
+**Requirements**: TRACK-13
+**Success Criteria** (what must be TRUE):
+
+  1. While a trip is active, its state (accumulated route, timing, breaks, direction) is persisted durably so it survives a force-quit, app-swipe-away, app-data-not-cleared kill, or OS-level termination of the process
+  2. On next launch, if an active trip was interrupted (no clean stop was recorded), the app detects this and logs the interruption
+  3. The user is presented with a clear prompt offering to resume the interrupted trip (continuing the same record) or discard it
+  4. Resuming restores the trip's accumulated state and continues recording as one continuous trip; discarding cleans up the persisted state with no orphan trip
+  5. A normal clean stop leaves no interrupted-trip state behind, so the recovery prompt never appears after an ordinary finish
+
+**Plans**: TBD
+**UI hint**: yes

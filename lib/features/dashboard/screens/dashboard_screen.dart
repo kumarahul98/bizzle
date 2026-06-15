@@ -3,12 +3,16 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:traevy/config/constants.dart';
+import 'package:traevy/config/routes.dart';
 import 'package:traevy/features/dashboard/widgets/hero_record_card.dart';
 import 'package:traevy/features/dashboard/widgets/home_header.dart';
 import 'package:traevy/features/dashboard/widgets/today_section.dart';
 import 'package:traevy/features/dashboard/widgets/week_loss_card.dart';
+import 'package:traevy/features/dashboard/widgets/sync_stuck_banner.dart';
 import 'package:traevy/features/tracking/providers/tracking_providers.dart';
 import 'package:traevy/features/tracking/services/tracking_permission_service.dart';
+import 'package:traevy/sync/sync_engine.dart';
+import 'package:traevy/sync/sync_status.dart';
 
 /// The dashboard home screen — the app root showing today's trips and
 /// a weekly traffic loss card at a glance (UX-01).
@@ -18,19 +22,46 @@ import 'package:traevy/features/tracking/services/tracking_permission_service.da
 ///
 /// [_handleStart] preserves the existing permission-check flow — wired via
 /// HeroRecordCard(onStart: callback) per RESEARCH.md Pattern 4.
-class DashboardScreen extends ConsumerWidget {
+class DashboardScreen extends ConsumerStatefulWidget {
   /// Create the dashboard screen.
   const DashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+  bool _dismissedStuckBanner = false;
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen<SyncStatus>(syncStatusProvider, (previous, next) {
+      if (next is! SyncFailed) {
+        setState(() => _dismissedStuckBanner = false);
+      }
+    });
+
     final trackingState = ref.watch(trackingStateProvider);
+    final syncStatus = ref.watch(syncStatusProvider);
+
+    final showStuckBanner = !_dismissedStuckBanner && syncStatus is SyncFailed;
 
     return Scaffold(
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
             const SliverToBoxAdapter(child: HomeHeader()),
+            if (showStuckBanner)
+              SliverToBoxAdapter(
+                child: _StuckBannerGate(
+                  onReviewSettings: () {
+                    Navigator.pushNamed(context, kRouteSettings);
+                  },
+                  onDismiss: () {
+                    setState(() => _dismissedStuckBanner = true);
+                  },
+                ),
+              ),
             const SliverToBoxAdapter(child: SizedBox(height: 8)),
             SliverToBoxAdapter(
               child: Padding(
@@ -119,5 +150,28 @@ class DashboardScreen extends ConsumerWidget {
     if (shouldOpen ?? false) {
       await service.openSystemSettings();
     }
+  }
+}
+
+class _StuckBannerGate extends ConsumerWidget {
+  const _StuckBannerGate({
+    required this.onReviewSettings,
+    required this.onDismiss,
+  });
+
+  final VoidCallback onReviewSettings;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Only instantiated/read when syncStatus is SyncFailed.
+    // This prevents eager database instantiation in unrelated tests.
+    final syncEngine = ref.read(syncEngineProvider);
+    if (!syncEngine.isAutoRetryExhausted) return const SizedBox.shrink();
+
+    return SyncStuckBanner(
+      onReviewSettings: onReviewSettings,
+      onDismiss: onDismiss,
+    );
   }
 }

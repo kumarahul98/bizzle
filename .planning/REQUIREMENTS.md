@@ -106,6 +106,12 @@ Android-facing UX fixes and features requested 2026-06-06. Built on branch `gsd/
 - [x] **TRACK-10**: User can enable an auto-pause prompt — when an active trip appears stationary beyond a threshold, a notification offers to pause the trip
 - [x] **TRACK-11**: User can edit all details of a trip — start time, end time, and individual break/pause segments — with duration and traffic stats recomputed
 - [x] **TRACK-12**: User can set or change a trip's direction (to-home / to-office) via a quick label selector during tracking and from the trip view
+- [ ] **TRACK-13**: If the app is killed mid-trip (force-quit, app cleared/swiped away, or OS-level interruption), the active trip's state is persisted continuously so that on next launch the app detects the interrupted trip, logs it, informs the user, and offers to resume the trip or discard it
+
+### Cloud Sync
+
+- [ ] **SYNC-04**: When the user signs in (including on a fresh install or new device), their cloud trips are restored into Drift automatically — no manual "Restore" tap required — deduplicating by trip UUID against any local trips
+- [ ] **SYNC-05**: A finished trip is synced to the cloud immediately on save, and sync items that previously exhausted their retries (marked failed) are automatically re-attempted later instead of remaining stuck until a manual action
 
 ### First-Run & Auth
 
@@ -217,6 +223,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | LOC-01 | Phase 21 | Pending |
 | LOC-02 | Phase 21 | Complete |
 | WIDGET-01 | Phase 22 | Pending |
+| SYNC-04 | Phase 24 | Pending |
+| SYNC-05 | Phase 24 | Pending |
+| TRACK-13 | Phase 25 | Pending |
 | UX-06 | Phase 17 | Complete |
 
 **Coverage:**
@@ -227,4 +236,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 ---
 *Requirements defined: 2026-04-11*
 *Last updated: 2026-06-02 — added v0.2 (iOS Support) requirements IOS-01..IOS-12 (full Android→iOS parity); PLAT-01 promoted from v2. Traceability for IOS-* filled during v0.2 roadmap creation.*
-*Last updated: 2026-06-06 — v0.3 (App Improvements) roadmap created: TRACK-09..12, AUTH-04, LOC-01, LOC-02, WIDGET-01, UX-06 mapped to Phases 17-22.*
+*Last updated: 2026-06-06 — v0.3 (App Improvements) roadmap created: TRACK-09..12, AUTH-04, LOC-01, LOC-02, WIDGET-01, UX-06 mapped to Phases 17-22. Added SYNC-04, SYNC-05 (Phase 24 — Automatic Cloud Sync & Restore) and TRACK-13 (Phase 25 — Interrupted-Trip Recovery).*

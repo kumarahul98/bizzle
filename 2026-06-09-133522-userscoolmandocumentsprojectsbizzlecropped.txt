@@ -1,0 +1,650 @@
+ ▐▛███▜▌   Claude Code v2.1.169
+▝▜█████▛▘  Opus 4.8 · Claude Max
+  ▘▘ ▝▝    ~/Documents/Projects/bizzle
+
+  Feature of the week: /loop — run a prompt or slash command on a recurring interval
+
+
+❯ '/Users/coolman/Documents/Projects/bizzle/cropped-logo.png' update the app    
+  logo to this for both android and ios                                         
+
+⏺ I'll look at the logo image and the current project setup before making
+  changes.
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Bash(file cropped-logo.png && sips -g pixelWidth -g pixelHeight
+      cropped-logo.png 2>/dev/null; echo "---pubspec---"; grep -n
+      "flutter_launcher_icons\|flutter_icons\|i…)
+  ⎿  cropped-logo.png: PNG image data, 937 x 812, 8-bit/color RGB, non-inte
+     rlaced
+     /Users/coolman/Documents/Projects/bizzle/cropped-logo.png
+     … +11 lines (ctrl+o to expand)
+
+⏺ Good — flutter_launcher_icons is already configured. Let me see the full
+  config and current icon assets.
+
+  Read 1 file, listed 1 directory (ctrl+o to expand)
+
+⏺ The current icon points to logo.jpeg. The new logo is a non-square PNG
+  (937×812) on a black background. Launcher icons should be square or they'll
+  distort, so I'll pad it to a square black canvas first, then wire it up and
+  regenerate.
+
+⏺ Bash(cp cropped-logo.png assets/icons/logo_src.png && sips --padToHeightWidth
+      1024 1024 --padColor 000000 assets/icons/logo_src.png --out
+      assets/icons/logo.png && rm…)
+  ⎿  <CGColor 0x1013fd670> [<CGColorSpace 0x1013ec780> (kCGColorSpaceDevice
+     RGB)] headroom = 1.000000 ( 0 0 0 1 )
+     /Users/coolman/Documents/Projects/bizzle/assets/icons/logo_src.png
+     … +4 lines (ctrl+o to expand)
+
+⏺ Now a square 1024×1024 black icon exists. Let me point the config at it and
+  regenerate icons for both platforms.
+
+⏺ Update(pubspec.yaml)
+  ⎿  Added 2 lines, removed 2 lines
+      117  flutter_launcher_icons:
+      118    android: true
+      119    ios: true
+      120 -  image_path: "assets/icons/logo.jpeg"                        
+      120 +  image_path: "assets/icons/logo.png"                         
+      121    min_sdk_android: 21
+      122    adaptive_icon_background: "#000000"
+      123 -  adaptive_icon_foreground: "assets/icons/logo.jpeg"          
+      123 +  adaptive_icon_foreground: "assets/icons/logo.png"           
+
+⏺ Bash(dart run flutter_launcher_icons 2>&1 | tail -30)
+  ⎿    ════════════════════════════════════════════
+          FLUTTER LAUNCHER ICONS (v0.14.4)
+       ════════════════════════════════════════════
+     … +10 lines (ctrl+o to expand)
+
+⏺ Icons regenerated successfully for both platforms. Let me verify the outputs
+  landed.
+
+⏺ Bash(echo "=== Android mipmaps ==="; ls
+      android/app/src/main/res/mipmap-xxxhdpi/ 2>/dev/null; echo "=== iOS
+      AppIcon ==="; ls ios/Runner/Assets.xcassets/AppIcon.appic…)
+  ⎿  === Android mipmaps ===
+     ic_launcher.png
+     === iOS AppIcon ===
+     … +46 lines (ctrl+o to expand)
+
+⏺ Done. The app logo is updated for both Android and iOS.
+
+  What I did:
+  1. Prepped the image — your cropped-logo.png was 937×812 (non-square).
+  Launcher icons must be square or they'd stretch, so I padded it onto a
+  1024×1024 black canvas (matching the logo's existing black background) and
+  saved it as assets/icons/logo.png. The source PNG is RGB with no alpha, so
+  it's also iOS-safe (iOS rejects transparent icons).
+  2. Updated config — pointed flutter_launcher_icons in pubspec.yaml at the new
+  logo.png for both the standard icon and the Android adaptive foreground
+  (background stays #000000).
+  3. Regenerated — ran dart run flutter_launcher_icons, which overwrote all
+  Android mipmaps + adaptive foregrounds and the full iOS AppIcon.appiconset.
+
+  The "No platform provided" line is harmless — it just refers to web/desktop,
+  which aren't enabled here.
+
+  A couple of notes:
+  - To see the new icon on a device you'll need a rebuild (flutter run /
+  reinstall) — launcher icons don't hot-reload.
+  - cropped-logo.png is still sitting in the project root (untracked). Want me
+  to remove it, or leave it as the source-of-truth original?
+
+  Nothing is committed yet — let me know if you'd like me to commit these
+  changes.
+
+✻ Sautéed for 58s
+
+※ recap: Goal: update the app logo for Android and iOS from cropped-logo.png. Done — padded it square, regenerated all icons for both platforms. Next: rebuild/reinstall the app to see the new icon, and decide whether to commit and delete the root cropped-logo.png. (disable recaps in /config)
+
+⏺ Unknown command: /gsd-discuss
+
+⏺ Args from unknown skill: i want to add another phase to the project, 
+  where i want to automate the sync and restore with cloud.
+
+❯ /gsd-discuss-phase i want to add another phase to the project, where i want   
+to automate the sync and restore with cloud.                                    
+
+⏺ I'll follow the GSD discuss-phase workflow. Let me first check the mode config
+  and read the appropriate workflow file.
+
+⏺ Bash(DISCUSS_MODE=$(gsd-sdk query config-get workflow.discuss_mode 2>/dev/null
+      || echo "discuss"); echo "MODE=$DISCUSS_MODE")
+  ⎿  MODE="discuss"
+
+  Listed 1 directory (ctrl+o to expand)
+
+⏺ Mode is discuss. Reading the workflow file now (mandatory before acting).
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ This command discusses an existing phase, but you're asking to add a new phase
+  first. The phase needs to exist in the roadmap before I can run discussion on
+  it. Let me check the current roadmap state.
+
+  Searched for 1 pattern (ctrl+o to expand)
+⏺ There's already a Phase 11 (Sync Engine) and v0.3 currently has phases 17–22.
+  Let me read the relevant roadmap sections to understand what sync/restore
+  already exists before adding a new phase.
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Before I add and discuss this phase, I need to resolve an important overlap.
+  Phase 11 (Sync Engine) is already complete and it already does a lot of what
+  "sync and restore with cloud" implies:
+
+  - ✅ Trips auto-sync to Firestore in the background after save / on reconnect
+  / on app resume (one-way push, never blocks UI)
+  - ✅ Retries 3× with exponential backoff
+  - ✅ Restore from cloud — but manually triggered from Settings, dedupe-by-UUID
+
+  So "automate the sync and restore" most likely means closing the manual gap —
+  but I don't want to guess. Let me pin down exactly what new capability this
+  phase delivers, since that defines its boundary.
+
+⏺ User answered Claude's questions:
+  ⎿  · Phase 11 already auto-syncs trips and offers manual restore. What does 
+     this new phase add that isn't already there? → Auto-restore on sign-in, 
+     Auto-retry failed syncs,  i want the trip to be synced as soon as it is 
+     finsihed. Also i want the app to detect app closes due to force quit or app
+     clear or os level interuptions. Log that and give a user option to resume 
+     the trip once he logs back i
+
+⏺ Got it. That's four distinct capabilities. Three of them are squarely about
+  cloud sync/restore, but the fourth — detecting force-quit/OS-kill mid-trip and
+  offering to resume — is a different domain (active-trip durability/crash
+  recovery in the tracking layer), not cloud sync. Let me quickly ground myself
+  in the current code before proposing how to structure this.
+
+⏺ Bash(cd /Users/coolman/Documents/Projects/bizzle; echo "=== tracking services
+      ==="; ls lib/features/tracking/services/ lib/features/tracking/providers/
+      2>/dev/null;…)
+  ⎿  === tracking services ===
+     lib/features/tracking/providers/:
+     backfill_provider.dart
+     … +24 lines (ctrl+o to expand)
+
+⏺ Bash(cd /Users/coolman/Documents/Projects/bizzle; echo "=== active trip
+      persistence / crash recovery refs ==="; grep -rniE
+      "active.?trip|in.?progress|crash|force.?qu…)
+  ⎿  === active trip persistence / crash recovery refs ===
+     lib/features/tracking/providers/tracking_providers.dart:41:/// Plan 02
+     -05 wires persistence through
+     … +85 lines (ctrl+o to expand)
+
+⏺ Here's what I found, which shapes how this should be structured:
+
+  - Trip-finish sync is already wired — persistFinalizedTrip saves to Drift and
+  enqueues the sync engine on stop. So "sync as soon as finished" is mostly
+  hardening what exists.
+  - Auto-restore on sign-in and auto-retry failed syncs are genuine gaps in the
+  sync layer (lib/sync/).
+  - Crash/force-quit recovery + resume does not exist — the active trip lives
+  only in memory; a force-quit loses it. This lives entirely in the tracking 
+  layer (lib/features/tracking/), not the sync layer. It needs continuous
+  active-trip persistence, kill detection on relaunch, and a resume/discard
+  prompt.
+
+  That last item is a different domain and a substantial feature on its own.
+  Bundling crash-recovery into a "cloud sync" phase would violate GSD's
+  one-concern-per-phase principle and make planning/verification messy. My
+  recommendation is to split into two phases (they'd be Phase 23 and 24 in
+  v0.3):
+
+⏺ User answered Claude's questions:
+  ⎿  · How should I structure this work in the roadmap? → Two phases 
+     (recommended)
+
+⏺ Two phases it is. Now I'll add both to the roadmap, then run the discussion on
+  Phase 23 (the cloud sync/restore one you came here for). Let me read the
+  roadmap's v0.3 section structure and requirements file to match formatting and
+  assign requirement IDs.
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Bash(cd /Users/coolman/Documents/Projects/bizzle; echo "=== ROADMAP tail ===";
+      sed -n '598,680p' .planning/ROADMAP.md; echo "=== REQUIREMENTS
+      sync/related ==="; grep…)
+  ⎿  === ROADMAP tail ===
+     ---
+     … +66 lines (ctrl+o to expand)
+
+⏺ Let me read the full v0.3 requirements section so I can add new requirement
+  IDs in the right place.
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ I have everything I need. Now I'll add the two phases. First, new requirement
+  IDs in REQUIREMENTS.md.
+
+⏺ Update(.planning/REQUIREMENTS.md)
+  ⎿  Added 6 lines
+      106  - [x] **TRACK-10**: User can enable an auto-pause prompt — whe
+           n an active trip appears stationary beyond a threshold, a noti
+           fication offers to pause the trip
+      107  - [x] **TRACK-11**: User can edit all details of a trip — star
+           t time, end time, and individual break/pause segments — with d
+           uration and traffic stats recomputed
+      108  - [x] **TRACK-12**: User can set or change a trip's direction 
+           (to-home / to-office) via a quick label selector during tracki
+           ng and from the trip view
+      109 +- [ ] **TRACK-13**: If the app is killed mid-trip (force-quit,
+          + app cleared/swiped away, or OS-level interruption), the activ
+          +e trip's state is persisted continuously so that on next launc
+          +h the app detects the interrupted trip, logs it, informs the u
+          +ser, and offers to resume the trip or discard it              
+      110  
+      111 +### Cloud Sync                                                
+      112 +                                                              
+      113 +- [ ] **SYNC-04**: When the user signs in (including on a fres
+          +h install or new device), their cloud trips are restored into 
+          +Drift automatically — no manual "Restore" tap required — dedup
+          +licating by trip UUID against any local trips                 
+      114 +- [ ] **SYNC-05**: A finished trip is synced to the cloud imme
+          +diately on save, and sync items that previously exhausted thei
+          +r retries (marked failed) are automatically re-attempted later
+          + instead of remaining stuck until a manual action             
+      115 +                                                              
+      116  ### First-Run & Auth
+      117  
+      118  - [ ] **AUTH-04**: On first install the user sees a login scre
+           en with a "Skip" option that lets them use the app locally wit
+           hout signing in; sync stays disabled until they sign in later 
+           from settings
+
+⏺ Now the roadmap — update the checklist, add the two phase sections, and update
+  the progress table + execution order.
+
+⏺ Update(.planning/ROADMAP.md)
+  ⎿  Added 2 lines
+      490  - [ ] **Phase 20: First-Run Login with Skip** - First-install 
+           login screen with a Skip (use-without-account) option; sync st
+           ays disabled until later sign-in
+      491  - [ ] **Phase 21: Home & Office Locations + Geofence Auto-Labe
+           l** - Set Home & Office locations and auto-label trip directio
+           n by proximity, taking precedence over the time-of-day heurist
+           ic
+      492  - [ ] **Phase 22: Home-Screen Widget** - Android home-screen w
+           idget that starts/stops a commute with one tap and reflects th
+           e current tracking state
+      493 +- [ ] **Phase 23: Automatic Cloud Sync & Restore** - Auto-rest
+          +ore cloud trips on sign-in, immediate sync on trip finish, and
+          + automatic re-attempt of previously-failed sync items         
+      494 +- [ ] **Phase 24: Interrupted-Trip Recovery** - Detect a mid-t
+          +rip force-quit / app-clear / OS interruption, log it, and offe
+          +r to resume or discard the interrupted trip on next launch    
+      495  
+      496  ---
+      497  
+
+⏺ Update(.planning/ROADMAP.md)
+  ⎿  Added 30 lines
+      597  **Plans**: TBD
+      598  **UI hint**: yes
+      599  
+      600 +### Phase 23: Automatic Cloud Sync & Restore                  
+      601 +                                                              
+      602 +**Goal**: Cloud sync and restore become hands-off — signing in
+          + restores cloud trips automatically, finished trips sync immed
+          +iately, and sync items that previously failed are retried auto
+          +matically instead of getting stuck                            
+      603 +**Depends on**: Phase 11 (sync engine, ApiClient, RestoreContr
+          +oller, sync_queue), Phase 20 (sign-in-later flow that triggers
+          + restore)                                                     
+      604 +**Requirements**: SYNC-04, SYNC-05                            
+      605 +**Success Criteria** (what must be TRUE):                     
+      606 +                                                              
+      607 +  1. When the user signs in (fresh install, new device, or sig
+          +n-in-later from settings), their cloud trips are restored into
+          + Drift automatically without any manual "Restore" tap, dedupli
+          +cating by trip UUID so existing local trips are never duplicat
+          +ed                                                            
+      608 +  2. A finished trip is enqueued and synced to the cloud immed
+          +iately on save when online (no waiting for the next app resume
+          + / connectivity event)                                        
+      609 +  3. Sync items that previously exhausted their retries (statu
+          +s failed) are automatically re-attempted on a later trigger, a
+          +nd recover to synced once the backend is reachable            
+      610 +  4. All of the above remain background-only and never block t
+          +he UI; the manual Restore action still works as a fallback    
+      611 +  5. Auto-restore runs once per sign-in (not on every launch) 
+          +and surfaces clear progress/outcome to the user               
+      612 +                                                              
+      613 +**Plans**: TBD                                                
+      614 +                                                              
+      615 +### Phase 24: Interrupted-Trip Recovery                       
+      616 +                                                              
+      617 +**Goal**: A commute that is interrupted by a force-quit, app-c
+          +lear, or OS-level kill is never silently lost — its state is p
+          +ersisted continuously, and on next launch the user is told abo
+          +ut the interrupted trip and can resume or discard it          
+      618 +**Depends on**: Phase 2 (core tracking service), Phase 18 (pau
+          +se/resume + break-segment state model that must be persisted/r
+          +estored accurately)                                           
+      619 +**Requirements**: TRACK-13                                    
+      620 +**Success Criteria** (what must be TRUE):                     
+      621 +                                                              
+      622 +  1. While a trip is active, its state (accumulated route, tim
+          +ing, breaks, direction) is persisted durably so it survives a 
+          +force-quit, app-swipe-away, app-data-not-cleared kill, or OS-l
+          +evel termination of the process                               
+      623 +  2. On next launch, if an active trip was interrupted (no cle
+          +an stop was recorded), the app detects this and logs the inter
+          +ruption                                                       
+      624 +  3. The user is presented with a clear prompt offering to res
+          +ume the interrupted trip (continuing the same record) or disca
+          +rd it                                                         
+      625 +  4. Resuming restores the trip's accumulated state and contin
+          +ues recording as one continuous trip; discarding cleans up the
+          + persisted state with no orphan trip                          
+      626 +  5. A normal clean stop leaves no interrupted-trip state behi
+          +nd, so the recovery prompt never appears after an ordinary fin
+          +ish                                                           
+      627 +                                                              
+      628 +**Plans**: TBD                                                
+      629 +                                                              
+      630  ---
+      631  
+      632  ## v0.3 Progress
+
+⏺ Update(.planning/ROADMAP.md)
+  ⎿  Added 1 line, removed 1 line
+      632  ## v0.3 Progress
+      633  
+      634  **Execution Order:**
+      635 -v0.3 phases execute in numeric order after the (paused) v0.2 p
+          -hases: 17 -> 18 -> 19 -> 20 -> 21 -> 22                       
+      635 +v0.3 phases execute in numeric order after the (paused) v0.2 p
+          +hases: 17 -> 18 -> 19 -> 20 -> 21 -> 22 -> 23 -> 24           
+      636  
+      637  Note: Phase 17 is a small, independent UI fix + quick-label an
+           d is the safe first phase. Phase 18 introduces the break/pause
+            data model (schema migration) that Phase 19 (full editing) de
+           pends on. Phases 20 and 21 are largely independent of the trac
+           king-data work and build on existing auth/onboarding and setti
+           ngs/preferences. Phase 22 (home-screen widget) has the highest
+            platform-integration risk and lands last, after the pause/res
+           ume state model exists so the widget can reflect accurate stat
+           e.
+      638  
+
+⏺ Update(.planning/ROADMAP.md)
+  ⎿  Added 2 lines
+      644  | 20. First-Run Login with Skip | v0.3 | 0/TBD | Not started |
+            - |
+      645  | 21. Home & Office Locations + Geofence Auto-Label | v0.3 | 0
+           /TBD | Not started | - |
+      646  | 22. Home-Screen Widget | v0.3 | 0/TBD | Not started | - |
+      647 +| 23. Automatic Cloud Sync & Restore | v0.3 | 0/TBD | Not star
+          +ted | - |                                                     
+      648 +| 24. Interrupted-Trip Recovery | v0.3 | 0/TBD | Not started |
+          + - |                                                          
+
+⏺ Now let me add the new requirements to the traceability table.
+⏺ Bash(cd /Users/coolman/Documents/Projects/bizzle; grep -nE
+      "WIDGET-01|LOC-02|AUTH-04|SYNC-03" .planning/REQUIREMENTS.md | tail; echo
+      "---"; sed -n '160,210p' .planni…)
+  ⎿  118:- [ ] **AUTH-04**: On first install the user sees a login screen w
+     ith a "Skip" option that lets them use the app locally without signing
+      in; sync stays disabled until they sign in later from settings
+     … +59 lines (ctrl+o to expand)
+
+⏺ Update(.planning/REQUIREMENTS.md)
+  ⎿  Added 3 lines
+      223  | LOC-01 | Phase 21 | Pending |
+      224  | LOC-02 | Phase 21 | Pending |
+      225  | WIDGET-01 | Phase 22 | Pending |
+      226 +| SYNC-04 | Phase 23 | Pending |                              
+      227 +| SYNC-05 | Phase 23 | Pending |                              
+      228 +| TRACK-13 | Phase 24 | Pending |                             
+      229  | UX-06 | Phase 17 | Complete |
+      230  
+      231  **Coverage:**
+
+⏺ Update(.planning/REQUIREMENTS.md)
+  ⎿  Added 1 line, removed 1 line
+      236  ---
+      237  *Requirements defined: 2026-04-11*
+      238  *Last updated: 2026-06-02 — added v0.2 (iOS Support) requireme
+           nts IOS-01..IOS-12 (full Android→iOS parity); PLAT-01 promoted
+            from v2. Traceability for IOS-* filled during v0.2 roadmap cr
+           eation.*
+      239 -*Last updated: 2026-06-06 — v0.3 (App Improvements) roadmap cr
+          -eated: TRACK-09..12, AUTH-04, LOC-01, LOC-02, WIDGET-01, UX-06
+          - mapped to Phases 17-22.*                                     
+      239 +*Last updated: 2026-06-06 — v0.3 (App Improvements) roadmap cr
+          +eated: TRACK-09..12, AUTH-04, LOC-01, LOC-02, WIDGET-01, UX-06
+          + mapped to Phases 17-22. Added SYNC-04, SYNC-05 (Phase 23 — Au
+          +tomatic Cloud Sync & Restore) and TRACK-13 (Phase 24 — Interru
+          +pted-Trip Recovery).*                                         
+
+⏺ Both phases are now in the roadmap (23: Automatic Cloud Sync & Restore; 24:
+  Interrupted-Trip Recovery) with requirements SYNC-04, SYNC-05, TRACK-13 and
+  traceability wired.
+
+  Now I'll run the actual discussion for Phase 23 (the cloud sync/restore phase
+  you came here for). Phase 24 can be discussed later when you reach it. Let me
+  initialize the workflow for Phase 23.
+
+⏺ Bash(cd /Users/coolman/Documents/Projects/bizzle; INIT=$(gsd-sdk query
+      init.phase-op "23" 2>&1); if [[ "$INIT" == @file:* ]]; then INIT=$(cat
+      "${INIT#@file:}"); fi;…)
+  ⎿  {
+       "commit_docs": true,
+       "brave_search": false,
+     … +26 lines (ctrl+o to expand)
+
+⏺ Phase 23 confirmed, clean slate. Let me load prior sync context and scout the
+  sync layer to ground the discussion.
+
+⏺ Bash(cd /Users/coolman/Documents/Projects/bizzle; echo "=== prior CONTEXT
+      files ==="; find .planning/phases -name "*-CONTEXT.md" 2>/dev/null | sort
+      -r | head; echo "…)
+  ⎿  Error: Exit code 1
+     === prior CONTEXT files ===
+     .planning/phases/20-first-run-login-skip/20-CONTEXT.md
+     .planning/phases/19-full-trip-editing/19-CONTEXT.md
+     .planning/phases/18-trip-pause-breaks/18-CONTEXT.md
+     .planning/phases/17-tracking-ui-fixes-quick-label/17-CONTEXT.md
+     .planning/phases/15-notifications-permissions-onboarding-ux-on-ios/15-CONTE
+     XT.md
+     .planning/phases/14-background-gps-platform-branch/14-CONTEXT.md
+     .planning/phases/13-auth-on-ios/13-CONTEXT.md
+     .planning/phases/11-sync-engine/11-CONTEXT.md
+     … +6 lines (ctrl+o to expand)
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Excellent grounding — the sync engine is detailed. Key finding: sync-on-finish
+  already works (the watchPending() rising-edge nudge fires immediately on
+  enqueue), and retryFailed() exists but is manual-only — the three
+  auto-triggers only drain pending, never failed rows. Let me read the restore
+  controller and the Phase 11 + Phase 20 contexts to finish grounding before
+  identifying gray areas.
+
+  Read 2 files (ctrl+o to expand)
+
+⏺ I now have deep grounding. Critically, this phase interacts with Phase 20
+  (sign-in-later, the dependency): Phase 20 handles the upload side on sign-in
+  (backfill guest trips → queue), while Phase 23's auto-restore is the download
+  side. And RestoreController.restore() already does download + dedupe-by-UUID —
+  it just needs an automatic trigger.
+
+  Here's the domain and the gray areas worth your input.
+
+  Phase 23: Automatic Cloud Sync & Restore
+  Domain: Make cloud sync/restore hands-off. Three sub-capabilities, each at a
+  different maturity:
+  - Sync-on-finish — ✅ already works (the watchPending rising-edge nudge fires
+  processPending() the instant a finished trip is enqueued). Mostly
+  verify/harden, little to build.
+  - Auto-restore on sign-in — RestoreController exists but is manual-only; needs
+  an automatic trigger.
+  - Auto-retry failed syncs — the real gap: the 3 auto-triggers only drain
+  pending; failed rows sit stuck until a manual "Retry" tap. retryFailed()
+  exists but nothing calls it automatically.
+
+  These are the decisions that change the result:
+
+⏺ User answered Claude's questions:
+  ⎿  · When should auto-restore-from-cloud fire? (Restore is dedupe-by-UUID, so 
+     re-running it never creates duplicates.) → i want it to give an option to 
+     merge cloud with local. identify duplicates or over lapp and give user 
+     option to merge, override or keep local, etc
+     · What should the user see while/after auto-restore runs? → Subtle 
+     indicator + outcome toast
+     · How should auto-retry of failed sync items behave? (A 400-style 'poison 
+     pill' is marked failed immediately and would fail forever if blindly 
+     retried.) → Auto-retry everything, time-gated
+     · When a sync item is genuinely stuck (auto-retries exhausted / poison 
+     pill), how should the user find out? → Add a visible badge/banner
+
+⏺ Your restore answer changes things meaningfully, so let me dig into it before
+  locking it down. A merge / override / keep-local flow is a real departure from
+  the project's documented architecture:
+
+  ▎ CLAUDE.md: "Sync is one-way: client → server… No conflict resolution needed.
+  ▎ Client always wins because it's the only writer." Restore today is 
+  ▎ dedupe-by-UUID (insertOrIgnore) — cloud never overwrites local.
+
+  Letting the user "override local with cloud" means cloud can now win — that's
+  conflict resolution, which is genuinely new and edges toward the v2 "two-way
+  sync" item (SYNC2-01). That's fine to do, but I need to scope it precisely so
+  it stays tractable. Two things to pin down:
+
+⏺ User answered Claude's questions:
+  ⎿  · What counts as a conflict the merge UI should catch? ('Duplicate' = same 
+     trip UUID on both sides. 'Overlap' = different UUIDs whose time ranges 
+     overlap, e.g. the same commute recorded on two devices.) → Same-UUID + time
+     overlap
+     · How should the user resolve detected conflicts? → Bulk choice + per-trip 
+     override (recommended)
+
+⏺ All four areas are decided, plus the merge deep-dive. I have enough to write
+  CONTEXT.md. Note: the conflict-resolution merge (same-UUID + time-overlap,
+  field-by-field) is a substantial, architecture-shifting addition — I'll
+  capture that prominently as the dominant risk for the researcher/planner. Let
+  me read the CONTEXT template and create the phase directory.
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Bash(cd /Users/coolman/Documents/Projects/bizzle; mkdir -p
+      .planning/phases/23-automatic-cloud-sync-restore && echo created; ls
+      lib/features/settings/screens/ 2>/dev…)
+  ⎿  created
+     settings_screen.dart
+     lib/features/settings/widgets/restore_row.dart:25:    final state = re
+     … +9 lines (ctrl+o to expand)
+
+⏺ Now I'll write CONTEXT.md for Phase 23.
+
+⏺ Write(.planning/phases/23-automatic-cloud-sync-restore/23-CONTEXT.md)
+  ⎿  Wrote 223 lines to
+     .planning/phases/23-automatic-cloud-sync-restore/23-CONTEXT.md
+       2 # Phase 23: Automatic Cloud Sync & Restore - Context
+       3 **Gathered:** 2026-06-06
+       4 **Status:** Ready for planning
+       5 
+       6 <domain>
+       8 ## Phase Boundary
+       9 Make cloud sync and restore hands-off, and add cloud↔local recon
+         ciliation on
+      10 sign-in. The phase has three sub-capabilities at very different 
+         maturity:
+     … +360 lines (ctrl+o to expand)
+
+⏺ CONTEXT.md written. Now the discussion log and commit. Let me read the
+  discussion-log template.
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Write(.planning/phases/23-automatic-cloud-sync-restore/23-DISCUSSION-LOG.md)
+  ⎿  Wrote 124 lines to
+     .planning/phases/23-automatic-cloud-sync-restore/23-DISCUSSION-LOG.md
+       2 # Phase 23: Automatic Cloud Sync & Restore - Discussion Log
+       3 > **Audit trail only.** Do not use as input to planning, researc
+       4 > Decisions are captured in CONTEXT.md — this log preserves the 
+         alternatives considered.
+       5 
+       7 **Phase:** 23-automatic-cloud-sync-restore
+       8 **Areas discussed:** Phase scope vs Phase 11, Phase structure (s
+         facing, Conflict scope, Resolution UXuto-retry policy, Stuck sur
+       9 
+      10 ---
+     … +156 lines (ctrl+o to expand)
+
+⏺ Now commit the context + discussion log + roadmap/requirements changes, and
+  update STATE.md.
+⏺ Bash(cd /Users/coolman/Documents/Projects/bizzle; git add
+      .planning/phases/23-automatic-cloud-sync-restore/ .planning/ROADMAP.md
+      .planning/REQUIREMENTS.md && git com…)
+  ⎿  COMMITTED
+     fde1d7c docs(23): add Phase 23/24 to roadmap and capture Phase 23 cont
+     ext
+
+⏺ Bash(cd /Users/coolman/Documents/Projects/bizzle; gsd-sdk query
+      state.record-session --stopped-at "Phase 23 context gathered"
+      --resume-file ".planning/phases/23-auto…)
+  ⎿  "Resume File"
+       ]
+     }
+     done
+
+⏺ Done. Here's the summary.
+
+  Phase 23 context captured ✓
+
+  I split your request into two phases (you approved), added both to the roadmap
+  with requirements + traceability, and ran the full discussion on Phase 23.
+
+  Created: .planning/phases/23-automatic-cloud-sync-restore/23-CONTEXT.md (+
+  discussion log)
+
+  Decisions captured (Phase 23: Automatic Cloud Sync & Restore — SYNC-04/05)
+
+  - Sync-on-finish — already works (the watchPending rising-edge nudge fires on
+  enqueue); scope is verify + add a test, not rebuild.
+  - Auto-restore on sign-in — runs once per sign-in, idempotent; subtle
+  indicator + outcome toast.
+  - Conflict/merge on restore (the headline feature you steered toward) — detect
+  same-UUID field differences AND different-UUID time-overlaps, with bulk 
+  actions (keep-all-local / use-all-cloud / merge) + per-trip override; conflict
+  UI shows only when conflicts exist.
+  - Auto-retry failed syncs — auto-retry everything, time-gated (new
+  kFailedAutoRetryWindow) on connectivity-restored + resume, so a poison-pill
+  can't hammer the server.
+  - Stuck items — visible dismissible badge/banner linking to the existing
+  Settings retry.
+
+  ⚠️ Flagged for the planner: the merge flow consciously breaks the documented 
+  "client always wins / no conflict resolution" rule (CLAUDE.md) for
+  restore-time reconciliation, and the time-overlap heuristic is the dominant 
+  risk — both are called out in CONTEXT as the phase's centre of gravity and as
+  research priorities.
+
+  Phase 24 stub added to roadmap (not yet discussed)
+
+  Interrupted-Trip Recovery (TRACK-13) — detect a force-quit / app-clear /
+  OS-kill mid-trip, log it, and offer resume-or-discard on relaunch. This is a
+  tracking-layer concern (active trip currently lives only in memory), so it's
+  intentionally separate. Discuss it when you reach it.
+
+  Next up
+
+  /clear then:
+  /gsd:plan-phase 23
+  Note Phase 23 depends on Phase 20 (sign-in-later — the upload side of
+  sign-in), which isn't built yet; the plan will need to account for that
+  ordering. Also available: --chain to auto plan+execute, or review/edit
+  23-CONTEXT.md first.
+
+✻ Worked for 8m 55s
+
+※ recap: You wanted to automate cloud sync and restore. I added Phase 23 (auto sync/restore with conflict-merge) and Phase 24 (interrupted-trip recovery) to the roadmap and wrote Phase 23's context. Next: run /gsd:plan-phase 23. (disable recaps in /config)
+
+❯ /export                                                                       
+  ⎿  Conversation copied to clipboard

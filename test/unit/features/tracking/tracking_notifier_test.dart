@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/database.dart';
+import 'package:traevy/database/providers.dart';
 import 'package:traevy/features/tracking/providers/tracking_providers.dart';
 import 'package:traevy/features/tracking/services/tracking_event_source.dart';
 import 'package:traevy/features/tracking/services/tracking_notification_service.dart';
@@ -130,6 +131,7 @@ class _NoopNotifications implements TrackingNotificationService {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   group('TrackingNotifier.start() WR-02 guard', () {
     late AppDatabase db;
     late _RecordingController controller;
@@ -154,6 +156,7 @@ void main() {
       );
       container = ProviderContainer(
         overrides: [
+          appDatabaseProvider.overrideWithValue(db),
           trackingEventSourceProvider.overrideWithValue(fakeSource),
           trackingServiceControllerProvider.overrideWithValue(controller),
           trackingStateProvider.overrideWith(_NoopNotifier.new),

@@ -67,6 +67,15 @@ const String kSyncActionUpdate = 'update';
 /// See CLAUDE.md "sync_queue" table schema.
 const String kSyncActionDelete = 'delete';
 
+/// Banner message shown when sync items are genuinely stuck (Phase 24, UI-SPEC).
+const String kSyncStuckBannerMessage = 'Some trips couldn\'t sync';
+
+/// Action label for the stuck-item banner to open Settings (Phase 24, UI-SPEC).
+const String kSyncStuckBannerAction = 'Review in Settings';
+
+/// Action label to dismiss the stuck-item banner (Phase 24, UI-SPEC).
+const String kSyncStuckBannerDismiss = 'Dismiss';
+
 /// `sync_queue.status` literal for an entry that has not yet been pushed.
 ///
 /// See CLAUDE.md "sync_queue" table schema.

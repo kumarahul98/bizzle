@@ -34,6 +34,7 @@ import 'package:traevy/features/tracking/services/auto_pause_detector.dart';
 import 'package:traevy/features/tracking/services/location_settings_builder.dart';
 import 'package:traevy/features/tracking/services/tracking_service_events.dart';
 import 'package:traevy/features/tracking/services/trip_accumulator.dart';
+import 'package:home_widget/home_widget.dart';
 
 /// flutter_background_service onStart entrypoint. Runs in a background
 /// isolate as soon as `FlutterBackgroundService.startService()` is
@@ -152,12 +153,33 @@ Future<void> trackingServiceOnStart(ServiceInstance service) async {
     cancelOnError: true,
   );
 
+  print('=== TRACKING SERVICE ONSTART BOOTED ===');
+  HomeWidget.saveWidgetData<String>('widget_title', 'Stop Commute');
+  HomeWidget.saveWidgetData<bool>('widget_show_stats', true);
+  HomeWidget.updateWidget(name: 'CommuteWidgetProvider', androidName: 'CommuteWidgetProvider');
+
   uiTimer = Timer.periodic(kTrackingUiUpdateInterval, (_) {
     if (stopping) return;
+    final snapshot = accumulator.snapshot(DateTime.now().toUtc());
     service.invoke(
       kTrackingStateEvent,
-      accumulator.snapshot(DateTime.now().toUtc()).toMap(),
+      snapshot.toMap(),
     );
+    try {
+      final distance = '${(snapshot.distanceMeters / 1000).toStringAsFixed(1)} km';
+      final m = snapshot.elapsedSeconds ~/ 60;
+      final h = m ~/ 60;
+      final min = m % 60;
+      final duration = h > 0 ? '${h}h ${min}m' : '${min}m';
+      
+      print('=== TRACKING SERVICE UPDATING WIDGET TICK: $duration ===');
+      HomeWidget.saveWidgetData<String>('widget_distance', distance).catchError((_) => false);
+      HomeWidget.saveWidgetData<String>('widget_duration', duration).catchError((_) => false);
+      HomeWidget.updateWidget(
+        name: 'CommuteWidgetProvider',
+        androidName: 'CommuteWidgetProvider',
+      ).catchError((_) => false);
+    } catch (_) {}
   });
 
   // Phase 18 (D-08): pause/resume only TOGGLE the accumulator — they do NOT
@@ -184,6 +206,9 @@ Future<void> trackingServiceOnStart(ServiceInstance service) async {
     stopping = true;
     await positionSub?.cancel();
     uiTimer?.cancel();
+    await HomeWidget.saveWidgetData<String>('widget_title', 'Start Commute');
+    await HomeWidget.saveWidgetData<bool>('widget_show_stats', false);
+    await HomeWidget.updateWidget(name: 'CommuteWidgetProvider', androidName: 'CommuteWidgetProvider');
     final trip = accumulator.finalize(DateTime.now().toUtc());
     // WR-05: if the app is force-stopped before the UI isolate can
     // receive and persist kTripFinalizedEvent, the trip is lost. Save it

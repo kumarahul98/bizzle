@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:home_widget/home_widget.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/providers.dart';
 import 'package:traevy/features/settings/providers/settings_providers.dart';
@@ -164,6 +165,7 @@ class TrackingNotifier extends Notifier<TrackingState> {
   // calls instead. Reset on stop so the next trip's first snapshot lands
   // immediately.
   DateTime? _lastNotificationUpdateAt;
+  DateTime? _lastWidgetUpdateAt;
   // TRACK-12 (D-05/D-06): manual direction override set from the active-trip
   // segmented toggle. When non-null it wins over the time-of-day auto-label
   // both live (resolvedDirection → notification + header) and at finalize
@@ -182,6 +184,17 @@ class TrackingNotifier extends Notifier<TrackingState> {
     });
     _attach();
     return const TrackingIdle();
+  }
+
+  @override
+  set state(TrackingState value) {
+    final previous = state;
+    super.state = value;
+    if (value is TrackingActive) {
+      if (defaultTargetPlatform != TargetPlatform.iOS) {
+        _maybeRefreshNotification(value);
+      }
+    }
   }
 
   void _attach() {
@@ -316,6 +329,8 @@ class TrackingNotifier extends Notifier<TrackingState> {
       },
     );
   }
+
+
 
   /// Refresh the foreground notification, throttled to once per
   /// [kTrackingNotificationRefreshInterval]. Resolves the trip's direction
