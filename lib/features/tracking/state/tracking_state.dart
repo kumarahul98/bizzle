@@ -104,6 +104,15 @@ final class TrackingStopping extends TrackingState {
   const TrackingStopping();
 }
 
+/// An interrupted trip was detected on app launch.
+final class TrackingInterrupted extends TrackingState {
+  /// Construct an interrupted state with the given [snapshot].
+  const TrackingInterrupted(this.snapshot);
+
+  /// Raw snapshot map from the persister.
+  final Map<String, dynamic> snapshot;
+}
+
 /// Terminal error path. [message] is user-facing and never empty.
 final class TrackingError extends TrackingState {
   /// Construct an error state. Throws [ArgumentError] if [message] is

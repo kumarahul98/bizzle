@@ -12,6 +12,7 @@ import 'package:traevy/features/tracking/services/tracking_event_source.dart';
 import 'package:traevy/features/tracking/services/tracking_notification_service.dart';
 import 'package:traevy/features/tracking/services/tracking_permission_service.dart';
 import 'package:traevy/features/tracking/services/tracking_service_controller.dart';
+import 'package:traevy/features/tracking/services/trip_state_persister.dart';
 import 'package:traevy/features/tracking/state/finalized_trip.dart';
 import 'package:traevy/features/tracking/state/tracking_state.dart';
 import 'package:traevy/features/trips/services/direction_label_service.dart';
@@ -183,7 +184,38 @@ class TrackingNotifier extends Notifier<TrackingState> {
       unawaited(_autoPausePromptSub?.cancel());
     });
     _attach();
+    unawaited(_checkInterruptedTrip());
     return const TrackingIdle();
+  }
+
+  Future<void> _checkInterruptedTrip() async {
+    final persister = TripStatePersister();
+    final snapshot = await persister.loadState();
+    if (snapshot != null) {
+      debugPrint('TrackingNotifier: Interrupted trip detected');
+      state = TrackingInterrupted(snapshot);
+    }
+  }
+
+  Future<void> resumeInterruptedTrip() async {
+    final current = state;
+    if (current is! TrackingInterrupted) return;
+    state = const TrackingStarting();
+    final ok = await ref.read(trackingServiceControllerProvider).start(
+          initialAccumulatorState: current.snapshot,
+        );
+    if (!ok) {
+      final message = defaultTargetPlatform == TargetPlatform.iOS
+          ? kTrackingReducedAccuracyBlockedMessage
+          : 'Unable to start tracking';
+      state = TrackingError(message);
+    }
+  }
+
+  Future<void> discardInterruptedTrip() async {
+    if (state is! TrackingInterrupted) return;
+    await TripStatePersister().clear();
+    state = const TrackingIdle();
   }
 
   @override
@@ -473,6 +505,7 @@ class TrackingNotifier extends Notifier<TrackingState> {
       case TrackingStarting():
       case TrackingActive():
       case TrackingStopping():
+      case TrackingInterrupted():
         return;
     }
     state = const TrackingStarting();
