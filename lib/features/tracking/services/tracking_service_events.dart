@@ -87,3 +87,6 @@ const String kAutoPausePromptEvent = 'auto_pause_prompt';
 /// `startForeground()` posted internally (D-14 race resolution — see
 /// `tracking_notification_service.dart` file comment).
 const String kServiceReadyEvent = 'service_ready';
+
+/// Event name for sending the initial accumulator state from UI → service isolate.
+const String kSetInitialStateCommand = 'set_initial_state';

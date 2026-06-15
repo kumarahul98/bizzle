@@ -82,7 +82,22 @@ Future<void> trackingServiceOnStart(ServiceInstance service) async {
     service.invoke(kServiceReadyEvent);
   }
 
-  final accumulator = TripAccumulator(startedAt: DateTime.now().toUtc());
+  var accumulator = TripAccumulator(startedAt: DateTime.now().toUtc());
+  var stopping = false;
+
+  service.on(kSetInitialStateCommand).listen((event) {
+    if (stopping) return;
+    if (event != null && event['initialState'] != null) {
+      try {
+        final state = Map<String, dynamic>.from(event['initialState'] as Map);
+        accumulator = TripAccumulator.restore(state);
+      } catch (e) {
+        // T-25-03: Ensure parsing exceptions in the background isolate are caught
+        // and logged so a malformed state doesn't crash the background process.
+        print('Failed to restore initial state: $e');
+      }
+    }
+  });
   // Phase 18 (Plan 04, D-11): the auto-pause detector runs SERVICE-SIDE,
   // alongside the accumulator, consuming the SAME stuck/moving classification
   // addSample() returns — never raw speed, never a second threshold. It fires
@@ -91,7 +106,6 @@ Future<void> trackingServiceOnStart(ServiceInstance service) async {
   final autoPauseDetector = AutoPauseDetector(
     thresholdSeconds: kAutoPauseStationaryThresholdSeconds,
   );
-  var stopping = false;
   StreamSubscription<Position>? positionSub;
   Timer? uiTimer;
 

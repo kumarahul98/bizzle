@@ -60,7 +60,7 @@ abstract interface class TrackingEventSource {
 
   /// Start tracking. Returns `true` if the underlying service/engine started
   /// successfully, `false` if a pre-flight check blocked the start.
-  Future<bool> start();
+  Future<bool> start({Map<String, dynamic>? initialAccumulatorState});
 
   /// Stop tracking. Fire-and-forget; the engine responds asynchronously via
   /// [onFinalized].
@@ -116,7 +116,13 @@ final class FbsTrackingEventSource implements TrackingEventSource {
       _service.on(kAutoPausePromptEvent);
 
   @override
-  Future<bool> start() => _service.startService();
+  Future<bool> start({Map<String, dynamic>? initialAccumulatorState}) async {
+    final started = await _service.startService();
+    if (started && initialAccumulatorState != null) {
+      _service.invoke(kSetInitialStateCommand, {'initialState': initialAccumulatorState});
+    }
+    return started;
+  }
 
   @override
   Future<void> stop() async {

@@ -113,9 +113,13 @@ final class MainIsolateTrackingEngine implements TrackingEventSource {
   TripAccumulator? _accumulator;
 
   @override
-  Future<bool> start() async {
+  Future<bool> start({Map<String, dynamic>? initialAccumulatorState}) async {
     _stopping = false;
-    _accumulator = TripAccumulator(startedAt: DateTime.now().toUtc());
+    if (initialAccumulatorState != null) {
+      _accumulator = TripAccumulator.restore(initialAccumulatorState);
+    } else {
+      _accumulator = TripAccumulator(startedAt: DateTime.now().toUtc());
+    }
     final accumulator = _accumulator!;
     // Phase 18 (Plan 04, D-11): run the same service-side stuck-streak detector
     // the Android isolate uses, fed from the accumulator's own classification.

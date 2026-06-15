@@ -95,7 +95,7 @@ class TrackingServiceController {
   /// engine starts (D-14 race resolution). On iOS, CoreLocation shows
   /// its own system indicator (D-07); no flutter_local_notifications call
   /// is made.
-  Future<bool> start() async {
+  Future<bool> start({Map<String, dynamic>? initialAccumulatorState}) async {
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       return false;
@@ -131,7 +131,7 @@ class TrackingServiceController {
       }
     }
 
-    return _source.start();
+    return _source.start(initialAccumulatorState: initialAccumulatorState);
   }
 
   /// Tell the engine to stop. The engine responds asynchronously by
