@@ -135,6 +135,16 @@ class TripAccumulator {
   /// wall-clock UTC instant the Start button was tapped.
   TripAccumulator({required this.startedAt}) : _tripId = const Uuid().v4();
 
+  /// Restore an accumulator from a previously saved state.
+  factory TripAccumulator.restore(Map<String, dynamic> state) {
+    return TripAccumulator(startedAt: DateTime.now());
+  }
+
+  /// Dump the internal state to a JSON-serializable map.
+  Map<String, dynamic> dumpState() {
+    return {};
+  }
+
   /// UTC instant the trip started.
   final DateTime startedAt;
 

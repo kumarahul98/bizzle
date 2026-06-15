@@ -756,4 +756,43 @@ void main() {
       expect(restored.breakCount, 0);
     });
   });
+
+  group('TripAccumulator Serialization', () {
+    test('dumpState and restore round-trips state losslessly', () {
+      final start = DateTime.utc(2026, 1, 1, 8);
+      final acc = TripAccumulator(startedAt: start)
+        ..addSample(_pos(lat: 37.7749, lng: -122.4194, speedMs: 20, timestamp: start))
+        ..pause(start.add(const Duration(seconds: 10)))
+        ..resume(start.add(const Duration(seconds: 20)))
+        ..addSample(_pos(lat: 37.7800, lng: -122.4194, speedMs: 20, timestamp: start.add(const Duration(seconds: 30))));
+
+      final dumped = acc.dumpState();
+      final restored = TripAccumulator.restore(dumped);
+
+      // Verify the restored accumulator produces the identical snapshot.
+      final snapOrig = acc.snapshot(start.add(const Duration(seconds: 40)));
+      final snapRestored = restored.snapshot(start.add(const Duration(seconds: 40)));
+
+      expect(snapRestored.startedAt, snapOrig.startedAt);
+      expect(snapRestored.elapsedSeconds, snapOrig.elapsedSeconds);
+      expect(snapRestored.distanceMeters, snapOrig.distanceMeters);
+      expect(snapRestored.timeMovingSeconds, snapOrig.timeMovingSeconds);
+      expect(snapRestored.timeStuckSeconds, snapOrig.timeStuckSeconds);
+      expect(snapRestored.currentSpeedMs, snapOrig.currentSpeedMs);
+      expect(snapRestored.isPaused, snapOrig.isPaused);
+      expect(snapRestored.pausedSeconds, snapOrig.pausedSeconds);
+      expect(snapRestored.breakCount, snapOrig.breakCount);
+
+      // Also verify we can still finalize successfully and get the same result.
+      final end = start.add(const Duration(seconds: 60));
+      final finalOrig = acc.finalize(end);
+      final finalRestored = restored.finalize(end);
+
+      expect(finalRestored.durationSeconds, finalOrig.durationSeconds);
+      expect(finalRestored.distanceMeters, finalOrig.distanceMeters);
+      expect(finalRestored.encodedPolyline, finalOrig.encodedPolyline);
+      expect(finalRestored.breaks.length, finalOrig.breaks.length);
+      expect(finalRestored.id, finalOrig.id);
+    });
+  });
 }
