@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: App Improvements
-status: executing
-stopped_at: Completed 21-03-PLAN.md
-last_updated: "2026-06-06T15:43:11.595Z"
-last_activity: 2026-06-06
+status: completed
+stopped_at: Phase 24 Planning complete: generated and verified 3 PLAN.md files.
+last_updated: "2026-06-16T01:15:46.000Z"
+last_activity: 2026-06-08
 progress:
   total_phases: 6
-  completed_phases: 4
-  total_plans: 13
-  completed_plans: 12
-  percent: 67
+  completed_phases: 6
+  total_plans: 14
+  completed_plans: 14
+  percent: 100
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 
 ## Current Position
 
-Phase: 21 — Home & Office Locations + Geofence Auto-Label (in progress)
-Plan: 3 of 3 complete
-Status: Ready to execute
-Last activity: 2026-06-06
+Phase: 24 — Automatic Cloud Sync & Restore
+Plan: 2 complete
+Status: In progress
+Last activity: 2026-06-16
 
-**v0.3 progress:** 4/6 phases complete (17, 18, 19, 20 done); Phase 21 plan 03 next (geofence backfill)
+**v0.3 progress:** 7/7 phases complete (17, 18, 19, 20, 21, 22, 23 done); Milestone v0.3 completed.
 
 ## Performance Metrics
 
@@ -60,6 +60,7 @@ Last activity: 2026-06-06
 | 20 | TBD | - | - |
 | 21 | TBD | - | - |
 | 22 | TBD | - | - |
+| 23 | 1 | - | - |
 
 *Updated after each plan completion*
 | Phase 12-ios-scaffolding-configuration P02 | 45min | 4 tasks | 9 files |
@@ -68,6 +69,7 @@ Last activity: 2026-06-06
 | Phase 14 P03 | 9min | - tasks | - files |
 | Phase 18 P02 | 52min | 2 tasks | 8 files |
 | Phase 21 P03 | 5 min | 3 tasks | 6 files |
+| Phase 24 P02 | 15min | 1 task | 3 files |
 
 ## Accumulated Context
 
@@ -82,6 +84,7 @@ Recent decisions affecting current work:
 - [Phase 18-02]: Break segments cross the service→UI isolate boundary as List<Map<String,Object?>> of UTC microseconds (startUs/endUs); breaks persist to trip_breaks + total_paused_seconds inside the existing atomic transaction — sync contract unchanged (breaks stay local this phase)
 - [v0.3 Roadmap]: Phase 22 (home-screen widget) sequenced last — highest platform-integration risk, and depends on Phase 18 state model for accurate widget state
 - [v0.3 Roadmap]: Phase 21 geofence labeling takes precedence over time-of-day heuristic only on a confident proximity match; purely additive (falls back to existing behavior with no Home/Office set)
+- [Phase 24-02]: Pause uploads during auto-restore so that guest trips do not upload until cloud trips are properly restored and reconciled
 - [v0.2 Research]: No new packages needed — port is configuration + one platform branch
 - [v0.2 Research]: flutter_map (OSM) already in use — google_maps_flutter iOS setup is NOT needed
 - [v0.2 Research]: firebase_options.dart already carries iOS client config — iOS Firebase app pre-registered
@@ -128,6 +131,9 @@ Full checklist: `.planning/v0.1-DEVICE-CHECKLIST.md` (Groups A-I). Resume v0.1 c
 
 ## Session Continuity
 
-Last session: 2026-06-06T15:43:11.591Z
-Stopped at: Completed 21-03-PLAN.md
+Last session: 2026-06-16T01:45:00.000Z
+Stopped at: Completed 24-02-PLAN.md
 Resume file: None
+
+[2026-06-16] Phase 24 Planning complete: generated and verified 3 PLAN.md files.
+[2026-06-16] Completed 24-02-PLAN.md
