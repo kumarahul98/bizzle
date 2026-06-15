@@ -35,6 +35,10 @@ const String kDatabaseName = 'traevy';
 /// See CLAUDE.md "sync_queue retries max 3".
 const int kSyncQueueMaxRetries = 3;
 
+/// The minimum duration that must elapse before auto-retry triggers
+/// (connectivity, resume) will fire `retryFailed()` again.
+const Duration kFailedAutoRetryWindow = Duration(hours: 4);
+
 /// Direction literal for commutes heading to the office (morning trips).
 ///
 /// See CLAUDE.md "Direction Auto-Labeling".
@@ -1062,3 +1066,19 @@ const double kLocationPickerInitialZoom = 15;
 
 /// Size (logical pixels) of the fixed centre crosshair icon on the picker.
 const double kLocationPickerCrosshairSize = 40;
+
+// ---------------------------------------------------------------------------
+// Phase 24 — Automatic Cloud Sync & Restore
+// ---------------------------------------------------------------------------
+
+/// Auto-restore in-progress message
+const String kAutoRestoreInProgress = 'Restoring your trips…';
+
+/// Auto-restore error message
+const String kAutoRestoreError = 'Could not restore — tap Restore in Settings to retry';
+
+/// Auto-restore success message template
+const String kAutoRestoreResultTemplate = 'Restored {n} trips';
+
+/// Auto-restore up-to-date message
+const String kAutoRestoreUpToDate = kSettingsRestoreUpToDate;

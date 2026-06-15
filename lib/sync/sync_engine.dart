@@ -78,9 +78,16 @@ class SyncEngine {
   /// triggers coalesce (return early) instead of bypassing [_backoffTimer].
   DateTime? _backoffUntil;
 
+  /// Time of the last auto-retry triggered by connectivity or resume.
+  /// Enforces [kFailedAutoRetryWindow] so permanently failed rows don't hammer the server.
+  DateTime? _lastAutoRetry;
+
   /// Cached online state for offline→online rising-edge detection. Seeded in
   /// [start] BEFORE the connectivity listener attaches (M3).
   bool _wasOnline = false;
+
+  /// Upload pause flag
+  bool _uploadsPaused = false;
 
   StreamSubscription<List<SyncQueueRow>>? _pendingSub;
   StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
@@ -91,6 +98,10 @@ class SyncEngine {
     final until = _backoffUntil;
     return until != null && _now().isBefore(until);
   }
+
+  /// Whether the auto-retry time gate is open (exhausted).
+  bool get isAutoRetryExhausted =>
+      _lastAutoRetry == null || _now().difference(_lastAutoRetry!) > kFailedAutoRetryWindow;
 
   /// Pure exponential-backoff delay for [retryCount]: `base × 2^retryCount`
   /// capped at [kSyncRetryMaxDelay]. Guards against shift overflow by capping
@@ -115,6 +126,9 @@ class SyncEngine {
     if (backoffActive()) return;
     // (c) Guest no-op — no status change, no DB writes (D-03 / T-11-02-04).
     if (!_isSignedIn()) return;
+    // (d) Pause-uploads guard — D-02 during sign-in, prevent uploading until
+    //     restore is done.
+    if (_uploadsPaused) return;
 
     _inFlight = true;
     try {
@@ -297,6 +311,17 @@ class SyncEngine {
     await processPending();
   }
 
+  /// Pauses uploads. Used during sign-in to prevent guest trips from uploading before restore completes.
+  void pauseUploads() {
+    _uploadsPaused = true;
+  }
+
+  /// Resumes uploads and triggers a drain if there are pending items.
+  void resumeUploads() {
+    _uploadsPaused = false;
+    unawaited(processPending());
+  }
+
   /// Attach the three D-07 triggers and seed connectivity state. Runs at
   /// provider construction (eager mount in app.dart) so the post-save
   /// `watchPending()` subscription is live before the first trip is saved.
@@ -322,15 +347,28 @@ class SyncEngine {
     _connectivitySub = Connectivity().onConnectivityChanged.listen((results) {
       final nowOnline = results.any((r) => r != ConnectivityResult.none);
       if (!_wasOnline && nowOnline) {
-        unawaited(processPending());
+        if (_lastAutoRetry == null || _now().difference(_lastAutoRetry!) > kFailedAutoRetryWindow) {
+          unawaited(retryFailed());
+        } else {
+          unawaited(processPending());
+        }
       }
       _wasOnline = nowOnline;
     });
 
     // App-resume.
     _lifecycleListener = AppLifecycleListener(
-      onResume: () => unawaited(processPending()),
+      onResume: handleResume,
     );
+  }
+
+  @visibleForTesting
+  void handleResume() {
+    if (_lastAutoRetry == null || _now().difference(_lastAutoRetry!) > kFailedAutoRetryWindow) {
+      unawaited(retryFailed());
+    } else {
+      unawaited(processPending());
+    }
   }
 
   /// Release all four resources (T-11-02 disposal).
