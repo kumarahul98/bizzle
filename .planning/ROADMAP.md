@@ -659,5 +659,11 @@ Note: Phase 17 is a small, independent UI fix + quick-label and is the safe firs
   4. Resuming restores the trip's accumulated state and continues recording as one continuous trip; discarding cleans up the persisted state with no orphan trip
   5. A normal clean stop leaves no interrupted-trip state behind, so the recovery prompt never appears after an ordinary finish
 
-**Plans**: TBD
+**Plans**: 3 plans
 **UI hint**: yes
+
+Plans:
+
+- [ ] 25-01-PLAN.md — Persistence Foundation
+- [ ] 25-02-PLAN.md — Engine Recovery
+- [ ] 25-03-PLAN.md — UI & Notifier Wiring
