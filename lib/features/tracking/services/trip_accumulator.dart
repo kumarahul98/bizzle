@@ -133,16 +133,66 @@ class TripSnapshot {
 class TripAccumulator {
   /// Create an accumulator for a new trip. [startedAt] should be the
   /// wall-clock UTC instant the Start button was tapped.
-  TripAccumulator({required this.startedAt}) : _tripId = const Uuid().v4();
+  TripAccumulator({required this.startedAt, String? tripId}) : _tripId = tripId ?? const Uuid().v4();
 
   /// Restore an accumulator from a previously saved state.
   factory TripAccumulator.restore(Map<String, dynamic> state) {
-    return TripAccumulator(startedAt: DateTime.now());
+    final acc = TripAccumulator(
+      startedAt: DateTime.fromMicrosecondsSinceEpoch(state['startedAtUs'] as int, isUtc: true),
+      tripId: state['_tripId'] as String,
+    );
+    if (state['_lastAccepted'] != null) {
+      acc._lastAccepted = Position.fromMap(Map<String, dynamic>.from(state['_lastAccepted'] as Map));
+    }
+    if (state['_lastAcceptedAtUs'] != null) {
+      acc._lastAcceptedAt = DateTime.fromMicrosecondsSinceEpoch(state['_lastAcceptedAtUs'] as int, isUtc: true);
+    }
+    acc._distanceMeters = (state['_distanceMeters'] as num).toDouble();
+    acc._timeMovingSeconds = state['_timeMovingSeconds'] as int;
+    acc._timeStuckSeconds = state['_timeStuckSeconds'] as int;
+    
+    final samples = state['_samples'] as List;
+    acc._samples.addAll(samples.map((s) => Position.fromMap(Map<String, dynamic>.from(s as Map))));
+    
+    acc._finalized = state['_finalized'] as bool;
+    acc._isPaused = state['_isPaused'] as bool;
+    if (state['_currentPauseStartUs'] != null) {
+      acc._currentPauseStart = DateTime.fromMicrosecondsSinceEpoch(state['_currentPauseStartUs'] as int, isUtc: true);
+    }
+    acc._accumulatedPausedSeconds = state['_accumulatedPausedSeconds'] as int;
+    
+    final breaks = state['_breaks'] as List;
+    acc._breaks.addAll(breaks.map((b) {
+      final map = b as Map;
+      return (
+        DateTime.fromMicrosecondsSinceEpoch(map['startUs'] as int, isUtc: true),
+        DateTime.fromMicrosecondsSinceEpoch(map['endUs'] as int, isUtc: true),
+      );
+    }));
+
+    return acc;
   }
 
   /// Dump the internal state to a JSON-serializable map.
   Map<String, dynamic> dumpState() {
-    return {};
+    return {
+      'startedAtUs': startedAt.toUtc().microsecondsSinceEpoch,
+      '_tripId': _tripId,
+      '_lastAccepted': _lastAccepted?.toJson(),
+      '_lastAcceptedAtUs': _lastAcceptedAt?.toUtc().microsecondsSinceEpoch,
+      '_distanceMeters': _distanceMeters,
+      '_timeMovingSeconds': _timeMovingSeconds,
+      '_timeStuckSeconds': _timeStuckSeconds,
+      '_samples': _samples.map((p) => p.toJson()).toList(),
+      '_finalized': _finalized,
+      '_isPaused': _isPaused,
+      '_currentPauseStartUs': _currentPauseStart?.toUtc().microsecondsSinceEpoch,
+      '_accumulatedPausedSeconds': _accumulatedPausedSeconds,
+      '_breaks': _breaks.map((b) => {
+        'startUs': b.$1.toUtc().microsecondsSinceEpoch,
+        'endUs': b.$2.toUtc().microsecondsSinceEpoch,
+      }).toList(),
+    };
   }
 
   /// UTC instant the trip started.
