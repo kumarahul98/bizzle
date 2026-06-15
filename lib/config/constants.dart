@@ -1100,3 +1100,21 @@ const String kConflictResolutionTitle = 'Resolve Sync Conflicts';
 const String kConflictKeepLocal = 'Keep local';
 const String kConflictUseCloud = 'Use cloud';
 const String kConflictMerge = 'Merge';
+
+// ---------------------------------------------------------------------------
+// Phase 25: Interrupted-Trip Recovery
+// ---------------------------------------------------------------------------
+
+/// Title for the interrupted-trip recovery prompt dialog.
+const String kRecoveryDialogTitle = 'Interrupted Commute';
+
+/// Body text for the interrupted-trip recovery prompt dialog.
+const String kRecoveryDialogBody =
+    'Traevy stopped unexpectedly during your last commute. '
+    'Do you want to resume recording or discard it?';
+
+/// Action label for resuming the interrupted trip.
+const String kRecoveryResumeAction = 'Resume';
+
+/// Action label for discarding the interrupted trip.
+const String kRecoveryDiscardAction = 'Discard';
