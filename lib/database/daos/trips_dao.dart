@@ -105,6 +105,11 @@ class TripsDao extends DatabaseAccessor<AppDatabase> with _$TripsDaoMixin {
     return (select(trips)..where((t) => t.id.equals(id))).getSingleOrNull();
   }
 
+  /// Fetch all trips for conflict detection during restore.
+  Future<List<TripRow>> getAllTrips() {
+    return select(trips).get();
+  }
+
   /// Fetch the full row (including polyline) of the most recent GPS trip, or
   /// null if no GPS trip exists (LOC-01, D-13 picker init fallback).
   ///

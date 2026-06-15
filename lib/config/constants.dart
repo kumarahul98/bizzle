@@ -1091,3 +1091,12 @@ const String kAutoRestoreResultTemplate = 'Restored {n} trips';
 
 /// Auto-restore up-to-date message
 const String kAutoRestoreUpToDate = kSettingsRestoreUpToDate;
+
+// ---------------------------------------------------------------------------
+// Phase 24 — Automatic Cloud Sync & Restore
+// ---------------------------------------------------------------------------
+
+const String kConflictResolutionTitle = 'Resolve Sync Conflicts';
+const String kConflictKeepLocal = 'Keep local';
+const String kConflictUseCloud = 'Use cloud';
+const String kConflictMerge = 'Merge';

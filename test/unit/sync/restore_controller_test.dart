@@ -47,10 +47,12 @@ Map<String, dynamic> _tripJson(
   String id, {
   String direction = 'to_office',
   int durationSeconds = 1800,
+  String startTime = '2026-05-01T08:00:00.000Z',
+  String endTime = '2026-05-01T08:30:00.000Z',
 }) => <String, dynamic>{
   'id': id,
-  'startTime': '2026-05-01T08:00:00.000Z',
-  'endTime': '2026-05-01T08:30:00.000Z',
+  'startTime': startTime,
+  'endTime': endTime,
   'durationSeconds': durationSeconds,
   'distanceMeters': 12000.0,
   'routePolyline': null,
@@ -66,8 +68,10 @@ TripsCompanion _companion(
   String id, {
   String direction = 'to_office',
   int durationSeconds = 1800,
+  String startTime = '2026-05-01T08:00:00.000Z',
+  String endTime = '2026-05-01T08:30:00.000Z',
 }) => TripSerializer.fromJson(
-  _tripJson(id, direction: direction, durationSeconds: durationSeconds),
+  _tripJson(id, direction: direction, durationSeconds: durationSeconds, startTime: startTime, endTime: endTime),
 );
 
 void main() {
@@ -176,8 +180,8 @@ void main() {
 
         final api = _FakeApiClient(<TripsCompanion>[
           _companion('t1'),
-          _companion('t2'),
-          _companion('t3'),
+          _companion('t2', startTime: '2026-05-01T09:00:00.000Z', endTime: '2026-05-01T09:30:00.000Z'),
+          _companion('t3', startTime: '2026-05-01T10:00:00.000Z', endTime: '2026-05-01T10:30:00.000Z'),
         ]);
         final container = containerWith(api);
 
@@ -195,7 +199,7 @@ void main() {
     test('Test D: all-new on empty DB → RestoreSuccess(2)', () async {
       final api = _FakeApiClient(<TripsCompanion>[
         _companion('a1'),
-        _companion('a2'),
+        _companion('a2', startTime: '2026-05-01T09:00:00.000Z', endTime: '2026-05-01T09:30:00.000Z'),
       ]);
       final container = containerWith(api);
 
@@ -212,12 +216,12 @@ void main() {
       () async {
         await db.tripsDao.insertOrIgnoreTrips(<TripsCompanion>[
           _companion('x1'),
-          _companion('x2'),
+          _companion('x2', startTime: '2026-05-01T09:00:00.000Z', endTime: '2026-05-01T09:30:00.000Z'),
         ]);
 
         final api = _FakeApiClient(<TripsCompanion>[
           _companion('x1'),
-          _companion('x2'),
+          _companion('x2', startTime: '2026-05-01T09:00:00.000Z', endTime: '2026-05-01T09:30:00.000Z'),
         ]);
         final container = containerWith(api);
 
@@ -253,7 +257,7 @@ void main() {
       () async {
         final api = _FakeApiClient(<TripsCompanion>[
           _companion('s1'),
-          _companion('s2'),
+          _companion('s2', startTime: '2026-05-01T09:00:00.000Z', endTime: '2026-05-01T09:30:00.000Z'),
         ]);
         final container = containerWith(api);
 

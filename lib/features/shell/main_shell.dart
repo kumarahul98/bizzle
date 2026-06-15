@@ -13,6 +13,7 @@ import 'package:traevy/features/tracking/services/tracking_permission_service.da
 import 'package:traevy/features/trips/screens/history_screen.dart';
 import 'package:traevy/features/auth/models/auth_state.dart';
 import 'package:traevy/features/auth/providers/auth_providers.dart';
+import 'package:traevy/features/settings/widgets/conflict_resolution_sheet.dart';
 import 'package:traevy/sync/restore_controller.dart';
 import 'package:traevy/sync/sync_engine.dart';
 
@@ -146,6 +147,31 @@ class _MainShellState extends ConsumerState<MainShell> {
       if (next is AuthSignedIn && !_hasRunAutoRestoreForCurrentSession) {
         _hasRunAutoRestoreForCurrentSession = true;
         _runAutoRestore();
+      }
+    });
+    
+    ref.listen<RestoreState>(restoreControllerProvider, (previous, next) {
+      if (next is RestoreConflictState) {
+        showModalBottomSheet<void>(
+          context: context,
+          isScrollControlled: true,
+          useSafeArea: true,
+          builder: (ctx) => ConflictResolutionSheet(conflicts: next.conflicts),
+        );
+      } else if (next is RestoreSuccess && previous is RestoreConflictState) {
+        if (next.count == 0) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text(kAutoRestoreUpToDate)),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                kAutoRestoreResultTemplate.replaceAll('{n}', next.count.toString()),
+              ),
+            ),
+          );
+        }
       }
     });
 

@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:traevy/database/database.dart';
 import 'package:traevy/database/providers.dart';
 import 'package:traevy/sync/api_client.dart';
+import 'package:traevy/sync/restore_conflict.dart';
 
 /// Finite state of the manual restore-from-cloud flow (SYNC-03, D-08). A
 /// sealed model — never a raw string — per the CLAUDE.md "sealed classes for
@@ -29,6 +31,14 @@ class RestoreSuccess extends RestoreState {
 
   /// Number of NEW trips written by this restore (dedupe-by-UUID delta).
   final int count;
+}
+
+/// The restore detected conflicts (SYNC-04).
+class RestoreConflictState extends RestoreState {
+  const RestoreConflictState(this.conflicts);
+
+  /// The list of conflicts that need user resolution.
+  final List<RestoreConflict> conflicts;
 }
 
 /// The restore failed (transport error, malformed envelope, etc.). The
@@ -70,19 +80,80 @@ class RestoreController extends Notifier<RestoreState> {
   Future<void> restore() async {
     state = const RestoreRestoring();
     try {
-      // Plan 01: returns List<TripsCompanion>, already mapped via
-      // TripSerializer.fromJson internally (HIGH-3). No forked mapper.
       final companions = await ref.read(apiClientProvider).restoreTrips();
-      // Plan 03 / MEDIUM-3: one Drift batch, dedupe-by-UUID, NEW-row count.
-      final inserted = await ref
-          .read(tripsDaoProvider)
-          .insertOrIgnoreTrips(companions);
-      state = RestoreSuccess(inserted);
+      final tripsDao = ref.read(tripsDaoProvider);
+      
+      final localTrips = await tripsDao.getAllTrips();
+      final conflicts = <RestoreConflict>[];
+      final nonConflicts = <TripsCompanion>[];
+      
+      for (final cloud in companions) {
+        bool isConflict = false;
+        
+        final sameUuidLocal = localTrips.where((t) => t.id == cloud.id.value).firstOrNull;
+        if (sameUuidLocal != null) {
+          if (_isDifferent(sameUuidLocal, cloud)) {
+            conflicts.add(SameUuidConflict(localTrip: sameUuidLocal, cloudTrip: cloud));
+            isConflict = true;
+          } else {
+            isConflict = false;
+          }
+        } else {
+          for (final local in localTrips) {
+            if (_isOverlap(local, cloud)) {
+              conflicts.add(OverlapConflict(localTrip: local, cloudTrip: cloud));
+              isConflict = true;
+              break;
+            }
+          }
+        }
+        
+        if (!isConflict && sameUuidLocal == null) {
+          nonConflicts.add(cloud);
+        }
+      }
+      
+      final inserted = await tripsDao.insertOrIgnoreTrips(nonConflicts);
+      
+      if (conflicts.isNotEmpty) {
+        state = RestoreConflictState(conflicts);
+      } else {
+        state = RestoreSuccess(inserted);
+      }
     } on Object {
-      // Caught internally (T-11-03-02): a failed restore becomes RestoreError,
-      // never a rethrow / crash / corrupt DB. No error string is surfaced.
       state = const RestoreError();
     }
+  }
+
+  bool _isDifferent(TripRow local, TripsCompanion cloud) {
+    if (cloud.startTime.present && !local.startTime.isAtSameMomentAs(cloud.startTime.value)) return true;
+    if (cloud.endTime.present && !local.endTime.isAtSameMomentAs(cloud.endTime.value)) return true;
+    if (cloud.durationSeconds.present && local.durationSeconds != cloud.durationSeconds.value) return true;
+    if (cloud.totalPausedSeconds.present && local.totalPausedSeconds != cloud.totalPausedSeconds.value) return true;
+    if (cloud.distanceMeters.present && local.distanceMeters != cloud.distanceMeters.value) return true;
+    if (cloud.direction.present && local.direction != cloud.direction.value) return true;
+    if (cloud.directionSource.present && local.directionSource != cloud.directionSource.value) return true;
+    if (cloud.timeMovingSeconds.present && local.timeMovingSeconds != cloud.timeMovingSeconds.value) return true;
+    if (cloud.timeStuckSeconds.present && local.timeStuckSeconds != cloud.timeStuckSeconds.value) return true;
+    if (cloud.isManualEntry.present && local.isManualEntry != cloud.isManualEntry.value) return true;
+    if (cloud.isEdited.present && local.isEdited != cloud.isEdited.value) return true;
+    if (cloud.routePolyline.present && local.routePolyline != cloud.routePolyline.value) return true;
+    return false;
+  }
+
+  bool _isOverlap(TripRow local, TripsCompanion cloud) {
+    if (!cloud.startTime.present || !cloud.endTime.present) return false;
+    final maxStart = local.startTime.isAfter(cloud.startTime.value) ? local.startTime : cloud.startTime.value;
+    final minEnd = local.endTime.isBefore(cloud.endTime.value) ? local.endTime : cloud.endTime.value;
+    if (maxStart.isBefore(minEnd)) {
+      return minEnd.difference(maxStart).inSeconds > 60;
+    }
+    return false;
+  }
+  
+  /// Transition to success after resolving conflicts.
+  void resolveConflicts(int insertedCount) {
+    state = RestoreSuccess(insertedCount);
   }
 }
 
