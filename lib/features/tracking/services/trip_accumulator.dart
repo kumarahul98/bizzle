@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/features/tracking/state/finalized_trip.dart';
+import 'package:traevy/features/tracking/services/trip_state_persister.dart';
 import 'package:traevy/shared/utils/polyline_codec.dart';
 import 'package:uuid/uuid.dart';
 
@@ -133,13 +134,21 @@ class TripSnapshot {
 class TripAccumulator {
   /// Create an accumulator for a new trip. [startedAt] should be the
   /// wall-clock UTC instant the Start button was tapped.
-  TripAccumulator({required this.startedAt, String? tripId}) : _tripId = tripId ?? const Uuid().v4();
+  TripAccumulator({
+    required this.startedAt,
+    String? tripId,
+    TripStatePersister? persister,
+  })  : _tripId = tripId ?? const Uuid().v4(),
+        _persister = persister;
+
+  final TripStatePersister? _persister;
 
   /// Restore an accumulator from a previously saved state.
-  factory TripAccumulator.restore(Map<String, dynamic> state) {
+  factory TripAccumulator.restore(Map<String, dynamic> state, {TripStatePersister? persister}) {
     final acc = TripAccumulator(
       startedAt: DateTime.fromMicrosecondsSinceEpoch(state['startedAtUs'] as int, isUtc: true),
       tripId: state['_tripId'] as String,
+      persister: persister,
     );
     if (state['_lastAccepted'] != null) {
       acc._lastAccepted = Position.fromMap(Map<String, dynamic>.from(state['_lastAccepted'] as Map));
@@ -247,6 +256,7 @@ class TripAccumulator {
       _lastAccepted = p;
       _lastAcceptedAt = p.timestamp;
       _samples.add(p);
+      _persister?.saveState(dumpState());
       return null;
     }
 
@@ -258,6 +268,7 @@ class TripAccumulator {
       _samples.add(p);
       _lastAccepted = p;
       _lastAcceptedAt = p.timestamp;
+      _persister?.saveState(dumpState());
       return null;
     }
 
@@ -272,6 +283,7 @@ class TripAccumulator {
       _samples.add(p);
       _lastAccepted = p;
       _lastAcceptedAt = p.timestamp;
+      _persister?.saveState(dumpState());
       return null;
     }
     final deltaSec = deltaMillis / 1000.0;
@@ -312,6 +324,7 @@ class TripAccumulator {
     _lastAccepted = p;
     _lastAcceptedAt = p.timestamp;
     _samples.add(p);
+    _persister?.saveState(dumpState());
     return interval;
   }
 
@@ -322,6 +335,7 @@ class TripAccumulator {
     if (_finalized || _isPaused) return;
     _isPaused = true;
     _currentPauseStart = at.toUtc();
+    _persister?.saveState(dumpState());
   }
 
   /// End the current break at [at] (UTC): record the `(start, end)` segment
@@ -336,6 +350,7 @@ class TripAccumulator {
     _accumulatedPausedSeconds += end.difference(pauseStart).inSeconds;
     _isPaused = false;
     _currentPauseStart = null;
+    _persister?.saveState(dumpState());
   }
 
   /// Total paused seconds as of [now], including the currently-open break
@@ -419,6 +434,9 @@ class TripAccumulator {
           },
         )
         .toList(growable: false);
+    
+    _persister?.clear();
+    
     return FinalizedTrip(
       id: _tripId,
       startTime: startedAt.toUtc(),
