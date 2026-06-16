@@ -10,6 +10,8 @@ import 'package:traevy/features/shell/providers/main_shell_provider.dart';
 import 'package:traevy/features/stats/screens/stats_screen.dart';
 import 'package:traevy/features/tracking/providers/tracking_providers.dart';
 import 'package:traevy/features/tracking/services/tracking_permission_service.dart';
+import 'package:traevy/features/tracking/state/tracking_state.dart';
+import 'package:traevy/features/tracking/widgets/recovery_prompt_dialog.dart';
 import 'package:traevy/features/trips/screens/history_screen.dart';
 import 'package:traevy/features/auth/models/auth_state.dart';
 import 'package:traevy/features/auth/providers/auth_providers.dart';
@@ -143,6 +145,18 @@ class _MainShellState extends ConsumerState<MainShell> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<TrackingState>(trackingStateProvider, (previous, next) {
+      if (next is TrackingInterrupted) {
+        showDialog<void>(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => const RecoveryPromptDialog(),
+        );
+      } else if (previous is TrackingInterrupted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+    });
+
     ref.listen<AuthState>(authStateProvider, (previous, next) {
       if (next is AuthSignedIn && !_hasRunAutoRestoreForCurrentSession) {
         _hasRunAutoRestoreForCurrentSession = true;
