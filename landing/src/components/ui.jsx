@@ -199,12 +199,34 @@ function WaitlistForm({ size = 'md', onJoined, platform = 'iOS' }) {
   const [email, setEmail] = React.useState('');
   const [state, setState] = React.useState('idle'); // idle | error | done
   const [focus, setFocus] = React.useState(false);
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
+    if (state === 'loading') return;
     const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
     if (!ok) { setState('error'); return; }
-    setState('done');
-    onJoined && onJoined();
+    
+    setState('loading');
+    try {
+      const res = await fetch('https://api.web3forms.com/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({
+          access_key: '9330643b-8d1b-42dd-a031-35efde72e799',
+          email: email.trim(),
+          platform: platform,
+          subject: `Traevy Waitlist Signup: ${platform}`
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setState('done');
+        onJoined && onJoined();
+      } else {
+        setState('error');
+      }
+    } catch (err) {
+      setState('error');
+    }
   };
   if (state === 'done') {
     return (
@@ -248,7 +270,9 @@ function WaitlistForm({ size = 'md', onJoined, platform = 'iOS' }) {
           }}
         />
         <Button variant="primary" size={big ? 'lg' : 'md'} style={{ borderRadius: 11 }}>
-          {platform === 'Android' ? <AndroidGlyph size={16}/> : <AppleGlyph size={15}/>} Notify me
+          {state === 'loading' ? 'Joining...' : (
+            <>{platform === 'Android' ? <AndroidGlyph size={16}/> : <AppleGlyph size={15}/>} Notify me</>
+          )}
         </Button>
       </div>
       <div style={{
