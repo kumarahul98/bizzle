@@ -17,7 +17,8 @@ function CTA() {
             Stop guessing what traffic costs you.
           </h2>
           <p style={{ margin: '18px 0 32px', maxWidth: 520, fontSize: 17.5, lineHeight: 1.6, color: inv.textDim }}>
-            Free on Android today. iOS is on the way — leave your email and we'll tell you the moment it's ready.
+            {/* WHEN_ANDROID_READY: Free on Android today. iOS is on the way — leave your email and we'll tell you the moment it's ready. */}
+            Android and iOS are on the way — leave your email and we'll tell you the moment they're ready.
           </p>
           <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
             <GetActions size="lg" center/>

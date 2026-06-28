@@ -145,7 +145,7 @@ function AppleGlyph({ size = 17 }) {
 // ── Platform CTAs: install (Android) + join waitlist (iOS) ────────────────────
 function GetActions({ size = 'lg', center = false }) {
   const { t } = useTheme();
-  const [showWaitlist, setShowWaitlist] = React.useState(false);
+  const [showWaitlist, setShowWaitlist] = React.useState(null);
   const big = size === 'lg';
   return (
     <div className="get-actions" style={{ width: '100%' }}>
@@ -153,20 +153,27 @@ function GetActions({ size = 'lg', center = false }) {
         display: 'flex', gap: 12, flexWrap: 'wrap',
         justifyContent: center ? 'center' : 'flex-start',
       }}>
+        {/* WHEN_ANDROID_READY:
         <a href="#" className="ga-btn" style={{ textDecoration: 'none' }}>
           <Button variant="primary" size={big ? 'lg' : 'md'}>
             <AndroidGlyph size={19}/> Install for Android
           </Button>
         </a>
+        */}
+        <Button variant="primary" size={big ? 'lg' : 'md'}
+          onClick={() => setShowWaitlist((s) => s === 'android' ? null : 'android')}
+          style={showWaitlist === 'android' ? { borderColor: t.borderStr, background: t.surface } : undefined}>
+          <AndroidGlyph size={19}/> Join the Android waitlist
+        </Button>
         <Button variant="secondary" size={big ? 'lg' : 'md'}
-          onClick={() => setShowWaitlist((s) => !s)}
-          style={showWaitlist ? { borderColor: t.borderStr, background: t.surface } : undefined}>
+          onClick={() => setShowWaitlist((s) => s === 'ios' ? null : 'ios')}
+          style={showWaitlist === 'ios' ? { borderColor: t.borderStr, background: t.surface } : undefined}>
           <AppleGlyph size={16}/> Join the iOS waitlist
         </Button>
       </div>
       {showWaitlist ? (
         <div style={{ marginTop: 18, display: 'flex', justifyContent: center ? 'center' : 'flex-start' }}>
-          <WaitlistForm size={size} platform="iOS"/>
+          <WaitlistForm size={size} platform={showWaitlist === 'android' ? 'Android' : 'iOS'}/>
         </div>
       ) : (
         <div style={{
@@ -175,8 +182,11 @@ function GetActions({ size = 'lg', center = false }) {
           display: 'flex', gap: 7, alignItems: 'center',
           justifyContent: center ? 'center' : 'flex-start',
         }}>
+          {/* WHEN_ANDROID_READY:
           <Icon name="check" size={13} color={t.moving} strokeWidth={2.4}/>
           Free on Android · iOS coming soon
+          */}
+          Android & iOS coming soon
         </div>
       )}
     </div>
@@ -238,7 +248,7 @@ function WaitlistForm({ size = 'md', onJoined, platform = 'iOS' }) {
           }}
         />
         <Button variant="primary" size={big ? 'lg' : 'md'} style={{ borderRadius: 11 }}>
-          <AppleGlyph size={15}/> Notify me
+          {platform === 'Android' ? <AndroidGlyph size={16}/> : <AppleGlyph size={15}/>} Notify me
         </Button>
       </div>
       <div style={{
