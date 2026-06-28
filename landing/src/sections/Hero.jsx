@@ -24,7 +24,8 @@ function Hero({ headline, accent }) {
               background: t.surface, border: `1px solid ${t.border}`, marginBottom: 26 }}>
               <span style={{ width: 7, height: 7, borderRadius: 4, background: t.moving }}/>
               <span style={{ fontSize: 12.5, fontWeight: 600, color: t.textDim, letterSpacing: 0.2 }}>
-                Commute tracker · Android now, iOS soon
+                {/* WHEN_ANDROID_READY: Commute tracker · Android now, iOS soon */}
+                Commute tracker · Android & iOS coming soon
               </span>
             </div>
 
