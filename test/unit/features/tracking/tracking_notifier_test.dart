@@ -68,7 +68,7 @@ class _FakeTrackingEventSource implements TrackingEventSource {
       const Stream<Map<String, dynamic>?>.empty();
 
   @override
-  Future<bool> start() async => true;
+  Future<bool> start({Map<String, dynamic>? initialAccumulatorState}) async => true;
 
   @override
   Future<void> stop() async {}
@@ -100,7 +100,7 @@ class _RecordingController extends TrackingServiceController {
   int stopCalls = 0;
 
   @override
-  Future<bool> start() async {
+  Future<bool> start({Map<String, dynamic>? initialAccumulatorState}) async {
     startCalls += 1;
     return true;
   }

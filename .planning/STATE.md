@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 ## Current Position
 
 Phase: 25 — Interrupted-Trip Recovery
-Plan: 1 complete
-Status: In progress
+Plan: 3 complete
+Status: Completed
 Last activity: 2026-06-16
 
 **v0.3 progress:** 7/7 phases complete (17, 18, 19, 20, 21, 22, 23 done); Milestone v0.3 completed.

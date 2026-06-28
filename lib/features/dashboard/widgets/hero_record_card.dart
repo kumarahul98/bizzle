@@ -117,6 +117,9 @@ class HeroRecordCard extends ConsumerWidget {
           TrackingStopping() => const TrackingStatusLayout(
             label: 'Saving trip...',
           ),
+          TrackingInterrupted() => const TrackingStatusLayout(
+            label: 'Interrupted trip found...',
+          ),
           TrackingError(:final message) => TrackingErrorLayout(
             message: message,
             onRetry: () => ref.read(trackingStateProvider.notifier).start(),

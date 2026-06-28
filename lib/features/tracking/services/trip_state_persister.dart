@@ -10,9 +10,14 @@ class TripStatePersister {
   }) : _directoryProvider = directoryProvider;
 
   Future<File> get _file async {
-    final dir = _directoryProvider != null
-        ? await _directoryProvider!()
-        : await getApplicationDocumentsDirectory();
+    Directory dir;
+    try {
+      dir = _directoryProvider != null
+          ? await _directoryProvider!()
+          : await getApplicationDocumentsDirectory();
+    } catch (e) {
+      dir = Directory.systemTemp;
+    }
     return File('${dir.path}/active_trip.json');
   }
 
