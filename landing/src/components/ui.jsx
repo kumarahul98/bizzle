@@ -6,29 +6,41 @@ import { useTheme } from '../theme.jsx'
 import { TOKENS, FONTS } from '../tokens.js'
 import { Icon } from './Phone.jsx'
 
-// ── Brand mark: a route forming a peak (recreated from the Traevy logo) ──────
-// A dashed/dotted triangle in monochrome currentColor so it reads in both themes.
+// ── Brand mark: the Traevy logo (solid route forming a peak) ─────────────────
+// Traced from the source artwork; rendered in currentColor so it recolors with the theme.
+const LOGO_VIEWBOX = '90 140 820 720';
+const LOGO_ASPECT = 720 / 820;
+const LOGO_PATHS = [
+  'M547.542 237.274L500.041 155L456.451 230.5',
+  'M636.584 391.5L668.627 447',
+  'M757.539 601L796.222 668',
+  'M818.738 707L842.698 748.5',
+  'M894.083 837.5H789.312',
+  'M684.542 837.5H629.042',
+  'M390.042 837.5H333.042',
+  'M225.542 837.5H106',
+  'M173.55 720.5L216.562 646',
+  'M242.543 601L283.824 529.5',
+  'M380.818 361.5L429.027 278',
+];
+const LOGO_DOTS = [
+  [576.542, 284.5], [609.542, 342.5], [696.542, 493.5], [729.542, 551.5],
+  [864.542, 780.5], [736.542, 833.5], [567.542, 833.5], [508.542, 833.5],
+  [449.542, 833.5], [281.542, 833.5], [142.542, 778.5], [315.542, 478.5],
+  [350.542, 417.5],
+];
+
 function LogoMark({ size = 26, stroke }) {
   const { t } = useTheme();
   const col = stroke || t.text;
-  const p = [
-    [size * 0.5, size * 0.12],   // apex
-    [size * 0.9, size * 0.84],   // bottom-right
-    [size * 0.1, size * 0.84],   // bottom-left
-  ];
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} fill="none" aria-hidden="true">
-      {/* left edge */}
-      <line x1={p[2][0]} y1={p[2][1]} x2={p[0][0]} y2={p[0][1]}
-        stroke={col} strokeWidth="1.6" strokeLinecap="round" strokeDasharray="0.2 4.2"/>
-      {/* right edge */}
-      <line x1={p[0][0]} y1={p[0][1]} x2={p[1][0]} y2={p[1][1]}
-        stroke={col} strokeWidth="1.6" strokeLinecap="round" strokeDasharray="0.2 4.2"/>
-      {/* base — the road */}
-      <line x1={p[2][0]} y1={p[2][1]} x2={p[1][0]} y2={p[1][1]}
-        stroke={col} strokeWidth="1.6" strokeLinecap="round" strokeDasharray="0.2 3.4"/>
-      {/* node dots at the corners */}
-      {p.map((pt, i) => <circle key={i} cx={pt[0]} cy={pt[1]} r="1.5" fill={col}/>)}
+    <svg width={size} height={size * LOGO_ASPECT} viewBox={LOGO_VIEWBOX} fill="none" aria-hidden="true">
+      {LOGO_PATHS.map((d, i) => (
+        <path key={i} d={d} stroke={col} strokeWidth="15" strokeLinecap="round" strokeLinejoin="round"/>
+      ))}
+      {LOGO_DOTS.map(([cx, cy], i) => (
+        <circle key={i} cx={cx} cy={cy} r="12" fill={col} stroke={col}/>
+      ))}
     </svg>
   );
 }
