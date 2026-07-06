@@ -170,8 +170,17 @@ Future<void> trackingServiceOnStart(ServiceInstance service) async {
   print('=== TRACKING SERVICE ONSTART BOOTED ===');
   HomeWidget.saveWidgetData<String>('widget_title', 'Stop Commute');
   HomeWidget.saveWidgetData<bool>('widget_show_stats', true);
-  HomeWidget.updateWidget(name: 'CommuteWidgetProvider', androidName: 'CommuteWidgetProvider');
+  HomeWidget.updateWidget(
+    name: 'CommuteWidgetProvider',
+    androidName: 'CommuteWidgetProvider',
+  );
 
+  // Widget refresh throttle: the 1 Hz tick below exists for the in-app
+  // snapshot stream; pushing every tick through HomeWidget would rebuild the
+  // home-screen RemoteViews ~2700 times on a 45-min trip. Gate the widget
+  // writes to once per [kTrackingWidgetRefreshInterval], mirroring the
+  // notification throttle in tracking_providers.dart.
+  DateTime? lastWidgetUpdateAt;
   uiTimer = Timer.periodic(kTrackingUiUpdateInterval, (_) {
     if (stopping) return;
     final snapshot = accumulator.snapshot(DateTime.now().toUtc());
@@ -179,16 +188,28 @@ Future<void> trackingServiceOnStart(ServiceInstance service) async {
       kTrackingStateEvent,
       snapshot.toMap(),
     );
+    final now = DateTime.now();
+    if (lastWidgetUpdateAt != null &&
+        now.difference(lastWidgetUpdateAt!) < kTrackingWidgetRefreshInterval) {
+      return;
+    }
+    lastWidgetUpdateAt = now;
     try {
-      final distance = '${(snapshot.distanceMeters / 1000).toStringAsFixed(1)} km';
+      final distance =
+          '${(snapshot.distanceMeters / 1000).toStringAsFixed(1)} km';
       final m = snapshot.elapsedSeconds ~/ 60;
       final h = m ~/ 60;
       final min = m % 60;
       final duration = h > 0 ? '${h}h ${min}m' : '${min}m';
-      
-      print('=== TRACKING SERVICE UPDATING WIDGET TICK: $duration ===');
-      HomeWidget.saveWidgetData<String>('widget_distance', distance).catchError((_) => false);
-      HomeWidget.saveWidgetData<String>('widget_duration', duration).catchError((_) => false);
+
+      HomeWidget.saveWidgetData<String>(
+        'widget_distance',
+        distance,
+      ).catchError((_) => false);
+      HomeWidget.saveWidgetData<String>(
+        'widget_duration',
+        duration,
+      ).catchError((_) => false);
       HomeWidget.updateWidget(
         name: 'CommuteWidgetProvider',
         androidName: 'CommuteWidgetProvider',
@@ -222,7 +243,10 @@ Future<void> trackingServiceOnStart(ServiceInstance service) async {
     uiTimer?.cancel();
     await HomeWidget.saveWidgetData<String>('widget_title', 'Start Commute');
     await HomeWidget.saveWidgetData<bool>('widget_show_stats', false);
-    await HomeWidget.updateWidget(name: 'CommuteWidgetProvider', androidName: 'CommuteWidgetProvider');
+    await HomeWidget.updateWidget(
+      name: 'CommuteWidgetProvider',
+      androidName: 'CommuteWidgetProvider',
+    );
     final trip = accumulator.finalize(DateTime.now().toUtc());
     // WR-05: if the app is force-stopped before the UI isolate can
     // receive and persist kTripFinalizedEvent, the trip is lost. Save it

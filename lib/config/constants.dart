@@ -321,6 +321,21 @@ const Duration kTrackingSpeedFreshnessWindow = Duration(seconds: 6);
 /// refresh, but does not eliminate the IPC cost.
 const Duration kTrackingNotificationRefreshInterval = Duration(seconds: 5);
 
+/// Minimum gap between successive home-screen-widget refreshes. Mirrors
+/// [kTrackingNotificationRefreshInterval]: the 1 Hz uiTimer would otherwise
+/// fire two `HomeWidget.saveWidgetData` writes plus an `updateWidget`
+/// RemoteViews rebuild every second (~2700 broadcasts on a 45-min trip).
+const Duration kTrackingWidgetRefreshInterval = Duration(seconds: 5);
+
+/// Minimum gap between successive active-trip state persists (Phase 25
+/// interrupted-trip recovery). `TripAccumulator` snapshots its FULL state —
+/// including the growing sample list — to disk, so per-sample (~3 s) writes
+/// make total bytes written grow quadratically with trip length. Pause/resume
+/// transitions bypass the throttle so a recovered trip never resurrects a
+/// stale paused/running flag; the worst case is losing the last few seconds
+/// of samples on force-kill, which recovery tolerates.
+const Duration kTripStatePersistMinInterval = Duration(seconds: 10);
+
 // ---------------------------------------------------------------------------
 // Phase 4: Trip History
 // ---------------------------------------------------------------------------
@@ -1084,7 +1099,8 @@ const double kLocationPickerCrosshairSize = 40;
 const String kAutoRestoreInProgress = 'Restoring your trips…';
 
 /// Auto-restore error message
-const String kAutoRestoreError = 'Could not restore — tap Restore in Settings to retry';
+const String kAutoRestoreError =
+    'Could not restore — tap Restore in Settings to retry';
 
 /// Auto-restore success message template
 const String kAutoRestoreResultTemplate = 'Restored {n} trips';
