@@ -53,13 +53,10 @@ import 'package:traevy/config/constants.dart';
 import 'package:traevy/features/auth/providers/auth_providers.dart';
 import 'package:traevy/features/tracking/services/tracking_notification_service.dart';
 import 'package:traevy/features/tracking/services/tracking_service.dart';
-import 'package:traevy/features/tracking/services/tracking_service_events.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:traevy/firebase_options.dart';
 import 'package:traevy/notifications/notification_service.dart';
-
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:traevy/features/tracking/providers/tracking_providers.dart';
 
 @pragma('vm:entry-point')
@@ -74,11 +71,17 @@ Future<void> backgroundCallback(Uri? uri) async {
       print('=== SERVICE IS RUNNING: $isRunning ===');
       if (isRunning) {
         await HomeWidget.saveWidgetData<String>('widget_title', 'Stopping...');
-        await HomeWidget.updateWidget(name: 'CommuteWidgetProvider', androidName: 'CommuteWidgetProvider');
+        await HomeWidget.updateWidget(
+          name: 'CommuteWidgetProvider',
+          androidName: 'CommuteWidgetProvider',
+        );
         await container.read(trackingServiceControllerProvider).stop();
       } else {
         await HomeWidget.saveWidgetData<String>('widget_title', 'Starting...');
-        await HomeWidget.updateWidget(name: 'CommuteWidgetProvider', androidName: 'CommuteWidgetProvider');
+        await HomeWidget.updateWidget(
+          name: 'CommuteWidgetProvider',
+          androidName: 'CommuteWidgetProvider',
+        );
         await container.read(trackingServiceControllerProvider).start();
       }
     } finally {
@@ -109,47 +112,60 @@ Future<void> main() async {
   GoogleFonts.config.allowRuntimeFetching = false;
   tz.initializeTimeZones(); // Must be before any TZDateTime use.
 
-  // Each call below is wrapped in a 4-second timeout. On iOS, platform-channel
-  // calls made before runApp can silently deadlock in release mode (the
+  // Each init below is wrapped in a timeout. On iOS, platform-channel calls
+  // made before runApp can silently deadlock in release mode (the
   // FlutterLocalNotificationsPlugin and FlutterBackgroundService both open
   // platform channels that the engine does not guarantee to service until
   // runApp wires up the window). The timeout ensures runApp is always reached
   // and the user sees real UI instead of a permanent white screen.
-  await _safeInit(
-    'TrackingNotificationService',
-    () => TrackingNotificationService().initialize(),
-  );
-  await _safeInit(
-    'NotificationService',
-    () => NotificationService().initialize(),
-  );
-  await _safeInit(
-    'HomeWidget',
-    () => HomeWidget.registerBackgroundCallback(backgroundCallback),
-  );
-  await _safeInit(
-    'configureBackgroundService',
-    () => configureBackgroundService(),
-  );
-
-  // D-15 degrade: wrap Firebase init in try/catch so the app starts as
-  // guest mode when google-services.json / firebase_options.dart is absent
-  // (Pitfall 5 — boot-time crash prevention). The flag is injected into the
-  // ProviderScope so AuthStateNotifier detects the degrade path and does NOT
-  // open an authStateChanges() subscription on the uninitialized Firebase SDK.
-  // Never block UI on getIdToken() here — offline-first contract.
+  //
+  // The inits are independent of each other, so they run concurrently and
+  // the pre-runApp delay is bounded by the SLOWEST init instead of the sum
+  // of all of them. The one ordering constraint kept: the two notification
+  // services share the same underlying FlutterLocalNotificationsPlugin
+  // singleton, so their initialize() calls stay sequential within one branch.
+  //
+  // D-15 degrade (Firebase branch): wrapped in try/catch so the app starts
+  // as guest mode when google-services.json / firebase_options.dart is
+  // absent (Pitfall 5 — boot-time crash prevention). The flag is injected
+  // into the ProviderScope so AuthStateNotifier detects the degrade path and
+  // does NOT open an authStateChanges() subscription on the uninitialized
+  // Firebase SDK. Never block UI on getIdToken() here — offline-first
+  // contract.
   var firebaseReady = false;
-  try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    ).timeout(const Duration(seconds: 8));
-    await GoogleSignIn.instance.initialize(
-      serverClientId: kGoogleServerClientId,
-    ).timeout(const Duration(seconds: 4));
-    firebaseReady = true;
-  } on Object {
-    firebaseReady = false;
-  }
+  await Future.wait<void>([
+    _safeInit(
+      'NotificationServices',
+      () async {
+        await TrackingNotificationService().initialize();
+        await NotificationService().initialize();
+      },
+      timeout: const Duration(seconds: 8),
+    ),
+    _safeInit(
+      'HomeWidget',
+      () => HomeWidget.registerBackgroundCallback(backgroundCallback),
+    ),
+    _safeInit(
+      'configureBackgroundService',
+      () => configureBackgroundService(),
+    ),
+    () async {
+      try {
+        await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform,
+        ).timeout(const Duration(seconds: 8));
+        await GoogleSignIn.instance
+            .initialize(
+              serverClientId: kGoogleServerClientId,
+            )
+            .timeout(const Duration(seconds: 4));
+        firebaseReady = true;
+      } on Object {
+        firebaseReady = false;
+      }
+    }(),
+  ]);
 
   runApp(
     ProviderScope(
