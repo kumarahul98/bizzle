@@ -79,8 +79,7 @@ void main() {
 
         await container.read(directionBackfillProvider.future);
 
-        final summaries =
-            await db.tripsDao.watchAllSummaries().first;
+        final summaries = await db.tripsDao.watchAllSummaries().first;
         expect(summaries, hasLength(2));
         for (final s in summaries) {
           expect(s.direction, isNot(kDirectionUnknown));
@@ -116,10 +115,8 @@ void main() {
 
         await container.read(directionBackfillProvider.future);
 
-        final summaries =
-            await db.tripsDao.watchAllSummaries().first;
-        final labeled =
-            summaries.firstWhere((s) => s.id == labeledId);
+        final summaries = await db.tripsDao.watchAllSummaries().first;
+        final labeled = summaries.firstWhere((s) => s.id == labeledId);
         expect(labeled.direction, kDirectionToOffice);
 
         final backfilled = summaries.firstWhere(
@@ -143,8 +140,7 @@ void main() {
 
         await container.read(directionBackfillProvider.future);
 
-        final pending =
-            await db.syncQueueDao.watchPending().first;
+        final pending = await db.syncQueueDao.watchPending().first;
         expect(pending, hasLength(2));
         for (final row in pending) {
           expect(row.action, kSyncActionUpdate);
@@ -162,8 +158,7 @@ void main() {
 
         await container.read(directionBackfillProvider.future);
 
-        final pending =
-            await db.syncQueueDao.watchPending().first;
+        final pending = await db.syncQueueDao.watchPending().first;
         expect(pending, isEmpty);
       },
     );

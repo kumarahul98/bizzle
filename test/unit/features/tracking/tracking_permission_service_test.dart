@@ -116,51 +116,54 @@ void main() {
       expect(status, TrackingPermissionStatus.foregroundOnly);
       // Strict ordering: locationWhenInUse must be requested before
       // locationAlways is requested.
-      final whenInUseIdx =
-          log.indexOfFirstRequest(Permission.locationWhenInUse);
+      final whenInUseIdx = log.indexOfFirstRequest(
+        Permission.locationWhenInUse,
+      );
       final alwaysIdx = log.indexOfFirstRequest(Permission.locationAlways);
       expect(whenInUseIdx, isNonNegative);
       expect(alwaysIdx, isNonNegative);
       expect(whenInUseIdx, lessThan(alwaysIdx));
     });
 
-    test('returns denied when fine is denied and request also returns denied',
-        () async {
-      final log = _CallLog();
-      final service = TrackingPermissionService.forTesting(
-        probe: _staticProbe(<Permission, PermissionStatus>{
-          Permission.locationWhenInUse: PermissionStatus.denied,
-        }, log),
-        requester: _staticRequester(<Permission, PermissionStatus>{
-          Permission.locationWhenInUse: PermissionStatus.denied,
-        }, log),
-      );
+    test(
+      'returns denied when fine is denied and request also returns denied',
+      () async {
+        final log = _CallLog();
+        final service = TrackingPermissionService.forTesting(
+          probe: _staticProbe(<Permission, PermissionStatus>{
+            Permission.locationWhenInUse: PermissionStatus.denied,
+          }, log),
+          requester: _staticRequester(<Permission, PermissionStatus>{
+            Permission.locationWhenInUse: PermissionStatus.denied,
+          }, log),
+        );
 
-      final status = await service.preflight();
+        final status = await service.preflight();
 
-      expect(status, TrackingPermissionStatus.denied);
-      // Background MUST NOT be requested once fine has been denied
-      // (Pitfall 5 ordering guard).
-      expect(
-        log.requestCalls.contains(Permission.locationAlways),
-        isFalse,
-      );
-      expect(
-        log.probeCalls.contains(Permission.locationAlways),
-        isFalse,
-      );
-      // UX-03 ordering guard: notification MUST NOT be touched once
-      // fine has been denied — the user has not agreed to location yet
-      // so we must not escalate to a second permission prompt.
-      expect(
-        log.requestCalls.contains(Permission.notification),
-        isFalse,
-      );
-      expect(
-        log.probeCalls.contains(Permission.notification),
-        isFalse,
-      );
-    });
+        expect(status, TrackingPermissionStatus.denied);
+        // Background MUST NOT be requested once fine has been denied
+        // (Pitfall 5 ordering guard).
+        expect(
+          log.requestCalls.contains(Permission.locationAlways),
+          isFalse,
+        );
+        expect(
+          log.probeCalls.contains(Permission.locationAlways),
+          isFalse,
+        );
+        // UX-03 ordering guard: notification MUST NOT be touched once
+        // fine has been denied — the user has not agreed to location yet
+        // so we must not escalate to a second permission prompt.
+        expect(
+          log.requestCalls.contains(Permission.notification),
+          isFalse,
+        );
+        expect(
+          log.probeCalls.contains(Permission.notification),
+          isFalse,
+        );
+      },
+    );
 
     test('returns permanentlyDenied when fine is already permanently denied, '
         'without calling requester', () async {

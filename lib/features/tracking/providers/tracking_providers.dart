@@ -11,6 +11,7 @@ import 'package:traevy/features/tracking/services/tracking_event_source.dart';
 import 'package:traevy/features/tracking/services/tracking_notification_service.dart';
 import 'package:traevy/features/tracking/services/tracking_permission_service.dart';
 import 'package:traevy/features/tracking/services/tracking_service_controller.dart';
+import 'package:traevy/features/tracking/services/trip_state_persister.dart';
 import 'package:traevy/features/tracking/state/finalized_trip.dart';
 import 'package:traevy/features/tracking/state/tracking_state.dart';
 import 'package:traevy/features/trips/services/direction_label_service.dart';
@@ -112,6 +113,7 @@ final Provider<TrackingServiceController> trackingServiceControllerProvider =
         syncQueueDao: ref.watch(syncQueueDaoProvider),
         notifications: ref.watch(trackingNotificationServiceProvider),
         userPreferencesDao: ref.watch(userPreferencesDaoProvider),
+        tripBreaksDao: ref.watch(tripBreaksDaoProvider),
       ),
       name: 'trackingServiceControllerProvider',
     );
@@ -153,6 +155,7 @@ class TrackingNotifier extends Notifier<TrackingState> {
   StreamSubscription<Map<String, dynamic>?>? _finalizeSub;
   StreamSubscription<Map<String, dynamic>?>? _errorSub;
   StreamSubscription<Map<String, dynamic>?>? _readySub;
+  StreamSubscription<Map<String, dynamic>?>? _autoPausePromptSub;
   PersistResult? _lastPersistResult;
   // Notification refresh throttle (08-10 review HIGH #5). The 1 Hz snapshot
   // rate would call showRecording() ~2700 times on a 45-min trip, all of
@@ -162,6 +165,12 @@ class TrackingNotifier extends Notifier<TrackingState> {
   // calls instead. Reset on stop so the next trip's first snapshot lands
   // immediately.
   DateTime? _lastNotificationUpdateAt;
+  // TRACK-12 (D-05/D-06): manual direction override set from the active-trip
+  // segmented toggle. When non-null it wins over the time-of-day auto-label
+  // both live (resolvedDirection → notification + header) and at finalize
+  // (passed as directionOverride into persistFinalizedTrip). Reset to null in
+  // stop() so the next trip starts from the heuristic again.
+  String? _manualDirectionOverride;
 
   @override
   TrackingState build() {
@@ -170,9 +179,53 @@ class TrackingNotifier extends Notifier<TrackingState> {
       unawaited(_finalizeSub?.cancel());
       unawaited(_errorSub?.cancel());
       unawaited(_readySub?.cancel());
+      unawaited(_autoPausePromptSub?.cancel());
     });
     _attach();
+    unawaited(_checkInterruptedTrip());
     return const TrackingIdle();
+  }
+
+  Future<void> _checkInterruptedTrip() async {
+    final persister = TripStatePersister();
+    final snapshot = await persister.loadState();
+    if (snapshot != null) {
+      debugPrint('TrackingNotifier: Interrupted trip detected');
+      state = TrackingInterrupted(snapshot);
+    }
+  }
+
+  Future<void> resumeInterruptedTrip() async {
+    final current = state;
+    if (current is! TrackingInterrupted) return;
+    state = const TrackingStarting();
+    final ok = await ref
+        .read(trackingServiceControllerProvider)
+        .start(
+          initialAccumulatorState: current.snapshot,
+        );
+    if (!ok) {
+      final message = defaultTargetPlatform == TargetPlatform.iOS
+          ? kTrackingReducedAccuracyBlockedMessage
+          : 'Unable to start tracking';
+      state = TrackingError(message);
+    }
+  }
+
+  Future<void> discardInterruptedTrip() async {
+    if (state is! TrackingInterrupted) return;
+    await TripStatePersister().clear();
+    state = const TrackingIdle();
+  }
+
+  @override
+  set state(TrackingState value) {
+    super.state = value;
+    if (value is TrackingActive) {
+      if (defaultTargetPlatform != TargetPlatform.iOS) {
+        _maybeRefreshNotification(value);
+      }
+    }
   }
 
   void _attach() {
@@ -198,6 +251,29 @@ class TrackingNotifier extends Notifier<TrackingState> {
       onError: (Object error, StackTrace stack) {
         // onReady channel errored — non-fatal. The notification
         // may lack the Stop button but tracking is otherwise unaffected.
+      },
+    );
+    // Phase 18 (Plan 04, D-11/D-12, SC#5): the service isolate signals once
+    // per stuck streak. The OPT-IN gate lives HERE, on the UI isolate, where
+    // Drift (and `user_preferences.auto_pause_enabled`) is reachable — so
+    // detection stays service-side while the prompt is only ever posted when
+    // the user has opted in. With auto-pause OFF (default) NO prompt is posted.
+    _autoPausePromptSub = source.onAutoPausePrompt.listen(
+      (data) async {
+        final prefs = ref.read(userPreferenceProvider).asData?.value;
+        if (prefs == null || !prefs.autoPauseEnabled) return;
+        try {
+          await ref
+              .read(trackingNotificationServiceProvider)
+              .showAutoPausePrompt();
+        } on Object {
+          // POST_NOTIFICATIONS denied or platform channel error — tracking
+          // continues; the prompt just isn't shown this streak.
+        }
+      },
+      onError: (Object error, StackTrace stack) {
+        // auto-pause prompt channel errored — non-fatal. Tracking and the
+        // foreground notification are unaffected; only this prompt is lost.
       },
     );
     _stateSub = source.onState.listen(
@@ -235,7 +311,12 @@ class TrackingNotifier extends Notifier<TrackingState> {
         final trip = FinalizedTripCodec.fromEventMap(data);
         final result = await ref
             .read(trackingServiceControllerProvider)
-            .persistFinalizedTrip(trip);
+            .persistFinalizedTrip(
+              trip,
+              // D-06: the manual override (if the user picked a direction on
+              // the active-trip toggle) wins over the time-of-day heuristic.
+              directionOverride: _manualDirectionOverride,
+            );
         _lastPersistResult = result;
         // Defense-in-depth (WR-02): only transition back to idle if the
         // state is still TrackingStopping. If a concurrent caller (e.g.
@@ -292,14 +373,9 @@ class TrackingNotifier extends Notifier<TrackingState> {
       return;
     }
     _lastNotificationUpdateAt = now;
-    final prefs = ref.read(userPreferenceProvider).asData?.value;
-    final morning = prefs?.morningCutoffHour ?? kDefaultDirectionCutoffHour;
-    final evening = prefs?.eveningCutoffHour ?? kDefaultDirectionCutoffHour;
-    final direction = const DirectionLabelService().label(
-      active.startedAt.toLocal(),
-      morning,
-      evening,
-    );
+    // D-05: the notification reflects the resolved direction — the manual
+    // override when set, else the time-of-day auto-label.
+    final direction = resolvedDirection(active.startedAt);
     unawaited(
       ref
           .read(trackingNotificationServiceProvider)
@@ -315,6 +391,57 @@ class TrackingNotifier extends Notifier<TrackingState> {
             // continues, notification just doesn't refresh this tick.
           }),
     );
+  }
+
+  /// Resolve the direction for a trip that started at [startedAt] (UTC).
+  ///
+  /// TRACK-12 (D-05): returns the manual override when the user has picked a
+  /// direction on the active-trip toggle, else the [DirectionLabelService]
+  /// time-of-day auto-label computed from the user's morning/evening cutoff
+  /// prefs (falling back to [kDefaultDirectionCutoffHour] until prefs load).
+  /// This is the single source consumed by both [_maybeRefreshNotification]
+  /// and the hero header label, so the override propagates everywhere live.
+  ///
+  /// Phase 21 (D-10): the AUTHORITATIVE geofence resolution happens at finalize
+  /// (in `TrackingServiceController.persistFinalizedTrip`), NOT here, because
+  /// the geofence policy keys off the trip's END coord — which only exists once
+  /// the trip is finalized. Mid-trip there is no end coord, so the live header /
+  /// notification preview deliberately stays `override ?? time`; the geofence
+  /// label is applied when the trip is persisted. This keeps the live hot path
+  /// free of any Drift coord read.
+  String resolvedDirection(DateTime startedAt) {
+    final override = _manualDirectionOverride;
+    if (override != null) return override;
+    final prefs = ref.read(userPreferenceProvider).asData?.value;
+    final morning = prefs?.morningCutoffHour ?? kDefaultDirectionCutoffHour;
+    final evening = prefs?.eveningCutoffHour ?? kDefaultDirectionCutoffHour;
+    return const DirectionLabelService().label(
+      startedAt.toLocal(),
+      morning,
+      evening,
+    );
+  }
+
+  /// Set the manual direction override from the active-trip segmented toggle.
+  ///
+  /// TRACK-12 (D-05): [direction] MUST be [kDirectionToOffice] or
+  /// [kDirectionToHome] — the toggle only emits those two constants, and the
+  /// assert is a defence-in-depth tamper guard (T-17-02) so no arbitrary
+  /// string can reach `trips.direction` via this path. When a trip is active,
+  /// resets the notification throttle and refreshes immediately so the header
+  /// label and foreground notification flip to the chosen direction on the
+  /// same frame.
+  void setDirection(String direction) {
+    assert(
+      direction == kDirectionToOffice || direction == kDirectionToHome,
+      'setDirection only accepts kDirectionToOffice or kDirectionToHome',
+    );
+    _manualDirectionOverride = direction;
+    final current = state;
+    if (current is TrackingActive) {
+      _lastNotificationUpdateAt = null;
+      _maybeRefreshNotification(current);
+    }
   }
 
   /// Cancel every event-source subscription except [except]. Used by the
@@ -338,6 +465,10 @@ class TrackingNotifier extends Notifier<TrackingState> {
     if (!identical(_readySub, except)) {
       unawaited(_readySub?.cancel());
       _readySub = null;
+    }
+    if (!identical(_autoPausePromptSub, except)) {
+      unawaited(_autoPausePromptSub?.cancel());
+      _autoPausePromptSub = null;
     }
   }
 
@@ -372,6 +503,7 @@ class TrackingNotifier extends Notifier<TrackingState> {
       case TrackingStarting():
       case TrackingActive():
       case TrackingStopping():
+      case TrackingInterrupted():
         return;
     }
     state = const TrackingStarting();
@@ -410,7 +542,35 @@ class TrackingNotifier extends Notifier<TrackingState> {
     // refreshes the notification immediately rather than waiting up to
     // kTrackingNotificationRefreshInterval.
     _lastNotificationUpdateAt = null;
+    // TRACK-12 (D-05): clear the manual direction override so the next trip
+    // starts from the time-of-day heuristic rather than inheriting this
+    // trip's choice.
+    _manualDirectionOverride = null;
     await ref.read(trackingServiceControllerProvider).stop();
+  }
+
+  /// Suspend the active trip (Phase 18, D-08, SC#1). No-op unless the state is
+  /// [TrackingActive] — the Pause button only renders while active, so this is
+  /// a defensive re-entry guard.
+  ///
+  /// DUMB TERMINAL CONTRACT (D-08): this method sets NO local paused state. It
+  /// forwards the command to the engine and returns; the displayed paused flag
+  /// arrives later via the next snapshot's `isPaused` decoded in
+  /// [trackingActiveFromSnapshotMap]. Because the UI never runs its own pause
+  /// clock, the displayed state can never diverge from the accumulator — after
+  /// a backgrounding/kill the UI reconnects and the first snapshot dictates the
+  /// paused/running display (T-18-09, automatic recovery).
+  Future<void> pause() async {
+    if (state is! TrackingActive) return;
+    await ref.read(trackingServiceControllerProvider).pause();
+  }
+
+  /// Resume a paused trip (Phase 18, D-08, SC#1). No-op unless the state is
+  /// [TrackingActive]. Like [pause], sets NO local state — the next snapshot's
+  /// `isPaused: false` flips the UI back to the running treatment.
+  Future<void> resume() async {
+    if (state is! TrackingActive) return;
+    await ref.read(trackingServiceControllerProvider).resume();
   }
 
   /// Return the [PersistResult] produced by the most recent

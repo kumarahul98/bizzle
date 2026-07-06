@@ -230,8 +230,7 @@ Future<_FakeUserPreferencesDao> _pumpSettingsScreen(
         ),
         if (syncEngine != null)
           syncEngineProvider.overrideWithValue(syncEngine),
-        if (apiClient != null)
-          apiClientProvider.overrideWithValue(apiClient),
+        if (apiClient != null) apiClientProvider.overrideWithValue(apiClient),
         if (restoreDb != null)
           tripsDaoProvider.overrideWithValue(restoreDb.tripsDao),
         if (restoreDb != null)
@@ -275,18 +274,21 @@ void main() {
     });
 
     testWidgets(
-      'renders 4 SettingsSection blocks',
+      'renders 5 SettingsSection blocks',
       (tester) async {
         await _pumpSettingsScreen(tester);
-        expect(find.byType(SettingsSection), findsNWidgets(4));
+        // Account, Commute (Phase 21 LOC-01), Recording, Notifications,
+        // Appearance.
+        expect(find.byType(SettingsSection), findsNWidgets(5));
       },
     );
 
     testWidgets(
-      'renders ACCOUNT, RECORDING, NOTIFICATIONS, APPEARANCE labels',
+      'renders ACCOUNT, COMMUTE, RECORDING, NOTIFICATIONS, APPEARANCE labels',
       (tester) async {
         await _pumpSettingsScreen(tester);
         expect(find.text('ACCOUNT'), findsOneWidget);
+        expect(find.text('COMMUTE'), findsOneWidget);
         expect(find.text('RECORDING'), findsOneWidget);
         expect(find.text('NOTIFICATIONS'), findsOneWidget);
         expect(find.text('APPEARANCE'), findsOneWidget);
@@ -384,6 +386,12 @@ void main() {
             reminderTime: null,
             weekendReminder: false,
             weeklyNotificationEnabled: true,
+            autoPauseEnabled: false,
+            hasSeenOnboarding: false,
+            homeLat: null,
+            homeLng: null,
+            officeLat: null,
+            officeLng: null,
           ),
           notificationService: fakeNotif,
         );
@@ -434,6 +442,61 @@ void main() {
     );
 
     testWidgets(
+      'TRACK-10: Auto-pause toggle renders OFF by default (opt-in, SC#5)',
+      (tester) async {
+        // Default prefs carry autoPauseEnabled:false.
+        await _pumpSettingsScreen(tester);
+        final autoPauseRow = find.ancestor(
+          of: find.text(kSettingsAutoPauseLabel),
+          matching: find.byType(SettingsRow),
+        );
+        expect(autoPauseRow, findsOneWidget);
+        final toggle = tester.widget<TraevyToggle>(
+          find.descendant(
+            of: autoPauseRow,
+            matching: find.byType(TraevyToggle),
+          ),
+        );
+        expect(toggle.value, isFalse);
+        // Subtitle reflects the OFF state.
+        expect(
+          find.descendant(
+            of: autoPauseRow,
+            matching: find.text(kSettingsAutoPauseOffSubtitle),
+          ),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'TRACK-10: tapping Auto-pause upserts autoPauseEnabled:true '
+      'with no notification side-effect',
+      (tester) async {
+        final fakeNotif = _FakeNotificationService();
+        final dao = await _pumpSettingsScreen(
+          tester,
+          notificationService: fakeNotif,
+        );
+        final autoPauseRow = find.ancestor(
+          of: find.text(kSettingsAutoPauseLabel),
+          matching: find.byType(SettingsRow),
+        );
+        final toggle = find.descendant(
+          of: autoPauseRow,
+          matching: find.byType(TraevyToggle),
+        );
+        expect(toggle, findsOneWidget);
+        await tester.tap(toggle);
+        await tester.pump();
+        expect(dao.writes, isNotEmpty);
+        expect(dao.writes.last.autoPauseEnabled, isTrue);
+        // No scheduled alarm — auto-pause has no NotificationService effect.
+        expect(fakeNotif.calls, isEmpty);
+      },
+    );
+
+    testWidgets(
       'reminderEnabled subtitle shows "· weekdays" suffix when enabled',
       (tester) async {
         await _pumpSettingsScreen(
@@ -447,6 +510,12 @@ void main() {
             reminderTime: '08:00',
             weekendReminder: false,
             weeklyNotificationEnabled: false,
+            autoPauseEnabled: false,
+            hasSeenOnboarding: false,
+            homeLat: null,
+            homeLng: null,
+            officeLat: null,
+            officeLng: null,
           ),
         );
         await _scrollTo(tester, find.text('Daily reminder'));
@@ -498,6 +567,12 @@ void main() {
             reminderTime: '09:30',
             weekendReminder: false,
             weeklyNotificationEnabled: false,
+            autoPauseEnabled: false,
+            hasSeenOnboarding: false,
+            homeLat: null,
+            homeLng: null,
+            officeLat: null,
+            officeLng: null,
           ),
         );
         await _scrollTo(tester, find.text(kSettingsReminderTimeLabel));
@@ -526,6 +601,12 @@ void main() {
             reminderTime: null,
             weekendReminder: false,
             weeklyNotificationEnabled: false,
+            autoPauseEnabled: false,
+            hasSeenOnboarding: false,
+            homeLat: null,
+            homeLng: null,
+            officeLat: null,
+            officeLng: null,
           ),
           notificationService: fakeNotif,
         );
@@ -568,6 +649,12 @@ void main() {
             reminderTime: '07:45',
             weekendReminder: false,
             weeklyNotificationEnabled: false,
+            autoPauseEnabled: false,
+            hasSeenOnboarding: false,
+            homeLat: null,
+            homeLng: null,
+            officeLat: null,
+            officeLng: null,
           ),
           notificationService: fakeNotif,
         );
@@ -607,6 +694,12 @@ void main() {
             reminderTime: '07:45',
             weekendReminder: false,
             weeklyNotificationEnabled: false,
+            autoPauseEnabled: false,
+            hasSeenOnboarding: false,
+            homeLat: null,
+            homeLng: null,
+            officeLat: null,
+            officeLng: null,
           ),
           notificationService: fakeNotif,
         );

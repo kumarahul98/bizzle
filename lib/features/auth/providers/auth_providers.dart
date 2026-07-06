@@ -92,6 +92,7 @@ final Provider<AuthService> authServiceProvider = Provider<AuthService>(
     secureStorage: ref.watch(secureStorageProvider),
     tripsDao: ref.watch(tripsDaoProvider),
     prefsDao: ref.watch(userPreferencesDaoProvider),
+    syncQueueDao: ref.watch(syncQueueDaoProvider),
     db: ref.watch(appDatabaseProvider),
   ),
   name: 'authServiceProvider',
@@ -158,8 +159,25 @@ class AuthStateNotifier extends Notifier<AuthState> {
 
   void _attach() {
     final auth = ref.read(firebaseAuthProvider);
+
+    // Safety timeout: if Firebase authStateChanges() does not emit within
+    // 5 seconds (e.g. first launch on a slow network, token-refresh timeout,
+    // or a silent Firebase SDK hang), degrade to AuthGuest so the user is
+    // never trapped on the splash screen indefinitely. The timer is cancelled
+    // on the first stream emission to avoid a spurious state flip.
+    final timeoutTimer = Timer(const Duration(seconds: 5), () {
+      if (state is AuthLoading) {
+        unawaited(_authSub?.cancel());
+        _authSub = null;
+        state = const AuthGuest();
+      }
+    });
+    ref.onDispose(timeoutTimer.cancel);
+
     _authSub = auth.authStateChanges().listen(
       (user) {
+        // Cancel the timeout — stream emitted before the 5-second deadline.
+        timeoutTimer.cancel();
         if (user == null) {
           state = const AuthGuest();
         } else {
@@ -177,6 +195,7 @@ class AuthStateNotifier extends Notifier<AuthState> {
         // WR-03 analog: the Firebase auth stream errored. Do NOT forward
         // error.toString() — it may contain PII (uid, email). Degrade to
         // AuthGuest so the app remains usable without sign-in.
+        timeoutTimer.cancel();
         unawaited(_authSub?.cancel());
         _authSub = null;
         state = const AuthGuest();

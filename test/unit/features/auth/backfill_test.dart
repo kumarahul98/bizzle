@@ -221,13 +221,18 @@ void main() {
           reminderTime: null,
           weekendReminder: false,
           weeklyNotificationEnabled: false,
+          autoPauseEnabled: false,
+          hasSeenOnboarding: false,
+          homeLat: null,
+          homeLng: null,
+          officeLat: null,
+          officeLng: null,
         );
         await db.userPreferencesDao.upsert(prefs);
 
         // Act: backfill the preferences row
         const firebaseUid = 'firebase-uid-prefs';
-        final changed =
-            await db.userPreferencesDao.backfillUserId(firebaseUid);
+        final changed = await db.userPreferencesDao.backfillUserId(firebaseUid);
 
         // Assert: 1 row updated
         expect(changed, 1);
@@ -251,6 +256,12 @@ void main() {
           reminderTime: null,
           weekendReminder: false,
           weeklyNotificationEnabled: false,
+          autoPauseEnabled: false,
+          hasSeenOnboarding: false,
+          homeLat: null,
+          homeLng: null,
+          officeLat: null,
+          officeLng: null,
         );
         await db.userPreferencesDao.upsert(prefs);
         await db.userPreferencesDao.backfillUserId('uid-first');
@@ -270,8 +281,7 @@ void main() {
         // (D-04: first-launch state, row absent until user changes a setting.)
 
         // Act
-        final changed =
-            await db.userPreferencesDao.backfillUserId('uid-norow');
+        final changed = await db.userPreferencesDao.backfillUserId('uid-norow');
 
         // Assert: nothing to update
         expect(changed, 0);
@@ -317,6 +327,12 @@ void main() {
           reminderTime: null,
           weekendReminder: false,
           weeklyNotificationEnabled: false,
+          autoPauseEnabled: false,
+          hasSeenOnboarding: false,
+          homeLat: null,
+          homeLng: null,
+          officeLat: null,
+          officeLng: null,
         );
         await db.userPreferencesDao.upsert(prefs);
 

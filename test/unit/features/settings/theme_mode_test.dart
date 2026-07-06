@@ -62,6 +62,16 @@ Future<ThemeMode?> _resolvedThemeMode(
               reminderTime: null,
               weekendReminder: false,
               weeklyNotificationEnabled: false,
+              autoPauseEnabled: false,
+              // Phase 20: emit a returning-user value so the root gate routes
+              // AuthGuest → MainShell (not the first-run LoginScreen). This
+              // test asserts only the resolved themeMode; the gate itself is
+              // covered by test/widget/app_gate_test.dart.
+              hasSeenOnboarding: true,
+              homeLat: null,
+              homeLng: null,
+              officeLat: null,
+              officeLng: null,
             ),
           ),
         ),

@@ -20,8 +20,7 @@ class UserPreferences extends Table {
 
   /// Owning user. Defaults to `kDefaultUserId`; Phase 8 replaces this
   /// with the Cognito sub.
-  TextColumn get userId =>
-      text().withDefault(const Constant(kDefaultUserId))();
+  TextColumn get userId => text().withDefault(const Constant(kDefaultUserId))();
 
   /// `'system'`, `'light'`, or `'dark'`. Default: `kDarkModeSystem`.
   TextColumn get darkMode =>
@@ -54,6 +53,47 @@ class UserPreferences extends Table {
   /// Added by schema migration v1 → v2 (D-07, D-13).
   BoolColumn get weeklyNotificationEnabled =>
       boolean().withDefault(const Constant(false))();
+
+  /// True if the user has opted into auto-pause (Phase 18, D-10).
+  ///
+  /// Off by default so auto-pause is strictly opt-in: existing users see
+  /// no behaviour change until they enable it. Added by schema migration
+  /// v2 → v3; `withDefault(const Constant(false))` gives every existing
+  /// row false automatically.
+  BoolColumn get autoPauseEnabled =>
+      boolean().withDefault(const Constant(false))();
+
+  /// True once the user has cleared the first-run login wall (Phase 20,
+  /// D-01/D-02). Drives the root gate in `lib/app.dart`: while false a guest
+  /// sees the `LoginScreen`; after Skip or a successful Google sign-in it
+  /// flips true and the gate routes to the main shell.
+  ///
+  /// Default false. Added by schema migration v4 → v5; the migration's
+  /// returning-user guard (D-02) flips the EXISTING single row to true so a
+  /// pre-update install is NEVER walled — the login screen is first-INSTALL
+  /// only. Fresh installs run `onCreate` (no row) → `getOrDefault()` returns
+  /// false → the wall shows exactly once.
+  BoolColumn get hasSeenOnboarding =>
+      boolean().withDefault(const Constant(false))();
+
+  /// Saved Home latitude (Phase 21, D-01). Null = not set; single-row table.
+  ///
+  /// PII-adjacent — this coordinate reveals where the user lives. NEVER log it
+  /// (T-21-03). Stored locally in Drift only; no sync field carries it.
+  /// Added by schema migration v5 → v6 (additive); existing rows read null.
+  RealColumn get homeLat => real().nullable()();
+
+  /// Saved Home longitude (Phase 21, D-01). Null = not set. PII-adjacent —
+  /// NEVER log (T-21-03). Added by schema migration v5 → v6 (additive).
+  RealColumn get homeLng => real().nullable()();
+
+  /// Saved Office latitude (Phase 21, D-01). Null = not set. PII-adjacent —
+  /// NEVER log (T-21-03). Added by schema migration v5 → v6 (additive).
+  RealColumn get officeLat => real().nullable()();
+
+  /// Saved Office longitude (Phase 21, D-01). Null = not set. PII-adjacent —
+  /// NEVER log (T-21-03). Added by schema migration v5 → v6 (additive).
+  RealColumn get officeLng => real().nullable()();
 
   @override
   Set<Column<Object>> get primaryKey => {id};

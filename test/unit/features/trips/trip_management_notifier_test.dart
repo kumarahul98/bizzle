@@ -69,13 +69,11 @@ void main() {
               endTimeUtc: end,
             );
 
-        final summaries =
-            await db.tripsDao.watchAllSummaries().first;
+        final summaries = await db.tripsDao.watchAllSummaries().first;
         expect(summaries, hasLength(1));
         expect(summaries.single.direction, kDirectionToHome);
 
-        final pending =
-            await db.syncQueueDao.watchPending().first;
+        final pending = await db.syncQueueDao.watchPending().first;
         expect(pending, hasLength(1));
         expect(pending.single.action, kSyncActionUpdate);
         expect(pending.single.tripId, id);
@@ -87,16 +85,12 @@ void main() {
       () async {
         final id = await insertTestTrip();
 
-        await container
-            .read(tripManagementProvider.notifier)
-            .deleteTrip(id);
+        await container.read(tripManagementProvider.notifier).deleteTrip(id);
 
-        final summaries =
-            await db.tripsDao.watchAllSummaries().first;
+        final summaries = await db.tripsDao.watchAllSummaries().first;
         expect(summaries, isEmpty);
 
-        final pending =
-            await db.syncQueueDao.watchPending().first;
+        final pending = await db.syncQueueDao.watchPending().first;
         expect(pending, hasLength(1));
         expect(pending.single.action, kSyncActionDelete);
         expect(pending.single.tripId, id);
@@ -141,9 +135,7 @@ void main() {
           isA<TripManagementIdle>(),
         );
 
-        await container
-            .read(tripManagementProvider.notifier)
-            .deleteTrip(id);
+        await container.read(tripManagementProvider.notifier).deleteTrip(id);
 
         expect(
           container.read(tripManagementProvider),

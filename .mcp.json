@@ -1,14 +1,3 @@
 {
-  "mcpServers": {
-    "awslabs.aws-serverless-mcp": {
-      "command": "uvx",
-      "args": [
-        "awslabs.aws-serverless-mcp-server@latest"
-      ],
-      "env": {
-        "AWS_REGION": "ap-south-1",
-        "FASTMCP_LOG_LEVEL": "ERROR"
-      }
-    }
-  }
+  "mcpServers": {}
 }

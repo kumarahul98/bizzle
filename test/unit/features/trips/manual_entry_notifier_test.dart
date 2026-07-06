@@ -76,8 +76,7 @@ void main() {
               direction: 'to_office',
             );
 
-        final summaries =
-            await db.tripsDao.watchAllSummaries().first;
+        final summaries = await db.tripsDao.watchAllSummaries().first;
         expect(summaries, hasLength(1));
         expect(summaries.single.isManualEntry, isTrue);
         expect(summaries.single.distanceMeters, 0.0);
@@ -110,8 +109,7 @@ void main() {
               direction: 'to_office',
             );
 
-        final summaries =
-            await db.tripsDao.watchAllSummaries().first;
+        final summaries = await db.tripsDao.watchAllSummaries().first;
         // Verify epoch milliseconds match — proves the UTC midnight
         // value was stored correctly regardless of the .isUtc flag.
         expect(

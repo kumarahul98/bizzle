@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:traevy/database/daos/sync_queue_dao.dart';
+import 'package:traevy/database/daos/trip_breaks_dao.dart';
 import 'package:traevy/database/daos/trips_dao.dart';
 import 'package:traevy/database/daos/user_preferences_dao.dart';
 import 'package:traevy/database/database.dart';
@@ -59,6 +60,12 @@ final Provider<SyncQueueDao> syncQueueDaoProvider = Provider<SyncQueueDao>(
 /// `UserPreferencesDao` sourced from the keepAlive'd `appDatabaseProvider`.
 final Provider<UserPreferencesDao> userPreferencesDaoProvider =
     Provider<UserPreferencesDao>(
-  (ref) => ref.watch(appDatabaseProvider).userPreferencesDao,
-  name: 'userPreferencesDaoProvider',
+      (ref) => ref.watch(appDatabaseProvider).userPreferencesDao,
+      name: 'userPreferencesDaoProvider',
+    );
+
+/// `TripBreaksDao` sourced from the keepAlive'd `appDatabaseProvider`.
+final Provider<TripBreaksDao> tripBreaksDaoProvider = Provider<TripBreaksDao>(
+  (ref) => ref.watch(appDatabaseProvider).tripBreaksDao,
+  name: 'tripBreaksDaoProvider',
 );

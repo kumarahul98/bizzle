@@ -59,6 +59,6 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
 /// [SyncStatus]. Plans 02 and 03 both bind to this exact provider.
 final NotifierProvider<SyncStatusNotifier, SyncStatus> syncStatusProvider =
     NotifierProvider<SyncStatusNotifier, SyncStatus>(
-  SyncStatusNotifier.new,
-  name: 'syncStatusProvider',
-);
+      SyncStatusNotifier.new,
+      name: 'syncStatusProvider',
+    );

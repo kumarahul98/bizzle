@@ -60,8 +60,56 @@ import 'package:traevy/config/constants.dart';
 import 'package:traevy/features/auth/providers/auth_providers.dart';
 import 'package:traevy/features/tracking/services/tracking_notification_service.dart';
 import 'package:traevy/features/tracking/services/tracking_service.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
+import 'package:home_widget/home_widget.dart';
 import 'package:traevy/firebase_options.dart';
 import 'package:traevy/notifications/notification_service.dart';
+import 'package:traevy/features/tracking/providers/tracking_providers.dart';
+
+@pragma('vm:entry-point')
+Future<void> backgroundCallback(Uri? uri) async {
+  WidgetsFlutterBinding.ensureInitialized();
+  print('=== BACKGROUND CALLBACK FIRED: $uri ===');
+  if (uri?.host == 'toggletracking') {
+    final container = ProviderContainer();
+    try {
+      final service = FlutterBackgroundService();
+      final isRunning = await service.isRunning();
+      print('=== SERVICE IS RUNNING: $isRunning ===');
+      if (isRunning) {
+        await HomeWidget.saveWidgetData<String>('widget_title', 'Stopping...');
+        await HomeWidget.updateWidget(
+          name: 'CommuteWidgetProvider',
+          androidName: 'CommuteWidgetProvider',
+        );
+        await container.read(trackingServiceControllerProvider).stop();
+      } else {
+        await HomeWidget.saveWidgetData<String>('widget_title', 'Starting...');
+        await HomeWidget.updateWidget(
+          name: 'CommuteWidgetProvider',
+          androidName: 'CommuteWidgetProvider',
+        );
+        await container.read(trackingServiceControllerProvider).start();
+      }
+    } finally {
+      container.dispose();
+    }
+  }
+}
+
+// Helper: run [fn] with a [timeout]. If it exceeds the timeout or throws,
+// the error is swallowed so startup always proceeds to runApp.
+Future<void> _safeInit(
+  String label,
+  Future<void> Function() fn, {
+  Duration timeout = const Duration(seconds: 4),
+}) async {
+  try {
+    await fn().timeout(timeout);
+  } on Object {
+    // Swallow — platform-channel timeouts / errors must never block runApp.
+  }
+}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -87,79 +135,67 @@ Future<void> main() async {
     debugPrint('[main] bootstrap: tz.setLocalLocation failed, using UTC: $e');
   }
 
-  final sw = Stopwatch()..start();
-
-  debugPrint('[main] bootstrap: TrackingNotificationService.initialize start');
-  await TrackingNotificationService().initialize();
-  debugPrint(
-    '[main] bootstrap: TrackingNotificationService.initialize '
-    'done (+${sw.elapsedMilliseconds}ms)',
-  );
-  sw.reset();
-
-  debugPrint('[main] bootstrap: NotificationService.initialize start');
-  // Registers weekly summary + commute reminder channels.
-  await NotificationService().initialize();
-  debugPrint(
-    '[main] bootstrap: NotificationService.initialize '
-    'done (+${sw.elapsedMilliseconds}ms)',
-  );
-  sw.reset();
-
-  // configureBackgroundService is Android-only. Phase 14 replaced
-  // flutter_background_service with a main-isolate GPS engine on iOS
-  // (IosTrackingEngine), so the service is not started or configured on iOS.
-  // Calling FlutterBackgroundService().configure() unconditionally on iOS
-  // was the likely cause of the ~20s white-screen stall seen during Phase 15
-  // UAT on iPhone 13 / iOS 26.5.
-  if (Platform.isAndroid) {
-    debugPrint('[main] bootstrap: configureBackgroundService start');
-    await configureBackgroundService();
-    debugPrint(
-      '[main] bootstrap: configureBackgroundService '
-      'done (+${sw.elapsedMilliseconds}ms)',
-    );
-    sw.reset();
-  } else {
-    debugPrint('[main] bootstrap: configureBackgroundService SKIPPED (iOS)');
-  }
-
-  // D-15 degrade: wrap Firebase init in try/catch so the app starts as
-  // guest mode when google-services.json / firebase_options.dart is absent
-  // (Pitfall 5 — boot-time crash prevention). The flag is injected into the
-  // ProviderScope so AuthStateNotifier detects the degrade path and does NOT
-  // open an authStateChanges() subscription on the uninitialized Firebase SDK.
-  // Never block UI on getIdToken() here — offline-first contract.
-  debugPrint('[main] bootstrap: Firebase.initializeApp start');
+  // Each init below is wrapped in a timeout. On iOS, platform-channel calls
+  // made before runApp can silently deadlock in release mode (the
+  // FlutterLocalNotificationsPlugin and FlutterBackgroundService both open
+  // platform channels that the engine does not guarantee to service until
+  // runApp wires up the window). The timeout ensures runApp is always reached
+  // and the user sees real UI instead of a permanent white screen.
+  //
+  // The inits are independent of each other, so they run concurrently and
+  // the pre-runApp delay is bounded by the SLOWEST init instead of the sum
+  // of all of them. The one ordering constraint kept: the two notification
+  // services share the same underlying FlutterLocalNotificationsPlugin
+  // singleton, so their initialize() calls stay sequential within one branch.
+  //
+  // D-15 degrade (Firebase branch): wrapped in try/catch so the app starts
+  // as guest mode when google-services.json / firebase_options.dart is
+  // absent (Pitfall 5 — boot-time crash prevention). The flag is injected
+  // into the ProviderScope so AuthStateNotifier detects the degrade path and
+  // does NOT open an authStateChanges() subscription on the uninitialized
+  // Firebase SDK. Never block UI on getIdToken() here — offline-first
+  // contract.
   var firebaseReady = false;
-  try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-    debugPrint(
-      '[main] bootstrap: Firebase.initializeApp '
-      'done (+${sw.elapsedMilliseconds}ms)',
-    );
-    sw.reset();
-
-    debugPrint('[main] bootstrap: GoogleSignIn.initialize start');
-    await GoogleSignIn.instance
-        .initialize(serverClientId: kGoogleServerClientId);
-    debugPrint(
-      '[main] bootstrap: GoogleSignIn.initialize '
-      'done (+${sw.elapsedMilliseconds}ms)',
-    );
-    sw.reset();
-
-    firebaseReady = true;
-  } on Object catch (e) {
-    debugPrint(
-      '[main] bootstrap: Firebase init failed '
-      '(+${sw.elapsedMilliseconds}ms): $e',
-    );
-    sw.reset();
-    firebaseReady = false;
-  }
+  await Future.wait<void>([
+    _safeInit(
+      'NotificationServices',
+      () async {
+        await TrackingNotificationService().initialize();
+        await NotificationService().initialize();
+      },
+      timeout: const Duration(seconds: 8),
+    ),
+    _safeInit(
+      'HomeWidget',
+      () => HomeWidget.registerBackgroundCallback(backgroundCallback),
+    ),
+    // configureBackgroundService is Android-only. Phase 14 replaced
+    // flutter_background_service with a main-isolate GPS engine on iOS
+    // (IosTrackingEngine), so the service is not started or configured on
+    // iOS. Calling FlutterBackgroundService().configure() unconditionally on
+    // iOS was the likely cause of the ~20s white-screen stall seen during
+    // Phase 15 UAT on iPhone 13 / iOS 26.5.
+    if (Platform.isAndroid)
+      _safeInit(
+        'configureBackgroundService',
+        () => configureBackgroundService(),
+      ),
+    () async {
+      try {
+        await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform,
+        ).timeout(const Duration(seconds: 8));
+        await GoogleSignIn.instance
+            .initialize(
+              serverClientId: kGoogleServerClientId,
+            )
+            .timeout(const Duration(seconds: 4));
+        firebaseReady = true;
+      } on Object {
+        firebaseReady = false;
+      }
+    }(),
+  ]);
 
   debugPrint('[main] bootstrap: runApp');
   runApp(

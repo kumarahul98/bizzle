@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:traevy/config/theme.dart';
+import 'package:traevy/features/trips/widgets/estimated_hint.dart';
 
 /// Inner text column for TripRowCard: name+duration row and time+stuck row.
 ///
@@ -11,6 +12,7 @@ class TripRowInfo extends StatelessWidget {
     required this.durationLabel,
     required this.timeRange,
     required this.stuckMins,
+    this.isEdited = false,
     super.key,
   });
 
@@ -18,6 +20,10 @@ class TripRowInfo extends StatelessWidget {
   final String durationLabel;
   final String timeRange;
   final int stuckMins;
+
+  /// True for a fully-edited trip (Phase 19, D-04): renders the "~ estimated"
+  /// hint after the stuck figure. Defaults to false.
+  final bool isEdited;
 
   @override
   Widget build(BuildContext context) {
@@ -66,6 +72,10 @@ class TripRowInfo extends StatelessWidget {
                   color: tokens.stuck,
                 ),
               ),
+            if (isEdited) ...<Widget>[
+              const SizedBox(width: 6),
+              const EstimatedHint(),
+            ],
           ],
         ),
       ],

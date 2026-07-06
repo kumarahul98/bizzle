@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/database.dart';
+import 'package:traevy/database/providers.dart';
 import 'package:traevy/features/tracking/providers/tracking_providers.dart';
 import 'package:traevy/features/tracking/services/tracking_event_source.dart';
 import 'package:traevy/features/tracking/services/tracking_notification_service.dart';
@@ -63,10 +64,20 @@ class _FakeTrackingEventSource implements TrackingEventSource {
       const Stream<Map<String, dynamic>?>.empty();
 
   @override
-  Future<bool> start() async => true;
+  Stream<Map<String, dynamic>?> get onAutoPausePrompt =>
+      const Stream<Map<String, dynamic>?>.empty();
+
+  @override
+  Future<bool> start({Map<String, dynamic>? initialAccumulatorState}) async => true;
 
   @override
   Future<void> stop() async {}
+
+  @override
+  Future<void> pause() async {}
+
+  @override
+  Future<void> resume() async {}
 }
 
 /// [TrackingServiceController] subclass whose `start` / `stop` methods
@@ -82,13 +93,14 @@ class _RecordingController extends TrackingServiceController {
     required super.syncQueueDao,
     required super.notifications,
     required super.userPreferencesDao,
+    required super.tripBreaksDao,
   });
 
   int startCalls = 0;
   int stopCalls = 0;
 
   @override
-  Future<bool> start() async {
+  Future<bool> start({Map<String, dynamic>? initialAccumulatorState}) async {
     startCalls += 1;
     return true;
   }
@@ -120,6 +132,7 @@ class _NoopNotifications implements TrackingNotificationService {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   group('TrackingNotifier.start() WR-02 guard', () {
     late AppDatabase db;
     late _RecordingController controller;
@@ -140,9 +153,11 @@ void main() {
         syncQueueDao: db.syncQueueDao,
         notifications: _NoopNotifications(),
         userPreferencesDao: db.userPreferencesDao,
+        tripBreaksDao: db.tripBreaksDao,
       );
       container = ProviderContainer(
         overrides: [
+          appDatabaseProvider.overrideWithValue(db),
           trackingEventSourceProvider.overrideWithValue(fakeSource),
           trackingServiceControllerProvider.overrideWithValue(controller),
           trackingStateProvider.overrideWith(_NoopNotifier.new),

@@ -86,9 +86,12 @@ void main() {
 
       expect(describe(const AuthLoading()), 'loading');
       expect(describe(const AuthGuest()), 'guest');
-      expect(describe(
-        const AuthSignedIn(uid: 'u', name: 'n', email: 'e'),
-      ), 'signedIn');
+      expect(
+        describe(
+          const AuthSignedIn(uid: 'u', name: 'n', email: 'e'),
+        ),
+        'signedIn',
+      );
     });
   });
 

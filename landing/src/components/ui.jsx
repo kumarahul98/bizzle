@@ -5,41 +5,64 @@ import React from 'react'
 import { useTheme } from '../theme.jsx'
 import { TOKENS, FONTS } from '../tokens.js'
 import { Icon } from './Phone.jsx'
+import logoWhiteUrl from '../assets/logo-white.svg'
+import logoBlackUrl from '../assets/logo-black.svg'
 
-// ── Brand mark: a route forming a peak (recreated from the Traevy logo) ──────
-// A dashed/dotted triangle in monochrome currentColor so it reads in both themes.
-function LogoMark({ size = 26, stroke }) {
-  const { t } = useTheme();
-  const col = stroke || t.text;
-  const p = [
-    [size * 0.5, size * 0.12],   // apex
-    [size * 0.9, size * 0.84],   // bottom-right
-    [size * 0.1, size * 0.84],   // bottom-left
-  ];
+// ── Brand mark: the Traevy logo (master SVGs, swapped per theme) ─────────────
+// logo-white.svg / logo-black.svg are exact copies of the source artwork
+// (same 1000x1000 canvas, paths, and — for the white version — glow filter),
+// just with the background rect stripped for transparency.
+function LogoMark({ size = 26 }) {
+  const { dark } = useTheme();
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} fill="none" aria-hidden="true">
-      {/* left edge */}
-      <line x1={p[2][0]} y1={p[2][1]} x2={p[0][0]} y2={p[0][1]}
-        stroke={col} strokeWidth="1.6" strokeLinecap="round" strokeDasharray="0.2 4.2"/>
-      {/* right edge */}
-      <line x1={p[0][0]} y1={p[0][1]} x2={p[1][0]} y2={p[1][1]}
-        stroke={col} strokeWidth="1.6" strokeLinecap="round" strokeDasharray="0.2 4.2"/>
-      {/* base — the road */}
-      <line x1={p[2][0]} y1={p[2][1]} x2={p[1][0]} y2={p[1][1]}
-        stroke={col} strokeWidth="1.6" strokeLinecap="round" strokeDasharray="0.2 3.4"/>
-      {/* node dots at the corners */}
-      {p.map((pt, i) => <circle key={i} cx={pt[0]} cy={pt[1]} r="1.5" fill={col}/>)}
-    </svg>
+    <img
+      src={dark ? logoWhiteUrl : logoBlackUrl}
+      width={size}
+      height={size}
+      alt="Traevy"
+      style={{ display: 'block', flexShrink: 0 }}
+    />
   );
 }
 
+// ── Wordmark: geometric monoline "TRAEVY" custom-drawn to match the brand ────
+// (crossbar-less A echoes the logo's peak; the disconnected-bar E echoes its
+// dashed route) — no standard typeface reproduces these letterforms.
+const WORD_GLYPH_HEIGHT = 100;
+const WORD_GLYPH_GAP = 26;
+const WORD_STROKE = 12;
+const WORD_TEXT = 'TRAEVY';
+const WORD_GLYPHS = {
+  T: { width: 68, paths: ['M4,6L64,6', 'M34,6L34,100'] },
+  R: { width: 62, paths: ['M8,0L8,100', 'M8,0L42,0Q58,0 58,25Q58,50 42,50L8,50', 'M28,50L58,100'] },
+  A: { width: 74, paths: ['M6,100L37,0L68,100'] },
+  E: { width: 58, paths: ['M4,6L54,6', 'M4,50L42,50', 'M4,94L54,94'] },
+  V: { width: 74, paths: ['M4,0L37,100L70,0'] },
+  Y: { width: 74, paths: ['M4,0L37,46L70,0', 'M37,46L37,100'] },
+};
+
 function Wordmark({ size = 17, color }) {
   const { t } = useTheme();
+  const col = color || t.text;
+  const glyphs = WORD_TEXT.split('').map((ch) => WORD_GLYPHS[ch]);
+  const totalWidth = glyphs.reduce((sum, g) => sum + g.width, 0) + WORD_GLYPH_GAP * (glyphs.length - 1);
+  const scale = size / WORD_GLYPH_HEIGHT;
+  let x = 0;
   return (
-    <span style={{
-      fontFamily: FONTS.ui, fontWeight: 500, fontSize: size,
-      letterSpacing: '0.34em', color: color || t.text, paddingLeft: '0.17em',
-    }}>TRAEVY</span>
+    <svg width={totalWidth * scale} height={size} viewBox={`0 0 ${totalWidth} ${WORD_GLYPH_HEIGHT}`}
+      role="img" aria-label="Traevy">
+      {glyphs.map((g, i) => {
+        const tx = x;
+        x += g.width + WORD_GLYPH_GAP;
+        return (
+          <g key={i} transform={`translate(${tx},0)`}>
+            {g.paths.map((d, j) => (
+              <path key={j} d={d} stroke={col} strokeWidth={WORD_STROKE} strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+            ))}
+          </g>
+        );
+      })}
+    </svg>
   );
 }
 
@@ -145,7 +168,7 @@ function AppleGlyph({ size = 17 }) {
 // ── Platform CTAs: install (Android) + join waitlist (iOS) ────────────────────
 function GetActions({ size = 'lg', center = false }) {
   const { t } = useTheme();
-  const [showWaitlist, setShowWaitlist] = React.useState(false);
+  const [showWaitlist, setShowWaitlist] = React.useState(null);
   const big = size === 'lg';
   return (
     <div className="get-actions" style={{ width: '100%' }}>
@@ -153,20 +176,27 @@ function GetActions({ size = 'lg', center = false }) {
         display: 'flex', gap: 12, flexWrap: 'wrap',
         justifyContent: center ? 'center' : 'flex-start',
       }}>
+        {/* WHEN_ANDROID_READY:
         <a href="#" className="ga-btn" style={{ textDecoration: 'none' }}>
           <Button variant="primary" size={big ? 'lg' : 'md'}>
             <AndroidGlyph size={19}/> Install for Android
           </Button>
         </a>
+        */}
+        <Button variant="primary" size={big ? 'lg' : 'md'}
+          onClick={() => setShowWaitlist((s) => s === 'android' ? null : 'android')}
+          style={showWaitlist === 'android' ? { borderColor: t.borderStr, background: t.surface } : undefined}>
+          <AndroidGlyph size={19}/> Join the Android waitlist
+        </Button>
         <Button variant="secondary" size={big ? 'lg' : 'md'}
-          onClick={() => setShowWaitlist((s) => !s)}
-          style={showWaitlist ? { borderColor: t.borderStr, background: t.surface } : undefined}>
+          onClick={() => setShowWaitlist((s) => s === 'ios' ? null : 'ios')}
+          style={showWaitlist === 'ios' ? { borderColor: t.borderStr, background: t.surface } : undefined}>
           <AppleGlyph size={16}/> Join the iOS waitlist
         </Button>
       </div>
       {showWaitlist ? (
         <div style={{ marginTop: 18, display: 'flex', justifyContent: center ? 'center' : 'flex-start' }}>
-          <WaitlistForm size={size} platform="iOS"/>
+          <WaitlistForm size={size} platform={showWaitlist === 'android' ? 'Android' : 'iOS'}/>
         </div>
       ) : (
         <div style={{
@@ -175,8 +205,11 @@ function GetActions({ size = 'lg', center = false }) {
           display: 'flex', gap: 7, alignItems: 'center',
           justifyContent: center ? 'center' : 'flex-start',
         }}>
+          {/* WHEN_ANDROID_READY:
           <Icon name="check" size={13} color={t.moving} strokeWidth={2.4}/>
           Free on Android · iOS coming soon
+          */}
+          Android & iOS coming soon
         </div>
       )}
     </div>
@@ -189,12 +222,34 @@ function WaitlistForm({ size = 'md', onJoined, platform = 'iOS' }) {
   const [email, setEmail] = React.useState('');
   const [state, setState] = React.useState('idle'); // idle | error | done
   const [focus, setFocus] = React.useState(false);
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
+    if (state === 'loading') return;
     const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
     if (!ok) { setState('error'); return; }
-    setState('done');
-    onJoined && onJoined();
+    
+    setState('loading');
+    try {
+      const res = await fetch('https://api.web3forms.com/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({
+          access_key: '9330643b-8d1b-42dd-a031-35efde72e799',
+          email: email.trim(),
+          platform: platform,
+          subject: `Traevy Waitlist Signup: ${platform}`
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setState('done');
+        onJoined && onJoined();
+      } else {
+        setState('error');
+      }
+    } catch (err) {
+      setState('error');
+    }
   };
   if (state === 'done') {
     return (
@@ -238,7 +293,9 @@ function WaitlistForm({ size = 'md', onJoined, platform = 'iOS' }) {
           }}
         />
         <Button variant="primary" size={big ? 'lg' : 'md'} style={{ borderRadius: 11 }}>
-          <AppleGlyph size={15}/> Notify me
+          {state === 'loading' ? 'Joining...' : (
+            <>{platform === 'Android' ? <AndroidGlyph size={16}/> : <AppleGlyph size={15}/>} Notify me</>
+          )}
         </Button>
       </div>
       <div style={{

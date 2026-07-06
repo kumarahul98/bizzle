@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/features/tracking/state/finalized_trip.dart';
+import 'package:traevy/features/tracking/services/trip_state_persister.dart';
 import 'package:traevy/shared/utils/polyline_codec.dart';
 import 'package:uuid/uuid.dart';
 
@@ -21,6 +24,9 @@ class TripSnapshot {
     required this.timeMovingSeconds,
     required this.timeStuckSeconds,
     required this.currentSpeedMs,
+    this.isPaused = false,
+    this.pausedSeconds = 0,
+    this.breakCount = 0,
   });
 
   /// Rebuild a [TripSnapshot] from its [toMap] form.
@@ -35,6 +41,11 @@ class TripSnapshot {
       timeMovingSeconds: _req<int>(map, 'timeMovingSeconds'),
       timeStuckSeconds: _req<int>(map, 'timeStuckSeconds'),
       currentSpeedMs: _req<num>(map, 'currentSpeedMs').toDouble(),
+      // Phase 18 (D-06): pause fields are backward-tolerant — a pre-Phase-18
+      // snapshot map omits these keys and decodes to the running defaults.
+      isPaused: map['isPaused'] as bool? ?? false,
+      pausedSeconds: map['pausedSeconds'] as int? ?? 0,
+      breakCount: map['breakCount'] as int? ?? 0,
     );
   }
 
@@ -57,6 +68,18 @@ class TripSnapshot {
   /// if no sample has been accepted yet.
   final double currentSpeedMs;
 
+  /// Whether the trip is currently paused (Phase 18, D-06). While paused the
+  /// UI freezes the timer and shows a "paused" affordance (Plan 18-03).
+  final bool isPaused;
+
+  /// Total seconds spent paused so far, including the currently-open break
+  /// span while [isPaused] (Phase 18, D-06).
+  final int pausedSeconds;
+
+  /// Number of break segments so far, counting the currently-open break
+  /// while [isPaused] (Phase 18, D-06).
+  final int breakCount;
+
   /// Serialize to a primitive-only map safe for the isolate channel.
   Map<String, Object?> toMap() {
     return <String, Object?>{
@@ -66,6 +89,9 @@ class TripSnapshot {
       'timeMovingSeconds': timeMovingSeconds,
       'timeStuckSeconds': timeStuckSeconds,
       'currentSpeedMs': currentSpeedMs,
+      'isPaused': isPaused,
+      'pausedSeconds': pausedSeconds,
+      'breakCount': breakCount,
     };
   }
 }
@@ -91,7 +117,9 @@ class TripSnapshot {
 ///   Pitfall 2 — never bring the km/h constant into this file.
 /// * **D-04**: distance is summed via `Geolocator.distanceBetween` on each
 ///   accepted sample pair.
-/// * **D-06**: samples live in memory only. No incremental persistence.
+/// * **D-06 (amended by Phase 25)**: samples live in memory; the full state
+///   is additionally snapshotted to disk for interrupted-trip recovery,
+///   throttled to one write per [kTripStatePersistMinInterval].
 /// * **Pitfall 6**: samples with accuracy worse than
 ///   [kTrackingMaxAcceptableAccuracyMeters] are dropped. Intervals longer
 ///   than [kTrackingMaxAttributableGapSeconds] still contribute distance
@@ -110,7 +138,127 @@ class TripSnapshot {
 class TripAccumulator {
   /// Create an accumulator for a new trip. [startedAt] should be the
   /// wall-clock UTC instant the Start button was tapped.
-  TripAccumulator({required this.startedAt}) : _tripId = const Uuid().v4();
+  TripAccumulator({
+    required this.startedAt,
+    String? tripId,
+    TripStatePersister? persister,
+  }) : _tripId = tripId ?? const Uuid().v4(),
+       _persister = persister;
+
+  final TripStatePersister? _persister;
+
+  /// Restore an accumulator from a previously saved state.
+  factory TripAccumulator.restore(
+    Map<String, dynamic> state, {
+    TripStatePersister? persister,
+  }) {
+    final acc = TripAccumulator(
+      startedAt: DateTime.fromMicrosecondsSinceEpoch(
+        state['startedAtUs'] as int,
+        isUtc: true,
+      ),
+      tripId: state['_tripId'] as String,
+      persister: persister,
+    );
+    if (state['_lastAccepted'] != null) {
+      acc._lastAccepted = Position.fromMap(
+        Map<String, dynamic>.from(state['_lastAccepted'] as Map),
+      );
+    }
+    if (state['_lastAcceptedAtUs'] != null) {
+      acc._lastAcceptedAt = DateTime.fromMicrosecondsSinceEpoch(
+        state['_lastAcceptedAtUs'] as int,
+        isUtc: true,
+      );
+    }
+    acc._distanceMeters = (state['_distanceMeters'] as num).toDouble();
+    acc._timeMovingSeconds = state['_timeMovingSeconds'] as int;
+    acc._timeStuckSeconds = state['_timeStuckSeconds'] as int;
+
+    final samples = state['_samples'] as List;
+    acc._samples.addAll(
+      samples.map((s) => Position.fromMap(Map<String, dynamic>.from(s as Map))),
+    );
+
+    acc._finalized = state['_finalized'] as bool;
+    acc._isPaused = state['_isPaused'] as bool;
+    if (state['_currentPauseStartUs'] != null) {
+      acc._currentPauseStart = DateTime.fromMicrosecondsSinceEpoch(
+        state['_currentPauseStartUs'] as int,
+        isUtc: true,
+      );
+    }
+    acc._accumulatedPausedSeconds = state['_accumulatedPausedSeconds'] as int;
+
+    final breaks = state['_breaks'] as List;
+    acc._breaks.addAll(
+      breaks.map((b) {
+        final map = b as Map;
+        return (
+          DateTime.fromMicrosecondsSinceEpoch(
+            map['startUs'] as int,
+            isUtc: true,
+          ),
+          DateTime.fromMicrosecondsSinceEpoch(map['endUs'] as int, isUtc: true),
+        );
+      }),
+    );
+
+    return acc;
+  }
+
+  /// Dump the internal state to a JSON-serializable map.
+  Map<String, dynamic> dumpState() {
+    return {
+      'startedAtUs': startedAt.toUtc().microsecondsSinceEpoch,
+      '_tripId': _tripId,
+      '_lastAccepted': _lastAccepted?.toJson(),
+      '_lastAcceptedAtUs': _lastAcceptedAt?.toUtc().microsecondsSinceEpoch,
+      '_distanceMeters': _distanceMeters,
+      '_timeMovingSeconds': _timeMovingSeconds,
+      '_timeStuckSeconds': _timeStuckSeconds,
+      '_samples': _samples.map((p) => p.toJson()).toList(),
+      '_finalized': _finalized,
+      '_isPaused': _isPaused,
+      '_currentPauseStartUs': _currentPauseStart
+          ?.toUtc()
+          .microsecondsSinceEpoch,
+      '_accumulatedPausedSeconds': _accumulatedPausedSeconds,
+      '_breaks': _breaks
+          .map(
+            (b) => {
+              'startUs': b.$1.toUtc().microsecondsSinceEpoch,
+              'endUs': b.$2.toUtc().microsecondsSinceEpoch,
+            },
+          )
+          .toList(),
+    };
+  }
+
+  // Wall-clock instant of the last persisted snapshot (throttle bookkeeping
+  // only — never part of dumpState/restore).
+  DateTime? _lastPersistAt;
+
+  /// Persist the current state for interrupted-trip recovery (Phase 25).
+  ///
+  /// Hot-path saves (one per accepted GPS sample, ~3 s apart) are throttled
+  /// to one write per [kTripStatePersistMinInterval] because every save
+  /// re-serializes the FULL sample list. [force] bypasses the throttle for
+  /// state transitions (pause/resume) that a recovered trip must never see
+  /// stale.
+  void _persistState({bool force = false}) {
+    final persister = _persister;
+    if (persister == null) return;
+    final now = DateTime.now();
+    if (!force &&
+        _lastPersistAt != null &&
+        now.difference(_lastPersistAt!) < kTripStatePersistMinInterval) {
+      return;
+    }
+    _lastPersistAt = now;
+    // Fire-and-forget: recovery persistence must never block sample intake.
+    unawaited(persister.saveState(dumpState()));
+  }
 
   /// UTC instant the trip started.
   final DateTime startedAt;
@@ -130,20 +278,42 @@ class TripAccumulator {
   final List<Position> _samples = <Position>[];
   bool _finalized = false;
 
+  // Phase 18 pause model (D-05/D-06/D-07).
+  bool _isPaused = false;
+  // UTC instant of the currently-open break's pause, or null while running.
+  DateTime? _currentPauseStart;
+  // Seconds accumulated from already-closed break segments.
+  int _accumulatedPausedSeconds = 0;
+  // Completed (pauseStart, resumeEnd) break segments, both UTC.
+  final List<(DateTime start, DateTime end)> _breaks = <(DateTime, DateTime)>[];
+
   /// Add one GPS fix. Safe to call many times per second. Samples with
   /// accuracy worse than [kTrackingMaxAcceptableAccuracyMeters] are
   /// silently dropped. After [finalize] has been called, further calls
   /// are no-ops.
-  void addSample(Position p) {
-    if (_finalized) return;
-    if (p.accuracy > kTrackingMaxAcceptableAccuracyMeters) return;
+  ///
+  /// Returns the interval's classification for the prev → curr pair when this
+  /// sample ATTRIBUTED time — `(stuck: prev.speed < kStuckSpeedThresholdMs,
+  /// seconds: rounded interval)` — or `null` when no time was attributed (the
+  /// sample was dropped on the accuracy gate, was the first sample, had a
+  /// zero/negative delta, arrived while paused, or the gap exceeded
+  /// [kTrackingMaxAttributableGapSeconds]). The internal moving/stuck/distance
+  /// counters remain authoritative; the return value is purely informational so
+  /// the service isolate can feed the SAME classification into the
+  /// `AutoPauseDetector` without re-deriving speed or introducing a second
+  /// threshold (Phase 18 Plan 04, D-11). Existing callers may ignore the return
+  /// — `void`-style `accumulator.addSample(p);` is still valid.
+  ({bool stuck, int seconds})? addSample(Position p) {
+    if (_finalized) return null;
+    if (p.accuracy > kTrackingMaxAcceptableAccuracyMeters) return null;
 
     final prev = _lastAccepted;
     if (prev == null) {
       _lastAccepted = p;
       _lastAcceptedAt = p.timestamp;
       _samples.add(p);
-      return;
+      _persistState();
+      return null;
     }
 
     final deltaMillis = p.timestamp.difference(prev.timestamp).inMilliseconds;
@@ -154,7 +324,23 @@ class TripAccumulator {
       _samples.add(p);
       _lastAccepted = p;
       _lastAcceptedAt = p.timestamp;
-      return;
+      _persistState();
+      return null;
+    }
+
+    // Phase 18 (D-05): while paused, keep the sample in the polyline so the
+    // path bridges the gap (last-pre-pause → first-post-resume draws one
+    // straight line) but attribute NO distance and NO moving/stuck time. We
+    // advance _lastAccepted to this sample so the first post-resume interval
+    // bridges from here — but the paused interval itself contributes nothing
+    // to _distanceMeters/_timeMovingSeconds/_timeStuckSeconds (T-18-04: paused
+    // time must never leak into the stuck/moving metric or distance).
+    if (_isPaused) {
+      _samples.add(p);
+      _lastAccepted = p;
+      _lastAcceptedAt = p.timestamp;
+      _persistState();
+      return null;
     }
     final deltaSec = deltaMillis / 1000.0;
 
@@ -172,6 +358,7 @@ class TripAccumulator {
     // kTrackingMaxAttributableGapSeconds don't move the moving/stuck
     // buckets, because we have no evidence the user was actually
     // moving during the black hole (tunnel, GPS dropout, suspend).
+    ({bool stuck, int seconds})? interval;
     if (deltaSec <= kTrackingMaxAttributableGapSeconds) {
       final deltaSecInt = deltaSec.round();
       // D-03: prev.speed classifies the prev → curr INTERVAL.
@@ -179,16 +366,55 @@ class TripAccumulator {
       // constants.dart so the comparison is unit-correct against the
       // m/s value from geolocator with zero per-sample conversion
       // overhead (Pitfall 2).
-      if (prev.speed >= kStuckSpeedThresholdMs) {
-        _timeMovingSeconds += deltaSecInt;
-      } else {
+      final stuck = prev.speed < kStuckSpeedThresholdMs;
+      if (stuck) {
         _timeStuckSeconds += deltaSecInt;
+      } else {
+        _timeMovingSeconds += deltaSecInt;
       }
+      // Phase 18 (D-11): hand the service isolate the SAME classification the
+      // counters above used — never a second speed comparison.
+      interval = (stuck: stuck, seconds: deltaSecInt);
     }
 
     _lastAccepted = p;
     _lastAcceptedAt = p.timestamp;
     _samples.add(p);
+    _persistState();
+    return interval;
+  }
+
+  /// Begin a break at [at] (UTC). Idempotent: a `pause` while already paused
+  /// is a no-op, so the open break stays anchored at the FIRST pause instant.
+  /// A `pause` after [finalize] is a no-op (Phase 18, D-05).
+  void pause(DateTime at) {
+    if (_finalized || _isPaused) return;
+    _isPaused = true;
+    _currentPauseStart = at.toUtc();
+    _persistState(force: true);
+  }
+
+  /// End the current break at [at] (UTC): record the `(start, end)` segment
+  /// and fold its whole-second span into the accumulated paused total. A
+  /// `resume` while not paused — or after [finalize] — is a no-op
+  /// (Phase 18, D-05).
+  void resume(DateTime at) {
+    if (_finalized || !_isPaused) return;
+    final pauseStart = _currentPauseStart!;
+    final end = at.toUtc();
+    _breaks.add((pauseStart, end));
+    _accumulatedPausedSeconds += end.difference(pauseStart).inSeconds;
+    _isPaused = false;
+    _currentPauseStart = null;
+    _persistState(force: true);
+  }
+
+  /// Total paused seconds as of [now], including the currently-open break
+  /// span while paused (Phase 18, D-06).
+  int _pausedSecondsAt(DateTime now) {
+    if (!_isPaused) return _accumulatedPausedSeconds;
+    return _accumulatedPausedSeconds +
+        now.toUtc().difference(_currentPauseStart!).inSeconds;
   }
 
   /// Project the current accumulator state into a [TripSnapshot] for
@@ -203,15 +429,31 @@ class TripAccumulator {
   /// `.planning/debug/active-speed-tile-stale.md`.
   TripSnapshot snapshot(DateTime now) {
     final lastAt = _lastAcceptedAt;
-    final isFresh = lastAt != null &&
+    final isFresh =
+        lastAt != null &&
         now.difference(lastAt) <= kTrackingSpeedFreshnessWindow;
+    // D-06: the displayed timer freezes the instant pause fires. While paused
+    // we measure elapsed up to the pause instant (not `now`), and we always
+    // subtract the accumulated paused time so the active timer resumes
+    // ticking from where it stopped after resume.
+    final refNow = _isPaused ? (_currentPauseStart ?? now) : now;
+    // D-06: subtract only the CLOSED paused segments here. The currently-open
+    // break is already excluded by freezing `refNow` at the pause instant —
+    // adding the open span again would double-count and drive elapsed
+    // negative. After resume, `refNow == now` and the just-closed span lives
+    // in `_accumulatedPausedSeconds`, so the active timer continues smoothly.
+    final elapsedSeconds =
+        refNow.difference(startedAt).inSeconds - _accumulatedPausedSeconds;
     return TripSnapshot(
       startedAt: startedAt,
-      elapsedSeconds: now.difference(startedAt).inSeconds,
+      elapsedSeconds: elapsedSeconds,
       distanceMeters: _distanceMeters,
       timeMovingSeconds: _timeMovingSeconds,
       timeStuckSeconds: _timeStuckSeconds,
       currentSpeedMs: isFresh ? (_lastAccepted?.speed ?? 0) : 0,
+      isPaused: _isPaused,
+      pausedSeconds: _pausedSecondsAt(now),
+      breakCount: _breaks.length + (_isPaused ? 1 : 0),
     );
   }
 
@@ -220,22 +462,56 @@ class TripAccumulator {
   /// output is safe to send across the service → UI isolate boundary.
   FinalizedTrip finalize(DateTime endedAt) {
     _finalized = true;
+    final end = endedAt.toUtc();
+    // D-07: a Stop while paused closes the open break at the stop instant so
+    // the persisted trip never carries an open segment.
+    if (_isPaused) {
+      final pauseStart = _currentPauseStart!;
+      _breaks.add((pauseStart, end));
+      _accumulatedPausedSeconds += end.difference(pauseStart).inSeconds;
+      _isPaused = false;
+      _currentPauseStart = null;
+    }
+    final totalPaused = _accumulatedPausedSeconds;
     final encoded = encodePolyline(
       _samples
           .map((p) => (lat: p.latitude, lng: p.longitude))
           .toList(growable: false),
     );
+    // D-07: serialize break segments as primitive UTC-microsecond maps so the
+    // list crosses the service → UI isolate boundary with no DateTime/object
+    // (T-18-05). timeMoving/timeStuck already exclude paused intervals — they
+    // were never attributed while paused (D-05).
+    final breakMaps = _breaks
+        .map(
+          (b) => <String, Object?>{
+            'startUs': b.$1.toUtc().microsecondsSinceEpoch,
+            'endUs': b.$2.toUtc().microsecondsSinceEpoch,
+          },
+        )
+        .toList(growable: false);
+
+    _persister?.clear();
+
     return FinalizedTrip(
       id: _tripId,
       startTime: startedAt.toUtc(),
-      endTime: endedAt.toUtc(),
-      durationSeconds: endedAt.difference(startedAt).inSeconds,
+      endTime: end,
+      // D-03/D-07: ACTIVE duration = wall-clock − total paused.
+      durationSeconds: end.difference(startedAt).inSeconds - totalPaused,
       distanceMeters: _distanceMeters,
       timeMovingSeconds: _timeMovingSeconds,
       timeStuckSeconds: _timeStuckSeconds,
       encodedPolyline: encoded,
+      totalPausedSeconds: totalPaused,
+      breaks: breakMaps,
     );
   }
+
+  /// Whether a break is currently open (Phase 18). Public so the service
+  /// isolate can gate the auto-pause prompt on `!isPaused` — a prompt must
+  /// never fire while the trip is already paused (Plan 04, D-12).
+  bool get isPaused => _isPaused;
 
   /// For testing: current distance accumulator in meters.
   @visibleForTesting
@@ -248,6 +524,14 @@ class TripAccumulator {
   /// For testing: current stuck-seconds accumulator.
   @visibleForTesting
   int get timeStuckSecondsForTest => _timeStuckSeconds;
+
+  /// For testing: whether a break is currently open.
+  @visibleForTesting
+  bool get isPausedForTest => _isPaused;
+
+  /// For testing: paused seconds from already-closed segments only.
+  @visibleForTesting
+  int get accumulatedPausedSecondsForTest => _accumulatedPausedSeconds;
 }
 
 /// Typed required-key lookup helper used by [TripSnapshot.fromMap] to

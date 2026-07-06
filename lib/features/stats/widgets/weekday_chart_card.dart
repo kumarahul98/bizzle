@@ -7,6 +7,7 @@ import 'package:traevy/features/stats/widgets/stats_card.dart';
 
 const double _kChartHeight = 120;
 const double _kBarWidth = 16;
+
 /// Mon-Fri bar chart showing average commute duration per weekday.
 ///
 /// Data source: statsSummaryProvider — uses weekdayAverages (list of nullable

@@ -136,6 +136,16 @@ class TrackingNotificationService {
                 DarwinNotificationActionOption.foreground,
               },
             ),
+            // Phase 18 (Plan 04, D-12): the auto-pause prompt's Pause action.
+            // Additive on iOS — Android-first; the same category serves the
+            // prompt notification so the action id is recognised on both.
+            DarwinNotificationAction.plain(
+              kTrackingAutoPauseActionId,
+              kTrackingAutoPauseActionLabel,
+              options: <DarwinNotificationActionOption>{
+                DarwinNotificationActionOption.foreground,
+              },
+            ),
           ],
         ),
       ],
@@ -257,6 +267,63 @@ class TrackingNotificationService {
     }
   }
 
+  /// Post the opt-in auto-pause prompt (Phase 18 Plan 04, D-12).
+  ///
+  /// A SEPARATE, dismissible notification on [kAutoPauseNotificationId] (NOT
+  /// the ongoing [kTrackingNotificationId], so it never replaces or collides
+  /// with the recording notification). It carries a single "Pause"
+  /// `AndroidNotificationAction` whose action id is
+  /// [kTrackingAutoPauseActionId] — tapping it routes to the pause command
+  /// via the shared foreground/background response handlers (the same mechanism
+  /// the Stop action uses). PROMPT ONLY: ignoring or swiping the prompt away
+  /// (`autoCancel: true`, not ongoing) leaves the trip recording normally.
+  ///
+  /// The caller (`TrackingNotifier`) only invokes this when the user has opted
+  /// into auto-pause, so with the preference OFF no prompt is ever posted
+  /// (SC#5).
+  Future<void> showAutoPausePrompt() async {
+    const androidDetails = AndroidNotificationDetails(
+      kTrackingNotificationChannelId,
+      kTrackingNotificationChannelName,
+      channelDescription: kTrackingNotificationChannelDescription,
+      importance: Importance.low,
+      priority: Priority.low,
+      // Non-ongoing (default) + autoCancel (default) so the user can trivially
+      // dismiss the prompt; dismissing leaves recording untouched (D-12).
+      playSound: false,
+      enableVibration: false,
+      onlyAlertOnce: true,
+      styleInformation: BigTextStyleInformation(kAutoPauseNotificationBody),
+      actions: <AndroidNotificationAction>[
+        AndroidNotificationAction(
+          kTrackingAutoPauseActionId,
+          kTrackingAutoPauseActionLabel,
+          // showsUserInterface: true — Activity PendingIntent on Android 14
+          // (our minSdk) so selectedNotificationAction delivers the actionId
+          // to the response handlers, mirroring the Stop action.
+          // cancelNotification defaults to true — tapping Pause clears the
+          // prompt, which is exactly what we want (the prompt is one-shot).
+          showsUserInterface: true,
+        ),
+      ],
+    );
+    const darwinDetails = DarwinNotificationDetails(
+      categoryIdentifier: kTrackingNotificationCategoryId,
+      presentSound: false,
+      presentBadge: false,
+    );
+    await _plugin.show(
+      id: kAutoPauseNotificationId,
+      title: kAutoPauseNotificationTitle,
+      body: kAutoPauseNotificationBody,
+      notificationDetails: const NotificationDetails(
+        android: androidDetails,
+        iOS: darwinDetails,
+      ),
+      payload: 'auto_pause_prompt',
+    );
+  }
+
   /// Cancel the UX-03 notification. Called from every exit path of
   /// `TrackingServiceController.persistFinalizedTrip` — success, discard,
   /// and the catch block — so the notification never outlives the
@@ -328,6 +395,12 @@ class TrackingNotificationService {
     if (response.actionId == kTrackingStopActionId) {
       FlutterBackgroundService().invoke(kStopTrackingEvent);
     }
+    // Phase 18 (Plan 04, D-12 / T-18-12): the auto-pause prompt's Pause action
+    // routes to the SAME pause command path the active-hero Pause button uses.
+    // Exact action-id match (V5 validation) so a spoofed/stale id is ignored.
+    if (response.actionId == kTrackingAutoPauseActionId) {
+      FlutterBackgroundService().invoke(kTrackingPauseCommand);
+    }
     // OPEN: no Dart action needed — the showsUserInterface: true /
     // DarwinNotificationActionOption.foreground options route through
     // the platform's resume path on both Android (onNewIntent) and iOS
@@ -353,6 +426,12 @@ void trackingNotificationBackgroundHandler(
 ) {
   if (response.actionId == kTrackingStopActionId) {
     FlutterBackgroundService().invoke(kStopTrackingEvent);
+  }
+  // Phase 18 (Plan 04, D-12 / T-18-12): the auto-pause prompt's Pause action
+  // routes to kTrackingPauseCommand when the app is backgrounded. Exact
+  // action-id match so a spoofed/stale id cannot toggle pause.
+  if (response.actionId == kTrackingAutoPauseActionId) {
+    FlutterBackgroundService().invoke(kTrackingPauseCommand);
   }
   // OPEN action: handled by the platform resume path; no Dart work needed.
 }

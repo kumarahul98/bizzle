@@ -105,6 +105,7 @@ class _TodaySectionContent extends StatelessWidget {
                   durationSeconds: trips[i].durationSeconds,
                   distanceMeters: trips[i].distanceMeters,
                   stuckSeconds: trips[i].timeStuckSeconds,
+                  isEdited: trips[i].isEdited,
                   showDivider: i < trips.length - 1 || emptyCount > 0,
                   onTap: () => Navigator.pushNamed(
                     context,

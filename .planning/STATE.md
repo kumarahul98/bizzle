@@ -1,38 +1,36 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.2
-milestone_name: iOS Support
-status: verifying
-stopped_at: "Checkpoint: BLOCKING App-Group device-provisioning probe (Plan 15-01 Task 3)"
-last_updated: "2026-06-03T17:51:22.398Z"
-last_activity: 2026-06-03
+milestone: v0.3
+milestone_name: App Improvements
+status: completed
+stopped_at: Phase 24 Execution complete: verified and committed.
+last_updated: "2026-06-16T02:00:00.000Z"
+last_activity: 2026-06-16
 progress:
-  total_phases: 5
-  completed_phases: 2
-  total_plans: 11
-  completed_plans: 9
-  percent: 40
+  total_phases: 6
+  completed_phases: 6
+  total_plans: 14
+  completed_plans: 14
+  percent: 100
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-06-02)
+See: .planning/PROJECT.md (updated 2026-06-06)
 
 **Core value:** Show people the reality of their commute -- time wasted in traffic and how it changes over time.
-**Current focus:** Phase 15 — notifications-permissions-onboarding-ux-on-ios
+**Current focus:** Phase 21 — home-office-locations-geofence (v0.3 App Improvements)
 
 ## Current Position
 
-Phase: 15 (notifications-permissions-onboarding-ux-on-ios) — IN PROGRESS, blocked on human device probe
-Plan: 3 of 5 complete (15-01 ✅ checkpoint, 15-02 ✅, 15-03 ✅)
-Status: BLOCKED — Plans 15-04 (native Swift Live Activity) + 15-05 (Dart bridge) gated on the App-Group device-provisioning probe (15-01 Task 3)
-Last activity: 2026-06-03
+Phase: 25 — Interrupted-Trip Recovery
+Plan: 3 complete
+Status: Completed
+Last activity: 2026-06-16
 
-Progress: [██████░░░░] 60% (3/5 plans — autonomous Dart track done; Live Activity track blocked)
-
-**Resume after probe:** User runs the App-Group probe in Xcode on a real iPhone (see 15-01-SUMMARY.md). PASS → execute 15-04 then 15-05 as planned. FAIL → re-plan 15-04/15-05 for the no-App-Group fallback before any Swift.
+**v0.3 progress:** 7/7 phases complete (17, 18, 19, 20, 21, 22, 23 done); Milestone v0.3 completed.
 
 ## Performance Metrics
 
@@ -52,13 +50,27 @@ Progress: [██████░░░░] 60% (3/5 plans — autonomous Dart tr
 | 15 | TBD | - | - |
 | 16 | TBD | - | - |
 
+**v0.3 Phases:**
+
+| Phase | Plans | Total | Avg/Plan |
+|-------|-------|-------|----------|
+| 17 | TBD | - | - |
+| 18 | TBD | - | - |
+| 19 | TBD | - | - |
+| 20 | TBD | - | - |
+| 21 | TBD | - | - |
+| 22 | TBD | - | - |
+| 23 | 1 | - | - |
+
 *Updated after each plan completion*
 | Phase 12-ios-scaffolding-configuration P02 | 45min | 4 tasks | 9 files |
 | Phase 12 P03 | human-gated | 2 tasks | 3 files |
 | Phase 14 P02 | 30 | 3 tasks | 9 files |
 | Phase 14 P03 | 9min | - tasks | - files |
-| Phase 15 P01 | 25min | 2 tasks | 3 files |
-| Phase 15 P02 | 7 | 3 tasks | 8 files |
+| Phase 18 P02 | 52min | 2 tasks | 8 files |
+| Phase 21 P03 | 5 min | 3 tasks | 6 files |
+| Phase 24 P02 | 15min | 1 task | 3 files |
+| Phase 25 P01 | 15min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -67,6 +79,13 @@ Progress: [██████░░░░] 60% (3/5 plans — autonomous Dart tr
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
+- [v0.3 Roadmap]: Phase 18 introduces the break/pause data model (schema migration); Phase 19 (full editing) depends on it
+- [Phase 18-02]: Frozen elapsed subtracts only CLOSED paused segments; the open break is excluded by freezing refNow at the pause instant — snapshot.pausedSeconds DOES include the open span (UI), but elapsedSeconds does NOT (frozen timer)
+- [Phase 18-02]: Break-list value equality uses per-element mapEquals (flutter/foundation) instead of package:collection DeepCollectionEquality — avoids a non-transitive depend_on_referenced_packages lint, no pubspec change
+- [Phase 18-02]: Break segments cross the service→UI isolate boundary as List<Map<String,Object?>> of UTC microseconds (startUs/endUs); breaks persist to trip_breaks + total_paused_seconds inside the existing atomic transaction — sync contract unchanged (breaks stay local this phase)
+- [v0.3 Roadmap]: Phase 22 (home-screen widget) sequenced last — highest platform-integration risk, and depends on Phase 18 state model for accurate widget state
+- [v0.3 Roadmap]: Phase 21 geofence labeling takes precedence over time-of-day heuristic only on a confident proximity match; purely additive (falls back to existing behavior with no Home/Office set)
+- [Phase 24-02]: Pause uploads during auto-restore so that guest trips do not upload until cloud trips are properly restored and reconciled
 - [v0.2 Research]: No new packages needed — port is configuration + one platform branch
 - [v0.2 Research]: flutter_map (OSM) already in use — google_maps_flutter iOS setup is NOT needed
 - [v0.2 Research]: firebase_options.dart already carries iOS client config — iOS Firebase app pre-registered
@@ -82,9 +101,6 @@ Recent decisions affecting current work:
 - [Phase ?]: DEVELOPMENT_TEAM 2DG5SFXZ5Z (Personal Team, Rahul kumar) committed to project.pbxproj — standard practice, non-secret; free provisioning install 2026-06-02, expires 2026-06-09
 - [Phase ?]: TrackingNotifier rewired to TrackingEventSource seam; trackingEventSourceProvider selects MainIsolateTrackingEngine (iOS) vs FbsTrackingEventSource (Android) — D-04 single runtime switch
 - [Phase ?]: IOS-08 accuracy-blocked start surfaces kTrackingReducedAccuracyBlockedMessage (distinct stable string) vs generic message on Android (T-02-07 preserved)
-- [Phase ?]: Wave 0 RED scaffolds committed for all 5 test files before any Plan 02-05 implementation begins
-- [Phase ?]: IOS-11 test seam: forTesting(platformIsAndroid:) pattern chosen to avoid dart:io Platform in tests (RESEARCH.md Pitfall 2)
-- [Phase ?]: App-Group device-provisioning probe is a BLOCKING gate for Plan 04 — must report PASS or FAIL before Swift is written
 
 ### Pending Todos
 
@@ -93,8 +109,8 @@ Recent decisions affecting current work:
 
 ### Blockers/Concerns
 
-- BLOCKER (human): Xcode license not accepted on this machine — blocks `flutter build ios`, git operations. User must run `sudo xcodebuild -license accept` before Phase 12 can execute.
-- CONCERN (Phase 14): Background GPS is highest-risk phase — requires real-device commute validation. Plan-phase should flag for deeper research.
+- CONCERN (Phase 22): Home-screen widget is the highest platform-integration risk in v0.3 — native Android AppWidget + background trigger into the tracking service. Plan-phase should flag for deeper research.
+- NOTE (v0.2 paused): Xcode/device-gated v0.2 work (Phases 13/15/16 open) remains resumable; not a v0.3 blocker.
 
 ## Deferred Items (carried from v0.1)
 
@@ -116,6 +132,10 @@ Full checklist: `.planning/v0.1-DEVICE-CHECKLIST.md` (Groups A-I). Resume v0.1 c
 
 ## Session Continuity
 
-Last session: 2026-06-03T17:51:22.389Z
-Stopped at: Checkpoint: BLOCKING App-Group device-provisioning probe (Plan 15-01 Task 3)
-Resume file: None
+Last session: 2026-06-16T04:50:02.000Z
+Stopped at: Completed 25-01-PLAN.md
+Resume file: .planning/phases/25-interrupted-trip-recovery/25-02-PLAN.md
+
+[2026-06-16] Phase 25 Planning complete: generated and verified 3 PLAN.md files. 3 PLAN.md files.
+[2026-06-16] Completed 24-02-PLAN.md
+[2026-06-16] Completed 25-01-PLAN.md

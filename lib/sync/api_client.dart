@@ -23,25 +23,25 @@ import 'package:traevy/sync/trip_serializer.dart';
 class SyncException implements Exception {
   /// Not-signed-in gate: no token available, no HTTP request issued.
   const SyncException.notSignedIn()
-      : statusCode = null,
-        notSignedIn = true,
-        retryable = false,
-        message = 'not signed in';
+    : statusCode = null,
+      notSignedIn = true,
+      retryable = false,
+      message = 'not signed in';
 
   /// Non-2xx HTTP response. 5xx and a final 401 are retryable; all other 4xx
   /// (esp. 400 validation) are non-retryable poison pills.
   const SyncException.http(int code)
-      : statusCode = code,
-        notSignedIn = false,
-        retryable = code >= 500 || code == 401,
-        message = 'http error';
+    : statusCode = code,
+      notSignedIn = false,
+      retryable = code >= 500 || code == 401,
+      message = 'http error';
 
   /// Transport failure (network/socket/timeout/decode) — always retryable.
   const SyncException.transport()
-      : statusCode = null,
-        notSignedIn = false,
-        retryable = true,
-        message = 'transport error';
+    : statusCode = null,
+      notSignedIn = false,
+      retryable = true,
+      message = 'transport error';
 
   /// HTTP status code, or null for a transport / not-signed-in error.
   final int? statusCode;
@@ -78,18 +78,18 @@ class ApiClient {
     required http.Client client,
     required Future<String?> Function({bool forceRefresh}) getToken,
     String baseUrl = kApiBaseUrl,
-  })  : _client = client,
-        _getToken = getToken,
-        _baseUrl = baseUrl;
+  }) : _client = client,
+       _getToken = getToken,
+       _baseUrl = baseUrl;
 
   final http.Client _client;
   final Future<String?> Function({bool forceRefresh}) _getToken;
   final String _baseUrl;
 
   Map<String, String> _headers(String token) => {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      };
+    'Authorization': 'Bearer $token',
+    'Content-Type': 'application/json',
+  };
 
   /// Run [send] with a fresh token, refreshing-and-retrying once on a 401.
   ///

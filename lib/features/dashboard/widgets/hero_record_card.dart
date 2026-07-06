@@ -3,17 +3,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/config/theme.dart';
-import 'package:traevy/features/settings/providers/settings_providers.dart';
 import 'package:traevy/features/tracking/providers/tracking_providers.dart';
 import 'package:traevy/features/tracking/services/tracking_service_controller.dart';
 import 'package:traevy/features/tracking/state/tracking_state.dart';
+import 'package:traevy/features/tracking/widgets/direction_segmented_toggle.dart';
 import 'package:traevy/features/tracking/widgets/elapsed_display.dart';
+import 'package:traevy/features/tracking/widgets/pause_resume_button.dart';
+import 'package:traevy/features/tracking/widgets/paused_indicators.dart';
 import 'package:traevy/features/tracking/widgets/recording_header.dart';
 import 'package:traevy/features/tracking/widgets/stop_button.dart';
 import 'package:traevy/features/tracking/widgets/tracking_error_layout.dart';
 import 'package:traevy/features/tracking/widgets/tracking_status_layout.dart';
 import 'package:traevy/features/tracking/widgets/tracking_tiles_row.dart';
-import 'package:traevy/features/trips/services/direction_label_service.dart';
 import 'package:traevy/shared/widgets/section_label.dart';
 
 const double _kButtonDiameter = 124;
@@ -88,17 +89,36 @@ class HeroRecordCard extends ConsumerWidget {
             :final distanceMeters,
             :final currentSpeedKmh,
             :final timeStuckSeconds,
+            :final isPaused,
+            :final breakCount,
           ) =>
             _HeroActive(
               elapsedSeconds: elapsedSeconds,
               distanceMeters: distanceMeters,
               currentSpeedKmh: currentSpeedKmh,
               timeStuckSeconds: timeStuckSeconds,
-              direction: _resolveDirection(ref, startedAt),
+              // Phase 18 (D-08): the paused/running treatment + break count are
+              // driven purely by the snapshot — the hero is a dumb terminal.
+              isPaused: isPaused,
+              breakCount: breakCount,
+              // D-05: header label + toggle selection both come from the
+              // notifier's resolved direction (override ?? auto-label). Watch
+              // prefs so the first frame and any pref change rebuild the label.
+              direction: ref
+                  .watch(trackingStateProvider.notifier)
+                  .resolvedDirection(startedAt),
+              onDirectionSelected: (direction) => ref
+                  .read(trackingStateProvider.notifier)
+                  .setDirection(direction),
               onStop: () => ref.read(trackingStateProvider.notifier).stop(),
+              onPause: () => ref.read(trackingStateProvider.notifier).pause(),
+              onResume: () => ref.read(trackingStateProvider.notifier).resume(),
             ),
           TrackingStopping() => const TrackingStatusLayout(
             label: 'Saving trip...',
+          ),
+          TrackingInterrupted() => const TrackingStatusLayout(
+            label: 'Interrupted trip found...',
           ),
           TrackingError(:final message) => TrackingErrorLayout(
             message: message,
@@ -107,23 +127,6 @@ class HeroRecordCard extends ConsumerWidget {
           ),
         },
       ),
-    );
-  }
-
-  /// Derive the direction label using the user's morning/evening cutoff
-  /// preferences and the trip's start time (local). Falls back to the
-  /// schema default cutoff when prefs haven't loaded yet so the very
-  /// first frame after Start doesn't render the wrong direction.
-  static String _resolveDirection(WidgetRef ref, DateTime startedAt) {
-    final prefs = ref.watch(userPreferenceProvider).asData?.value;
-    final morning =
-        prefs?.morningCutoffHour ?? kDefaultDirectionCutoffHour;
-    final evening =
-        prefs?.eveningCutoffHour ?? kDefaultDirectionCutoffHour;
-    return const DirectionLabelService().label(
-      startedAt.toLocal(),
-      morning,
-      evening,
     );
   }
 
@@ -215,43 +218,103 @@ class _HeroIdle extends StatelessWidget {
   }
 }
 
-class _HeroActive extends StatelessWidget {
+class _HeroActive extends StatefulWidget {
   const _HeroActive({
     required this.elapsedSeconds,
     required this.distanceMeters,
     required this.currentSpeedKmh,
     required this.timeStuckSeconds,
+    required this.isPaused,
+    required this.breakCount,
     required this.direction,
+    required this.onDirectionSelected,
     required this.onStop,
+    required this.onPause,
+    required this.onResume,
   });
 
   final int elapsedSeconds;
   final double distanceMeters;
   final double currentSpeedKmh;
   final int timeStuckSeconds;
+  final bool isPaused;
+  final int breakCount;
   final String direction;
+  final ValueChanged<String> onDirectionSelected;
   final VoidCallback onStop;
+  final VoidCallback onPause;
+  final VoidCallback onResume;
 
-  String get _directionLabel =>
-      direction == kDirectionToHome ? 'To home' : 'To office';
+  @override
+  State<_HeroActive> createState() => _HeroActiveState();
+}
+
+class _HeroActiveState extends State<_HeroActive> {
+  // Optimistic selection so the header label + toggle flip on the same frame
+  // as the tap (TRACK-12, D-05). setDirection does not emit a new
+  // TrackingState, so this local mirror drives the immediate rebuild; the
+  // resolved direction from the notifier reconciles it on the next snapshot.
+  late String _selected = widget.direction;
+
+  @override
+  void didUpdateWidget(_HeroActive oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.direction != oldWidget.direction) {
+      _selected = widget.direction;
+    }
+  }
+
+  void _onDirectionSelected(String direction) {
+    setState(() => _selected = direction);
+    widget.onDirectionSelected(direction);
+  }
+
+  String get _directionLabel => _selected == kDirectionToHome
+      ? kDirectionToHomeLabel
+      : kDirectionToOfficeLabel;
 
   @override
   Widget build(BuildContext context) {
+    final isPaused = widget.isPaused;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         RecordingHeader(directionLabel: _directionLabel),
-        const SizedBox(height: 16),
-        ElapsedDisplay(durationSeconds: elapsedSeconds),
-        const SizedBox(height: 24),
-        TrackingTilesRow(
-          elapsedSeconds: elapsedSeconds,
-          distanceMeters: distanceMeters,
-          currentSpeedKmh: currentSpeedKmh,
-          timeStuckSeconds: timeStuckSeconds,
+        if (isPaused) ...const <Widget>[
+          SizedBox(height: 12),
+          Center(child: PausedBadge()),
+        ],
+        const SizedBox(height: 12),
+        DirectionSegmentedToggle(
+          selected: _selected,
+          onSelected: _onDirectionSelected,
         ),
         const SizedBox(height: 16),
-        StopButton(onPressed: onStop),
+        // Phase 18 (D-09): while paused the elapsed value already arrives
+        // FROZEN from the snapshot (no local clock) — we just dim it so the
+        // paused state reads as visually distinct without changing the timer.
+        Opacity(
+          opacity: isPaused ? 0.4 : 1,
+          child: ElapsedDisplay(durationSeconds: widget.elapsedSeconds),
+        ),
+        if (widget.breakCount > 0) ...<Widget>[
+          const SizedBox(height: 10),
+          BreakCountChip(breakCount: widget.breakCount),
+        ],
+        const SizedBox(height: 24),
+        TrackingTilesRow(
+          elapsedSeconds: widget.elapsedSeconds,
+          distanceMeters: widget.distanceMeters,
+          currentSpeedKmh: widget.currentSpeedKmh,
+          timeStuckSeconds: widget.timeStuckSeconds,
+        ),
+        const SizedBox(height: 16),
+        PauseResumeButton(
+          isPaused: isPaused,
+          onPressed: isPaused ? widget.onResume : widget.onPause,
+        ),
+        const SizedBox(height: 12),
+        StopButton(onPressed: widget.onStop),
       ],
     );
   }

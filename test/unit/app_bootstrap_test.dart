@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:traevy/app.dart';
+import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/daos/trips_dao.dart';
 import 'package:traevy/database/daos/user_preferences_dao.dart';
 import 'package:traevy/database/database.dart';
@@ -56,8 +57,30 @@ void main() {
               // TraevyApp now watches userPreferenceProvider (D-04 dynamic
               // themeMode). Override with a completed stream so Drift's
               // stream-close timer does not remain pending after test teardown.
+              //
+              // Phase 20: emit a returning-user value (hasSeenOnboarding=true)
+              // so the root gate routes AuthGuest → MainShell/DashboardScreen,
+              // not the first-run LoginScreen. The gate is covered by
+              // test/widget/app_gate_test.dart.
               userPreferenceProvider.overrideWith(
-                (ref) => Stream.value(const UserPreferencesValue.defaults()),
+                (ref) => Stream.value(
+                  const UserPreferencesValue(
+                    userId: kDefaultUserId,
+                    darkMode: kDarkModeSystem,
+                    morningCutoffHour: kDefaultDirectionCutoffHour,
+                    eveningCutoffHour: kDefaultDirectionCutoffHour,
+                    reminderEnabled: false,
+                    reminderTime: null,
+                    weekendReminder: false,
+                    weeklyNotificationEnabled: false,
+                    autoPauseEnabled: false,
+                    hasSeenOnboarding: true,
+                    homeLat: null,
+                    homeLng: null,
+                    officeLat: null,
+                    officeLng: null,
+                  ),
+                ),
               ),
             ],
             child: const TraevyApp(),
