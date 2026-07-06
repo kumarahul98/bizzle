@@ -1,5 +1,5 @@
 // Widget tests for the Traevy-restyled SettingsScreen (Phase 8 Plan 07,
-// extended Phase 9 Plan 05).
+// extended Phase 9 Plan 05, extended Phase 15 debug fix).
 //
 // Phase 8: Replaces Phase 7 SwitchListTile / RadioListTile assertions with
 // TraevyToggle / theme-picker-bottom-sheet assertions while preserving
@@ -9,6 +9,16 @@
 // Phase 9 (AUTH-01): Adds state-aware _AccountSection group — guest override
 // renders "Sign in to back up" row; signedIn override renders populated
 // AccountRow (constructor swap only, D-07).
+//
+// Phase 15 debug fix: Adds coverage for:
+//   - Reminder time picker row renders with kSettingsReminderTimeLabel.
+//   - Tapping "Reminder time" row when reminderTime is null shows time picker
+//     and persists the chosen time as HH:mm.
+//   - Enabling daily reminder with no time set ALWAYS calls
+//     maybeRequestNotificationPermissionForUsage (decoupled from reminderTime).
+//   - Enabling daily reminder with a time set calls both permission request AND
+//     scheduleReminder.
+//   - Enabling daily reminder without a time set does NOT call scheduleReminder.
 
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
@@ -117,6 +127,12 @@ class _FakeNotificationService implements NotificationService {
 
   @override
   Future<void> cancelReminder() async => calls.add('cancelReminder');
+
+  @override
+  Future<void> maybeRequestNotificationPermissionForUsage({
+    AppDatabase? db,
+    bool forceRequest = false,
+  }) async => calls.add('maybeRequestPermission(force=$forceRequest)');
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -307,14 +323,22 @@ void main() {
       tester,
     ) async {
       await _pumpSettingsScreen(tester);
-      // Recording auto-pause + daily reminder + weekly summary toggles.
-      // (The old Account "Cloud sync" placeholder toggle was removed — the
-      // Account section no longer renders cloud rows.)
+      // Recording auto-pause + daily reminder + include weekends + weekly
+      // summary toggles. At least 3 (Recording) + (Notifications).
       expect(
         find.byType(TraevyToggle),
         findsAtLeast(3),
       );
     });
+
+    testWidgets(
+      'Notifications section renders kSettingsReminderTimeLabel row',
+      (tester) async {
+        await _pumpSettingsScreen(tester);
+        await _scrollTo(tester, find.text(kSettingsReminderTimeLabel));
+        expect(find.text(kSettingsReminderTimeLabel), findsOneWidget);
+      },
+    );
   });
 
   group('SettingsScreen wiring — UX-02 / UX-04 / UX-05', () {
@@ -473,7 +497,7 @@ void main() {
     );
 
     testWidgets(
-      'reminderEnabled subtitle reflects current state',
+      'reminderEnabled subtitle shows "· weekdays" suffix when enabled',
       (tester) async {
         await _pumpSettingsScreen(
           tester,
@@ -497,9 +521,203 @@ void main() {
         await _scrollTo(tester, find.text('Daily reminder'));
         // The Daily reminder row label is still present.
         expect(find.text('Daily reminder'), findsOneWidget);
-        // The subtitle contains the formatted reminder time when enabled.
-        // _formatReminderTime('08:00') uses DateFormat.jm() → '8:00 AM'.
-        expect(find.textContaining('8:00'), findsOneWidget);
+        // The enabled Daily reminder subtitle is "{time} · weekdays", which is
+        // uniquely distinct from the Reminder time row subtitle (just "{time}").
+        // _formatReminderTime('08:00') → '8:00 AM', so the combined subtitle
+        // is '8:00 AM · weekdays'.
+        expect(find.textContaining('· weekdays'), findsOneWidget);
+      },
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // Phase 15 debug fix: Reminder time picker row + decoupled permission
+  // ---------------------------------------------------------------------------
+
+  group('SettingsScreen — reminder time picker (Phase 15 fix)', () {
+    testWidgets(
+      'Reminder time row subtitle shows "—" when reminderTime is null',
+      (tester) async {
+        await _pumpSettingsScreen(tester);
+        await _scrollTo(tester, find.text(kSettingsReminderTimeLabel));
+        // When no time is set, _formatReminderTime(null) == '—'.
+        final timeRow = find.ancestor(
+          of: find.text(kSettingsReminderTimeLabel),
+          matching: find.byType(SettingsRow),
+        );
+        expect(timeRow, findsOneWidget);
+        expect(
+          find.descendant(of: timeRow, matching: find.text('—')),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'Reminder time row subtitle shows formatted time when reminderTime is set',
+      (tester) async {
+        await _pumpSettingsScreen(
+          tester,
+          prefs: const UserPreferencesValue(
+            userId: 'test',
+            darkMode: kDarkModeSystem,
+            morningCutoffHour: 12,
+            eveningCutoffHour: 12,
+            reminderEnabled: false,
+            reminderTime: '09:30',
+            weekendReminder: false,
+            weeklyNotificationEnabled: false,
+            autoPauseEnabled: false,
+            hasSeenOnboarding: false,
+            homeLat: null,
+            homeLng: null,
+            officeLat: null,
+            officeLng: null,
+          ),
+        );
+        await _scrollTo(tester, find.text(kSettingsReminderTimeLabel));
+        // _formatReminderTime('09:30') → '9:30 AM'. When the reminder is
+        // disabled, the Daily reminder row shows 'OFF', so '9:30' appears
+        // only in the Reminder time row's subtitle.
+        expect(find.textContaining('9:30'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'enabling daily reminder with NO time always calls '
+      'maybeRequestNotificationPermissionForUsage (decoupled — IOS-10 fix)',
+      (tester) async {
+        // reminderTime is null — the previously broken code path that gated
+        // the permission request behind (value && reminderTime != null).
+        final fakeNotif = _FakeNotificationService();
+        await _pumpSettingsScreen(
+          tester,
+          prefs: const UserPreferencesValue(
+            userId: 'test',
+            darkMode: kDarkModeSystem,
+            morningCutoffHour: 12,
+            eveningCutoffHour: 12,
+            reminderEnabled: false,
+            reminderTime: null,
+            weekendReminder: false,
+            weeklyNotificationEnabled: false,
+            autoPauseEnabled: false,
+            hasSeenOnboarding: false,
+            homeLat: null,
+            homeLng: null,
+            officeLat: null,
+            officeLng: null,
+          ),
+          notificationService: fakeNotif,
+        );
+        await _scrollTo(tester, find.text(kSettingsReminderLabel));
+        final reminderRow = find.ancestor(
+          of: find.text(kSettingsReminderLabel),
+          matching: find.byType(SettingsRow),
+        );
+        await tester.tap(
+          find.descendant(of: reminderRow, matching: find.byType(TraevyToggle)),
+        );
+        await tester.pump();
+
+        // Permission MUST be requested even without a time.
+        expect(
+          fakeNotif.calls,
+          contains('maybeRequestPermission(force=true)'),
+        );
+        // scheduleReminder must NOT be called — no time is set.
+        expect(
+          fakeNotif.calls.any((c) => c.startsWith('scheduleReminder')),
+          isFalse,
+        );
+      },
+    );
+
+    testWidgets(
+      'enabling daily reminder WITH a time calls permission request AND '
+      'scheduleReminder',
+      (tester) async {
+        final fakeNotif = _FakeNotificationService();
+        await _pumpSettingsScreen(
+          tester,
+          prefs: const UserPreferencesValue(
+            userId: 'test',
+            darkMode: kDarkModeSystem,
+            morningCutoffHour: 12,
+            eveningCutoffHour: 12,
+            reminderEnabled: false,
+            reminderTime: '07:45',
+            weekendReminder: false,
+            weeklyNotificationEnabled: false,
+            autoPauseEnabled: false,
+            hasSeenOnboarding: false,
+            homeLat: null,
+            homeLng: null,
+            officeLat: null,
+            officeLng: null,
+          ),
+          notificationService: fakeNotif,
+        );
+        await _scrollTo(tester, find.text(kSettingsReminderLabel));
+        final reminderRow = find.ancestor(
+          of: find.text(kSettingsReminderLabel),
+          matching: find.byType(SettingsRow),
+        );
+        await tester.tap(
+          find.descendant(of: reminderRow, matching: find.byType(TraevyToggle)),
+        );
+        await tester.pump();
+
+        expect(
+          fakeNotif.calls,
+          contains('maybeRequestPermission(force=true)'),
+        );
+        expect(
+          fakeNotif.calls,
+          contains('scheduleReminder(07:45,false)'),
+        );
+      },
+    );
+
+    testWidgets(
+      'disabling daily reminder calls cancelReminder (not permission request)',
+      (tester) async {
+        final fakeNotif = _FakeNotificationService();
+        await _pumpSettingsScreen(
+          tester,
+          prefs: const UserPreferencesValue(
+            userId: 'test',
+            darkMode: kDarkModeSystem,
+            morningCutoffHour: 12,
+            eveningCutoffHour: 12,
+            reminderEnabled: true,
+            reminderTime: '07:45',
+            weekendReminder: false,
+            weeklyNotificationEnabled: false,
+            autoPauseEnabled: false,
+            hasSeenOnboarding: false,
+            homeLat: null,
+            homeLng: null,
+            officeLat: null,
+            officeLng: null,
+          ),
+          notificationService: fakeNotif,
+        );
+        await _scrollTo(tester, find.text(kSettingsReminderLabel));
+        final reminderRow = find.ancestor(
+          of: find.text(kSettingsReminderLabel),
+          matching: find.byType(SettingsRow),
+        );
+        await tester.tap(
+          find.descendant(of: reminderRow, matching: find.byType(TraevyToggle)),
+        );
+        await tester.pump();
+
+        expect(fakeNotif.calls, contains('cancelReminder'));
+        expect(
+          fakeNotif.calls.any((c) => c.startsWith('maybeRequestPermission')),
+          isFalse,
+        );
       },
     );
   });

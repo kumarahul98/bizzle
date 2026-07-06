@@ -961,6 +961,83 @@ const String kTrackingReducedAccuracyBlockedMessage =
     'Precise location is required to track your commute. '
     'Enable it in Settings → Privacy → Location Services → Traevy.';
 
+// ---------------------------------------------------------------------------
+// Phase 15: Notifications, Permissions & Onboarding UX on iOS
+// ---------------------------------------------------------------------------
+
+/// iOS permission banner body copy variant for the When-In-Use degraded state
+/// (D-03/D-05). Shown on iOS when `TrackingPermissionStatus.foregroundOnly`
+/// and the user has not granted Always. Platform-branched at the banner call
+/// site — Android uses the existing banner copy.
+///
+/// See D-05, Surface B in `.planning/phases/15-notifications-permissions-onboarding-ux-on-ios/15-UI-SPEC.md`.
+const String kIosPermissionBannerBody =
+    'Enable Always to avoid gaps in your trip when the screen is off.';
+
+/// Location priming screen heading (IOS-09, D-01, Surface A).
+const String kIosLocationPrimingHeading = 'Your location stays on your device';
+
+/// Location priming screen body copy (Surface A).
+const String kIosLocationPrimingBody =
+    'Traevy records your route to measure traffic time. All trip data is '
+    'stored on your iPhone — never shared without your consent.';
+
+/// Location priming screen primary CTA label (Surface A).
+const String kIosLocationPrimingCta = 'Allow location access';
+
+/// Location priming screen skip link label (Surface A).
+const String kIosLocationPrimingSkip = 'Skip for now';
+
+/// Location priming screen terms blurb (Surface A).
+const String kIosLocationPrimingTerms =
+    'You can change location access in Settings at any time.';
+
+/// Location priming FeatureTick 1 title.
+const String kIosLocationPrimingTick1Title = 'Route recording';
+
+/// Location priming FeatureTick 1 subtitle.
+const String kIosLocationPrimingTick1Subtitle =
+    'Captures your GPS path in the background.';
+
+/// Location priming FeatureTick 2 title.
+const String kIosLocationPrimingTick2Title = 'Speed-based traffic';
+
+/// Location priming FeatureTick 2 subtitle.
+const String kIosLocationPrimingTick2Subtitle =
+    'We detect stuck time using speed — no other data.';
+
+/// Location priming FeatureTick 3 title.
+const String kIosLocationPrimingTick3Title = 'Device-only storage';
+
+/// Location priming FeatureTick 3 subtitle.
+const String kIosLocationPrimingTick3Subtitle =
+    'Trips never leave your iPhone unless you sign in.';
+
+/// Enriched Android notification body line 1 template (IOS-14).
+/// Replaces the Phase 8 single-line body template for the collapsed view.
+/// Tokens: {elapsed}, {km}.
+///
+/// See D-12 in `.planning/phases/15-notifications-permissions-onboarding-ux-on-ios/15-CONTEXT.md`.
+const String kTrackingNotificationBodyLine1Template =
+    '● REC  {elapsed} · {km} km';
+
+/// Enriched Android notification body line 2 template (IOS-14).
+/// Shown in BigTextStyle expanded notification.
+/// Tokens: {moving}, {stuck}.
+const String kTrackingNotificationBodyLine2Template =
+    'Moving {moving} · Stuck {stuck}';
+
+/// Route name for the iOS-only location priming screen (IOS-09, D-01).
+const String kRouteLocationPriming = '/location-priming';
+
+/// Number of days since the oldest recorded trip after which the iOS
+/// notification permission request is triggered contextually (IOS-10, D-07).
+///
+/// The 7-day anchor aligns with the weekly summary cadence — users who have
+/// been commuting for a week are the natural audience for scheduled
+/// notifications. Never set below 1 day.
+const int kNotificationPermissionAnchorDays = 7;
+
 // Phase 19 — Full Trip Editing (TRACK-11)
 //
 // Validation messages (D-08): surfaced inline by the Plan 02 edit sheet

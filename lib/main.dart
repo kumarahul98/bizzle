@@ -24,7 +24,10 @@
 //   4. `configureBackgroundService()` registers the
 //      flutter_background_service onStart entrypoint (plan 02-03) so
 //      `FlutterBackgroundService().startService()` on the tracking
-//      screen can spin up the tracking isolate.
+//      screen can spin up the tracking isolate. Android-only: Phase 14
+//      replaced flutter_background_service with a main-isolate GPS engine
+//      on iOS, so configuring the Android service on iOS is unnecessary
+//      and was the likely cause of the ~20s white-screen stall.
 //
 //   5. Firebase + GoogleSignIn bootstrap (D-15 degrade — try/catch):
 //      `Firebase.initializeApp` loads `DefaultFirebaseOptions` (generated
@@ -42,12 +45,16 @@
 // flutter_local_notifications and flutter_background_service both rely
 // on the platform channel infrastructure the binding bootstraps.
 
+import 'dart:io' show Platform;
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
 import 'package:traevy/app.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/features/auth/providers/auth_providers.dart';
@@ -112,6 +119,22 @@ Future<void> main() async {
   GoogleFonts.config.allowRuntimeFetching = false;
   tz.initializeTimeZones(); // Must be before any TZDateTime use.
 
+  // Set the device-local timezone so that `tz.local` resolves to the correct
+  // IANA zone (e.g. "Asia/Kolkata") rather than defaulting to UTC.
+  // Without this, `tz.TZDateTime(tz.local, ...)` in NotificationService
+  // schedules reminders at the chosen HH:mm in UTC — off by the UTC offset.
+  //
+  // Wrapped in try/catch: a detection failure (unknown zone name, platform
+  // channel error) logs and falls back to leaving tz.local as-is (UTC) without
+  // crashing startup — matches the Firebase degrade pattern below.
+  try {
+    final timezoneInfo = await FlutterTimezone.getLocalTimezone();
+    tz.setLocalLocation(tz.getLocation(timezoneInfo.identifier));
+    debugPrint('[main] bootstrap: tz.local set to ${timezoneInfo.identifier}');
+  } on Object catch (e) {
+    debugPrint('[main] bootstrap: tz.setLocalLocation failed, using UTC: $e');
+  }
+
   // Each init below is wrapped in a timeout. On iOS, platform-channel calls
   // made before runApp can silently deadlock in release mode (the
   // FlutterLocalNotificationsPlugin and FlutterBackgroundService both open
@@ -146,10 +169,17 @@ Future<void> main() async {
       'HomeWidget',
       () => HomeWidget.registerBackgroundCallback(backgroundCallback),
     ),
-    _safeInit(
-      'configureBackgroundService',
-      () => configureBackgroundService(),
-    ),
+    // configureBackgroundService is Android-only. Phase 14 replaced
+    // flutter_background_service with a main-isolate GPS engine on iOS
+    // (IosTrackingEngine), so the service is not started or configured on
+    // iOS. Calling FlutterBackgroundService().configure() unconditionally on
+    // iOS was the likely cause of the ~20s white-screen stall seen during
+    // Phase 15 UAT on iPhone 13 / iOS 26.5.
+    if (Platform.isAndroid)
+      _safeInit(
+        'configureBackgroundService',
+        () => configureBackgroundService(),
+      ),
     () async {
       try {
         await Firebase.initializeApp(
@@ -167,6 +197,7 @@ Future<void> main() async {
     }(),
   ]);
 
+  debugPrint('[main] bootstrap: runApp');
   runApp(
     ProviderScope(
       overrides: [

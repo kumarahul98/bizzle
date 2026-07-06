@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:traevy/features/tracking/services/tracking_permission_service.dart';
@@ -513,5 +514,199 @@ void main() {
       expect(result, isTrue);
       expect(opened, 1);
     });
+  });
+
+  // -------------------------------------------------------------------------
+  // Wave 0 RED scaffolds — iOS branch (IOS-09 / IOS-10)
+  //
+  // These tests exercise the iOS platform branch added by Plan 02.
+  // They are RED until Plan 02 inserts the `defaultTargetPlatform ==
+  // TargetPlatform.iOS` guard in `preflight()` and `currentStatus()`.
+  //
+  // Key invariant (D-06 / RESEARCH Pitfall 5):
+  //   On iOS, the dance ends after the location step. `Permission.notification`
+  //   is NEVER probed or requested, and `TrackingPermissionStatus.notificationDenied`
+  //   is NEVER returned. Tracking Start depends only on location on iOS.
+  //
+  // Test technique: `debugDefaultTargetPlatformOverride = TargetPlatform.iOS`
+  // exercises the iOS code path without dart:io Platform (Pitfall 2).
+  // -------------------------------------------------------------------------
+
+  group('iOS branch (IOS-09/IOS-10) — preflight()', () {
+    tearDown(() => debugDefaultTargetPlatformOverride = null);
+
+    test(
+      'returns fullyGranted on iOS when locationAlways is granted, '
+      'and never probes Permission.notification',
+      () async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+
+        final log = _CallLog();
+        final service = TrackingPermissionService.forTesting(
+          probe: _staticProbe(<Permission, PermissionStatus>{
+            Permission.locationWhenInUse: PermissionStatus.granted,
+            Permission.locationAlways: PermissionStatus.granted,
+            // notification is intentionally absent — must never be probed
+          }, log),
+          requester: _staticRequester(<Permission, PermissionStatus>{}, log),
+        );
+
+        final status = await service.preflight();
+
+        // D-06: iOS with background location → fullyGranted
+        expect(status, TrackingPermissionStatus.fullyGranted);
+
+        // D-06 invariant: notification is NEVER probed on iOS
+        expect(
+          log.probeCalls.contains(Permission.notification),
+          isFalse,
+          reason:
+              'D-06: preflight() on iOS must never probe Permission.notification',
+        );
+        expect(
+          log.requestCalls.contains(Permission.notification),
+          isFalse,
+          reason:
+              'D-06: preflight() on iOS must never request Permission.notification',
+        );
+      },
+    );
+
+    test(
+      'returns foregroundOnly on iOS when only When-In-Use is granted (D-03), '
+      'and never probes Permission.notification',
+      () async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+
+        final log = _CallLog();
+        final service = TrackingPermissionService.forTesting(
+          probe: _staticProbe(<Permission, PermissionStatus>{
+            Permission.locationWhenInUse: PermissionStatus.granted,
+            Permission.locationAlways: PermissionStatus.denied,
+          }, log),
+          requester: _staticRequester(<Permission, PermissionStatus>{
+            Permission.locationAlways: PermissionStatus.denied,
+          }, log),
+        );
+
+        final status = await service.preflight();
+
+        // D-03: When-In-Use only on iOS → foregroundOnly (degraded mode)
+        expect(status, TrackingPermissionStatus.foregroundOnly);
+
+        // D-06: notification MUST NOT be probed even in foregroundOnly state
+        expect(
+          log.probeCalls.contains(Permission.notification),
+          isFalse,
+          reason:
+              'D-06: preflight() on iOS must never probe notification even '
+              'in foregroundOnly state',
+        );
+        expect(
+          log.requestCalls.contains(Permission.notification),
+          isFalse,
+        );
+      },
+    );
+
+    test(
+      'never returns notificationDenied on iOS (D-06 / RESEARCH Pitfall 5)',
+      () async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+
+        final log = _CallLog();
+        // Simulate iOS where location is granted but notification is denied —
+        // on iOS, preflight() must NOT return notificationDenied because
+        // tracking on iOS does not depend on notification permission.
+        final service = TrackingPermissionService.forTesting(
+          probe: _staticProbe(<Permission, PermissionStatus>{
+            Permission.locationWhenInUse: PermissionStatus.granted,
+            Permission.locationAlways: PermissionStatus.granted,
+            // notification denied — but must not affect iOS result
+            Permission.notification: PermissionStatus.denied,
+          }, log),
+          requester: _staticRequester(<Permission, PermissionStatus>{
+            Permission.notification: PermissionStatus.denied,
+          }, log),
+        );
+
+        final status = await service.preflight();
+
+        // On iOS, result must be fullyGranted (location is granted), never
+        // notificationDenied.
+        expect(
+          status,
+          isNot(equals(TrackingPermissionStatus.notificationDenied)),
+          reason:
+              'D-06: preflight() must never return notificationDenied on iOS',
+        );
+        expect(status, TrackingPermissionStatus.fullyGranted);
+      },
+    );
+  });
+
+  group('iOS branch (IOS-09) — currentStatus()', () {
+    tearDown(() => debugDefaultTargetPlatformOverride = null);
+
+    test(
+      'never returns notificationDenied on iOS when location is fully granted '
+      '(RESEARCH Pitfall 5)',
+      () async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+
+        final log = _CallLog();
+        // On iOS, currentStatus() must not reach the notification probe —
+        // even if notification is denied, the result should reflect
+        // location-only state.
+        final service = TrackingPermissionService.forTesting(
+          probe: _staticProbe(<Permission, PermissionStatus>{
+            Permission.locationWhenInUse: PermissionStatus.granted,
+            Permission.locationAlways: PermissionStatus.granted,
+            Permission.notification: PermissionStatus.denied,
+          }, log),
+          requester: _staticRequester(<Permission, PermissionStatus>{}, log),
+        );
+
+        final status = await service.currentStatus();
+
+        expect(
+          status,
+          isNot(equals(TrackingPermissionStatus.notificationDenied)),
+          reason:
+              'RESEARCH Pitfall 5: currentStatus() must never return '
+              'notificationDenied on iOS — Start button would be permanently '
+              'disabled even though location is granted',
+        );
+        // Specifically, with both location permissions granted on iOS,
+        // the status must be fullyGranted.
+        expect(status, TrackingPermissionStatus.fullyGranted);
+      },
+    );
+
+    test(
+      'never probes Permission.notification on iOS in currentStatus()',
+      () async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+
+        final log = _CallLog();
+        final service = TrackingPermissionService.forTesting(
+          probe: _staticProbe(<Permission, PermissionStatus>{
+            Permission.locationWhenInUse: PermissionStatus.granted,
+            Permission.locationAlways: PermissionStatus.granted,
+            // notification absent — currentStatus() must not reach it
+          }, log),
+          requester: _staticRequester(<Permission, PermissionStatus>{}, log),
+        );
+
+        await service.currentStatus();
+
+        expect(
+          log.probeCalls.contains(Permission.notification),
+          isFalse,
+          reason:
+              'D-06: currentStatus() on iOS must never probe notification',
+        );
+      },
+    );
   });
 }

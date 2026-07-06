@@ -58,6 +58,8 @@
 // in release builds and the actions become no-ops when the app is
 // backgrounded (Pitfall 4 in 02-RESEARCH.md §10).
 
+import 'dart:io' show Platform;
+
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:traevy/config/constants.dart';
@@ -78,9 +80,26 @@ class TrackingNotificationService {
   /// singleton out of the unit-test surface.
   TrackingNotificationService({
     FlutterLocalNotificationsPlugin? plugin,
-  }) : _plugin = plugin ?? FlutterLocalNotificationsPlugin();
+  })  : _plugin = plugin ?? FlutterLocalNotificationsPlugin(),
+        _platformIsAndroid = Platform.isAndroid;
+
+  /// Test-seam constructor. Allows injecting [platformIsAndroid] to exercise
+  /// the iOS gate without relying on dart:io [Platform] (RESEARCH Pitfall 2).
+  ///
+  /// [plugin] may also be injected to replace the singleton in tests.
+  TrackingNotificationService.forTesting({
+    required bool platformIsAndroid,
+    FlutterLocalNotificationsPlugin? plugin,
+  })  : _plugin = plugin ?? FlutterLocalNotificationsPlugin(),
+        _platformIsAndroid = platformIsAndroid;
 
   final FlutterLocalNotificationsPlugin _plugin;
+
+  /// Runtime platform flag. True on Android, false on iOS / other platforms.
+  ///
+  /// Set via the default constructor from [Platform.isAndroid] (dart:io).
+  /// Overridable via [TrackingNotificationService.forTesting] for unit tests.
+  final bool _platformIsAndroid;
 
   /// Initialise the plugin with platform-specific init settings, the
   /// notification channel, and the foreground / background response
@@ -152,21 +171,33 @@ class TrackingNotificationService {
   ///
   /// Pass `snapshot: null` for the placeholder show on service ready
   /// (before the first GPS sample arrives) — the body will display
-  /// "0:00 elapsed · 0.0 km · 0m stuck".
+  /// "0:00 elapsed · 0.0 km\nMoving 0m · Stuck 0m".
   ///
   /// `direction` defaults to [kDirectionToOffice] for the placeholder
   /// case; the notifier's snapshot listener should pass the resolved
   /// direction once it is known.
+  ///
+  /// IOS-11: no-op on iOS (dart:io Platform.isAndroid guard, defence-in-depth
+  /// at service level). The primary testable guard lives in
+  /// `TrackingServiceController.start` (defaultTargetPlatform check).
   Future<void> showRecording({
     int elapsedSeconds = 0,
     double distanceMeters = 0,
+    int timeMovingSeconds = 0,
     int timeStuckSeconds = 0,
     String direction = kDirectionToOffice,
   }) async {
+    // IOS-11 belt-and-suspenders guard: do not post a notification on iOS.
+    // The controller gate (defaultTargetPlatform != iOS) is the primary,
+    // testable guard; this guard makes the service self-documenting and
+    // ensures the post never fires even if the controller is bypassed.
+    if (!_platformIsAndroid) return;
+
     final title = _renderTitle(direction);
     final body = _renderBody(
       elapsedSeconds: elapsedSeconds,
       distanceMeters: distanceMeters,
+      timeMovingSeconds: timeMovingSeconds,
       timeStuckSeconds: timeStuckSeconds,
     );
     final androidDetails = AndroidNotificationDetails(
@@ -181,11 +212,15 @@ class TrackingNotificationService {
       playSound: false,
       enableVibration: false,
       onlyAlertOnce: true,
-      // BigTextStyle wraps the long stat row across multiple lines when
-      // the notification is expanded, so the user sees the full
-      // "{elapsed} elapsed · {km} km · {stuck} stuck" line on small
-      // shades. Plain BigText is supported on every Android version.
-      styleInformation: BigTextStyleInformation(body),
+      // BigTextStyle expands to the two-line body (IOS-14: line1\nline2).
+      // summary is the compact one-liner shown in collapsed shade —
+      // UI-SPEC Surface E: "{km} km · {elapsed}".
+      styleInformation: BigTextStyleInformation(
+        body,
+        summaryText:
+            '${(distanceMeters / 1000).toStringAsFixed(1)} km'
+            ' · ${formatElapsed(elapsedSeconds)}',
+      ),
       actions: <AndroidNotificationAction>[
         AndroidNotificationAction(
           kTrackingOpenActionId,
@@ -212,16 +247,24 @@ class TrackingNotificationService {
       // identifier (the notification id) is what dedupes them. Keep
       // body short to avoid clipping in the lock-screen preview.
     );
-    await _plugin.show(
-      id: kTrackingNotificationId,
-      title: title,
-      body: body,
-      notificationDetails: NotificationDetails(
-        android: androidDetails,
-        iOS: darwinDetails,
-      ),
-      payload: 'tracking_active',
-    );
+    // POST_NOTIFICATIONS denied on Android 13+ or plugin not initialised in
+    // test host → swallow silently. Tracking must never be gated on
+    // notification permission (D-14). The controller also swallows this,
+    // but swallowing here too keeps the service self-contained.
+    try {
+      await _plugin.show(
+        id: kTrackingNotificationId,
+        title: title,
+        body: body,
+        notificationDetails: NotificationDetails(
+          android: androidDetails,
+          iOS: darwinDetails,
+        ),
+        payload: 'tracking_active',
+      );
+    } on Object {
+      // intentionally swallowed — same rationale as controller gate
+    }
   }
 
   /// Post the opt-in auto-pause prompt (Phase 18 Plan 04, D-12).
@@ -315,30 +358,33 @@ class TrackingNotificationService {
     );
   }
 
-  /// Render the body with formatted live values substituted.
+  /// Render the two-line enriched notification body (IOS-14).
+  ///
+  /// Line 1 uses [kTrackingNotificationBodyLine1Template] with {elapsed} and
+  /// {km} substituted. Line 2 uses [kTrackingNotificationBodyLine2Template]
+  /// with {moving} and {stuck} substituted. Lines are joined by '\n' so
+  /// BigTextStyleInformation renders them as two distinct rows in the expanded
+  /// notification shade.
+  ///
+  /// formatElapsed produces MM:SS / H:MM:SS; formatStuck produces compact
+  /// 'Nm' / 'NhMm' notation (both shared with the Live Activity bridge).
   static String _renderBody({
     required int elapsedSeconds,
     required double distanceMeters,
+    required int timeMovingSeconds,
     required int timeStuckSeconds,
   }) {
-    final elapsed = formatDuration(elapsedSeconds);
+    final elapsed = formatElapsed(elapsedSeconds);
     final km = (distanceMeters / 1000).toStringAsFixed(1);
-    final stuck = _formatStuck(timeStuckSeconds);
-    return kTrackingNotificationBodyTemplate
+    final moving = formatStuck(timeMovingSeconds);
+    final stuck = formatStuck(timeStuckSeconds);
+    final line1 = kTrackingNotificationBodyLine1Template
         .replaceFirst('{elapsed}', elapsed)
-        .replaceFirst('{km}', km)
+        .replaceFirst('{km}', km);
+    final line2 = kTrackingNotificationBodyLine2Template
+        .replaceFirst('{moving}', moving)
         .replaceFirst('{stuck}', stuck);
-  }
-
-  /// Compact stuck-time formatter for the notification stat row. Notifications
-  /// have ~24 chars before clipping on small shades, so we use the shortest
-  /// readable form (`Xm` under an hour, `XhYm` over).
-  static String _formatStuck(int seconds) {
-    final minutes = seconds ~/ 60;
-    if (minutes < 60) return '${minutes}m';
-    final hours = minutes ~/ 60;
-    final remMinutes = minutes % 60;
-    return remMinutes == 0 ? '${hours}h' : '${hours}h${remMinutes}m';
+    return '$line1\n$line2';
   }
 
   /// Foreground tap handler. V5 validation (T-02-17): match the exact

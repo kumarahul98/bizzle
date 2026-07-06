@@ -1,4 +1,6 @@
 import 'package:flutter/widgets.dart';
+import 'package:traevy/config/constants.dart';
+import 'package:traevy/features/onboarding/screens/onboarding_location_priming_screen.dart';
 import 'package:traevy/features/onboarding/screens/onboarding_screen.dart';
 import 'package:traevy/features/settings/screens/settings_screen.dart';
 import 'package:traevy/features/stats/screens/stats_screen.dart';
@@ -55,6 +57,8 @@ final Map<String, WidgetBuilder> kAppRoutes = <String, WidgetBuilder>{
   kRouteStats: (BuildContext context) => const StatsScreen(),
   kRouteSettings: (BuildContext context) => const SettingsScreen(),
   kRouteOnboarding: (BuildContext context) => const OnboardingScreen(),
+  kRouteLocationPriming: (BuildContext context) =>
+      const OnboardingLocationPrimingScreen(),
   kRouteTripDetail: (BuildContext context) {
     final tripId = ModalRoute.of(context)!.settings.arguments! as String;
     return TripDetailScreen(tripId: tripId);

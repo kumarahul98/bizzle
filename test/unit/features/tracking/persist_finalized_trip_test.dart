@@ -64,6 +64,7 @@ class _RecordingNotifications implements TrackingNotificationService {
   Future<void> showRecording({
     int elapsedSeconds = 0,
     double distanceMeters = 0,
+    int timeMovingSeconds = 0,
     int timeStuckSeconds = 0,
     String direction = kDirectionToOffice,
   }) async {

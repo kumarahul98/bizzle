@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/config/routes.dart';
 import 'package:traevy/config/theme.dart';
+import 'package:traevy/database/providers.dart';
 import 'package:traevy/features/auth/models/auth_state.dart';
 import 'package:traevy/features/auth/providers/auth_providers.dart';
 import 'package:traevy/features/auth/screens/login_screen.dart';
@@ -52,6 +55,32 @@ class TraevyApp extends ConsumerWidget {
       // the first trip save (M1). keepAlive provider — reading it does NOT
       // block the UI build; all processing is async / fire-and-forget.
       ..watch(syncEngineProvider);
+
+    // IOS-10 contextual notification permission hook (D-07).
+    //
+    // Fire-and-forget in a post-frame callback so the first frame is never
+    // blocked. App-launch cadence (every build at root) is sufficient for the
+    // 7-day anchor check — the method itself guards against re-asking via the
+    // one-time sentinel file.
+    //
+    // The shared AppDatabase instance is passed explicitly so
+    // _isUsageAnchorMet never constructs a raw AppDatabase() — which would
+    // trigger the Drift "multiple database instances" warning (IOS-10 fix).
+    //
+    // Uses ref.read (not watch) — the service is a stable Provider that never
+    // changes; watching it would rebuild the entire app on provider
+    // invalidation (unnecessary). The unawaited future is intentional —
+    // errors are caught inside maybeRequestNotificationPermissionForUsage.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(
+        ref
+            .read(notificationServiceProvider)
+            .maybeRequestNotificationPermissionForUsage(
+              db: ref.read(appDatabaseProvider),
+            )
+            .catchError((Object _) {}),
+      );
+    });
 
     // D-04: watch user preferences for instant dark mode switching AND the
     // Phase 20 first-run gate. Resolved once as an AsyncValue and reused for
