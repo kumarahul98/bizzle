@@ -67,7 +67,7 @@ void main() {
             builder: (context) {
               return ElevatedButton(
                 onPressed: () {
-                  showModalBottomSheet(
+                  showModalBottomSheet<void>(
                     context: context,
                     isScrollControlled: true,
                     builder: (_) => ConflictResolutionSheet(conflicts: conflicts),
