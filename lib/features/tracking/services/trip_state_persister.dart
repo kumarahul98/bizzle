@@ -9,11 +9,19 @@ class TripStatePersister {
     Future<Directory> Function()? directoryProvider,
   }) : _directoryProvider = directoryProvider;
 
-  Future<File> get _file async {
+  // Resolved once and reused: saveState runs on the GPS hot path, and
+  // getApplicationDocumentsDirectory() is a platform-channel round trip that
+  // never changes for the life of the process. Caching the Future (not the
+  // File) lets concurrent first callers share a single resolution.
+  Future<File>? _cachedFile;
+
+  Future<File> get _file => _cachedFile ??= _resolveFile();
+
+  Future<File> _resolveFile() async {
     Directory dir;
     try {
       dir = _directoryProvider != null
-          ? await _directoryProvider!()
+          ? await _directoryProvider()
           : await getApplicationDocumentsDirectory();
     } catch (e) {
       dir = Directory.systemTemp;

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:traevy/config/constants.dart';
@@ -115,7 +117,9 @@ class TripSnapshot {
 ///   Pitfall 2 — never bring the km/h constant into this file.
 /// * **D-04**: distance is summed via `Geolocator.distanceBetween` on each
 ///   accepted sample pair.
-/// * **D-06**: samples live in memory only. No incremental persistence.
+/// * **D-06 (amended by Phase 25)**: samples live in memory; the full state
+///   is additionally snapshotted to disk for interrupted-trip recovery,
+///   throttled to one write per [kTripStatePersistMinInterval].
 /// * **Pitfall 6**: samples with accuracy worse than
 ///   [kTrackingMaxAcceptableAccuracyMeters] are dropped. Intervals longer
 ///   than [kTrackingMaxAttributableGapSeconds] still contribute distance
@@ -138,46 +142,67 @@ class TripAccumulator {
     required this.startedAt,
     String? tripId,
     TripStatePersister? persister,
-  })  : _tripId = tripId ?? const Uuid().v4(),
-        _persister = persister;
+  }) : _tripId = tripId ?? const Uuid().v4(),
+       _persister = persister;
 
   final TripStatePersister? _persister;
 
   /// Restore an accumulator from a previously saved state.
-  factory TripAccumulator.restore(Map<String, dynamic> state, {TripStatePersister? persister}) {
+  factory TripAccumulator.restore(
+    Map<String, dynamic> state, {
+    TripStatePersister? persister,
+  }) {
     final acc = TripAccumulator(
-      startedAt: DateTime.fromMicrosecondsSinceEpoch(state['startedAtUs'] as int, isUtc: true),
+      startedAt: DateTime.fromMicrosecondsSinceEpoch(
+        state['startedAtUs'] as int,
+        isUtc: true,
+      ),
       tripId: state['_tripId'] as String,
       persister: persister,
     );
     if (state['_lastAccepted'] != null) {
-      acc._lastAccepted = Position.fromMap(Map<String, dynamic>.from(state['_lastAccepted'] as Map));
+      acc._lastAccepted = Position.fromMap(
+        Map<String, dynamic>.from(state['_lastAccepted'] as Map),
+      );
     }
     if (state['_lastAcceptedAtUs'] != null) {
-      acc._lastAcceptedAt = DateTime.fromMicrosecondsSinceEpoch(state['_lastAcceptedAtUs'] as int, isUtc: true);
+      acc._lastAcceptedAt = DateTime.fromMicrosecondsSinceEpoch(
+        state['_lastAcceptedAtUs'] as int,
+        isUtc: true,
+      );
     }
     acc._distanceMeters = (state['_distanceMeters'] as num).toDouble();
     acc._timeMovingSeconds = state['_timeMovingSeconds'] as int;
     acc._timeStuckSeconds = state['_timeStuckSeconds'] as int;
-    
+
     final samples = state['_samples'] as List;
-    acc._samples.addAll(samples.map((s) => Position.fromMap(Map<String, dynamic>.from(s as Map))));
-    
+    acc._samples.addAll(
+      samples.map((s) => Position.fromMap(Map<String, dynamic>.from(s as Map))),
+    );
+
     acc._finalized = state['_finalized'] as bool;
     acc._isPaused = state['_isPaused'] as bool;
     if (state['_currentPauseStartUs'] != null) {
-      acc._currentPauseStart = DateTime.fromMicrosecondsSinceEpoch(state['_currentPauseStartUs'] as int, isUtc: true);
+      acc._currentPauseStart = DateTime.fromMicrosecondsSinceEpoch(
+        state['_currentPauseStartUs'] as int,
+        isUtc: true,
+      );
     }
     acc._accumulatedPausedSeconds = state['_accumulatedPausedSeconds'] as int;
-    
+
     final breaks = state['_breaks'] as List;
-    acc._breaks.addAll(breaks.map((b) {
-      final map = b as Map;
-      return (
-        DateTime.fromMicrosecondsSinceEpoch(map['startUs'] as int, isUtc: true),
-        DateTime.fromMicrosecondsSinceEpoch(map['endUs'] as int, isUtc: true),
-      );
-    }));
+    acc._breaks.addAll(
+      breaks.map((b) {
+        final map = b as Map;
+        return (
+          DateTime.fromMicrosecondsSinceEpoch(
+            map['startUs'] as int,
+            isUtc: true,
+          ),
+          DateTime.fromMicrosecondsSinceEpoch(map['endUs'] as int, isUtc: true),
+        );
+      }),
+    );
 
     return acc;
   }
@@ -195,13 +220,44 @@ class TripAccumulator {
       '_samples': _samples.map((p) => p.toJson()).toList(),
       '_finalized': _finalized,
       '_isPaused': _isPaused,
-      '_currentPauseStartUs': _currentPauseStart?.toUtc().microsecondsSinceEpoch,
+      '_currentPauseStartUs': _currentPauseStart
+          ?.toUtc()
+          .microsecondsSinceEpoch,
       '_accumulatedPausedSeconds': _accumulatedPausedSeconds,
-      '_breaks': _breaks.map((b) => {
-        'startUs': b.$1.toUtc().microsecondsSinceEpoch,
-        'endUs': b.$2.toUtc().microsecondsSinceEpoch,
-      }).toList(),
+      '_breaks': _breaks
+          .map(
+            (b) => {
+              'startUs': b.$1.toUtc().microsecondsSinceEpoch,
+              'endUs': b.$2.toUtc().microsecondsSinceEpoch,
+            },
+          )
+          .toList(),
     };
+  }
+
+  // Wall-clock instant of the last persisted snapshot (throttle bookkeeping
+  // only — never part of dumpState/restore).
+  DateTime? _lastPersistAt;
+
+  /// Persist the current state for interrupted-trip recovery (Phase 25).
+  ///
+  /// Hot-path saves (one per accepted GPS sample, ~3 s apart) are throttled
+  /// to one write per [kTripStatePersistMinInterval] because every save
+  /// re-serializes the FULL sample list. [force] bypasses the throttle for
+  /// state transitions (pause/resume) that a recovered trip must never see
+  /// stale.
+  void _persistState({bool force = false}) {
+    final persister = _persister;
+    if (persister == null) return;
+    final now = DateTime.now();
+    if (!force &&
+        _lastPersistAt != null &&
+        now.difference(_lastPersistAt!) < kTripStatePersistMinInterval) {
+      return;
+    }
+    _lastPersistAt = now;
+    // Fire-and-forget: recovery persistence must never block sample intake.
+    unawaited(persister.saveState(dumpState()));
   }
 
   /// UTC instant the trip started.
@@ -256,7 +312,7 @@ class TripAccumulator {
       _lastAccepted = p;
       _lastAcceptedAt = p.timestamp;
       _samples.add(p);
-      _persister?.saveState(dumpState());
+      _persistState();
       return null;
     }
 
@@ -268,7 +324,7 @@ class TripAccumulator {
       _samples.add(p);
       _lastAccepted = p;
       _lastAcceptedAt = p.timestamp;
-      _persister?.saveState(dumpState());
+      _persistState();
       return null;
     }
 
@@ -283,7 +339,7 @@ class TripAccumulator {
       _samples.add(p);
       _lastAccepted = p;
       _lastAcceptedAt = p.timestamp;
-      _persister?.saveState(dumpState());
+      _persistState();
       return null;
     }
     final deltaSec = deltaMillis / 1000.0;
@@ -324,7 +380,7 @@ class TripAccumulator {
     _lastAccepted = p;
     _lastAcceptedAt = p.timestamp;
     _samples.add(p);
-    _persister?.saveState(dumpState());
+    _persistState();
     return interval;
   }
 
@@ -335,7 +391,7 @@ class TripAccumulator {
     if (_finalized || _isPaused) return;
     _isPaused = true;
     _currentPauseStart = at.toUtc();
-    _persister?.saveState(dumpState());
+    _persistState(force: true);
   }
 
   /// End the current break at [at] (UTC): record the `(start, end)` segment
@@ -350,7 +406,7 @@ class TripAccumulator {
     _accumulatedPausedSeconds += end.difference(pauseStart).inSeconds;
     _isPaused = false;
     _currentPauseStart = null;
-    _persister?.saveState(dumpState());
+    _persistState(force: true);
   }
 
   /// Total paused seconds as of [now], including the currently-open break
@@ -434,9 +490,9 @@ class TripAccumulator {
           },
         )
         .toList(growable: false);
-    
+
     _persister?.clear();
-    
+
     return FinalizedTrip(
       id: _tripId,
       startTime: startedAt.toUtc(),
