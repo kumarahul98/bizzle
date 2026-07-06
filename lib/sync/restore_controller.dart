@@ -82,39 +82,53 @@ class RestoreController extends Notifier<RestoreState> {
     try {
       final companions = await ref.read(apiClientProvider).restoreTrips();
       final tripsDao = ref.read(tripsDaoProvider);
-      
+
       final localTrips = await tripsDao.getAllTrips();
+      // Lookup structures built once so the per-cloud-trip work below stays
+      // cheap for multi-year histories: O(1) UUID lookup, and an
+      // ascending-start ordering that lets the overlap scan stop at the
+      // first local trip starting at/after the cloud trip's end.
+      final localById = <String, TripRow>{
+        for (final t in localTrips) t.id: t,
+      };
+      final localsByStart = [...localTrips]
+        ..sort((a, b) => a.startTime.compareTo(b.startTime));
       final conflicts = <RestoreConflict>[];
       final nonConflicts = <TripsCompanion>[];
-      
+
       for (final cloud in companions) {
         bool isConflict = false;
-        
-        final sameUuidLocal = localTrips.where((t) => t.id == cloud.id.value).firstOrNull;
+
+        final sameUuidLocal = localById[cloud.id.value];
         if (sameUuidLocal != null) {
           if (_isDifferent(sameUuidLocal, cloud)) {
-            conflicts.add(SameUuidConflict(localTrip: sameUuidLocal, cloudTrip: cloud));
+            conflicts.add(
+              SameUuidConflict(localTrip: sameUuidLocal, cloudTrip: cloud),
+            );
             isConflict = true;
-          } else {
-            isConflict = false;
           }
-        } else {
-          for (final local in localTrips) {
+        } else if (cloud.startTime.present && cloud.endTime.present) {
+          for (final local in localsByStart) {
+            // Sorted by startTime: once a local trip starts at/after the
+            // cloud trip's end, neither it nor any later one can overlap.
+            if (!local.startTime.isBefore(cloud.endTime.value)) break;
             if (_isOverlap(local, cloud)) {
-              conflicts.add(OverlapConflict(localTrip: local, cloudTrip: cloud));
+              conflicts.add(
+                OverlapConflict(localTrip: local, cloudTrip: cloud),
+              );
               isConflict = true;
               break;
             }
           }
         }
-        
+
         if (!isConflict && sameUuidLocal == null) {
           nonConflicts.add(cloud);
         }
       }
-      
+
       final inserted = await tripsDao.insertOrIgnoreTrips(nonConflicts);
-      
+
       if (conflicts.isNotEmpty) {
         state = RestoreConflictState(conflicts);
       } else {
@@ -126,31 +140,57 @@ class RestoreController extends Notifier<RestoreState> {
   }
 
   bool _isDifferent(TripRow local, TripsCompanion cloud) {
-    if (cloud.startTime.present && !local.startTime.isAtSameMomentAs(cloud.startTime.value)) return true;
-    if (cloud.endTime.present && !local.endTime.isAtSameMomentAs(cloud.endTime.value)) return true;
-    if (cloud.durationSeconds.present && local.durationSeconds != cloud.durationSeconds.value) return true;
-    if (cloud.totalPausedSeconds.present && local.totalPausedSeconds != cloud.totalPausedSeconds.value) return true;
-    if (cloud.distanceMeters.present && local.distanceMeters != cloud.distanceMeters.value) return true;
-    if (cloud.direction.present && local.direction != cloud.direction.value) return true;
-    if (cloud.directionSource.present && local.directionSource != cloud.directionSource.value) return true;
-    if (cloud.timeMovingSeconds.present && local.timeMovingSeconds != cloud.timeMovingSeconds.value) return true;
-    if (cloud.timeStuckSeconds.present && local.timeStuckSeconds != cloud.timeStuckSeconds.value) return true;
-    if (cloud.isManualEntry.present && local.isManualEntry != cloud.isManualEntry.value) return true;
-    if (cloud.isEdited.present && local.isEdited != cloud.isEdited.value) return true;
-    if (cloud.routePolyline.present && local.routePolyline != cloud.routePolyline.value) return true;
+    if (cloud.startTime.present &&
+        !local.startTime.isAtSameMomentAs(cloud.startTime.value))
+      return true;
+    if (cloud.endTime.present &&
+        !local.endTime.isAtSameMomentAs(cloud.endTime.value))
+      return true;
+    if (cloud.durationSeconds.present &&
+        local.durationSeconds != cloud.durationSeconds.value)
+      return true;
+    if (cloud.totalPausedSeconds.present &&
+        local.totalPausedSeconds != cloud.totalPausedSeconds.value)
+      return true;
+    if (cloud.distanceMeters.present &&
+        local.distanceMeters != cloud.distanceMeters.value)
+      return true;
+    if (cloud.direction.present && local.direction != cloud.direction.value)
+      return true;
+    if (cloud.directionSource.present &&
+        local.directionSource != cloud.directionSource.value)
+      return true;
+    if (cloud.timeMovingSeconds.present &&
+        local.timeMovingSeconds != cloud.timeMovingSeconds.value)
+      return true;
+    if (cloud.timeStuckSeconds.present &&
+        local.timeStuckSeconds != cloud.timeStuckSeconds.value)
+      return true;
+    if (cloud.isManualEntry.present &&
+        local.isManualEntry != cloud.isManualEntry.value)
+      return true;
+    if (cloud.isEdited.present && local.isEdited != cloud.isEdited.value)
+      return true;
+    if (cloud.routePolyline.present &&
+        local.routePolyline != cloud.routePolyline.value)
+      return true;
     return false;
   }
 
   bool _isOverlap(TripRow local, TripsCompanion cloud) {
     if (!cloud.startTime.present || !cloud.endTime.present) return false;
-    final maxStart = local.startTime.isAfter(cloud.startTime.value) ? local.startTime : cloud.startTime.value;
-    final minEnd = local.endTime.isBefore(cloud.endTime.value) ? local.endTime : cloud.endTime.value;
+    final maxStart = local.startTime.isAfter(cloud.startTime.value)
+        ? local.startTime
+        : cloud.startTime.value;
+    final minEnd = local.endTime.isBefore(cloud.endTime.value)
+        ? local.endTime
+        : cloud.endTime.value;
     if (maxStart.isBefore(minEnd)) {
       return minEnd.difference(maxStart).inSeconds > 60;
     }
     return false;
   }
-  
+
   /// Transition to success after resolving conflicts.
   void resolveConflicts(int insertedCount) {
     state = RestoreSuccess(insertedCount);
