@@ -6,9 +6,8 @@ import 'package:traevy/config/theme.dart';
 import 'package:traevy/features/auth/models/auth_state.dart';
 import 'package:traevy/features/auth/providers/auth_providers.dart';
 import 'package:traevy/features/auth/screens/sign_in_success_screen.dart';
-import 'package:traevy/features/onboarding/widgets/feature_tick.dart';
 import 'package:traevy/features/onboarding/widgets/google_continue_button.dart';
-import 'package:traevy/shared/widgets/traevy_logo_mark.dart';
+import 'package:traevy/features/onboarding/widgets/onboarding_intro_block.dart';
 
 /// Onboarding scaffold: logo + headline + feature ticks + Google continue
 /// button + skip link + terms blurb.
@@ -32,7 +31,6 @@ class OnboardingScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tokens = Theme.of(context).extension<TraevyTokensExt>()!;
-    final onSurface = Theme.of(context).colorScheme.onSurface;
     final firebaseReady = ref.watch(firebaseReadyProvider);
 
     return Scaffold(
@@ -51,48 +49,7 @@ class OnboardingScreen extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        const TraevyLogoMark(),
-                        const SizedBox(height: 24),
-                        Text(
-                          'Track every\ncommute.',
-                          style: TraevyFonts.ui(
-                            size: 36,
-                            weight: FontWeight.w700,
-                            letterSpacing: -1.2,
-                            height: 1.05,
-                            color: onSurface,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 280),
-                          child: Text(
-                            'One tap to start, one tap to stop. '
-                            'See exactly how much of your day '
-                            'is lost to traffic.',
-                            style: TraevyFonts.ui(
-                              size: 16,
-                              color: tokens.textDim,
-                              height: 1.5,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 40),
-                        const FeatureTick(
-                          title: 'One-tap recording',
-                          subtitle:
-                              'Start when you leave, stop when you arrive.',
-                        ),
-                        const SizedBox(height: 18),
-                        const FeatureTick(
-                          title: 'Auto traffic detection',
-                          subtitle: 'We split moving time from time stuck.',
-                        ),
-                        const SizedBox(height: 18),
-                        const FeatureTick(
-                          title: 'Works offline',
-                          subtitle: 'Trips save to the device, sync later.',
-                        ),
+                        const OnboardingIntroBlock(),
                         const Spacer(),
                         if (firebaseReady)
                           // Wired to AuthService.signIn() (AUTH-01).

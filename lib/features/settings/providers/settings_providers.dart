@@ -16,9 +16,9 @@ import 'package:traevy/notifications/notification_service.dart';
 /// See D-04 in `.planning/phases/07-polish-notifications/07-CONTEXT.md`.
 final StreamProvider<UserPreferencesValue> userPreferenceProvider =
     StreamProvider<UserPreferencesValue>(
-  (ref) => ref.watch(userPreferencesDaoProvider).watch(),
-  name: 'userPreferenceProvider',
-);
+      (ref) => ref.watch(userPreferencesDaoProvider).watch(),
+      name: 'userPreferenceProvider',
+    );
 
 /// Reactive count of `pending` sync-queue rows (Phase 11, D-09).
 ///
@@ -28,10 +28,8 @@ final StreamProvider<UserPreferencesValue> userPreferenceProvider =
 /// Manual provider per the project-wide constraint (see
 /// `lib/database/providers.dart`). Widget tests override it to script a count.
 final StreamProvider<int> pendingSyncCountProvider = StreamProvider<int>(
-  (ref) => ref
-      .watch(syncQueueDaoProvider)
-      .watchPending()
-      .map((rows) => rows.length),
+  (ref) =>
+      ref.watch(syncQueueDaoProvider).watchPending().map((rows) => rows.length),
   name: 'pendingSyncCountProvider',
 );
 
@@ -43,6 +41,6 @@ final StreamProvider<int> pendingSyncCountProvider = StreamProvider<int>(
 /// from `flutter_local_notifications` (which crash on the test host).
 final Provider<NotificationService> notificationServiceProvider =
     Provider<NotificationService>(
-  (ref) => NotificationService(),
-  name: 'notificationServiceProvider',
-);
+      (ref) => NotificationService(),
+      name: 'notificationServiceProvider',
+    );

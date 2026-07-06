@@ -53,6 +53,9 @@ final class TrackingActive extends TrackingState {
     required this.currentSpeedKmh,
     required this.timeMovingSeconds,
     required this.timeStuckSeconds,
+    this.isPaused = false,
+    this.pausedSeconds = 0,
+    this.breakCount = 0,
   });
 
   /// UTC wall-clock time the trip started.
@@ -76,6 +79,21 @@ final class TrackingActive extends TrackingState {
   /// Running stuck-seconds counter (interval classified by prev.speed
   /// < stuck threshold).
   final int timeStuckSeconds;
+
+  /// Whether the trip is currently paused (Phase 18, D-08). Driven purely by
+  /// the latest snapshot — the UI is a dumb terminal and never derives this
+  /// locally, so after a backgrounding/kill the first reconnected snapshot
+  /// dictates the paused-or-running display.
+  final bool isPaused;
+
+  /// Total seconds spent paused across all breaks so far (Phase 18). Reflects
+  /// the snapshot's running paused-time aggregate.
+  final int pausedSeconds;
+
+  /// Number of completed break spans so far (Phase 18). Surfaced as the hero's
+  /// break-count indicator. A currently-open break is not counted until it is
+  /// closed by a resume.
+  final int breakCount;
 }
 
 /// Stop tapped but persistence not yet complete. Brief — the UI may show
@@ -84,6 +102,15 @@ final class TrackingActive extends TrackingState {
 final class TrackingStopping extends TrackingState {
   /// Const constructor — singleton at every call site.
   const TrackingStopping();
+}
+
+/// An interrupted trip was detected on app launch.
+final class TrackingInterrupted extends TrackingState {
+  /// Construct an interrupted state with the given [snapshot].
+  const TrackingInterrupted(this.snapshot);
+
+  /// Raw snapshot map from the persister.
+  final Map<String, dynamic> snapshot;
 }
 
 /// Terminal error path. [message] is user-facing and never empty.
@@ -146,6 +173,13 @@ TrackingActive trackingActiveFromSnapshotMap(Map<String, Object?> map) {
     currentSpeedKmh: _req<num>(map, 'currentSpeedMs').toDouble() * 3.6,
     timeMovingSeconds: _req<int>(map, 'timeMovingSeconds'),
     timeStuckSeconds: _req<int>(map, 'timeStuckSeconds'),
+    // Phase 18 (D-08): the pause fields are decoded TOLERANTLY — older
+    // snapshots (or a pre-18-02 accumulator) omit them, so a missing key
+    // defaults to running/zero rather than throwing. This keeps the dumb
+    // terminal robust across version skews at the isolate boundary.
+    isPaused: map['isPaused'] as bool? ?? false,
+    pausedSeconds: (map['pausedSeconds'] as num?)?.toInt() ?? 0,
+    breakCount: (map['breakCount'] as num?)?.toInt() ?? 0,
   );
 }
 

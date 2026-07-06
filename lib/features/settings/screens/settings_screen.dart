@@ -10,9 +10,11 @@ import 'package:traevy/features/auth/models/auth_state.dart';
 import 'package:traevy/features/auth/providers/auth_providers.dart';
 import 'package:traevy/features/auth/widgets/sign_in_sheet.dart';
 import 'package:traevy/features/settings/providers/settings_providers.dart';
+import 'package:traevy/features/settings/screens/location_picker_screen.dart';
 import 'package:traevy/features/settings/widgets/account_row.dart';
 import 'package:traevy/features/settings/widgets/cloud_sync_row.dart';
 import 'package:traevy/features/settings/widgets/restore_row.dart';
+import 'package:traevy/features/settings/widgets/saved_location_tile.dart';
 import 'package:traevy/features/settings/widgets/settings_row.dart';
 import 'package:traevy/features/settings/widgets/settings_section.dart';
 import 'package:traevy/shared/widgets/traevy_toggle.dart';
@@ -47,7 +49,8 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               ),
               const _AccountSection(),
-              _RecordingSection(prefs: prefs),
+              const _LocationsSection(),
+              _RecordingSection(prefs: prefs, ref: ref),
               _NotificationsSection(prefs: prefs, ref: ref),
               _AppearanceSection(prefs: prefs, ref: ref),
             ],
@@ -124,9 +127,45 @@ class _AccountSection extends ConsumerWidget {
   }
 }
 
+/// Commute-anchor section (Phase 21, LOC-01): the Home and Office location
+/// rows. Each [SavedLocationTile] reflects the saved coord (or "Not set") and
+/// opens the full-screen map picker for that slot on tap. Purely additive —
+/// with nothing set both rows simply read [kCopyLocationNotSet].
+class _LocationsSection extends StatelessWidget {
+  const _LocationsSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return SettingsSection(
+      title: kSettingsLocationsSectionTitle,
+      children: <Widget>[
+        SavedLocationTile(
+          isHome: true,
+          onTap: () => _openPicker(context, isHome: true),
+        ),
+        SavedLocationTile(
+          isHome: false,
+          onTap: () => _openPicker(context, isHome: false),
+        ),
+      ],
+    );
+  }
+
+  void _openPicker(BuildContext context, {required bool isHome}) {
+    unawaited(
+      Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => LocationPickerScreen(isHome: isHome),
+        ),
+      ),
+    );
+  }
+}
+
 class _RecordingSection extends StatelessWidget {
-  const _RecordingSection({required this.prefs});
+  const _RecordingSection({required this.prefs, required this.ref});
   final UserPreferencesValue prefs;
+  final WidgetRef ref;
 
   @override
   Widget build(BuildContext context) {
@@ -141,11 +180,19 @@ class _RecordingSection extends StatelessWidget {
           // expose cutoff updates. Rendered without onTap so no chevron
           // is shown.
         ),
-        const SettingsRow(
-          label: 'Auto-pause on stop',
-          // UserPreferences does not yet carry this flag — placeholder
-          // until Phase 9 backlog wires it. Toggle is visual-only.
-          trailing: TraevyToggle(value: true, onChanged: _noopBool),
+        // Phase 18 (Plan 04, TRACK-10, D-10): real opt-in auto-pause toggle
+        // bound to user_preferences.auto_pause_enabled (default OFF). No
+        // notification side-effect — flipping it only upserts the preference;
+        // the service-side detector reads the gate live via the UI isolate.
+        SettingsRow(
+          label: kSettingsAutoPauseLabel,
+          subtitle: prefs.autoPauseEnabled
+              ? kSettingsAutoPauseOnSubtitle
+              : kSettingsAutoPauseOffSubtitle,
+          trailing: TraevyToggle(
+            value: prefs.autoPauseEnabled,
+            onChanged: (v) => unawaited(_toggleAutoPause(ref, prefs, v)),
+          ),
         ),
       ],
     );
@@ -254,10 +301,6 @@ Future<String?> _openThemePicker(BuildContext context, String current) {
   );
 }
 
-/// No-op handler for the visual-only Auto-pause placeholder toggle. Lifted to
-/// a top-level function so the enclosing row can be declared `const`.
-void _noopBool(bool _) {}
-
 // ---------------------------------------------------------------------------
 // Helpers — copy + format
 // ---------------------------------------------------------------------------
@@ -291,6 +334,7 @@ UserPreferencesValue _copyPrefs(
   Object? reminderTime = const _UnsetSentinel(),
   bool? weekendReminder,
   bool? weeklyNotificationEnabled,
+  bool? autoPauseEnabled,
 }) => UserPreferencesValue(
   userId: prefs.userId,
   darkMode: darkMode ?? prefs.darkMode,
@@ -303,6 +347,17 @@ UserPreferencesValue _copyPrefs(
   weekendReminder: weekendReminder ?? prefs.weekendReminder,
   weeklyNotificationEnabled:
       weeklyNotificationEnabled ?? prefs.weeklyNotificationEnabled,
+  autoPauseEnabled: autoPauseEnabled ?? prefs.autoPauseEnabled,
+  // Preserve the first-run flag (Phase 20) — a settings write must never
+  // reset it and re-trigger the login wall.
+  hasSeenOnboarding: prefs.hasSeenOnboarding,
+  // Preserve the Phase 21 Home/Office coords — a generic settings write must
+  // never zero them. Plan 02 (picker) adds the dedicated setters that mutate
+  // these; this copy only carries them through unchanged.
+  homeLat: prefs.homeLat,
+  homeLng: prefs.homeLng,
+  officeLat: prefs.officeLat,
+  officeLng: prefs.officeLng,
 );
 
 class _UnsetSentinel {
@@ -347,6 +402,20 @@ Future<void> _toggleReminder(
   } else {
     await service.cancelReminder();
   }
+}
+
+/// Persist the opt-in auto-pause preference (Phase 18 Plan 04, TRACK-10,
+/// D-10). Unlike the notification toggles this has NO side-effect — auto-pause
+/// has no scheduled alarm; the service-side detector reads the flag live via
+/// the UI isolate, so flipping it only needs the upsert.
+Future<void> _toggleAutoPause(
+  WidgetRef ref,
+  UserPreferencesValue prefs,
+  bool value,
+) async {
+  await ref
+      .read(userPreferencesDaoProvider)
+      .upsert(_copyPrefs(prefs, autoPauseEnabled: value));
 }
 
 Future<void> _toggleWeekend(

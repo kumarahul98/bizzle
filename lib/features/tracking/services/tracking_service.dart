@@ -30,9 +30,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:traevy/config/constants.dart';
+import 'package:traevy/features/tracking/services/auto_pause_detector.dart';
 import 'package:traevy/features/tracking/services/location_settings_builder.dart';
 import 'package:traevy/features/tracking/services/tracking_service_events.dart';
 import 'package:traevy/features/tracking/services/trip_accumulator.dart';
+import 'package:home_widget/home_widget.dart';
 
 /// flutter_background_service onStart entrypoint. Runs in a background
 /// isolate as soon as `FlutterBackgroundService.startService()` is
@@ -80,8 +82,30 @@ Future<void> trackingServiceOnStart(ServiceInstance service) async {
     service.invoke(kServiceReadyEvent);
   }
 
-  final accumulator = TripAccumulator(startedAt: DateTime.now().toUtc());
+  var accumulator = TripAccumulator(startedAt: DateTime.now().toUtc());
   var stopping = false;
+
+  service.on(kSetInitialStateCommand).listen((event) {
+    if (stopping) return;
+    if (event != null && event['initialState'] != null) {
+      try {
+        final state = Map<String, dynamic>.from(event['initialState'] as Map);
+        accumulator = TripAccumulator.restore(state);
+      } catch (e) {
+        // T-25-03: Ensure parsing exceptions in the background isolate are caught
+        // and logged so a malformed state doesn't crash the background process.
+        print('Failed to restore initial state: $e');
+      }
+    }
+  });
+  // Phase 18 (Plan 04, D-11): the auto-pause detector runs SERVICE-SIDE,
+  // alongside the accumulator, consuming the SAME stuck/moving classification
+  // addSample() returns — never raw speed, never a second threshold. It fires
+  // at most once per uninterrupted stuck streak; the UI isolate gates the
+  // actual prompt on the opt-in pref (so OFF → no prompt, SC#5).
+  final autoPauseDetector = AutoPauseDetector(
+    thresholdSeconds: kAutoPauseStationaryThresholdSeconds,
+  );
   StreamSubscription<Position>? positionSub;
   Timer? uiTimer;
 
@@ -100,7 +124,23 @@ Future<void> trackingServiceOnStart(ServiceInstance service) async {
       // `stopping` flag short-circuits those late samples before they
       // touch the accumulator. See 02-RESEARCH §8 stop-race.
       if (stopping) return;
-      accumulator.addSample(position);
+      final interval = accumulator.addSample(position);
+      // Phase 18 (Plan 04, D-11/D-12): feed each ATTRIBUTED interval's
+      // classification into the detector. A moving interval resets the streak
+      // and re-arms; a stuck interval extends it. When the uninterrupted stuck
+      // streak first crosses the threshold AND the trip is not already paused,
+      // signal the UI isolate ONCE — it posts the prompt only if the user opted
+      // in. NO payload crosses the boundary (T-18-08), just the channel name.
+      if (interval != null) {
+        if (interval.stuck) {
+          autoPauseDetector.onStuckInterval(interval.seconds);
+        } else {
+          autoPauseDetector.onMovingInterval();
+        }
+        if (!accumulator.isPaused && autoPauseDetector.shouldPrompt()) {
+          service.invoke(kAutoPausePromptEvent);
+        }
+      }
     },
     onError: (Object error, StackTrace stack) async {
       // Mid-trip position stream failure path (WR-01). Examples: the
@@ -127,12 +167,71 @@ Future<void> trackingServiceOnStart(ServiceInstance service) async {
     cancelOnError: true,
   );
 
+  print('=== TRACKING SERVICE ONSTART BOOTED ===');
+  HomeWidget.saveWidgetData<String>('widget_title', 'Stop Commute');
+  HomeWidget.saveWidgetData<bool>('widget_show_stats', true);
+  HomeWidget.updateWidget(
+    name: 'CommuteWidgetProvider',
+    androidName: 'CommuteWidgetProvider',
+  );
+
+  // Widget refresh throttle: the 1 Hz tick below exists for the in-app
+  // snapshot stream; pushing every tick through HomeWidget would rebuild the
+  // home-screen RemoteViews ~2700 times on a 45-min trip. Gate the widget
+  // writes to once per [kTrackingWidgetRefreshInterval], mirroring the
+  // notification throttle in tracking_providers.dart.
+  DateTime? lastWidgetUpdateAt;
   uiTimer = Timer.periodic(kTrackingUiUpdateInterval, (_) {
     if (stopping) return;
+    final snapshot = accumulator.snapshot(DateTime.now().toUtc());
     service.invoke(
       kTrackingStateEvent,
-      accumulator.snapshot(DateTime.now().toUtc()).toMap(),
+      snapshot.toMap(),
     );
+    final now = DateTime.now();
+    if (lastWidgetUpdateAt != null &&
+        now.difference(lastWidgetUpdateAt!) < kTrackingWidgetRefreshInterval) {
+      return;
+    }
+    lastWidgetUpdateAt = now;
+    try {
+      final distance =
+          '${(snapshot.distanceMeters / 1000).toStringAsFixed(1)} km';
+      final m = snapshot.elapsedSeconds ~/ 60;
+      final h = m ~/ 60;
+      final min = m % 60;
+      final duration = h > 0 ? '${h}h ${min}m' : '${min}m';
+
+      HomeWidget.saveWidgetData<String>(
+        'widget_distance',
+        distance,
+      ).catchError((_) => false);
+      HomeWidget.saveWidgetData<String>(
+        'widget_duration',
+        duration,
+      ).catchError((_) => false);
+      HomeWidget.updateWidget(
+        name: 'CommuteWidgetProvider',
+        androidName: 'CommuteWidgetProvider',
+      ).catchError((_) => false);
+    } catch (_) {}
+  });
+
+  // Phase 18 (D-08): pause/resume only TOGGLE the accumulator — they do NOT
+  // cancel the position subscription or stop the service. The very next
+  // uiTimer tick emits a snapshot whose `isPaused` reflects the new state, so
+  // the dumb-terminal UI updates from that snapshot, never from a local
+  // action. Both handlers early-return when `stopping` is set (T-18-10): a
+  // late pause racing the Stop handler must not touch a finalized accumulator,
+  // mirroring the stop-race guard above.
+  service.on(kTrackingPauseCommand).listen((_) {
+    if (stopping) return;
+    accumulator.pause(DateTime.now().toUtc());
+  });
+
+  service.on(kTrackingResumeCommand).listen((_) {
+    if (stopping) return;
+    accumulator.resume(DateTime.now().toUtc());
   });
 
   service.on(kStopTrackingEvent).listen((_) async {
@@ -142,6 +241,12 @@ Future<void> trackingServiceOnStart(ServiceInstance service) async {
     stopping = true;
     await positionSub?.cancel();
     uiTimer?.cancel();
+    await HomeWidget.saveWidgetData<String>('widget_title', 'Start Commute');
+    await HomeWidget.saveWidgetData<bool>('widget_show_stats', false);
+    await HomeWidget.updateWidget(
+      name: 'CommuteWidgetProvider',
+      androidName: 'CommuteWidgetProvider',
+    );
     final trip = accumulator.finalize(DateTime.now().toUtc());
     // WR-05: if the app is force-stopped before the UI isolate can
     // receive and persist kTripFinalizedEvent, the trip is lost. Save it

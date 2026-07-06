@@ -66,8 +66,10 @@ void main() {
       test(
         'reminder ID range does not overlap weekly summary ID',
         () {
-          final reminderRange =
-              List.generate(5, (i) => kReminderNotificationId + i);
+          final reminderRange = List.generate(
+            5,
+            (i) => kReminderNotificationId + i,
+          );
           expect(reminderRange, isNot(contains(kWeeklySummaryNotificationId)));
         },
       );
@@ -86,8 +88,10 @@ void main() {
         () {
           // cancelReminder() iterates i = 0..4, cancelling
           // kReminderNotificationId + i for each.
-          final cancelRange =
-              List.generate(5, (i) => kReminderNotificationId + i);
+          final cancelRange = List.generate(
+            5,
+            (i) => kReminderNotificationId + i,
+          );
           expect(cancelRange, equals([20, 21, 22, 23, 24]));
         },
       );

@@ -5,6 +5,7 @@ import 'package:traevy/config/routes.dart';
 import 'package:traevy/config/theme.dart';
 import 'package:traevy/features/auth/models/auth_state.dart';
 import 'package:traevy/features/auth/providers/auth_providers.dart';
+import 'package:traevy/features/auth/screens/login_screen.dart';
 import 'package:traevy/features/auth/screens/splash_screen.dart';
 import 'package:traevy/features/settings/providers/settings_providers.dart';
 import 'package:traevy/features/shell/main_shell.dart';
@@ -24,9 +25,16 @@ import 'package:traevy/sync/sync_engine.dart';
 ///
 /// Phase 9 (AUTH-02, AUTH-03): watches [authStateProvider] and routes via an
 /// exhaustive sealed `switch` — [AuthLoading] shows [SplashScreen] during
-/// Firebase session restore; [AuthGuest] and [AuthSignedIn] both show
-/// [MainShell]. The switch has no `default` branch so a new [AuthState]
-/// variant is a compile error at this call site (T-09-04-02 mitigation).
+/// Firebase session restore; [AuthSignedIn] shows [MainShell]. The switch has
+/// no `default` branch so a new [AuthState] variant is a compile error at this
+/// call site (T-09-04-02 mitigation).
+///
+/// Phase 20 (AUTH-04, D-03): the [AuthGuest] arm now composes the persisted
+/// `has_seen_onboarding` flag from [userPreferenceProvider] WITHOUT a flash —
+/// while prefs load it shows [SplashScreen] (not a flicker between screens),
+/// on error it degrades to [MainShell] (never traps a user behind the wall),
+/// and on data it routes `seen ? MainShell : LoginScreen`. The [AuthState]
+/// switch stays exhaustive with no `default` branch.
 class TraevyApp extends ConsumerWidget {
   /// Create the root app widget.
   const TraevyApp({super.key});
@@ -45,25 +53,35 @@ class TraevyApp extends ConsumerWidget {
       // block the UI build; all processing is async / fire-and-forget.
       ..watch(syncEngineProvider);
 
-    // D-04: watch user preferences for instant dark mode switching.
-    // Falls back to ThemeMode.system while the stream initialises or
-    // if the DB is unavailable.
-    final themeMode = ref
-        .watch(userPreferenceProvider)
-        .when(
-          data: (prefs) => _toThemeMode(prefs.darkMode),
-          loading: () => ThemeMode.system,
-          error: (e, s) => ThemeMode.system,
-        );
+    // D-04: watch user preferences for instant dark mode switching AND the
+    // Phase 20 first-run gate. Resolved once as an AsyncValue and reused for
+    // both the theme and the gate below.
+    final prefsAsync = ref.watch(userPreferenceProvider);
+    final themeMode = prefsAsync.when(
+      data: (prefs) => _toThemeMode(prefs.darkMode),
+      loading: () => ThemeMode.system,
+      error: (e, s) => ThemeMode.system,
+    );
 
-    // Phase 9 auth gate — sealed switch on AuthState (NOT .when, which is
-    // the AsyncValue API). AuthState is a plain sealed class from a
-    // NotifierProvider, not an AsyncValue (RESEARCH Pitfall 6 / A5).
+    // Auth gate — sealed switch on AuthState (NOT .when, which is the
+    // AsyncValue API). AuthState is a plain sealed class from a
+    // NotifierProvider, not an AsyncValue (RESEARCH Pitfall 6 / A5). The
+    // AuthGuest arm composes the prefs AsyncValue (D-03 no-flash gate); the
+    // switch stays exhaustive with no `default` branch.
     final auth = ref.watch(authStateProvider);
     final home = switch (auth) {
       AuthLoading() => const SplashScreen(),
-      AuthGuest() => const MainShell(),
       AuthSignedIn() => const MainShell(),
+      AuthGuest() => prefsAsync.when(
+        // No flash: show the splash while prefs load instead of flickering
+        // the login screen.
+        loading: () => const SplashScreen(),
+        // Degrade: a prefs read failure must never trap a user behind the
+        // wall (T-20-03) — fall through to the app.
+        error: (_, _) => const MainShell(),
+        data: (prefs) =>
+            prefs.hasSeenOnboarding ? const MainShell() : const LoginScreen(),
+      ),
     };
 
     return MaterialApp(

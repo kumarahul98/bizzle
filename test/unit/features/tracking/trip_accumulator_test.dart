@@ -221,8 +221,7 @@ void main() {
       expect(snap.currentSpeedMs, 12);
     });
 
-    test('decays to 0 when last sample is older than the freshness window',
-        () {
+    test('decays to 0 when last sample is older than the freshness window', () {
       final acc = TripAccumulator(startedAt: start);
       final t0 = start.add(const Duration(seconds: 5));
       acc.addSample(_pos(lat: 0, lng: 0, speedMs: 12, timestamp: t0));
@@ -406,6 +405,223 @@ void main() {
     });
   });
 
+  group('TripAccumulator.pause()/resume() — paused attribution (D-05)', () {
+    test('paused addSample adds no distance/moving/stuck (polyline only)', () {
+      final acc = TripAccumulator(startedAt: start)
+        ..addSample(
+          _pos(lat: 37.7749, lng: -122.4194, speedMs: 20, timestamp: start),
+        )
+        ..addSample(
+          _pos(
+            lat: 37.7800,
+            lng: -122.4194,
+            speedMs: 20,
+            timestamp: start.add(const Duration(seconds: 5)),
+          ),
+        );
+
+      // Capture pre-pause attribution.
+      final distanceBefore = acc.distanceMetersForTest;
+      final movingBefore = acc.timeMovingSecondsForTest;
+      final stuckBefore = acc.timeStuckSecondsForTest;
+      expect(movingBefore, 5);
+
+      // Pause, then feed two more samples spanning real distance/time.
+      acc
+        ..pause(start.add(const Duration(seconds: 5)))
+        ..addSample(
+          _pos(
+            lat: 37.7900,
+            lng: -122.4000,
+            speedMs: 20,
+            timestamp: start.add(const Duration(seconds: 10)),
+          ),
+        )
+        ..addSample(
+          _pos(
+            lat: 37.8000,
+            lng: -122.3900,
+            speedMs: 20,
+            timestamp: start.add(const Duration(seconds: 15)),
+          ),
+        );
+
+      // No attribution moved while paused.
+      expect(acc.distanceMetersForTest, distanceBefore);
+      expect(acc.timeMovingSecondsForTest, movingBefore);
+      expect(acc.timeStuckSecondsForTest, stuckBefore);
+      expect(acc.isPausedForTest, isTrue);
+
+      // But the polyline still grew (bridge line).
+      final trip = acc.finalize(start.add(const Duration(seconds: 20)));
+      expect(trip.encodedPolyline, isNotEmpty);
+    });
+
+    test('elapsed freezes while paused (D-06)', () {
+      final acc = TripAccumulator(startedAt: start);
+      final beforePause = acc.snapshot(start.add(const Duration(seconds: 10)));
+      expect(beforePause.elapsedSeconds, 10);
+
+      acc.pause(start.add(const Duration(seconds: 10)));
+
+      // Advance wall clock 30s while paused — elapsed must stay frozen at 10.
+      final whilePaused = acc.snapshot(start.add(const Duration(seconds: 40)));
+      expect(whilePaused.elapsedSeconds, 10);
+      expect(whilePaused.isPaused, isTrue);
+      expect(whilePaused.breakCount, 1);
+      // pausedSeconds includes the open span (40 - 10 = 30).
+      expect(whilePaused.pausedSeconds, 30);
+    });
+
+    test('resume reopens attribution (D-05)', () {
+      final acc = TripAccumulator(startedAt: start)
+        ..addSample(
+          _pos(lat: 37.7749, lng: -122.4194, speedMs: 20, timestamp: start),
+        )
+        ..pause(start.add(const Duration(seconds: 5)))
+        ..addSample(
+          _pos(
+            lat: 37.7800,
+            lng: -122.4194,
+            speedMs: 20,
+            timestamp: start.add(const Duration(seconds: 10)),
+          ),
+        )
+        ..resume(start.add(const Duration(seconds: 15)));
+
+      expect(acc.isPausedForTest, isFalse);
+      expect(acc.accumulatedPausedSecondsForTest, 10);
+      final movingAfterResume = acc.timeMovingSecondsForTest;
+
+      // Feed two post-resume moving samples — attribution must resume.
+      acc
+        ..addSample(
+          _pos(
+            lat: 37.7850,
+            lng: -122.4194,
+            speedMs: 20,
+            timestamp: start.add(const Duration(seconds: 20)),
+          ),
+        )
+        ..addSample(
+          _pos(
+            lat: 37.7900,
+            lng: -122.4194,
+            speedMs: 20,
+            timestamp: start.add(const Duration(seconds: 25)),
+          ),
+        );
+
+      expect(acc.timeMovingSecondsForTest, greaterThan(movingAfterResume));
+    });
+
+    test('elapsed resumes ticking after resume (D-06)', () {
+      final acc = TripAccumulator(startedAt: start)
+        ..pause(start.add(const Duration(seconds: 10)))
+        ..resume(start.add(const Duration(seconds: 40)));
+
+      // 40s wall, 30s paused → elapsed = 10 at resume instant, ticks after.
+      final snap = acc.snapshot(start.add(const Duration(seconds: 50)));
+      expect(snap.isPaused, isFalse);
+      expect(snap.pausedSeconds, 30);
+      expect(snap.breakCount, 1);
+      // elapsed = 50 - 0 - 30 = 20.
+      expect(snap.elapsedSeconds, 20);
+    });
+
+    test('pause while paused is a no-op; resume while running is a no-op', () {
+      final acc = TripAccumulator(startedAt: start)
+        ..pause(start.add(const Duration(seconds: 10)))
+        ..pause(start.add(const Duration(seconds: 20))); // ignored
+
+      // The open span is still anchored at the FIRST pause (10).
+      final snap = acc.snapshot(start.add(const Duration(seconds: 30)));
+      expect(snap.pausedSeconds, 20); // 30 - 10
+
+      // resume while running: resume twice — second is a no-op.
+      acc
+        ..resume(start.add(const Duration(seconds: 30)))
+        ..resume(start.add(const Duration(seconds: 40))); // ignored
+      expect(acc.accumulatedPausedSecondsForTest, 20);
+    });
+
+    test('finalize emits segments + active duration (D-07)', () {
+      final acc = TripAccumulator(startedAt: start)
+        ..pause(start.add(const Duration(seconds: 10)))
+        ..resume(start.add(const Duration(seconds: 40)));
+
+      final trip = acc.finalize(start.add(const Duration(seconds: 60)));
+
+      // 60s wall − 30s paused = 30s active.
+      expect(trip.durationSeconds, 30);
+      expect(trip.totalPausedSeconds, 30);
+      expect(trip.breaks, hasLength(1));
+      expect(
+        trip.breaks.single['startUs'],
+        start.add(const Duration(seconds: 10)).microsecondsSinceEpoch,
+      );
+      expect(
+        trip.breaks.single['endUs'],
+        start.add(const Duration(seconds: 40)).microsecondsSinceEpoch,
+      );
+    });
+
+    test('finalize while paused closes the open break at endedAt (D-07)', () {
+      final acc = TripAccumulator(startedAt: start)
+        ..pause(start.add(const Duration(seconds: 20)));
+
+      final trip = acc.finalize(start.add(const Duration(seconds: 50)));
+
+      expect(trip.breaks, hasLength(1));
+      expect(
+        trip.breaks.single['startUs'],
+        start.add(const Duration(seconds: 20)).microsecondsSinceEpoch,
+      );
+      expect(
+        trip.breaks.single['endUs'],
+        start.add(const Duration(seconds: 50)).microsecondsSinceEpoch,
+      );
+      // 50s wall − 30s paused = 20s active.
+      expect(trip.durationSeconds, 20);
+      expect(trip.totalPausedSeconds, 30);
+    });
+
+    test('no-pause regression: identical attribution + zero breaks', () {
+      final acc = TripAccumulator(startedAt: start)
+        ..addSample(
+          _pos(lat: 37.7749, lng: -122.4194, speedMs: 20, timestamp: start),
+        )
+        ..addSample(
+          _pos(
+            lat: 37.7800,
+            lng: -122.4100,
+            speedMs: 20,
+            timestamp: start.add(const Duration(seconds: 5)),
+          ),
+        );
+
+      final trip = acc.finalize(start.add(const Duration(seconds: 10)));
+
+      expect(trip.totalPausedSeconds, 0);
+      expect(trip.breaks, isEmpty);
+      // Wall-clock duration unchanged when no pauses.
+      expect(trip.durationSeconds, 10);
+      expect(trip.timeMovingSeconds, 5);
+      expect(trip.timeStuckSeconds, 0);
+      expect(trip.distanceMeters, greaterThan(0));
+    });
+
+    test('finalize is a no-op for pause/resume/addSample after finalize', () {
+      final acc = TripAccumulator(startedAt: start)
+        ..finalize(start.add(const Duration(seconds: 10)))
+        ..pause(start.add(const Duration(seconds: 5)))
+        ..resume(start.add(const Duration(seconds: 6)));
+
+      expect(acc.isPausedForTest, isFalse);
+      expect(acc.accumulatedPausedSecondsForTest, 0);
+    });
+  });
+
   group('FinalizedTrip', () {
     test('toMap/fromMap round-trips', () {
       final trip = FinalizedTrip(
@@ -430,7 +646,48 @@ void main() {
       expect(restored.timeMovingSeconds, trip.timeMovingSeconds);
       expect(restored.timeStuckSeconds, trip.timeStuckSeconds);
       expect(restored.encodedPolyline, trip.encodedPolyline);
+      // New primitive fields default safely on the legacy-shaped builder.
+      expect(restored.totalPausedSeconds, 0);
+      expect(restored.breaks, isEmpty);
     });
+
+    test(
+      'toMap/fromMap round-trips breaks + totalPausedSeconds as primitives',
+      () {
+        final trip = FinalizedTrip(
+          id: 'paused-trip',
+          startTime: DateTime.utc(2026, 1, 1, 8),
+          endTime: DateTime.utc(2026, 1, 1, 8, 30),
+          durationSeconds: 1500,
+          distanceMeters: 12345.6,
+          timeMovingSeconds: 1200,
+          timeStuckSeconds: 300,
+          encodedPolyline: '_p~iF~ps|U',
+          totalPausedSeconds: 300,
+          breaks: const <Map<String, Object?>>[
+            <String, Object?>{'startUs': 1000, 'endUs': 2000},
+            <String, Object?>{'startUs': 3000, 'endUs': 4000},
+          ],
+        );
+
+        final map = trip.toMap();
+        // The serialized breaks must be a List of primitive maps
+        // (isolate-safe).
+        final encodedBreaks = map['breaks'];
+        expect(encodedBreaks, isA<List<Object?>>());
+        expect(map['totalPausedSeconds'], 300);
+
+        final restored = FinalizedTrip.fromMap(map);
+        expect(restored.totalPausedSeconds, 300);
+        expect(restored.breaks, hasLength(2));
+        expect(restored.breaks.first['startUs'], 1000);
+        expect(restored.breaks.first['endUs'], 2000);
+        expect(restored.breaks.last['startUs'], 3000);
+        expect(restored.breaks.last['endUs'], 4000);
+        // Value equality holds across the round-trip (deep list equality).
+        expect(restored, trip);
+      },
+    );
   });
 
   group('TripSnapshot', () {
@@ -453,6 +710,89 @@ void main() {
       expect(restored.timeMovingSeconds, snap.timeMovingSeconds);
       expect(restored.timeStuckSeconds, snap.timeStuckSeconds);
       expect(restored.currentSpeedMs, snap.currentSpeedMs);
+      // New pause fields default safely on the legacy-shaped builder.
+      expect(restored.isPaused, isFalse);
+      expect(restored.pausedSeconds, 0);
+      expect(restored.breakCount, 0);
+    });
+
+    test('toMap/fromMap round-trips isPaused/pausedSeconds/breakCount', () {
+      final snap = TripSnapshot(
+        startedAt: DateTime.utc(2026, 1, 1, 8),
+        elapsedSeconds: 120,
+        distanceMeters: 500,
+        timeMovingSeconds: 100,
+        timeStuckSeconds: 20,
+        currentSpeedMs: 0,
+        isPaused: true,
+        pausedSeconds: 45,
+        breakCount: 2,
+      );
+
+      final map = snap.toMap();
+      expect(map['isPaused'], isTrue);
+      expect(map['pausedSeconds'], 45);
+      expect(map['breakCount'], 2);
+
+      final restored = TripSnapshot.fromMap(map);
+      expect(restored.isPaused, isTrue);
+      expect(restored.pausedSeconds, 45);
+      expect(restored.breakCount, 2);
+    });
+
+    test('fromMap tolerates a legacy map missing the new pause keys', () {
+      final legacy = <String, Object?>{
+        'startedAtUs': DateTime.utc(2026, 1, 1, 8).microsecondsSinceEpoch,
+        'elapsedSeconds': 60,
+        'distanceMeters': 100.0,
+        'timeMovingSeconds': 50,
+        'timeStuckSeconds': 10,
+        'currentSpeedMs': 5.0,
+      };
+
+      final restored = TripSnapshot.fromMap(legacy);
+      expect(restored.isPaused, isFalse);
+      expect(restored.pausedSeconds, 0);
+      expect(restored.breakCount, 0);
+    });
+  });
+
+  group('TripAccumulator Serialization', () {
+    test('dumpState and restore round-trips state losslessly', () {
+      final start = DateTime.utc(2026, 1, 1, 8);
+      final acc = TripAccumulator(startedAt: start)
+        ..addSample(_pos(lat: 37.7749, lng: -122.4194, speedMs: 20, timestamp: start))
+        ..pause(start.add(const Duration(seconds: 10)))
+        ..resume(start.add(const Duration(seconds: 20)))
+        ..addSample(_pos(lat: 37.7800, lng: -122.4194, speedMs: 20, timestamp: start.add(const Duration(seconds: 30))));
+
+      final dumped = acc.dumpState();
+      final restored = TripAccumulator.restore(dumped);
+
+      // Verify the restored accumulator produces the identical snapshot.
+      final snapOrig = acc.snapshot(start.add(const Duration(seconds: 40)));
+      final snapRestored = restored.snapshot(start.add(const Duration(seconds: 40)));
+
+      expect(snapRestored.startedAt, snapOrig.startedAt);
+      expect(snapRestored.elapsedSeconds, snapOrig.elapsedSeconds);
+      expect(snapRestored.distanceMeters, snapOrig.distanceMeters);
+      expect(snapRestored.timeMovingSeconds, snapOrig.timeMovingSeconds);
+      expect(snapRestored.timeStuckSeconds, snapOrig.timeStuckSeconds);
+      expect(snapRestored.currentSpeedMs, snapOrig.currentSpeedMs);
+      expect(snapRestored.isPaused, snapOrig.isPaused);
+      expect(snapRestored.pausedSeconds, snapOrig.pausedSeconds);
+      expect(snapRestored.breakCount, snapOrig.breakCount);
+
+      // Also verify we can still finalize successfully and get the same result.
+      final end = start.add(const Duration(seconds: 60));
+      final finalOrig = acc.finalize(end);
+      final finalRestored = restored.finalize(end);
+
+      expect(finalRestored.durationSeconds, finalOrig.durationSeconds);
+      expect(finalRestored.distanceMeters, finalOrig.distanceMeters);
+      expect(finalRestored.encodedPolyline, finalOrig.encodedPolyline);
+      expect(finalRestored.breaks.length, finalOrig.breaks.length);
+      expect(finalRestored.id, finalOrig.id);
     });
   });
 }

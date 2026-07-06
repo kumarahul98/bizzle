@@ -30,19 +30,31 @@ class UserPreferencesValue {
     required this.reminderTime,
     required this.weekendReminder,
     required this.weeklyNotificationEnabled,
+    required this.autoPauseEnabled,
+    required this.hasSeenOnboarding,
+    required this.homeLat,
+    required this.homeLng,
+    required this.officeLat,
+    required this.officeLng,
   });
 
   /// The defaults used the first time the user launches the app —
   /// before the single row exists in the table (D-04).
   const UserPreferencesValue.defaults()
-      : userId = kDefaultUserId,
-        darkMode = kDarkModeSystem,
-        morningCutoffHour = kDefaultDirectionCutoffHour,
-        eveningCutoffHour = kDefaultDirectionCutoffHour,
-        reminderEnabled = false,
-        reminderTime = null,
-        weekendReminder = false,
-        weeklyNotificationEnabled = false;
+    : userId = kDefaultUserId,
+      darkMode = kDarkModeSystem,
+      morningCutoffHour = kDefaultDirectionCutoffHour,
+      eveningCutoffHour = kDefaultDirectionCutoffHour,
+      reminderEnabled = false,
+      reminderTime = null,
+      weekendReminder = false,
+      weeklyNotificationEnabled = false,
+      autoPauseEnabled = false,
+      hasSeenOnboarding = false,
+      homeLat = null,
+      homeLng = null,
+      officeLat = null,
+      officeLng = null;
 
   /// Owning user placeholder (Phase 8 replaces with Cognito sub).
   final String userId;
@@ -67,6 +79,28 @@ class UserPreferencesValue {
 
   /// True if weekly summary notification is enabled (D-07, D-13).
   final bool weeklyNotificationEnabled;
+
+  /// True if the user has opted into auto-pause (Phase 18, D-10). Off by
+  /// default so auto-pause is strictly opt-in.
+  final bool autoPauseEnabled;
+
+  /// True once the first-run login wall has been cleared (Phase 20, D-01).
+  /// False on a fresh install (no row) so the gate shows the login screen
+  /// exactly once.
+  final bool hasSeenOnboarding;
+
+  /// Saved Home latitude (Phase 21, D-01). Null = not set. PII-adjacent —
+  /// never log this coordinate (T-21-03).
+  final double? homeLat;
+
+  /// Saved Home longitude (Phase 21, D-01). Null = not set. PII-adjacent.
+  final double? homeLng;
+
+  /// Saved Office latitude (Phase 21, D-01). Null = not set. PII-adjacent.
+  final double? officeLat;
+
+  /// Saved Office longitude (Phase 21, D-01). Null = not set. PII-adjacent.
+  final double? officeLng;
 }
 
 /// Data-access object for the single-row user_preferences table.
@@ -88,9 +122,9 @@ class UserPreferencesDao extends DatabaseAccessor<AppDatabase>
   /// the row in `AppDatabase.migration.onCreate` — that would race
   /// with first-run reads and complicate future schema upgrades.
   Future<UserPreferencesValue> getOrDefault() async {
-    final row = await (select(userPreferences)
-          ..where((p) => p.id.equals(_kUserPreferencesId)))
-        .getSingleOrNull();
+    final row = await (select(
+      userPreferences,
+    )..where((p) => p.id.equals(_kUserPreferencesId))).getSingleOrNull();
     if (row == null) {
       return const UserPreferencesValue.defaults();
     }
@@ -103,6 +137,12 @@ class UserPreferencesDao extends DatabaseAccessor<AppDatabase>
       reminderTime: row.reminderTime,
       weekendReminder: row.weekendReminder,
       weeklyNotificationEnabled: row.weeklyNotificationEnabled,
+      autoPauseEnabled: row.autoPauseEnabled,
+      hasSeenOnboarding: row.hasSeenOnboarding,
+      homeLat: row.homeLat,
+      homeLng: row.homeLng,
+      officeLat: row.officeLat,
+      officeLng: row.officeLng,
     );
   }
 
@@ -116,23 +156,28 @@ class UserPreferencesDao extends DatabaseAccessor<AppDatabase>
   ///
   /// See D-04 in `.planning/phases/07-polish-notifications/07-CONTEXT.md`.
   Stream<UserPreferencesValue> watch() {
-    return (select(userPreferences)
-          ..where((p) => p.id.equals(_kUserPreferencesId)))
-        .watchSingleOrNull()
-        .map(
-          (row) => row == null
-              ? const UserPreferencesValue.defaults()
-              : UserPreferencesValue(
-                  userId: row.userId,
-                  darkMode: row.darkMode,
-                  morningCutoffHour: row.morningCutoffHour,
-                  eveningCutoffHour: row.eveningCutoffHour,
-                  reminderEnabled: row.reminderEnabled,
-                  reminderTime: row.reminderTime,
-                  weekendReminder: row.weekendReminder,
-                  weeklyNotificationEnabled: row.weeklyNotificationEnabled,
-                ),
-        );
+    return (select(
+      userPreferences,
+    )..where((p) => p.id.equals(_kUserPreferencesId))).watchSingleOrNull().map(
+      (row) => row == null
+          ? const UserPreferencesValue.defaults()
+          : UserPreferencesValue(
+              userId: row.userId,
+              darkMode: row.darkMode,
+              morningCutoffHour: row.morningCutoffHour,
+              eveningCutoffHour: row.eveningCutoffHour,
+              reminderEnabled: row.reminderEnabled,
+              reminderTime: row.reminderTime,
+              weekendReminder: row.weekendReminder,
+              weeklyNotificationEnabled: row.weeklyNotificationEnabled,
+              autoPauseEnabled: row.autoPauseEnabled,
+              hasSeenOnboarding: row.hasSeenOnboarding,
+              homeLat: row.homeLat,
+              homeLng: row.homeLng,
+              officeLat: row.officeLat,
+              officeLng: row.officeLng,
+            ),
+    );
   }
 
   /// Rewrite the single user-preferences row's `userId` from
@@ -173,8 +218,69 @@ class UserPreferencesDao extends DatabaseAccessor<AppDatabase>
         reminderEnabled: Value<bool>(value.reminderEnabled),
         reminderTime: Value<String?>(value.reminderTime),
         weekendReminder: Value<bool>(value.weekendReminder),
-        weeklyNotificationEnabled:
-            Value<bool>(value.weeklyNotificationEnabled),
+        weeklyNotificationEnabled: Value<bool>(value.weeklyNotificationEnabled),
+        autoPauseEnabled: Value<bool>(value.autoPauseEnabled),
+        hasSeenOnboarding: Value<bool>(value.hasSeenOnboarding),
+        homeLat: Value<double?>(value.homeLat),
+        homeLng: Value<double?>(value.homeLng),
+        officeLat: Value<double?>(value.officeLat),
+        officeLng: Value<double?>(value.officeLng),
+      ),
+    );
+  }
+
+  /// Set the first-run flag (D-05). Single-column upsert so the gate is
+  /// stable across restarts. Targets the single row at `id = 1`; the first
+  /// write CREATES it (a fresh install has no row per D-04, so a guest Skip
+  /// must be able to create it), later writes update in place. All other
+  /// columns take their table defaults — i.e. the guest default state
+  /// (userId=local_user, darkMode=system, …) — consistent with
+  /// `getOrDefault()`.
+  ///
+  /// The single positional bool reads clearly at every call site
+  /// (`setHasSeenOnboarding(true)`); there is no second flag to confuse it
+  /// with, so the named-parameter lint is intentionally suppressed here.
+  // ignore: avoid_positional_boolean_parameters
+  Future<void> setHasSeenOnboarding(bool value) {
+    return into(userPreferences).insertOnConflictUpdate(
+      UserPreferencesCompanion.insert(
+        id: const Value<int>(_kUserPreferencesId),
+        hasSeenOnboarding: Value<bool>(value),
+      ),
+    );
+  }
+
+  /// Persist the user's Home anchor coordinate (Phase 21, LOC-01, D-12).
+  ///
+  /// Single-column upsert mirroring [setHasSeenOnboarding]: targets the single
+  /// row at `id = 1`; the first write CREATES it (a fresh install has no row
+  /// per D-04), later writes update only `home_lat`/`home_lng` in place. Every
+  /// other column keeps its existing value (or table default on first write),
+  /// so saving Home never disturbs Office, notification, or theme settings.
+  ///
+  /// PII note (T-21-02-01): [lat]/[lng] are PII-adjacent. They are written to
+  /// local Drift only and must NEVER be logged or sent to any backend here.
+  Future<void> setHomeLocation(double lat, double lng) {
+    return into(userPreferences).insertOnConflictUpdate(
+      UserPreferencesCompanion.insert(
+        id: const Value<int>(_kUserPreferencesId),
+        homeLat: Value<double?>(lat),
+        homeLng: Value<double?>(lng),
+      ),
+    );
+  }
+
+  /// Persist the user's Office anchor coordinate (Phase 21, LOC-01, D-12).
+  ///
+  /// See [setHomeLocation] — identical single-row, single-pair upsert for the
+  /// `office_lat`/`office_lng` columns. PII-adjacent (T-21-02-01): local-only,
+  /// never logged.
+  Future<void> setOfficeLocation(double lat, double lng) {
+    return into(userPreferences).insertOnConflictUpdate(
+      UserPreferencesCompanion.insert(
+        id: const Value<int>(_kUserPreferencesId),
+        officeLat: Value<double?>(lat),
+        officeLng: Value<double?>(lng),
       ),
     );
   }

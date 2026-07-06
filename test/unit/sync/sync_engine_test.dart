@@ -563,6 +563,70 @@ void main() {
       },
     );
   });
+
+  group('SyncEngine auto-retry time gate', () {
+    late AppDatabase db;
+    late SyncQueueDao queueDao;
+    late TripsDao tripsDao;
+    late FakeApiClient api;
+    late SyncStatusNotifier status;
+    late DateTime clock;
+    late SyncEngine engine;
+
+    setUp(() {
+      TestWidgetsFlutterBinding.ensureInitialized();
+      TestDefaultBinaryMessenger messenger() =>
+          TestWidgetsFlutterBinding.instance.defaultBinaryMessenger;
+      messenger().setMockMethodCallHandler(
+        const MethodChannel('dev.fluttercommunity.plus/connectivity'),
+        (call) async => <String>['none'],
+      );
+
+      db = AppDatabase(
+        DatabaseConnection(
+          NativeDatabase.memory(),
+          closeStreamsSynchronously: true,
+        ),
+      );
+      queueDao = db.syncQueueDao;
+      tripsDao = db.tripsDao;
+      api = FakeApiClient();
+      status = _RecordingStatus([]);
+      clock = DateTime.utc(2026, 6, 1, 12);
+      engine = SyncEngine(
+        apiClient: api,
+        syncQueueDao: queueDao,
+        tripsDao: tripsDao,
+        status: status,
+        isSignedIn: () => true,
+        isOnline: () async => true,
+        now: () => clock,
+      );
+    });
+
+    tearDown(() async {
+      engine.dispose();
+      await db.close();
+    });
+
+    test('immediate sync-on-finish (rising edge) still fires regardless of time gate', () async {
+      api.syncThrow = const SyncException.http(400);
+      await engine.start();
+      
+      // Simulate that an auto-retry JUST happened so the time gate is closed.
+      await engine.retryFailed(); 
+      await _pumpEventQueue();
+      
+      // Enqueue a new item (sync-on-finish)
+      await tripsDao.insertTrip(_trip('t2'));
+      await queueDao.enqueueCreate('t2');
+      
+      // The watchPending trigger should fire and ignore the time gate.
+      await _pumpEventQueue();
+      
+      expect(api.syncCalls, isNotEmpty, reason: 'Immediate sync-on-finish must fire');
+    });
+  });
 }
 
 /// Drain the microtask + timer queue so reactive stream emissions and the

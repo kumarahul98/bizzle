@@ -110,6 +110,7 @@ void main() {
           TrackingStarting() => 'starting',
           TrackingActive() => 'active',
           TrackingStopping() => 'stopping',
+          TrackingInterrupted() => 'interrupted',
           TrackingError() => 'error',
         };
       }
@@ -127,6 +128,7 @@ void main() {
       expect(describe(const TrackingStarting()), 'starting');
       expect(describe(active), 'active');
       expect(describe(const TrackingStopping()), 'stopping');
+      expect(describe(const TrackingInterrupted(<String, dynamic>{})), 'interrupted');
       expect(describe(TrackingError('x')), 'error');
     });
   });

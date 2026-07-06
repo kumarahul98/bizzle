@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/database.dart';
@@ -116,8 +118,7 @@ class SyncQueueDao extends DatabaseAccessor<AppDatabase>
     final count = syncQueue.id.count(
       filter: syncQueue.status.equals(kSyncStatusFailed),
     );
-    final row =
-        await (selectOnly(syncQueue)..addColumns([count])).getSingle();
+    final row = await (selectOnly(syncQueue)..addColumns([count])).getSingle();
     return row.read(count) ?? 0;
   }
 
@@ -129,6 +130,44 @@ class SyncQueueDao extends DatabaseAccessor<AppDatabase>
         syncedAt: Value<DateTime>(DateTime.now().toUtc()),
       ),
     );
+  }
+
+  /// SC#4 / D-08: rewrite the embedded `userId` in every PENDING delete
+  /// payload from [kDefaultUserId] to [newUserId] so a guest's queued deletes
+  /// carry the real uid after sign-in. Returns the count rewritten.
+  ///
+  /// Only DELETE rows are touched because they are the only action that
+  /// stores an inline `{id,userId}` payload (D-13). create/update rows store a
+  /// NULL payload — the sync engine re-reads the freshly-backfilled trip row
+  /// at flush and the serializer OMITS `userId` entirely (the server forces
+  /// the uid from the verified Firebase token), so they need no rewrite.
+  ///
+  /// Idempotent / exactly-once: a payload already carrying the real uid (a
+  /// second call, or a delete enqueued after sign-in) is left untouched, so
+  /// calling this twice rewrites zero rows the second time.
+  ///
+  /// Called by `AuthService.signIn()` INSIDE the backfill transaction so the
+  /// trips/prefs backfill and this queue rewrite are atomic.
+  Future<int> reconcilePendingUserId(String newUserId) async {
+    final rows =
+        await (select(syncQueue)
+              ..where((q) => q.status.equals(kSyncStatusPending))
+              ..where((q) => q.action.equals(kSyncActionDelete)))
+            .get();
+    var changed = 0;
+    for (final row in rows) {
+      final raw = row.payload;
+      if (raw == null) continue;
+      final map = jsonDecode(raw) as Map<String, dynamic>;
+      if (map['userId'] == kDefaultUserId) {
+        map['userId'] = newUserId;
+        await (update(syncQueue)..where((q) => q.id.equals(row.id))).write(
+          SyncQueueCompanion(payload: Value<String>(jsonEncode(map))),
+        );
+        changed++;
+      }
+    }
+    return changed;
   }
 
   /// Increment the retry counter by one. Combined with a `retryCount`

@@ -32,6 +32,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:traevy/config/constants.dart';
+import 'package:traevy/features/tracking/services/auto_pause_detector.dart';
 import 'package:traevy/features/tracking/services/location_settings_builder.dart';
 import 'package:traevy/features/tracking/services/tracking_event_source.dart';
 import 'package:traevy/features/tracking/services/trip_accumulator.dart';
@@ -68,11 +69,9 @@ final class MainIsolateTrackingEngine implements TrackingEventSource {
     LocationSettings Function()? locationSettingsBuilder,
   }) : _positionStreamFactory =
            positionStreamFactory ??
-           (
-             (settings) => Geolocator.getPositionStream(
-               locationSettings: settings,
-             )
-           ),
+           ((settings) => Geolocator.getPositionStream(
+             locationSettings: settings,
+           )),
        _locationSettingsBuilder =
            locationSettingsBuilder ?? buildLocationSettings;
 
@@ -85,13 +84,14 @@ final class MainIsolateTrackingEngine implements TrackingEventSource {
       StreamController<Map<String, dynamic>?>.broadcast();
   final StreamController<Map<String, dynamic>?> _errorController =
       StreamController<Map<String, dynamic>?>.broadcast();
+  final StreamController<Map<String, dynamic>?> _autoPausePromptController =
+      StreamController<Map<String, dynamic>?>.broadcast();
 
   @override
   Stream<Map<String, dynamic>?> get onState => _stateController.stream;
 
   @override
-  Stream<Map<String, dynamic>?> get onFinalized =>
-      _finalizedController.stream;
+  Stream<Map<String, dynamic>?> get onFinalized => _finalizedController.stream;
 
   @override
   Stream<Map<String, dynamic>?> get onError => _errorController.stream;
@@ -102,6 +102,10 @@ final class MainIsolateTrackingEngine implements TrackingEventSource {
   Stream<Map<String, dynamic>?> get onReady =>
       const Stream<Map<String, dynamic>?>.empty();
 
+  @override
+  Stream<Map<String, dynamic>?> get onAutoPausePrompt =>
+      _autoPausePromptController.stream;
+
   // Internal state — accessed only on the main isolate.
   bool _stopping = false;
   StreamSubscription<Position>? _positionSub;
@@ -109,10 +113,20 @@ final class MainIsolateTrackingEngine implements TrackingEventSource {
   TripAccumulator? _accumulator;
 
   @override
-  Future<bool> start() async {
+  Future<bool> start({Map<String, dynamic>? initialAccumulatorState}) async {
     _stopping = false;
-    _accumulator = TripAccumulator(startedAt: DateTime.now().toUtc());
+    if (initialAccumulatorState != null) {
+      _accumulator = TripAccumulator.restore(initialAccumulatorState);
+    } else {
+      _accumulator = TripAccumulator(startedAt: DateTime.now().toUtc());
+    }
     final accumulator = _accumulator!;
+    // Phase 18 (Plan 04, D-11): run the same service-side stuck-streak detector
+    // the Android isolate uses, fed from the accumulator's own classification.
+    // Local to this start() so each trip gets a fresh streak/latch.
+    final autoPauseDetector = AutoPauseDetector(
+      thresholdSeconds: kAutoPauseStationaryThresholdSeconds,
+    );
 
     final settings = _locationSettingsBuilder();
 
@@ -121,7 +135,21 @@ final class MainIsolateTrackingEngine implements TrackingEventSource {
         // Race guard: a Position can arrive after stop() sets the flag but
         // before cancel() returns. The flag short-circuits those late samples.
         if (_stopping) return;
-        accumulator.addSample(position);
+        final interval = accumulator.addSample(position);
+        // Phase 18 (Plan 04, D-11/D-12): same detector wiring as the Android
+        // isolate — feed the attributed interval's classification, then emit
+        // the prompt signal ONCE per stuck streak when not already paused. The
+        // UI gates on the opt-in pref before posting (SC#5).
+        if (interval != null) {
+          if (interval.stuck) {
+            autoPauseDetector.onStuckInterval(interval.seconds);
+          } else {
+            autoPauseDetector.onMovingInterval();
+          }
+          if (!accumulator.isPaused && autoPauseDetector.shouldPrompt()) {
+            _autoPausePromptController.add(null);
+          }
+        }
       },
       onError: (Object error, StackTrace stack) async {
         // Mid-trip position stream failure.
@@ -162,6 +190,23 @@ final class MainIsolateTrackingEngine implements TrackingEventSource {
       final trip = accumulator.finalize(DateTime.now().toUtc());
       _finalizedController.add(trip.toMap());
     }
+  }
+
+  @override
+  Future<void> pause() async {
+    // Phase 18 (D-08): pause/resume toggle this engine's own accumulator
+    // directly — there is no second isolate to invoke. The next uiTimer tick
+    // emits a snapshot whose `isPaused` reflects the new state, so the
+    // dumb-terminal UI updates from that, not from this call. Guarded by the
+    // stop-race flag so a late pause cannot touch a finalized accumulator.
+    if (_stopping) return;
+    _accumulator?.pause(DateTime.now().toUtc());
+  }
+
+  @override
+  Future<void> resume() async {
+    if (_stopping) return;
+    _accumulator?.resume(DateTime.now().toUtc());
   }
 
   /// Test-only accessor — exposes the accumulator so stop-race tests can

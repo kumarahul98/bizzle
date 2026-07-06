@@ -8,6 +8,7 @@ Deliver an offline-first Android commute tracker that records GPS trips, compute
 
 - ✅ **v0.1 Android MVP** - Phases 1-11 (formally open — 13 device-UAT items deferred, resumable)
 - 🚧 **v0.2 iOS Support** - Phases 12-16 (in progress)
+- 🚧 **v0.3 App Improvements** - Phases 17-22 (in progress; v0.2 paused while this ships)
 
 ## Phases
 
@@ -469,3 +470,200 @@ Note: Phases 1-7 deliver the complete local-first experience without any authent
 | 15. Notifications, Permissions & Onboarding UX on iOS | v0.2 | 0/TBD | Not started | - |
 | 16. End-to-End Real-Device Parity Validation | v0.2 | 0/TBD | Not started | - |
 </content>
+
+
+---
+
+## v0.3 App Improvements
+
+**Milestone Goal:** Ship a batch of Android-facing UX fixes and features that make daily trip capture more flexible and accurate — pausing for breaks, full trip editing, smarter geofence labeling, a friendlier first run, and one-tap start/stop from the home screen. Built on branch `gsd/v0.3-app-improvements`. Realizes **AUTO-02** (geofence labeling) and **PLAT-02** (start/stop widget), scoped down from their v2 definitions.
+
+**Scope notes:** Android-focused. The home-screen widget (WIDGET-01) is an Android-first surface; iOS parity for these features is deferred. All phases build on the existing v0.1 Android app (Flutter + Drift source-of-truth + manual Riverpod providers + flutter_background_service foreground GPS + geolocator + flutter_local_notifications + Firebase auth/sync + Traevy design system). Previous milestone v0.2 (iOS Support, Phases 12–16) is **paused** and fully resumable — its phases above are untouched.
+
+---
+
+### v0.3 Phase Checklist
+
+- [x] **Phase 17: Tracking UI Fixes & Quick Label** - Fix the elapsed-timer overflow and add a quick to-home/to-office label selector during and after tracking ✓ 2026-06-06
+- [x] **Phase 18: Trip Pause & Breaks** - Pause/resume an active trip for breaks (paused time excluded from stats) with an optional auto-pause prompt ✓ 2026-06-06
+- [x] **Phase 19: Full Trip Editing** - Edit start time, end time, and individual break segments with duration and traffic stats recomputed ✓ 2026-06-06
+- [x] **Phase 20: First-Run Login with Skip** - First-install login screen with a Skip (use-without-account) option; sync stays disabled until later sign-in ✓ 2026-06-06
+- [x] **Phase 21: Home & Office Locations + Geofence Auto-Label** - Set Home & Office locations and auto-label trip direction by proximity, taking precedence over the time-of-day heuristic (completed 2026-06-06)
+- [x] **Phase 22: Home-Screen Widget** - Android home-screen widget that starts/stops a commute with one tap and reflects the current tracking state ✓ 2026-06-09
+- [ ] **Phase 24: Automatic Cloud Sync & Restore** - Auto-restore cloud trips on sign-in, immediate sync on trip finish, and automatic re-attempt of previously-failed sync items
+- [ ] **Phase 25: Interrupted-Trip Recovery** - Detect a mid-trip force-quit / app-clear / OS interruption, log it, and offer to resume or discard the interrupted trip on next launch
+
+---
+
+### Phase 17: Tracking UI Fixes & Quick Label
+
+**Goal**: The active-tracking screen renders correctly at any duration and lets the user set a trip's direction quickly, without any schema change
+**Depends on**: Phase 8 (Traevy tracking UI), Phase 3 (direction labeling)
+**Requirements**: UX-06, TRACK-12
+**Success Criteria** (what must be TRUE):
+
+  1. The active-tracking elapsed timer always renders fully on screen — no digit wraps to a new line and no clipping — at short durations and at durations exceeding an hour (and many hours)
+  2. During an active trip, the user can tap a quick selector to set the trip's direction to "to-home" or "to-office", and the choice is reflected immediately on the tracking screen
+  3. From the trip view (detail/edit), the user can change a trip's direction via the same quick selector and the change persists in Drift
+  4. The quick label selector visually indicates the current direction (including the auto-labeled default) so the user can confirm or override it
+
+**Plans**: 2 plans
+**UI hint**: yes
+
+Plans:
+
+- [ ] 17-01-PLAN.md — Fix the active-tracking elapsed timer (ElapsedDisplay) so the HH:MM:SS mono timer never wraps/clips at 2-digit hours or large text-scale (UX-06)
+- [ ] 17-02-PLAN.md — Quick to-office/to-home direction selector: active-screen segmented toggle with manual override (live + at finalize) and a 1-tap trip-detail toggle reusing the edit DAO path (TRACK-12)
+
+### Phase 18: Trip Pause & Breaks
+
+**Goal**: Users can pause an active commute for a break and resume it without ending the trip, with paused time excluded from duration and moving/stuck stats, plus an optional auto-pause prompt when the trip looks stationary
+**Depends on**: Phase 17 (active-tracking UI), Phase 2 (core tracking service)
+**Requirements**: TRACK-09, TRACK-10
+**Success Criteria** (what must be TRUE):
+
+  1. During an active trip, the user can tap Pause to suspend recording and tap Resume to continue the same trip — the trip is not ended and resumes as one continuous record
+  2. Paused intervals are stored as break segments on the trip, and the saved trip's total duration and moving/stuck breakdown exclude all paused time
+  3. The active-tracking UI clearly shows when a trip is paused (distinct paused state) and how many breaks have been taken
+  4. With auto-pause enabled in settings, when an active trip appears stationary beyond the configured threshold the app posts a notification offering to pause the trip
+  5. The auto-pause prompt is opt-in (off by default) and dismissing it leaves the trip recording normally
+
+**Plans**: 4 plans
+- [x] 18-01-PLAN.md — Schema v2→v3: trip_breaks table + total_paused_seconds + auto_pause_enabled + DAO + migration test
+- [x] 18-02-PLAN.md — Accumulator pause model (excludes paused distance/time, frozen elapsed) + finalize breaks + persist
+- [ ] 18-03-PLAN.md — Cross-isolate pause/resume commands + active-tracking PAUSED UI + break count
+- [ ] 18-04-PLAN.md — Opt-in auto-pause: settings toggle + stuck-streak detector + Pause-action notification
+**UI hint**: yes
+
+### Phase 19: Full Trip Editing
+
+**Goal**: Users can edit every time-based detail of a trip — start time, end time, and individual break segments — and the trip's duration and traffic stats are recomputed from the edits
+**Depends on**: Phase 18 (break segments must exist), Phase 3 (existing trip edit screen)
+**Requirements**: TRACK-11
+**Success Criteria** (what must be TRUE):
+
+  1. The user can edit a trip's start time and end time from the trip edit screen, and the saved trip reflects the new times
+  2. The user can edit, add, or remove individual break/pause segments on a trip
+  3. After any edit, the trip's total duration and moving/stuck traffic breakdown are recomputed and displayed consistently with the new times and breaks
+  4. Invalid edits (e.g., end before start, breaks outside the trip window, overlapping breaks) are rejected with clear feedback and never persisted
+  5. An edited trip re-enters the sync queue so the cloud backup reflects the corrected values
+
+**Plans**: 2 plans (19-01 schema v4 + recompute/validation, 19-02 edit-sheet UI)
+**UI hint**: yes
+
+### Phase 20: First-Run Login with Skip
+
+**Goal**: On first install the user sees a login screen they can skip to use the app locally without an account, and can sign in later from settings to enable sync
+**Depends on**: Phase 9 (auth/onboarding), Phase 11 (sync engine)
+**Requirements**: AUTH-04
+**Success Criteria** (what must be TRUE):
+
+  1. On first launch the user sees a login screen offering Google sign-in and a clearly visible "Skip" / use-without-account option
+  2. Choosing Skip drops the user into the fully working app (tracking, history, stats) with no account, and this choice persists across app restarts (the login screen is not shown again on every launch)
+  3. While in skipped/local-only mode, cloud sync is disabled — no sync attempts are made and the UI indicates the account is not connected
+  4. The user can sign in later from settings, after which sync becomes enabled and existing local trips are tagged with the Firebase uid and queued for sync
+
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 21: Home & Office Locations + Geofence Auto-Label
+
+**Goal**: Users can save their Home and Office locations and have trip direction auto-labeled by proximity of trip start/end to those locations, taking precedence over the time-of-day heuristic when there is a confident match
+**Depends on**: Phase 7 (settings/preferences), Phase 3 (direction labeling logic)
+**Requirements**: LOC-01, LOC-02
+**Success Criteria** (what must be TRUE):
+
+  1. From settings, the user can set and later change their Home and Office locations via a map/coordinate picker, and the locations persist in preferences across restarts
+  2. When a trip's start is near Home and its end is near Office (or vice versa), the trip is auto-labeled to-office / to-home based on that proximity
+  3. Geofence-based labeling takes precedence over the time-of-day cutoff heuristic when a confident proximity match exists; with no confident match, the existing time-of-day heuristic is used as fallback
+  4. The user can still manually override the auto-applied direction via the quick label selector, and the override sticks
+  5. With no Home/Office set, labeling behaves exactly as it did before (time-of-day heuristic), so the feature is purely additive
+
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 22: Home-Screen Widget
+
+**Goal**: Users can add an Android home-screen widget that starts or stops a commute with one tap and always reflects the current tracking state
+**Depends on**: Phase 2 (tracking service), Phase 18 (pause/resume state model, so widget state is accurate)
+**Requirements**: WIDGET-01
+**Success Criteria** (what must be TRUE):
+
+  1. The user can add a Commute Tracker widget to the Android home screen from the widget picker
+  2. Tapping the widget when idle starts a commute, and tapping it while tracking stops and saves the commute — the same trip pipeline as the in-app button
+  3. The widget visually reflects the current tracking state (idle vs tracking) and updates when tracking starts or stops, including changes initiated from inside the app
+  4. Starting tracking from the widget brings up the foreground GPS service and persistent notification exactly as the in-app Start does (no degraded background capture)
+
+**Plans**: TBD
+**UI hint**: yes
+
+---
+
+## v0.3 Progress
+
+**Execution Order:**
+v0.3 phases execute in numeric order after the (paused) v0.2 phases: 17 -> 18 -> 19 -> 20 -> 21 -> 22 -> 23 -> 24 -> 25
+
+Note: Phase 17 is a small, independent UI fix + quick-label and is the safe first phase. Phase 18 introduces the break/pause data model (schema migration) that Phase 19 (full editing) depends on. Phases 20 and 21 are largely independent of the tracking-data work and build on existing auth/onboarding and settings/preferences. Phase 22 (home-screen widget) has the highest platform-integration risk and lands last, after the pause/resume state model exists so the widget can reflect accurate state.
+
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 17. Tracking UI Fixes & Quick Label | v0.3 | 2/2 | Complete | 2026-06-06 |
+| 18. Trip Pause & Breaks | v0.3 | 4/4 | Complete | 2026-06-06 |
+| 19. Full Trip Editing | v0.3 | 2/2 | Complete | 2026-06-06 |
+| 20. First-Run Login with Skip | v0.3 | 1/1 | Complete | 2026-06-06 |
+| 21. Home & Office Locations + Geofence Auto-Label | v0.3 | 3/3 | Complete | 2026-06-06 |
+| 22. Home-Screen Widget | v0.3 | 1/1 | Complete | 2026-06-09 |
+| 24. Automatic Cloud Sync & Restore | v0.3 | 0/TBD | Not started | - |
+| 25. Interrupted-Trip Recovery | v0.3 | 0/TBD | Not started | - |
+
+### Phase 23: Resolve Deferred UAT Items
+
+**Goal**: Execute and resolve deferred UAT and verification items from v0.1 checklist.
+**Depends on**: Phase 22
+**Requirements**: UAT-01
+**Success Criteria** (what must be TRUE):
+
+  1. A deferred UAT verification item is automated or manually closed.
+  2. The tracking system stability is verified via integration tests.
+
+**Plans**: TBD
+**UI hint**: no
+
+### Phase 24: Automatic Cloud Sync & Restore
+
+**Goal**: Cloud sync and restore become hands-off — signing in restores cloud trips automatically, finished trips sync immediately, and sync items that previously failed are retried automatically instead of getting stuck
+**Depends on**: Phase 11 (sync engine, ApiClient, RestoreController, sync_queue), Phase 20 (sign-in-later flow that triggers restore)
+**Requirements**: SYNC-04, SYNC-05
+**Success Criteria** (what must be TRUE):
+
+  1. When the user signs in (fresh install, new device, or sign-in-later from settings), their cloud trips are restored into Drift automatically without any manual "Restore" tap, deduplicating by trip UUID so existing local trips are never duplicated
+  2. A finished trip is enqueued and synced to the cloud immediately on save when online (no waiting for the next app resume / connectivity event)
+  3. Sync items that previously exhausted their retries (status failed) are automatically re-attempted on a later trigger, and recover to synced once the backend is reachable
+  4. All of the above remain background-only and never block the UI; the manual Restore action still works as a fallback
+  5. Auto-restore runs once per sign-in (not on every launch) and surfaces clear progress/outcome to the user
+
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 25: Interrupted-Trip Recovery
+
+**Goal**: A commute that is interrupted by a force-quit, app-clear, or OS-level kill is never silently lost — its state is persisted continuously, and on next launch the user is told about the interrupted trip and can resume or discard it
+**Depends on**: Phase 2 (core tracking service), Phase 18 (pause/resume + break-segment state model that must be persisted/restored accurately)
+**Requirements**: TRACK-13
+**Success Criteria** (what must be TRUE):
+
+  1. While a trip is active, its state (accumulated route, timing, breaks, direction) is persisted durably so it survives a force-quit, app-swipe-away, app-data-not-cleared kill, or OS-level termination of the process
+  2. On next launch, if an active trip was interrupted (no clean stop was recorded), the app detects this and logs the interruption
+  3. The user is presented with a clear prompt offering to resume the interrupted trip (continuing the same record) or discard it
+  4. Resuming restores the trip's accumulated state and continues recording as one continuous trip; discarding cleans up the persisted state with no orphan trip
+  5. A normal clean stop leaves no interrupted-trip state behind, so the recovery prompt never appears after an ordinary finish
+
+**Plans**: 3 plans
+**UI hint**: yes
+
+Plans:
+
+- [ ] 25-01-PLAN.md — Persistence Foundation
+- [ ] 25-02-PLAN.md — Engine Recovery
+- [ ] 25-03-PLAN.md — UI & Notifier Wiring

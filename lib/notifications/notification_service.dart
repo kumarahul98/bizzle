@@ -21,7 +21,7 @@ class NotificationService {
   /// The plugin is a singleton under the hood, so sharing state with
   /// `TrackingNotificationService` is safe.
   NotificationService({FlutterLocalNotificationsPlugin? plugin})
-      : _plugin = plugin ?? FlutterLocalNotificationsPlugin();
+    : _plugin = plugin ?? FlutterLocalNotificationsPlugin();
 
   final FlutterLocalNotificationsPlugin _plugin;
 
@@ -205,8 +205,10 @@ class NotificationService {
   // ---------------------------------------------------------------------------
 
   Future<void> _createChannels() async {
-    final android = _plugin.resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>();
+    final android = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
     const weeklySummaryChannel = AndroidNotificationChannel(
       kWeeklySummaryChannelId,
       kWeeklySummaryChannelName,
@@ -254,17 +256,17 @@ class NotificationService {
   }
 
   NotificationDetails _reminderDetails() => const NotificationDetails(
-        android: AndroidNotificationDetails(
-          kReminderChannelId,
-          kReminderChannelName,
-          channelDescription: kReminderChannelDescription,
-        ),
-        iOS: DarwinNotificationDetails(
-          presentAlert: true,
-          presentSound: true,
-          presentBadge: false,
-        ),
-      );
+    android: AndroidNotificationDetails(
+      kReminderChannelId,
+      kReminderChannelName,
+      channelDescription: kReminderChannelDescription,
+    ),
+    iOS: DarwinNotificationDetails(
+      presentAlert: true,
+      presentSound: true,
+      presentBadge: false,
+    ),
+  );
 
   /// Compute the next Sunday at 6:00 PM local time.
   ///

@@ -32,6 +32,7 @@ class TripSummary {
     required this.timeMovingSeconds,
     required this.timeStuckSeconds,
     required this.isManualEntry,
+    this.isEdited = false,
   });
 
   /// UUID of the trip (matches `Trips.id`).
@@ -60,6 +61,13 @@ class TripSummary {
 
   /// True if the user typed this trip in by hand (no GPS capture).
   final bool isManualEntry;
+
+  /// True once the user has saved a full edit of this trip (Phase 19,
+  /// D-04). Drives the "~ estimated" hint on moving/stuck in list/detail
+  /// views — edited traffic figures are derived (proportional rescale),
+  /// not measured. Defaults to `false` so pre-Phase-19 call sites and
+  /// tests that build a `TripSummary` without it stay unchanged.
+  final bool isEdited;
 }
 
 /// Data-access object for the `trips` table.
@@ -95,6 +103,31 @@ class TripsDao extends DatabaseAccessor<AppDatabase> with _$TripsDaoMixin {
   /// the polyline does not flow through UI code unnecessarily.
   Future<TripRow?> findById(String id) {
     return (select(trips)..where((t) => t.id.equals(id))).getSingleOrNull();
+  }
+
+  /// Fetch all trips for conflict detection during restore.
+  Future<List<TripRow>> getAllTrips() {
+    return select(trips).get();
+  }
+
+  /// Fetch the full row (including polyline) of the most recent GPS trip, or
+  /// null if no GPS trip exists (LOC-01, D-13 picker init fallback).
+  ///
+  /// Ordered by `startTime` desc and filtered to `is_manual_entry = false` so
+  /// the row is guaranteed to carry a recorded route. Used only to seed the
+  /// location-picker camera when no saved anchor and no device location are
+  /// available — never on a hot path.
+  Future<TripRow?> mostRecentGpsTrip() {
+    return (select(trips)
+          ..where((t) => t.isManualEntry.equals(false))
+          ..orderBy([
+            (t) => OrderingTerm(
+              expression: t.startTime,
+              mode: OrderingMode.desc,
+            ),
+          ])
+          ..limit(1))
+        .getSingleOrNull();
   }
 
   /// Insert a new trip. Callers construct a `TripsCompanion.insert(...)`
@@ -182,9 +215,58 @@ class TripsDao extends DatabaseAccessor<AppDatabase> with _$TripsDaoMixin {
   /// `kDefaultUserId` rows are touched; real-uid rows are untouched.
   /// Never use `update(trips).replace(row)` for partial updates.
   Future<int> backfillUserId(String newUserId) {
-    return (update(trips)
-          ..where((t) => t.userId.equals(kDefaultUserId)))
-        .write(TripsCompanion(userId: Value(newUserId)));
+    return (update(trips)..where((t) => t.userId.equals(kDefaultUserId))).write(
+      TripsCompanion(userId: Value(newUserId)),
+    );
+  }
+
+  /// All trips eligible for geofence direction relabelling (Phase 21, LOC-02).
+  ///
+  /// Returns rows where:
+  ///   * `direction_source != kDirectionSourceManual` — a user's manual pick
+  ///     is NEVER overwritten (T-21-03-01),
+  ///   * `is_manual_entry = false` — manual entries have no polyline to decode,
+  ///   * `route_polyline` is non-null and non-empty — the resolver needs
+  ///     start/end coordinates from the encoded route.
+  ///
+  /// Ordered by `start_time ASC` (oldest first) — not functionally required
+  /// but makes debugging predictable.
+  Future<List<TripRow>> geofenceBackfillCandidates() {
+    return (select(trips)
+          ..where(
+            (t) =>
+                t.directionSource.equals(kDirectionSourceManual).not() &
+                t.isManualEntry.equals(false) &
+                t.routePolyline.isNotNull() &
+                t.routePolyline.length.isBiggerThanValue(0),
+          )
+          ..orderBy([
+            (t) => OrderingTerm(
+              expression: t.startTime,
+              mode: OrderingMode.asc,
+            ),
+          ]))
+        .get();
+  }
+
+  /// Rewrite the direction label and provenance source for a single trip
+  /// (Phase 21, LOC-02 backfill).
+  ///
+  /// Used by `GeofenceBackfillService` to stamp `direction_source = geofence`
+  /// on trips matched by proximity. Updates `updatedAt` to preserve the audit
+  /// trail without touching any other column.
+  Future<void> updateDirectionAndSource(
+    String tripId,
+    String direction,
+    String source,
+  ) {
+    return (update(trips)..where((t) => t.id.equals(tripId))).write(
+      TripsCompanion(
+        direction: Value(direction),
+        directionSource: Value(source),
+        updatedAt: Value(DateTime.now().toUtc()),
+      ),
+    );
   }
 
   TripSummary _toSummary(TripRow r) => TripSummary(
@@ -197,5 +279,6 @@ class TripsDao extends DatabaseAccessor<AppDatabase> with _$TripsDaoMixin {
     timeMovingSeconds: r.timeMovingSeconds,
     timeStuckSeconds: r.timeStuckSeconds,
     isManualEntry: r.isManualEntry,
+    isEdited: r.isEdited,
   );
 }

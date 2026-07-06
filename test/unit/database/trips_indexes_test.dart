@@ -20,8 +20,7 @@ void main() {
       await db.close();
     });
 
-    test('idx_trips_start_time and idx_trips_direction_start exist',
-        () async {
+    test('idx_trips_start_time and idx_trips_direction_start exist', () async {
       final rows = await db
           .customSelect(
             'SELECT name FROM sqlite_master '

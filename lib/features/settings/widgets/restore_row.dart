@@ -38,19 +38,19 @@ class RestoreRow extends ConsumerWidget {
     if (!context.mounted) return;
     final message = _messageFor(ref.read(restoreControllerProvider));
     if (message == null) return;
-    ScaffoldMessenger.maybeOf(context)
-        ?.showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.maybeOf(
+      context,
+    )?.showSnackBar(SnackBar(content: Text(message)));
   }
 
   /// Map the post-restore [state] to its result SnackBar copy (constants only).
   String? _messageFor(RestoreState state) => switch (state) {
-        RestoreSuccess(:final count) when count == 0 =>
-          kSettingsRestoreUpToDate,
-        RestoreSuccess(:final count) =>
-          '$kSettingsRestoreResultTemplate $count ${_tripNoun(count)}',
-        RestoreError() => kSettingsRestoreError,
-        _ => null,
-      };
+    RestoreSuccess(:final count) when count == 0 => kSettingsRestoreUpToDate,
+    RestoreSuccess(:final count) =>
+      '$kSettingsRestoreResultTemplate $count ${_tripNoun(count)}',
+    RestoreError() => kSettingsRestoreError,
+    _ => null,
+  };
 
   /// Singular / plural trip noun for the "Restored N trips" copy.
   String _tripNoun(int count) =>

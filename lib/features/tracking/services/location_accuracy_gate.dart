@@ -20,8 +20,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:traevy/config/constants.dart';
 
 /// Injectable function type for getting the current location accuracy status.
-typedef GetLocationAccuracyFn =
-    Future<LocationAccuracyStatus> Function();
+typedef GetLocationAccuracyFn = Future<LocationAccuracyStatus> Function();
 
 /// Injectable function type for requesting temporary full accuracy.
 typedef RequestTemporaryFullAccuracyFn =

@@ -63,7 +63,8 @@ void main() {
         String? serverClientId,
         String? nonce,
         String? hostedDomain,
-      }) initTearOff = GoogleSignIn.instance.initialize;
+      })
+      initTearOff = GoogleSignIn.instance.initialize;
       expect(initTearOff, isNotNull);
     });
 
@@ -77,7 +78,8 @@ void main() {
       // DO NOT call it — triggers Android Credential Manager, crashes test host.
       final Future<GoogleSignInAccount> Function({
         List<String> scopeHint,
-      }) authenticateTearOff = GoogleSignIn.instance.authenticate;
+      })
+      authenticateTearOff = GoogleSignIn.instance.authenticate;
       expect(authenticateTearOff, isNotNull);
     });
 
@@ -118,15 +120,17 @@ void main() {
       },
     );
 
-    test('GoogleSignInAuthentication with null idToken represents missing token',
-        () {
-      // Verifies that idToken is `String?` (nullable).
-      // When null, AuthService must treat it as a sign-in failure (no usable
-      // credential for FirebaseAuth). This typically means serverClientId was
-      // not provided (RESEARCH Pitfall 2).
-      const auth = GoogleSignInAuthentication(idToken: null);
-      expect(auth.idToken, isNull);
-    });
+    test(
+      'GoogleSignInAuthentication with null idToken represents missing token',
+      () {
+        // Verifies that idToken is `String?` (nullable).
+        // When null, AuthService must treat it as a sign-in failure (no usable
+        // credential for FirebaseAuth). This typically means serverClientId was
+        // not provided (RESEARCH Pitfall 2).
+        const auth = GoogleSignInAuthentication(idToken: null);
+        expect(auth.idToken, isNull);
+      },
+    );
   });
 
   // ---------------------------------------------------------------------------
@@ -145,7 +149,9 @@ void main() {
         // IMPORTANT: Do NOT pass accessToken here. v7 removes accessToken from
         // GoogleSignInAuthentication; Firebase requires idToken for the Google
         // provider (RESEARCH Pitfall 1 — v6 vs v7 API break).
-        final credential = GoogleAuthProvider.credential(idToken: 'test_id_token');
+        final credential = GoogleAuthProvider.credential(
+          idToken: 'test_id_token',
+        );
         expect(credential, isNotNull);
       },
     );

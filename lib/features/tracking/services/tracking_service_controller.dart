@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/daos/sync_queue_dao.dart';
+import 'package:traevy/database/daos/trip_breaks_dao.dart';
 import 'package:traevy/database/daos/trips_dao.dart';
 import 'package:traevy/database/daos/user_preferences_dao.dart';
 import 'package:traevy/database/database.dart';
@@ -11,6 +12,9 @@ import 'package:traevy/features/tracking/services/tracking_event_source.dart';
 import 'package:traevy/features/tracking/services/tracking_notification_service.dart';
 import 'package:traevy/features/tracking/state/finalized_trip.dart';
 import 'package:traevy/features/trips/services/direction_label_service.dart';
+import 'package:traevy/features/trips/services/geofence_direction_resolver.dart';
+import 'package:traevy/shared/utils/polyline_codec.dart';
+import 'package:uuid/uuid.dart';
 
 /// UI-isolate wrapper around the platform-selected [TrackingEventSource].
 /// Thin by design — all tracking logic (GPS stream, accumulator, 1 Hz
@@ -46,6 +50,7 @@ class TrackingServiceController {
     required SyncQueueDao syncQueueDao,
     required TrackingNotificationService notifications,
     required UserPreferencesDao userPreferencesDao,
+    required TripBreaksDao tripBreaksDao,
     LocationAccuracyGate? accuracyGate,
   }) : _source = source,
        _database = database,
@@ -53,6 +58,7 @@ class TrackingServiceController {
        _syncQueueDao = syncQueueDao,
        _notifications = notifications,
        _userPreferencesDao = userPreferencesDao,
+       _tripBreaksDao = tripBreaksDao,
        _accuracyGate = accuracyGate ?? LocationAccuracyGate();
 
   final TrackingEventSource _source;
@@ -61,6 +67,7 @@ class TrackingServiceController {
   final SyncQueueDao _syncQueueDao;
   final TrackingNotificationService _notifications;
   final UserPreferencesDao _userPreferencesDao;
+  final TripBreaksDao _tripBreaksDao;
   final LocationAccuracyGate _accuracyGate;
 
   /// Start tracking. Returns `true` if the engine started successfully,
@@ -88,7 +95,7 @@ class TrackingServiceController {
   /// engine starts (D-14 race resolution). On iOS, CoreLocation shows
   /// its own system indicator (D-07); no flutter_local_notifications call
   /// is made.
-  Future<bool> start() async {
+  Future<bool> start({Map<String, dynamic>? initialAccumulatorState}) async {
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       return false;
@@ -124,7 +131,7 @@ class TrackingServiceController {
       }
     }
 
-    return _source.start();
+    return _source.start(initialAccumulatorState: initialAccumulatorState);
   }
 
   /// Tell the engine to stop. The engine responds asynchronously by
@@ -133,6 +140,20 @@ class TrackingServiceController {
   /// through `TrackingStopping` back to `TrackingIdle`.
   Future<void> stop() async {
     await _source.stop();
+  }
+
+  /// Suspend the active trip (Phase 18, D-08). Thin passthrough to the
+  /// platform-selected [TrackingEventSource]; the engine opens a break span on
+  /// its accumulator and reflects `isPaused: true` on the next snapshot. The
+  /// trip is NEVER ended — it resumes as one continuous record.
+  Future<void> pause() async {
+    await _source.pause();
+  }
+
+  /// Resume a paused trip (Phase 18, D-08). Thin passthrough — closes the open
+  /// break span; the next snapshot carries `isPaused: false`.
+  Future<void> resume() async {
+    await _source.resume();
   }
 
   /// Atomically persist a finalized trip.
@@ -157,7 +178,28 @@ class TrackingServiceController {
   /// defaults to [kDefaultUserId] at the DB level (D-02), so we do not set
   /// it here. The `sync_queue` row has `payload = null` (D-13) — the sync
   /// engine re-reads the fresh trip row at sync time.
-  Future<PersistResult> persistFinalizedTrip(FinalizedTrip trip) async {
+  ///
+  /// TRACK-12 (D-06): if [directionOverride] is non-null (the user picked a
+  /// direction on the active-tracking toggle), it is written to
+  /// `trips.direction` instead of any auto-label — the manual choice wins.
+  ///
+  /// Phase 21 (D-09/D-10): the direction is resolved with the precedence
+  /// `directionOverride ?? geofence ?? time`. The geofence step decodes the
+  /// polyline's first/last points, runs the pure [GeofenceDirectionResolver]
+  /// against the user's saved Home/Office coords, and uses the result when the
+  /// END coord confidently matched an anchor. `trips.direction_source` records
+  /// which path won (`manual`/`geofence`/`time`) so the Plan 03 backfill can
+  /// safely re-label only non-manual rows (D-03/SC#4). When no Home/Office is
+  /// set the resolver returns null and the behaviour collapses to the exact
+  /// pre-Phase-21 `override ?? time` path — purely additive (SC#5).
+  ///
+  /// PII guard (T-21-02): the decoded endpoints are LOCAL variables consumed by
+  /// the pure resolver — they are never logged and never persisted as raw
+  /// coords. Only the resulting label + source land in the trips row.
+  Future<PersistResult> persistFinalizedTrip(
+    FinalizedTrip trip, {
+    String? directionOverride,
+  }) async {
     if (trip.durationSeconds < kMinTripDurationSeconds ||
         trip.distanceMeters < kMinTripDistanceMeters) {
       await _notifications.dismiss();
@@ -169,11 +211,44 @@ class TrackingServiceController {
       // (Pitfall 2).
       final prefs = await _userPreferencesDao.getOrDefault();
       const labeler = DirectionLabelService();
-      final direction = labeler.label(
+      final autoLabel = labeler.label(
         trip.startTime.toLocal(),
         prefs.morningCutoffHour,
         prefs.eveningCutoffHour,
       );
+      // Phase 21 (D-10): decode the polyline endpoints (may be empty for a
+      // manual/short trip) and run the pure geofence resolver against the saved
+      // Home/Office coords. These coords are local-only (T-21-02).
+      //
+      // The decode is guarded: a malformed/corrupt polyline must NEVER fail the
+      // persist (which would lose a completed commute). On any decode error we
+      // fall back to no endpoints → geofence returns null → time label. PII
+      // guard (T-21-02): the error is swallowed without logging, so no
+      // coordinate-bearing diagnostic can leak.
+      List<({double lat, double lng})> points;
+      try {
+        points = decodePolyline(trip.encodedPolyline);
+      } on Object {
+        points = const [];
+      }
+      final start = points.isEmpty ? null : points.first;
+      final end = points.isEmpty ? null : points.last;
+      final geofenceLabel = const GeofenceDirectionResolver().resolve(
+        start: start,
+        end: end,
+        homeLat: prefs.homeLat,
+        homeLng: prefs.homeLng,
+        officeLat: prefs.officeLat,
+        officeLng: prefs.officeLng,
+      );
+      // D-06/D-09: precedence is override ?? geofence ?? time.
+      final direction = directionOverride ?? geofenceLabel ?? autoLabel;
+      // D-02/D-10: record which path produced the direction.
+      final directionSource = directionOverride != null
+          ? kDirectionSourceManual
+          : geofenceLabel != null
+          ? kDirectionSourceGeofence
+          : kDirectionSourceTime;
       await _database.transaction(() async {
         await _tripsDao.insertTrip(
           TripsCompanion.insert(
@@ -183,11 +258,23 @@ class TrackingServiceController {
             durationSeconds: trip.durationSeconds,
             distanceMeters: trip.distanceMeters,
             direction: direction,
+            directionSource: Value<String>(directionSource),
             timeMovingSeconds: trip.timeMovingSeconds,
             timeStuckSeconds: trip.timeStuckSeconds,
             routePolyline: Value<String?>(trip.encodedPolyline),
+            // Phase 18 (D-07): the ACTIVE-duration aggregate. Unset would keep
+            // the DB default 0, but writing it explicitly keeps the trip row
+            // and its break rows internally consistent.
+            totalPausedSeconds: Value<int>(trip.totalPausedSeconds),
           ),
         );
+        // Phase 18 (D-07, T-18-06): break rows land in the SAME transaction as
+        // the trip + sync row — atomic, all-or-nothing. The FK to trips.id is
+        // satisfied because the trip insert above runs first.
+        final breakRows = _breakRowsFor(trip);
+        if (breakRows.isNotEmpty) {
+          await _tripBreaksDao.insertBreaks(breakRows);
+        }
         await _syncQueueDao.enqueueCreate(trip.id);
       });
       await _notifications.dismiss();
@@ -196,6 +283,32 @@ class TrackingServiceController {
       await _notifications.dismiss();
       return PersistFailed(error);
     }
+  }
+
+  /// Build the `trip_breaks` companions for [trip]'s primitive break list
+  /// (Phase 18, D-07). Each break map carries UTC-microsecond `startUs` /
+  /// `endUs` ints; we decode them back to UTC `DateTime`s and stamp a fresh
+  /// UUID per row. The list is empty for a trip that never paused.
+  List<TripBreaksCompanion> _breakRowsFor(FinalizedTrip trip) {
+    const uuid = Uuid();
+    return trip.breaks
+        .map(
+          (b) => TripBreaksCompanion.insert(
+            id: uuid.v4(),
+            tripId: trip.id,
+            startTime: DateTime.fromMicrosecondsSinceEpoch(
+              b['startUs']! as int,
+              isUtc: true,
+            ),
+            endTime: Value<DateTime>(
+              DateTime.fromMicrosecondsSinceEpoch(
+                b['endUs']! as int,
+                isUtc: true,
+              ),
+            ),
+          ),
+        )
+        .toList(growable: false);
   }
 }
 

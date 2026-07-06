@@ -35,6 +35,10 @@ const String kDatabaseName = 'traevy';
 /// See CLAUDE.md "sync_queue retries max 3".
 const int kSyncQueueMaxRetries = 3;
 
+/// The minimum duration that must elapse before auto-retry triggers
+/// (connectivity, resume) will fire `retryFailed()` again.
+const Duration kFailedAutoRetryWindow = Duration(hours: 4);
+
 /// Direction literal for commutes heading to the office (morning trips).
 ///
 /// See CLAUDE.md "Direction Auto-Labeling".
@@ -62,6 +66,15 @@ const String kSyncActionUpdate = 'update';
 ///
 /// See CLAUDE.md "sync_queue" table schema.
 const String kSyncActionDelete = 'delete';
+
+/// Banner message shown when sync items are genuinely stuck (Phase 24, UI-SPEC).
+const String kSyncStuckBannerMessage = 'Some trips couldn\'t sync';
+
+/// Action label for the stuck-item banner to open Settings (Phase 24, UI-SPEC).
+const String kSyncStuckBannerAction = 'Review in Settings';
+
+/// Action label to dismiss the stuck-item banner (Phase 24, UI-SPEC).
+const String kSyncStuckBannerDismiss = 'Dismiss';
 
 /// `sync_queue.status` literal for an entry that has not yet been pushed.
 ///
@@ -168,6 +181,76 @@ const String kTrackingOpenActionId = 'open_app';
 /// User-facing label for the Open action button (08-10).
 const String kTrackingOpenActionLabel = 'Open';
 
+/// User-facing label for the active-hero Pause button (Phase 18, D-09). Shown
+/// while a trip is running; tapping it suspends recording.
+const String kTrackingPauseLabel = 'Pause';
+
+/// User-facing label for the active-hero Resume button (Phase 18, D-09). Shown
+/// while a trip is paused; tapping it continues the same trip.
+const String kTrackingResumeLabel = 'Resume';
+
+/// Badge text shown on the hero while a trip is paused (Phase 18, D-09). The
+/// distinct PAUSED visual state pairs this badge with a dimmed, frozen timer.
+const String kTrackingPausedBadgeLabel = 'PAUSED';
+
+/// Break-count indicator text when exactly one break has been taken (Phase 18,
+/// D-09). Kept separate from [kTrackingBreakCountPluralTemplate] so the
+/// singular/plural choice is data, not a string concatenation in the widget.
+const String kTrackingBreakCountSingularLabel = '1 break';
+
+/// Break-count indicator template for two-or-more breaks (Phase 18, D-09).
+/// `{n}` is replaced with the break count, e.g. `'2 breaks'`.
+const String kTrackingBreakCountPluralTemplate = '{n} breaks';
+
+// --- Phase 18 (Plan 04): opt-in auto-pause prompt (TRACK-10, D-10/11/12) ---
+
+/// Continuous STUCK seconds the active trip must accumulate — uninterrupted by
+/// any moving interval — before the app prompts the user to pause (Phase 18,
+/// D-10/D-11). Default 15 minutes.
+///
+/// Detection keys off the accumulator's OWN stuck classification
+/// (`prev.speed < kStuckSpeedThresholdMs`), never raw `Position.speed`: any
+/// moving interval resets the streak, so stop-and-go micro-movement cannot
+/// false-trigger and the core stuck-time metric stays intact (D-11). No second
+/// speed threshold is introduced — `AutoPauseDetector` consumes the same
+/// classification the accumulator already computes.
+const int kAutoPauseStationaryThresholdSeconds = 15 * 60;
+
+/// flutter_local_notifications id for the auto-pause prompt (Phase 18, D-12).
+///
+/// DISTINCT from [kTrackingNotificationId] (1001 — the ongoing foreground
+/// notification) so the prompt is a SEPARATE, dismissible shade entry that
+/// never collides with or replaces the recording notification.
+const int kAutoPauseNotificationId = 1002;
+
+/// Action id for the Pause button on the auto-pause prompt (Phase 18, D-12).
+/// Both notification response handlers match this exact id (V5 validation,
+/// T-18-12) before routing to [kTrackingPauseCommand]; everything else is
+/// ignored, so a spoofed/stale action id cannot toggle pause.
+const String kTrackingAutoPauseActionId = 'auto_pause';
+
+/// User-facing label for the Pause action button on the auto-pause prompt
+/// (Phase 18, D-12). Tapping it fires the same `kTrackingPauseCommand` path the
+/// active-hero Pause button uses — prompt only, never silent auto-pause.
+const String kTrackingAutoPauseActionLabel = 'Pause';
+
+/// Title for the auto-pause prompt notification (Phase 18, D-12).
+const String kAutoPauseNotificationTitle = "You've been stopped a while";
+
+/// Body for the auto-pause prompt notification (Phase 18, D-12). Plain copy —
+/// the user taps Pause to suspend recording, or ignores it to keep recording.
+const String kAutoPauseNotificationBody =
+    'Pause this commute? Time stopped here will be excluded from your stats.';
+
+/// SettingsRow title for the opt-in auto-pause toggle (Phase 18, D-10).
+const String kSettingsAutoPauseLabel = 'Auto-pause when stationary';
+
+/// SettingsRow subtitle copy when auto-pause is enabled (Phase 18, D-10).
+const String kSettingsAutoPauseOnSubtitle = 'ON';
+
+/// SettingsRow subtitle copy when auto-pause is disabled (Phase 18, D-10).
+const String kSettingsAutoPauseOffSubtitle = 'OFF';
+
 /// iOS notification category id for the active-commute notification (08-10).
 /// Categories define which actions appear when the notification is expanded
 /// on iOS. Matches the Android action set (Open + Stop) so the cross-platform
@@ -237,6 +320,21 @@ const Duration kTrackingSpeedFreshnessWindow = Duration(seconds: 6);
 /// staleness. `onlyAlertOnce: true` already mutes sound/vibration on every
 /// refresh, but does not eliminate the IPC cost.
 const Duration kTrackingNotificationRefreshInterval = Duration(seconds: 5);
+
+/// Minimum gap between successive home-screen-widget refreshes. Mirrors
+/// [kTrackingNotificationRefreshInterval]: the 1 Hz uiTimer would otherwise
+/// fire two `HomeWidget.saveWidgetData` writes plus an `updateWidget`
+/// RemoteViews rebuild every second (~2700 broadcasts on a 45-min trip).
+const Duration kTrackingWidgetRefreshInterval = Duration(seconds: 5);
+
+/// Minimum gap between successive active-trip state persists (Phase 25
+/// interrupted-trip recovery). `TripAccumulator` snapshots its FULL state —
+/// including the growing sample list — to disk, so per-sample (~3 s) writes
+/// make total bytes written grow quadratically with trip length. Pause/resume
+/// transitions bypass the throttle so a recovered trip never resurrects a
+/// stale paused/running flag; the worst case is losing the last few seconds
+/// of samples on force-kill, which recovery tolerates.
+const Duration kTripStatePersistMinInterval = Duration(seconds: 10);
 
 // ---------------------------------------------------------------------------
 // Phase 4: Trip History
@@ -631,6 +729,23 @@ const String kBrandFullName = 'Traevy';
 /// `flutterfire configure` and locating the web client in GCP Credentials.
 ///
 /// See D-10/D-10a in `.planning/phases/09-authentication/09-RESEARCH.md`.
+// ---------------------------------------------------------------------------
+// Phase 17 — Tracking UI fixes & quick direction label (TRACK-12)
+// ---------------------------------------------------------------------------
+
+/// Display label for the to-office segment of the [DirectionSegmentedToggle]
+/// quick direction selector (TRACK-12, D-04). Mirrors the wording used by the
+/// edit-trip sheet's SegmentedButton so the two surfaces read identically.
+const String kDirectionToOfficeLabel = 'To office';
+
+/// Display label for the to-home segment of the [DirectionSegmentedToggle]
+/// quick direction selector (TRACK-12, D-04).
+const String kDirectionToHomeLabel = 'To home';
+
+// ---------------------------------------------------------------------------
+// Phase 9 — Authentication (Firebase Auth + Google Sign-In) continued
+// ---------------------------------------------------------------------------
+
 const String kGoogleServerClientId =
     '1076279794226-lfbgqa0td7dtal7ch6s5l6928huo5ij7.apps.googleusercontent.com';
 
@@ -669,6 +784,15 @@ const String kCopySignInSheetSubtext =
 /// Shown in the Account section when the user is in the guest auth state.
 const String kCopySettingsGuestSignIn = 'Sign in to back up';
 
+/// Tooltip / semantics label for the guest "not connected" indicator on the
+/// dashboard header (Phase 20, AUTH-04, SC#3, D-06).
+///
+/// The indicator is a passive `cloud_off` IconButton shown ONLY in guest
+/// mode; tapping it opens the sign-in sheet. The copy is calm (states the
+/// fact + the remedy) and non-nagging — there is no auto-shown snackbar.
+const String kCopyGuestNotConnectedTooltip =
+    'Not connected — sign in to back up';
+
 /// Settings screen signed-in account "Sign out" row label.
 ///
 /// Shown in the Account section only when the user is signed in. Tapping it
@@ -694,6 +818,12 @@ const String kCopyConfirmCta = "Let's go";
 /// Tooltip text shown on the disabled Google sign-in button when Firebase
 /// is not configured (D-15, UI-SPEC §D note).
 const String kCopySignInDisabledTooltip = 'Sign-in not configured';
+
+/// Skip action label on the first-run [LoginScreen] (Phase 20, D-04/D-05).
+///
+/// Tapping it sets `has_seen_onboarding = true` and lets the root gate route
+/// the guest straight into the app without signing in.
+const String kCopyLoginSkip = 'Skip — use without an account';
 
 /// Headline for the sign-in error state shown in the sheet when
 /// `AuthService.signIn()` throws a non-cancel exception (UI-SPEC §E).
@@ -830,3 +960,177 @@ const int kIosTrackingDistanceFilterMeters = 0;
 const String kTrackingReducedAccuracyBlockedMessage =
     'Precise location is required to track your commute. '
     'Enable it in Settings → Privacy → Location Services → Traevy.';
+
+// Phase 19 — Full Trip Editing (TRACK-11)
+//
+// Validation messages (D-08): surfaced inline by the Plan 02 edit sheet
+// when `TripEditRecompute.validate` rejects an edit. The service maps each
+// failing rule to one of these constants — never to hardcoded English — so
+// the copy lives in one place and the service stays UI-agnostic.
+
+/// Shown when the edited end time is at or before the edited start time.
+const String kEditValidationEndBeforeStart =
+    'End time must be after start time.';
+
+/// Shown when a break falls outside the (edited) trip window (D-05).
+const String kEditValidationBreakOutsideWindow =
+    'A break falls outside the trip times.';
+
+/// Shown when a break's end is at or before its start (D-06).
+const String kEditValidationBreakZeroLength =
+    'A break must end after it starts.';
+
+/// Shown when two breaks overlap OR merely touch (D-07).
+const String kEditValidationBreakOverlap =
+    'Breaks cannot overlap or touch — merge them into one.';
+
+/// Snackbar shown after a save where breaks were clamped/dropped to fit the
+/// new, shorter trip window (D-10).
+const String kEditBreaksAdjustedSnackbar =
+    'Some breaks were adjusted to fit the new trip times.';
+
+/// Inline label on moving/stuck figures of an edited trip (D-04). Edited
+/// traffic stats are derived via proportional rescale, not measured.
+const String kEditEstimatedHintLabel = '~ estimated';
+
+/// Tooltip expanding on [kEditEstimatedHintLabel].
+const String kEditEstimatedHintTooltip =
+    'These figures were re-estimated after you edited the trip, not measured '
+    'from GPS.';
+
+/// Section header for the breaks list in the Plan 02 edit sheet.
+const String kEditBreaksSectionLabel = 'Breaks';
+
+/// Add-break action label in the Plan 02 edit sheet.
+const String kEditAddBreakLabel = 'Add break';
+
+/// Start date/time field label in the Plan 02 edit sheet.
+const String kEditStartDateTimeLabel = 'Start';
+
+/// End date/time field label in the Plan 02 edit sheet.
+const String kEditEndDateTimeLabel = 'End';
+
+// ---------------------------------------------------------------------------
+// Phase 21 — Home & Office Locations + Geofence Auto-Label (LOC-01, LOC-02)
+// ---------------------------------------------------------------------------
+
+/// Confident-match radius (meters) for the geofence direction resolver (D-05).
+///
+/// The trip's END coordinate must lie strictly within this distance of a saved
+/// Home/Office anchor (`Geolocator.distanceBetween(...) < kGeofenceRadiusMeters`)
+/// to label the trip by that anchor. A point exactly at the radius is OUTSIDE
+/// (D-06). 250 m balances GPS endpoint jitter and parking-lot drift against the
+/// risk of a Home and Office that sit close together overlapping.
+const double kGeofenceRadiusMeters = 250;
+
+/// `trips.direction_source` literal: the user explicitly set this direction
+/// (Phase 17 quick toggle or the Phase 19 edit sheet) — D-02/D-03.
+///
+/// This is the durable "who set this" record. A manual choice is
+/// authoritative: the Plan 03 backfill re-labels ONLY rows whose source is NOT
+/// this value, so a user's pick is never clobbered (SC#4).
+const String kDirectionSourceManual = 'manual';
+
+/// `trips.direction_source` literal: the direction was derived from the
+/// geofence resolver at finalize (END coord matched a saved anchor) — D-02/D-10.
+const String kDirectionSourceGeofence = 'geofence';
+
+/// `trips.direction_source` literal: the direction fell back to the time-of-day
+/// heuristic (no manual override and no confident geofence match) — D-02/D-09.
+///
+/// This is the DB default for `trips.direction_source`, so every pre-Phase-21
+/// row reads `time` after the additive v6 migration — they were all
+/// time-labeled (SC#5).
+const String kDirectionSourceTime = 'time';
+
+// --- LOC-01 location picker (Plan 02) -------------------------------------
+
+/// Subtitle shown on a Home/Office settings row when no coordinate is saved
+/// yet (D-13: a never-set slot reads "Not set", never Null Island).
+const String kCopyLocationNotSet = 'Not set';
+
+/// Label for the Home location settings row (LOC-01).
+const String kSettingsHomeLocationLabel = 'Home location';
+
+/// Label for the Office location settings row (LOC-01).
+const String kSettingsOfficeLocationLabel = 'Office location';
+
+/// Title of the "Commute" settings section that groups the Home/Office rows.
+const String kSettingsLocationsSectionTitle = 'Commute';
+
+/// App-bar / confirm-button copy for the Home picker (LOC-01).
+const String kLocationPickerHomeTitle = 'Set home';
+
+/// App-bar / confirm-button copy for the Office picker (LOC-01).
+const String kLocationPickerOfficeTitle = 'Set office';
+
+/// Confirm-button label for the Home picker.
+const String kLocationPickerSetHomeButton = 'Set home here';
+
+/// Confirm-button label for the Office picker.
+const String kLocationPickerSetOfficeButton = 'Set office here';
+
+/// SnackBar copy shown after a Home location is saved.
+const String kLocationPickerHomeSavedSnack = 'Home location saved';
+
+/// SnackBar copy shown after an Office location is saved.
+const String kLocationPickerOfficeSavedSnack = 'Office location saved';
+
+/// Default map-camera latitude when no saved coord, no device location, and no
+/// recent trip exist (D-13: a sane non-(0,0) start, NOT Null Island). Centred
+/// on Bengaluru, India — the project's primary locale.
+const double kMapDefaultCenterLat = 12.9716;
+
+/// Default map-camera longitude (see [kMapDefaultCenterLat]).
+const double kMapDefaultCenterLng = 77.5946;
+
+/// Initial zoom level for the location picker map (street-level so the user can
+/// place the crosshair precisely).
+const double kLocationPickerInitialZoom = 15;
+
+/// Size (logical pixels) of the fixed centre crosshair icon on the picker.
+const double kLocationPickerCrosshairSize = 40;
+
+// ---------------------------------------------------------------------------
+// Phase 24 — Automatic Cloud Sync & Restore
+// ---------------------------------------------------------------------------
+
+/// Auto-restore in-progress message
+const String kAutoRestoreInProgress = 'Restoring your trips…';
+
+/// Auto-restore error message
+const String kAutoRestoreError =
+    'Could not restore — tap Restore in Settings to retry';
+
+/// Auto-restore success message template
+const String kAutoRestoreResultTemplate = 'Restored {n} trips';
+
+/// Auto-restore up-to-date message
+const String kAutoRestoreUpToDate = kSettingsRestoreUpToDate;
+
+// ---------------------------------------------------------------------------
+// Phase 24 — Automatic Cloud Sync & Restore
+// ---------------------------------------------------------------------------
+
+const String kConflictResolutionTitle = 'Resolve Sync Conflicts';
+const String kConflictKeepLocal = 'Keep local';
+const String kConflictUseCloud = 'Use cloud';
+const String kConflictMerge = 'Merge';
+
+// ---------------------------------------------------------------------------
+// Phase 25: Interrupted-Trip Recovery
+// ---------------------------------------------------------------------------
+
+/// Title for the interrupted-trip recovery prompt dialog.
+const String kRecoveryDialogTitle = 'Interrupted Commute';
+
+/// Body text for the interrupted-trip recovery prompt dialog.
+const String kRecoveryDialogBody =
+    'Traevy stopped unexpectedly during your last commute. '
+    'Do you want to resume recording or discard it?';
+
+/// Action label for resuming the interrupted trip.
+const String kRecoveryResumeAction = 'Resume';
+
+/// Action label for discarding the interrupted trip.
+const String kRecoveryDiscardAction = 'Discard';

@@ -96,6 +96,40 @@ iOS port of the existing Android app with full feature parity, runnable on a rea
 
 - [ ] **IOS-12**: All identical-behavior features (trip CRUD, manual entry, daily log/calendar, route map via flutter_map, all stats, sync, cloud restore, dark mode) are verified working on a real iPhone
 
+## v0.3 (App Improvements) Requirements
+
+Android-facing UX fixes and features requested 2026-06-06. Built on branch `gsd/v0.3-app-improvements`. Realizes **AUTO-02** (geofence triggers) and **PLAT-02** (home-screen widget) from v2, scoped to labeling and start/stop respectively.
+
+### Tracking & Trips
+
+- [x] **TRACK-09**: User can pause and resume an active commute (for a break — snack/meeting) without ending the trip; paused time is excluded from duration and moving/stuck stats
+- [x] **TRACK-10**: User can enable an auto-pause prompt — when an active trip appears stationary beyond a threshold, a notification offers to pause the trip
+- [x] **TRACK-11**: User can edit all details of a trip — start time, end time, and individual break/pause segments — with duration and traffic stats recomputed
+- [x] **TRACK-12**: User can set or change a trip's direction (to-home / to-office) via a quick label selector during tracking and from the trip view
+- [ ] **TRACK-13**: If the app is killed mid-trip (force-quit, app cleared/swiped away, or OS-level interruption), the active trip's state is persisted continuously so that on next launch the app detects the interrupted trip, logs it, informs the user, and offers to resume the trip or discard it
+
+### Cloud Sync
+
+- [ ] **SYNC-04**: When the user signs in (including on a fresh install or new device), their cloud trips are restored into Drift automatically — no manual "Restore" tap required — deduplicating by trip UUID against any local trips
+- [ ] **SYNC-05**: A finished trip is synced to the cloud immediately on save, and sync items that previously exhausted their retries (marked failed) are automatically re-attempted later instead of remaining stuck until a manual action
+
+### First-Run & Auth
+
+- [x] **AUTH-04**: On first install the user sees a login screen with a "Skip" option that lets them use the app locally without signing in; sync stays disabled until they sign in later from settings
+
+### Saved Locations
+
+- [ ] **LOC-01**: User can set their Home and Office locations (map/coordinate picker) and persist them in preferences
+- [x] **LOC-02**: Trips are auto-labeled to-home / to-office based on the proximity of trip start/end to the saved Home/Office locations, taking precedence over the time-of-day heuristic when a confident match exists
+
+### Home-Screen Widget
+
+- [ ] **WIDGET-01**: User can add an Android home-screen widget that starts or stops a commute with one tap and reflects the current tracking state
+
+### Display Fixes
+
+- [x] **UX-06**: The active-tracking elapsed timer always renders fully on screen — never wrapping the last digit to a new line or clipping — regardless of elapsed duration
+
 ## v2 Requirements
 
 Deferred to future release. Tracked but not in current roadmap.
@@ -103,12 +137,12 @@ Deferred to future release. Tracked but not in current roadmap.
 ### Automation
 
 - **AUTO-01**: Automatic trip detection without manual start/stop
-- **AUTO-02**: Geofence-based trip triggers
+- **AUTO-02**: Geofence-based trip triggers — *partially realized in v0.3 as geofence auto-labeling (LOC-02); auto start/stop still deferred*
 
 ### Platform
 
 - **PLAT-01**: iOS support — *promoted to the v0.2 milestone (see IOS-01..IOS-12)*
-- **PLAT-02**: Home screen widget with today's commute summary
+- **PLAT-02**: Home screen widget with today's commute summary — *start/stop widget realized in v0.3 (WIDGET-01); summary-content widget still deferred*
 
 ### Analytics
 
@@ -181,11 +215,25 @@ Which phases cover which requirements. Updated during roadmap creation.
 | IOS-12 | Phase 16 | Pending |
 | IOS-13 | Phase 15 | Pending |
 | IOS-14 | Phase 15 | Pending |
+| TRACK-09 | Phase 18 | Complete |
+| TRACK-10 | Phase 18 | Complete |
+| TRACK-11 | Phase 19 | Complete |
+| TRACK-12 | Phase 17 | Complete |
+| AUTH-04 | Phase 20 | Complete |
+| LOC-01 | Phase 21 | Pending |
+| LOC-02 | Phase 21 | Complete |
+| WIDGET-01 | Phase 22 | Pending |
+| SYNC-04 | Phase 24 | Pending |
+| SYNC-05 | Phase 24 | Pending |
+| TRACK-13 | Phase 25 | Pending |
+| UX-06 | Phase 17 | Complete |
 
 **Coverage:**
 - v1 requirements: 31 total — mapped to phases: 31 — unmapped: 0
 - v0.2 requirements: 14 total — mapped to phases: 14 — unmapped: 0
+- v0.3 requirements: 9 total — mapped to phases: 9 — unmapped: 0
 
 ---
 *Requirements defined: 2026-04-11*
 *Last updated: 2026-06-02 — added v0.2 (iOS Support) requirements IOS-01..IOS-12 (full Android→iOS parity); PLAT-01 promoted from v2. Traceability for IOS-* filled during v0.2 roadmap creation.*
+*Last updated: 2026-06-06 — v0.3 (App Improvements) roadmap created: TRACK-09..12, AUTH-04, LOC-01, LOC-02, WIDGET-01, UX-06 mapped to Phases 17-22. Added SYNC-04, SYNC-05 (Phase 24 — Automatic Cloud Sync & Restore) and TRACK-13 (Phase 25 — Interrupted-Trip Recovery).*

@@ -51,3 +51,6 @@ app.*.map.json
 
 # Spike / research node_modules — never commit dependencies
 .planning/spikes/**/node_modules/
+
+# Claude
+.claude/

@@ -8,20 +8,20 @@ A consumer Android app that lets anyone track their daily commute with a simple 
 
 Show people the reality of their commute — time wasted in traffic and how it changes over time. If nothing else works, this insight must.
 
-## Current Milestone: v0.2 iOS Support
+## Current Milestone: v0.3 App Improvements
 
-**Goal:** Make the full Commute Tracker app run on iOS with feature parity to Android, runnable on a real iPhone via Xcode.
+**Goal:** Ship a batch of Android-facing UX fixes and features that make daily trip capture more flexible and accurate — pausing for breaks, full trip editing, smarter labeling, a friendlier first run, and one-tap start/stop from the home screen.
 
 **Target features:**
-- iOS platform scaffolding (generate `ios/` folder, bundle ID, build config)
-- Background GPS tracking on iOS (geolocator native background location mode)
-- Google Sign-In + Firebase Auth on iOS (URL schemes, `GoogleService-Info.plist`)
-- Local notifications on iOS (permission model, tracking + weekly summary)
-- Secure token storage via iOS Keychain
-- Maps / route display on iOS
-- iOS permissions + `Info.plist` (location always/when-in-use, notifications)
+- Fix: tracking timer never overflows/wraps on screen (any duration)
+- Pause/resume an active trip for breaks, with optional auto-pause notification
+- Fully editable trip details (start time, end time, break segments)
+- Quick to-home / to-office label selector
+- First-install login screen with a Skip (use-without-account) option
+- Set Home & Office locations to geofence auto-label trips
+- Home-screen widget to start/stop a commute with one tap
 
-**Scope notes:** Full feature parity including background GPS. Target = runs on a real iPhone via Xcode 26.5 (no TestFlight / App Store this milestone). No Apple Developer account — relies on 7-day free provisioning. Previous milestone v0.1 is left formally open (13 deferred Android device-UAT items) and remains resumable.
+**Scope notes:** Android-focused (Android-only surfaces like the home-screen widget are Android-first; iOS parity for these features is deferred). Built on branch `gsd/v0.3-app-improvements`. Previous milestone v0.2 (iOS Support, Phases 12–16) is **paused** — Phase 14 code-complete awaiting physical-device UAT, Phase 15 context gathered — and remains fully resumable (artifacts untouched). v0.1 also remains formally open (deferred Android device-UAT items).
 
 ## Requirements
 
@@ -55,6 +55,14 @@ Show people the reality of their commute — time wasted in traffic and how it c
 - [ ] Persistent notification while tracking
 - [ ] Weekly summary push notification
 - [ ] Tracking reminder at usual departure time
+- [ ] (v0.3) Tracking timer renders without overflow/wrap at any duration
+- [ ] (v0.3) Pause/resume an active trip for breaks (paused time excluded from stats)
+- [ ] (v0.3) Optional auto-pause notification when a trip looks stationary
+- [ ] (v0.3) Fully editable trip details — start time, end time, break segments
+- [ ] (v0.3) Quick to-home / to-office label selector
+- [ ] (v0.3) First-install login screen with a Skip (use-without-account) option
+- [ ] (v0.3) Set Home & Office locations to geofence auto-label trips
+- [ ] (v0.3) Home-screen widget to start/stop a commute with one tap
 
 ### Out of Scope
 
@@ -91,6 +99,7 @@ Show people the reality of their commute — time wasted in traffic and how it c
 | Tech stack open to research input | CLAUDE.md stack is a starting point, not locked | ✓ Phase 1 swapped flutter_lints → very_good_analysis; deferred riverpod_generator (analyzer conflict with drift_dev) |
 | Manual Riverpod 3.x providers (no codegen) | riverpod_generator/lint require analyzer ^9, drift_dev 2.32.1 requires analyzer ^10 | Phase 1 decision — revisit when ecosystem aligns |
 | compileSdk 35, minSdk/targetSdk 34 | jni_flutter transitive dep needs API 35 headers; runtime targets Android 14 per D-08 | Phase 1 decision |
+| Pause v0.2 (iOS) to build v0.3 app improvements | v0.2 blocked on physical-device UAT (can't progress autonomously); user requested a batch of Android UX features/fixes built overnight | ✓ Decided 2026-06-06 — branch gsd/v0.3-app-improvements |
 
 ## Evolution
 
@@ -110,4 +119,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-02 — Started milestone v0.2 (iOS Support). iOS moved from Out of Scope to active milestone goal. v0.1 left formally open with deferred Android device-UAT items.*
+*Last updated: 2026-06-06 — Started milestone v0.3 (App Improvements). v0.2 (iOS) paused mid-flight (blocked on device UAT) and remains resumable. Building 7 Android-facing fixes/features on branch gsd/v0.3-app-improvements.*

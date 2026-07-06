@@ -78,7 +78,7 @@ void main() {
     setUpAll(() {
       mid = TraevyTokensExt.fromTokens(
         TraevyTokens.light,
-      ).lerp(TraevyTokensExt.fromTokens(TraevyTokens.dark), 0.5)!;
+      ).lerp(TraevyTokensExt.fromTokens(TraevyTokens.dark), 0.5);
     });
 
     test('bgElev midpoint', () {
@@ -193,7 +193,7 @@ void main() {
     });
 
     test('lerp at t=0.0 returns colors equal to the light source', () {
-      final result = light.lerp(dark, 0.0)!;
+      final result = light.lerp(dark, 0.0);
       expect(result.bgElev, light.bgElev);
       expect(result.surface2, light.surface2);
       expect(result.border, light.border);
@@ -211,7 +211,7 @@ void main() {
     });
 
     test('lerp at t=1.0 returns colors equal to the dark source', () {
-      final result = light.lerp(dark, 1.0)!;
+      final result = light.lerp(dark, 1.0);
       expect(result.bgElev, dark.bgElev);
       expect(result.surface2, dark.surface2);
       expect(result.border, dark.border);
@@ -230,18 +230,18 @@ void main() {
 
     test('lerp(null, 0.5) returns this unchanged', () {
       final result = light.lerp(null, 0.5);
-      expect(result?.bgElev, light.bgElev);
-      expect(result?.moving, light.moving);
-      expect(result?.accent, light.accent);
+      expect(result.bgElev, light.bgElev);
+      expect(result.moving, light.moving);
+      expect(result.accent, light.accent);
     });
 
     test('lerp with non-TraevyTokensExt other returns this unchanged', () {
       // Create a stub ThemeExtension that is not a TraevyTokensExt.
       final stub = _StubThemeExtension();
       final result = light.lerp(stub, 0.5);
-      expect(result?.bgElev, light.bgElev);
-      expect(result?.moving, light.moving);
-      expect(result?.accent, light.accent);
+      expect(result.bgElev, light.bgElev);
+      expect(result.moving, light.moving);
+      expect(result.accent, light.accent);
     });
   });
 }
@@ -260,6 +260,5 @@ class _StubThemeExtension extends ThemeExtension<TraevyTokensExt> {
   ThemeExtension<TraevyTokensExt> lerp(
     covariant ThemeExtension<TraevyTokensExt>? other,
     double t,
-  ) =>
-      this;
+  ) => this;
 }
