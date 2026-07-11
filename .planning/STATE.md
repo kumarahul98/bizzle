@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: App Improvements
-status: Not started
+status: executing
 stopped_at: Phase 25.1 UI-SPEC approved
-last_updated: "2026-07-11T10:25:54.744Z"
-last_activity: 2026-07-11
+last_updated: "2026-07-11T11:39:03.388Z"
+last_activity: 2026-07-11 -- Phase 25.1 planning complete
 progress:
   total_phases: 16
   completed_phases: 10
-  total_plans: 32
+  total_plans: 34
   completed_plans: 29
   percent: 63
 ---
@@ -27,8 +27,8 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 
 Phase: 25.1 — Fix Sync Conflict & Auto-Retry Bugs (INSERTED, blocks Phase 26)
 Plan: not yet planned
-Status: Not started
-Last activity: 2026-07-11
+Status: Ready to execute
+Last activity: 2026-07-11 -- Phase 25.1 planning complete
 
 **v0.3 progress:** 8/11 phases complete (17,18,19,20,21,22,24,25 done, merged to main 2026-07-06 in PR #2). Phase 23 rescoped 2026-07-11 (UAT audit found it never really executed — stalled at 1 thin plan; now Android-only, its one iOS criterion removed). Phase 25.1 inserted 2026-07-11 (Phase 24 verification found 2 unfixed correctness bugs: broken auto-retry throttle, fake Merge conflict resolution). Phase 26 added 2026-07-11, now depends on 25.1.
 
