@@ -80,21 +80,23 @@ iOS port of the existing Android app with full feature parity, runnable on a rea
 
 ### Background GPS on iOS
 
-- [x] **IOS-06**: User can record a commute on iOS with GPS continuing while the app is backgrounded / screen off (CoreLocation `allowBackgroundLocationUpdates`)
-- [x] **IOS-07**: GPS does not silently pause during stop-and-go traffic on iOS (`pauseLocationUpdatesAutomatically: false`), so moving/stuck traffic stats stay accurate
-- [x] **IOS-08**: App detects iOS reduced-accuracy ("Approximate Location") and requests/handles full accuracy so speed-based traffic calculation remains valid
+- [x] **IOS-06**: User can record a commute on iOS with GPS continuing while the app is backgrounded / screen off (CoreLocation `allowBackgroundLocationUpdates`) — code complete, unit-tested; the real-device drive scenario (locked-screen full commute) is deferred, unblocked, and still pending — see `14-HUMAN-UAT.md`
+- [x] **IOS-07**: GPS does not silently pause during stop-and-go traffic on iOS (`pauseLocationUpdatesAutomatically: false`), so moving/stuck traffic stats stay accurate — code complete; real-device stop-and-go drive scenario still pending, see `14-HUMAN-UAT.md`
+- [x] **IOS-08**: App detects iOS reduced-accuracy ("Approximate Location") and requests/handles full accuracy so speed-based traffic calculation remains valid — code complete; real-device Approximate Location toggle scenario still pending, see `14-HUMAN-UAT.md`
 
 ### Permissions, Notifications & UX on iOS
 
-- [ ] **IOS-09**: User grants location via the iOS two-step When-In-Use → Always flow during onboarding, with "When In Use only" handled as a valid degraded state
-- [ ] **IOS-10**: User grants notification permission on iOS; weekly summary and departure-reminder notifications fire
-- [ ] **IOS-11**: The Android-only persistent tracking notification is suppressed on iOS (no phantom notification); the active-commute tracking signal on iOS is the Live Activity (iOS 17+) or, below 17, the system blue location indicator
-- [ ] **IOS-13**: On iOS 17+, an active commute shows a Live Activity (lock screen + Dynamic Island) with live elapsed/distance/moving-stuck stats and an in-place Stop button, updating from the `TripAccumulator` stream and dismissed on trip stop; iOS < 17 degrades to blue-indicator-only with in-app Stop
-- [ ] **IOS-14**: The Android ongoing "Active commute" foreground notification is enriched to show the same live stats (elapsed/distance/moving-stuck) as the iOS Live Activity, with no regression to the foreground-service binding
+**Note (2026-07-11):** iOS work (v0.2) is paused. See the PAUSED summary in `ROADMAP.md`'s v0.2 section for the full resume context.
+
+- [x] **IOS-09**: User grants location via the iOS two-step When-In-Use → Always flow during onboarding, with "When In Use only" handled as a valid degraded state — merged to main in PR #3 (2026-07-06), device-verified on iPhone 13 / iOS 26.5
+- [x] **IOS-10**: User grants notification permission on iOS; weekly summary and departure-reminder notifications fire — merged to main in PR #3, device-verified
+- [~] **IOS-11**: The Android-only persistent tracking notification is suppressed on iOS (no phantom notification) — DONE, merged in PR #3, device-verified; the active-commute tracking signal is the Live Activity (iOS 17+) — ABANDONED (see IOS-13), so this currently falls through to the blue-indicator-only fallback on all iOS versions, not just <17
+- [ ] **IOS-13**: ABANDONED. On iOS 17+, an active commute shows a Live Activity (lock screen + Dynamic Island)... Never rendered on a real device despite two real fixes landing; investigation paused at "`LiveActivityService.init()` appears never to run." Code is NOT on main — archived at git tag `archive/live-activity-wip`. Resume point: `.planning/debug/live-activity-not-rendering.md` on that tag.
+- [x] **IOS-14**: The Android ongoing "Active commute" foreground notification is enriched to show the same live stats (elapsed/distance/moving-stuck) as the iOS Live Activity, with no regression to the foreground-service binding — merged to main in PR #3, device-verified (this shipped independently of Live Activity itself)
 
 ### Parity Validation
 
-- [ ] **IOS-12**: All identical-behavior features (trip CRUD, manual entry, daily log/calendar, route map via flutter_map, all stats, sync, cloud restore, dark mode) are verified working on a real iPhone
+- [ ] **IOS-12**: All identical-behavior features (trip CRUD, manual entry, daily log/calendar, route map via flutter_map, all stats, sync, cloud restore, dark mode) are verified working on a real iPhone — NOT STARTED, Phase 16, paused
 
 ## v0.3 (App Improvements) Requirements
 
@@ -206,15 +208,15 @@ Which phases cover which requirements. Updated during roadmap creation.
 | IOS-03 | Phase 12 | Complete |
 | IOS-04 | Phase 13 | Complete |
 | IOS-05 | Phase 13 | Complete |
-| IOS-06 | Phase 14 | Complete |
-| IOS-07 | Phase 14 | Complete |
-| IOS-08 | Phase 14 | Complete |
-| IOS-09 | Phase 15 | Pending |
-| IOS-10 | Phase 15 | Pending |
-| IOS-11 | Phase 15 | Pending |
-| IOS-12 | Phase 16 | Pending |
-| IOS-13 | Phase 15 | Pending |
-| IOS-14 | Phase 15 | Pending |
+| IOS-06 | Phase 14 | Code complete, device-unverified (paused) |
+| IOS-07 | Phase 14 | Code complete, device-unverified (paused) |
+| IOS-08 | Phase 14 | Code complete, device-unverified (paused) |
+| IOS-09 | Phase 15 | Complete (PR #3, 2026-07-06) |
+| IOS-10 | Phase 15 | Complete (PR #3, 2026-07-06) |
+| IOS-11 | Phase 15 | Partial — suppression done, Live Activity signal abandoned |
+| IOS-12 | Phase 16 | Not started (paused) |
+| IOS-13 | Phase 15 | Abandoned — archived at tag `archive/live-activity-wip` |
+| IOS-14 | Phase 15 | Complete (PR #3, 2026-07-06) |
 | TRACK-09 | Phase 18 | Complete |
 | TRACK-10 | Phase 18 | Complete |
 | TRACK-11 | Phase 19 | Complete |

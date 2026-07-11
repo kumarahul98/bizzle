@@ -30,9 +30,20 @@ Plan: not yet planned
 Status: Not started
 Last activity: 2026-07-11
 
-**v0.3 progress:** 8/11 phases complete (17,18,19,20,21,22,24,25 done, merged to main 2026-07-06 in PR #2). Phase 23 rescoped 2026-07-11 (UAT audit found it never really executed — stalled at 1 thin plan). Phase 25.1 inserted 2026-07-11 (Phase 24 verification found 2 unfixed correctness bugs: broken auto-retry throttle, fake Merge conflict resolution). Phase 26 added 2026-07-11, now depends on 25.1.
+**v0.3 progress:** 8/11 phases complete (17,18,19,20,21,22,24,25 done, merged to main 2026-07-06 in PR #2). Phase 23 rescoped 2026-07-11 (UAT audit found it never really executed — stalled at 1 thin plan; now Android-only, its one iOS criterion removed). Phase 25.1 inserted 2026-07-11 (Phase 24 verification found 2 unfixed correctness bugs: broken auto-retry throttle, fake Merge conflict resolution). Phase 26 added 2026-07-11, now depends on 25.1.
 
-**Recommended execution order for the remaining work:** 25.1 (bug fixes, no device needed) → 26 (sync schema, no device needed) → 23 (one consolidated device session covering the v0.1 checklist + stalled 14/21/22 UAT sessions).
+**Recommended execution order for the remaining work:** 25.1 (bug fixes, no device needed) → 26 (sync schema, no device needed) → 23 (one consolidated Android device session covering the v0.1 checklist + stalled 21/22 UAT sessions).
+
+## Platform Focus (as of 2026-07-11)
+
+**All active work is Android-only.** v0.2 (iOS Support) is formally PAUSED — full resume-point summary lives in `ROADMAP.md`'s v0.2 section ("🚧 PAUSED — iOS Development Summary"). Quick version:
+
+- **Done, device-confirmed:** Phase 12 (scaffolding), Phase 13 (auth), Phase 15-trimmed (permissions/notifications, merged PR #3 2026-07-06)
+- **Code-complete, device-unverified:** Phase 14 (background GPS) — 3 real-device drive scenarios never run, unblocked and ready whenever iOS resumes
+- **Abandoned:** Live Activity (IOS-13) — never rendered on device; archived at git tag `archive/live-activity-wip`, not on `main`
+- **Not started:** Phase 16 (end-to-end parity validation, the milestone's acceptance gate)
+
+Phases 25.1 and 26 are platform-agnostic (Dart/backend, shared by both platforms) so they don't reopen iOS scope. Phase 23 was rescoped this session specifically to drop its one iOS success criterion (Phase 14's device items), keeping it pure Android. When iOS resumes: run Phase 14's leftover scenarios together with Phase 16's full sweep in one real-iPhone session, then decide whether to revive Live Activity from the archive tag or drop IOS-13 permanently.
 
 ## Performance Metrics
 

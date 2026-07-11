@@ -7,8 +7,8 @@ Deliver an offline-first Android commute tracker that records GPS trips, compute
 ## Milestones
 
 - ✅ **v0.1 Android MVP** - Phases 1-11 (formally open — 13 device-UAT items deferred, resumable)
-- 🚧 **v0.2 iOS Support** - Phases 12-16 (in progress)
-- 🚧 **v0.3 App Improvements** - Phases 17-22 (in progress; v0.2 paused while this ships)
+- ⏸️ **v0.2 iOS Support** - Phases 12-16 (PAUSED as of 2026-07-11 — see summary in the v0.2 section; 12/13 complete, 14 code-complete/device-unverified, 15 trimmed & merged (Live Activity dropped), 16 not started)
+- 🚧 **v0.3 App Improvements** - Phases 17-26 (8/11 complete; remaining Phases 23, 25.1, 26 are Android-only)
 
 ## Phases
 
@@ -315,6 +315,26 @@ Plans:
 
 **Milestone Goal:** Make the full Commute Tracker app run on iOS with feature parity to Android, runnable on a real iPhone via Xcode free (7-day) provisioning. No TestFlight or App Store this milestone.
 
+> ## 🚧 PAUSED — iOS Development Summary (as of 2026-07-11)
+>
+> **Decision:** All active roadmap work (Phases 25.1, 23, 26, and anything added going forward) is Android-only until explicitly resumed. This section is the resume point — read it before picking iOS back up.
+>
+> **Done and device-confirmed:**
+> - **Phase 12 — iOS Scaffolding & Configuration** ✅ App builds and runs on Simulator and a real iPhone; Podfile, Info.plist, entitlements, icons all in place. (IOS-01, IOS-02, IOS-03)
+> - **Phase 13 — Auth on iOS** ✅ Google Sign-In confirmed working on a real device via Phases 9+12's existing code; closed without needing new execution. (IOS-04, IOS-05)
+> - **Phase 15 (trimmed) — Notifications, Permissions & Onboarding UX** ✅ Location priming + two-step permission flow, contextual notification permission, phantom-notification suppression, enriched Android notification body — all merged to `main` in PR #3 (2026-07-06), device-verified on iPhone 13 / iOS 26.5. (IOS-09, IOS-10, IOS-11, IOS-14)
+>
+> **Done in code, NOT device-verified:**
+> - **Phase 14 — Background GPS Platform Branch** ⚠️ CoreLocation platform branch, main-isolate tracking engine, and the reduced-accuracy gate are all implemented and unit-tested, but the 3 real-device drive scenarios were deferred pending Phase 15 and never run: locked-screen commute (no GPS gaps), stop-and-go traffic accuracy, and Approximate Location handling. Phase 15 has since shipped, so these are unblocked — they're the first thing to run when iOS resumes. (IOS-06, IOS-07, IOS-08 — marked complete in REQUIREMENTS.md at the code level, but not human-verified)
+>
+> **Abandoned, not on `main`:**
+> - **Live Activity (IOS-13)** ❌ Never rendered on a real device despite two real fixes landing (Swift widget → plugin contract, App-Group probe). Investigation paused at "`LiveActivityService.init()` appears never to run." All code — the widget extension, the Dart bridge, the `[la-diag]` diagnostics — lives only on the git tag **`archive/live-activity-wip`**, not on `main`. Resume point: `.planning/debug/live-activity-not-rendering.md` on that tag, "PAUSE / RESUME HERE" section.
+>
+> **Not started:**
+> - **Phase 16 — End-to-End Real-Device Parity Validation** — the milestone's acceptance gate (IOS-12). 0 plans. When iOS resumes, this is where Phase 14's 3 deferred device scenarios should be re-run alongside the rest of Phase 16's full-parity sweep, since both need the same real-iPhone session.
+>
+> **Net:** iOS scaffolding, auth, and permissions/notifications are solid and confirmed on-device. Background GPS is implemented but its 3 hardest scenarios (the whole reason Phase 14 was flagged highest-risk) were never actually driven on a real iPhone. Live Activity is the one dropped feature. Resuming v0.2 means: one real-device session for Phase 14's leftover scenarios + Phase 16's full sweep, then a decision on whether to revive Live Activity from the archive tag or drop IOS-13 from scope permanently.
+
 ### Milestone Preconditions (Human-Only Gates)
 
 These must be addressed by the user before or during Phase 12 — they cannot be automated:
@@ -330,9 +350,9 @@ These must be addressed by the user before or during Phase 12 — they cannot be
 
 - [x] **Phase 12: iOS Scaffolding & Configuration** - Generate ios/ project, configure Podfile, Info.plist, entitlements, and bundle ID; app launches on Simulator and real iPhone (completed 2026-06-02)
 - [x] **Phase 13: Auth on iOS** - Google Sign-In working on a real device; session persists via Keychain (closed 2026-06-02 — requirements pre-satisfied by Phases 9+12, confirmed on-device by user; no execution needed)
-- [x] **Phase 14: Background GPS Platform Branch** - Platform-branched CoreLocation tracking; GPS continues during backgrounded commute; traffic stats accurate on real iPhone (HIGHEST RISK — real-device validation required; flag for deeper research at plan time) (completed 2026-06-02)
-- [ ] **Phase 15: Notifications, Permissions & Onboarding UX on iOS** - iOS location two-step flow, notification permission, tracking-notification gate, onboarding copy (real-device required for permission flows)
-- [ ] **Phase 16: End-to-End Real-Device Parity Validation** - All features verified on a real iPhone; milestone acceptance gate (real-device required)
+- [x] **Phase 14: Background GPS Platform Branch (code complete, device-unverified)** - Platform-branched CoreLocation tracking implemented and unit-tested (completed 2026-06-02); 3 real-device drive scenarios still deferred — see PAUSED summary above
+- [x] **Phase 15: Notifications, Permissions & Onboarding UX on iOS (trimmed)** - iOS location two-step flow, contextual notification permission, tracking-notification gate all merged to main (PR #3, 2026-07-06), device-verified; Live Activity (IOS-13) abandoned, archived at tag `archive/live-activity-wip`
+- [ ] **Phase 16: End-to-End Real-Device Parity Validation** - All features verified on a real iPhone; milestone acceptance gate (real-device required) — NOT STARTED, paused
 
 ---
 
@@ -428,8 +448,8 @@ Plans:
 - [x] 15-01-PLAN.md — Wave 0: BLOCKING App-Group device-provisioning probe + test scaffolds
 - [x] 15-02-PLAN.md — iOS permission branch + location priming screen + degraded banner + shared formatters (IOS-09)
 - [x] 15-03-PLAN.md — Contextual iOS notification permission + Platform.isAndroid gate + Android stats enrichment (IOS-10/11/14)
-- [ ] 15-04-PLAN.md — Native TraevyLiveActivity Widget Extension (lock screen + Dynamic Island) + Info.plist (IOS-13)
-- [ ] 15-05-PLAN.md — Dart Live Activity bridge + provider lifecycle wiring (IOS-13)
+- [~] 15-04-PLAN.md — Native TraevyLiveActivity Widget Extension (lock screen + Dynamic Island) + Info.plist (IOS-13) — ABANDONED, never rendered on device; code archived at tag `archive/live-activity-wip`, not on main
+- [~] 15-05-PLAN.md — Dart Live Activity bridge + provider lifecycle wiring (IOS-13) — ABANDONED, same as above
 
 **UI hint**: yes
 **Note**: Scope expanded 2026-06-03 during discuss-phase — Live Activity (IOS-13) + Android notification parity (IOS-14) pulled in; original SC #3 ("blue indicator is the only signal") rewritten. iOS 17+ floor for the interactive Live Activity.
@@ -471,12 +491,13 @@ Note: Phases 1-7 deliver the complete local-first experience without any authent
 | 9. Authentication | v0.1 | 5/5 | Complete | 2026-05-29 |
 | 10. Backend Infrastructure | v0.1 | 3/3 | Complete | 2026-05-31 |
 | 11. Sync Engine | v0.1 | 3/3 | Complete | 2026-06-01 |
-| 12. iOS Scaffolding & Configuration | v0.2 | 3/3 | Complete    | 2026-06-02 |
-| 13. Auth on iOS | v0.2 | 0/TBD | Not started | - |
-| 14. Background GPS Platform Branch | v0.2 | 3/3 | Complete   | 2026-06-02 |
-| 15. Notifications, Permissions & Onboarding UX on iOS | v0.2 | 3/5 | In Progress|  |
-| 16. End-to-End Real-Device Parity Validation | v0.2 | 0/TBD | Not started | - |
-</content>
+| 12. iOS Scaffolding & Configuration | v0.2 | 3/3 | Complete | 2026-06-02 |
+| 13. Auth on iOS | v0.2 | 0/0 | Complete (closed, no execution needed) | 2026-06-02 |
+| 14. Background GPS Platform Branch | v0.2 | 3/3 | Complete (code); 3 device-drive scenarios unverified | 2026-06-02 |
+| 15. Notifications, Permissions & Onboarding UX on iOS | v0.2 | 3/5 | Trimmed & merged (PR #3, 2026-07-06); Live Activity (15-04/15-05) abandoned, archived at tag `archive/live-activity-wip` | 2026-07-06 |
+| 16. End-to-End Real-Device Parity Validation | v0.2 | 0/TBD | Not started — milestone acceptance gate | - |
+
+**Milestone status: PAUSED as of 2026-07-11.** See the iOS Development Summary below.
 
 ---
 
@@ -484,7 +505,7 @@ Note: Phases 1-7 deliver the complete local-first experience without any authent
 
 **Milestone Goal:** Ship a batch of Android-facing UX fixes and features that make daily trip capture more flexible and accurate — pausing for breaks, full trip editing, smarter geofence labeling, a friendlier first run, and one-tap start/stop from the home screen. Built on branch `gsd/v0.3-app-improvements`. Realizes **AUTO-02** (geofence labeling) and **PLAT-02** (start/stop widget), scoped down from their v2 definitions.
 
-**Scope notes:** Android-focused. The home-screen widget (WIDGET-01) is an Android-first surface; iOS parity for these features is deferred. All phases build on the existing v0.1 Android app (Flutter + Drift source-of-truth + manual Riverpod providers + flutter_background_service foreground GPS + geolocator + flutter_local_notifications + Firebase auth/sync + Traevy design system). Previous milestone v0.2 (iOS Support, Phases 12–16) is **paused** and fully resumable — its phases above are untouched.
+**Scope notes:** Android-focused. The home-screen widget (WIDGET-01) is an Android-first surface; iOS parity for these features is deferred. All phases build on the existing v0.1 Android app (Flutter + Drift source-of-truth + manual Riverpod providers + flutter_background_service foreground GPS + geolocator + flutter_local_notifications + Firebase auth/sync + Traevy design system). Previous milestone v0.2 (iOS Support, Phases 12–16) is **paused** and fully resumable — its phases above are untouched; see the PAUSED summary in the v0.2 section for exactly where it left off. **As of 2026-07-11, all remaining v0.3 phases (23, 25.1, 26, and anything added going forward) are Android-only** — Phases 25.1 and 26 are platform-agnostic Dart/backend code shared by both platforms, and Phase 23 was explicitly rescoped to drop its one iOS success criterion.
 
 ---
 
@@ -496,6 +517,7 @@ Note: Phases 1-7 deliver the complete local-first experience without any authent
 - [x] **Phase 20: First-Run Login with Skip** - First-install login screen with a Skip (use-without-account) option; sync stays disabled until later sign-in ✓ 2026-06-06
 - [x] **Phase 21: Home & Office Locations + Geofence Auto-Label** - Set Home & Office locations and auto-label trip direction by proximity, taking precedence over the time-of-day heuristic (completed 2026-06-06)
 - [x] **Phase 22: Home-Screen Widget** - Android home-screen widget that starts/stops a commute with one tap and reflects the current tracking state ✓ 2026-06-09
+- [ ] **Phase 23: Resolve Deferred UAT Items (Android)** - Triage the v0.1 device checklist and complete the stalled Phase 21/22 UAT sessions on a real Android device
 - [x] **Phase 24: Automatic Cloud Sync & Restore** - Auto-restore cloud trips on sign-in, immediate sync on trip finish, and automatic re-attempt of previously-failed sync items (merged to main in PR #2, 2026-07-06)
 - [x] **Phase 25: Interrupted-Trip Recovery** - Detect a mid-trip force-quit / app-clear / OS interruption, log it, and offer to resume or discard the interrupted trip on next launch (merged to main in PR #2, 2026-07-06)
 - [ ] **Phase 25.1: Fix Sync Conflict & Auto-Retry Bugs (INSERTED)** - Fix the broken auto-retry throttle and the fake Merge conflict resolution found by Phase 24 verification, before Phase 26 extends the same files
@@ -607,18 +629,19 @@ Plans:
 **Plans**: TBD
 **UI hint**: yes
 
-### Phase 23: Resolve Deferred UAT Items
+### Phase 23: Resolve Deferred UAT Items (Android)
 
-**Goal**: Close out the backlog of deferred human/device verification accumulated across v0.1, v0.2, and early v0.3 in one consolidated device session — triaging what's stale, running what's still relevant, and completing the UAT sessions that were started and abandoned mid-run — so no phase is left with a phantom "pending" verification status
-**Depends on**: Phase 22, Phase 15 (Phase 14's deferred iOS items were explicitly blocked pending Phase 15's Always-permission upgrade, which has since shipped)
+**Goal**: Close out the backlog of deferred human/device verification on Android — triaging what's stale, running what's still relevant, and completing the UAT sessions that were started and abandoned mid-run — so no Android phase is left with a phantom "pending" verification status
+**Depends on**: Phase 22
 **Requirements**: UAT-01
 **Success Criteria** (what must be TRUE):
 
-  1. The v0.1 device checklist (`.planning/v0.1-DEVICE-CHECKLIST.md`, 48 items across 9 groups) is triaged: items still relevant are run on a real Android device and checked off; items superseded by later phases (e.g. Group E dashboard, already flagged stale against Phase 8's UI overhaul) are marked superseded with a one-line reason instead of silently left pending
-  2. Phase 14's 3 deferred iOS device-UAT items (backgrounded/locked-screen commute, stop-and-go traffic accuracy, Approximate Location handling — all deferred pending Phase 15) are run on a real iPhone and `14-HUMAN-UAT.md` is updated with results
-  3. Phase 21's UAT session (`21-UAT.md`, stalled at test 1 of 5, "awaiting user response" since 2026-06-08) is completed — all 5 geofence auto-label scenarios are run and recorded
-  4. Phase 22's UAT session (`22-UAT.md`, stalled at test 1 of 3, "awaiting user response" since 2026-06-09) is completed — all 3 home-screen-widget scenarios are run and recorded
-  5. No phase in the project has a dangling `testing` / `partial` / `pending` UAT or verification status when this phase closes — each is resolved to pass, marked superseded, or explicitly logged as a known gap with a follow-up phase or todo
+  1. The v0.1 device checklist (`.planning/v0.1-DEVICE-CHECKLIST.md`, 48 items across 9 groups, all Android) is triaged: items still relevant are run on a real Android device and checked off; items superseded by later phases (e.g. Group E dashboard, already flagged stale against Phase 8's UI overhaul) are marked superseded with a one-line reason instead of silently left pending
+  2. Phase 21's UAT session (`21-UAT.md`, stalled at test 1 of 5, "awaiting user response" since 2026-06-08) is completed — all 5 geofence auto-label scenarios are run and recorded
+  3. Phase 22's UAT session (`22-UAT.md`, stalled at test 1 of 3, "awaiting user response" since 2026-06-09) is completed — all 3 home-screen-widget scenarios are run and recorded
+  4. No Android phase has a dangling `testing` / `partial` / `pending` UAT or verification status when this phase closes — each is resolved to pass, marked superseded, or explicitly logged as a known gap with a follow-up phase or todo
+
+**Scope note**: Phase 14's 3 deferred iOS device-UAT items are explicitly OUT of scope here — iOS work is paused (see the PAUSED summary in the v0.2 section above). They resume together with Phase 16's full parity sweep when iOS picks back up.
 
 **Plans**: TBD
 **UI hint**: no
@@ -706,7 +729,7 @@ Note: Phase 17 is a small, independent UI fix + quick-label and is the safe firs
 | 20. First-Run Login with Skip | v0.3 | 1/1 | Complete | 2026-06-06 |
 | 21. Home & Office Locations + Geofence Auto-Label | v0.3 | 3/3 | Complete | 2026-06-06 |
 | 22. Home-Screen Widget | v0.3 | 1/1 | Complete | 2026-06-09 |
-| 23. Resolve Deferred UAT Items | v0.3 | 1/1 | Needs Review | - |
+| 23. Resolve Deferred UAT Items (Android) | v0.3 | 0/TBD | Not started (rescoped 2026-07-11) | - |
 | 24. Automatic Cloud Sync & Restore | v0.3 | 3/3 | Complete | 2026-06-16 |
 | 25. Interrupted-Trip Recovery | v0.3 | 3/3 | Complete | 2026-06-28 |
 | 25.1. Fix Sync Conflict & Auto-Retry Bugs (INSERTED) | v0.3 | 0/TBD | Not started | - |
