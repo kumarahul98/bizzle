@@ -119,4 +119,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-06 — Started milestone v0.3 (App Improvements). v0.2 (iOS) paused mid-flight (blocked on device UAT) and remains resumable. Building 7 Android-facing fixes/features on branch gsd/v0.3-app-improvements.*
+*Last updated: 2026-07-12 — Phase 25.1 complete: fixed the broken sync auto-retry throttle and the fake Merge conflict resolution found by Phase 24 verification. v0.3 at 9/11 phases; remaining: 26 (sync breaks/edit metadata), 23 (consolidated Android device UAT). v0.2 (iOS) remains paused and resumable.*
