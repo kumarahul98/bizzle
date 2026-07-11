@@ -695,8 +695,13 @@ Plans:
   2. Selecting "Merge" in the conflict resolution sheet no longer silently runs the same code path as "Use Cloud" — it either performs a real field-by-field merge, or (if field-by-field is descoped) the option is removed/relabeled so the UI doesn't promise something it doesn't do
   3. A regression test exists for the auto-retry time gate (asserting a second trigger within the window does not re-fire) and for the Merge path (asserting merged output differs from pure Use Cloud when local/cloud fields differ)
 
-**Plans**: TBD
+**Plans**: 2 plans
 **UI hint**: yes
+
+Plans:
+
+- [ ] 25.1-01-PLAN.md — D-07 auto-retry gate regression tests (3 new assertions) + D-04 predicate consolidation/rename (autoRetryWindowElapsed) across sync_engine.dart and the dashboard banner
+- [ ] 25.1-02-PLAN.md — D-05 merge default flip to 'local' at both leak points (display + _applyAll fallbacks) + D-08 strengthened two-differing-field merge widget test
 
 ### Phase 26: Sync Breaks & Edit Metadata to Cloud
 
