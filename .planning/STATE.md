@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: App Improvements
-status: active
-stopped_at: "Phase 25.1 inserted (sync bug fixes) and Phase 23 rescoped (UAT audit) — neither planned yet"
-last_updated: "2026-07-11T00:00:00.000Z"
+status: Not started
+stopped_at: Phase 25.1 context gathered
+last_updated: "2026-07-11T09:43:18.704Z"
 last_activity: 2026-07-11
 progress:
-  total_phases: 11
-  completed_phases: 8
-  total_plans: 14
-  completed_plans: 14
-  percent: 73
+  total_phases: 16
+  completed_phases: 10
+  total_plans: 32
+  completed_plans: 29
+  percent: 63
 ---
 
 # Project State
@@ -152,9 +152,9 @@ Full checklist: `.planning/v0.1-DEVICE-CHECKLIST.md` (Groups A-I). Resume v0.1 c
 
 ## Session Continuity
 
-Last session: 2026-06-16T04:50:02.000Z
-Stopped at: Completed 25-01-PLAN.md
-Resume file: .planning/phases/25-interrupted-trip-recovery/25-02-PLAN.md
+Last session: 2026-07-11T09:43:18.693Z
+Stopped at: Phase 25.1 context gathered
+Resume file: .planning/phases/25.1-fix-sync-conflict-auto-retry-bugs/25.1-CONTEXT.md
 
 [2026-06-16] Phase 25 Planning complete: generated and verified 3 PLAN.md files. 3 PLAN.md files.
 [2026-06-16] Completed 24-02-PLAN.md
