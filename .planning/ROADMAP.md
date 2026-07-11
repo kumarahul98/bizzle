@@ -424,11 +424,13 @@ Plans:
   6. The Android ongoing "Active commute" notification is enriched to show the same live stats (elapsed / distance / moving-stuck) for cross-platform parity, with no regression to the existing foreground-service binding
 
 **Plans**: 5 plans
+
 - [x] 15-01-PLAN.md — Wave 0: BLOCKING App-Group device-provisioning probe + test scaffolds
 - [x] 15-02-PLAN.md — iOS permission branch + location priming screen + degraded banner + shared formatters (IOS-09)
 - [x] 15-03-PLAN.md — Contextual iOS notification permission + Platform.isAndroid gate + Android stats enrichment (IOS-10/11/14)
 - [ ] 15-04-PLAN.md — Native TraevyLiveActivity Widget Extension (lock screen + Dynamic Island) + Info.plist (IOS-13)
 - [ ] 15-05-PLAN.md — Dart Live Activity bridge + provider lifecycle wiring (IOS-13)
+
 **UI hint**: yes
 **Note**: Scope expanded 2026-06-03 during discuss-phase — Live Activity (IOS-13) + Android notification parity (IOS-14) pulled in; original SC #3 ("blue indicator is the only signal") rewritten. iOS 17+ floor for the interactive Live Activity.
 
@@ -476,7 +478,6 @@ Note: Phases 1-7 deliver the complete local-first experience without any authent
 | 16. End-to-End Real-Device Parity Validation | v0.2 | 0/TBD | Not started | - |
 </content>
 
-
 ---
 
 ## v0.3 App Improvements
@@ -495,8 +496,9 @@ Note: Phases 1-7 deliver the complete local-first experience without any authent
 - [x] **Phase 20: First-Run Login with Skip** - First-install login screen with a Skip (use-without-account) option; sync stays disabled until later sign-in ✓ 2026-06-06
 - [x] **Phase 21: Home & Office Locations + Geofence Auto-Label** - Set Home & Office locations and auto-label trip direction by proximity, taking precedence over the time-of-day heuristic (completed 2026-06-06)
 - [x] **Phase 22: Home-Screen Widget** - Android home-screen widget that starts/stops a commute with one tap and reflects the current tracking state ✓ 2026-06-09
-- [ ] **Phase 24: Automatic Cloud Sync & Restore** - Auto-restore cloud trips on sign-in, immediate sync on trip finish, and automatic re-attempt of previously-failed sync items
-- [ ] **Phase 25: Interrupted-Trip Recovery** - Detect a mid-trip force-quit / app-clear / OS interruption, log it, and offer to resume or discard the interrupted trip on next launch
+- [x] **Phase 24: Automatic Cloud Sync & Restore** - Auto-restore cloud trips on sign-in, immediate sync on trip finish, and automatic re-attempt of previously-failed sync items (merged to main in PR #2, 2026-07-06)
+- [x] **Phase 25: Interrupted-Trip Recovery** - Detect a mid-trip force-quit / app-clear / OS interruption, log it, and offer to resume or discard the interrupted trip on next launch (merged to main in PR #2, 2026-07-06)
+- [ ] **Phase 26: Sync Breaks & Edit Metadata to Cloud** - Extend the Firestore trip payload with totalPausedSeconds, isEdited, directionSource, and an embedded breaks array; restore writes trip_breaks; one-time backfill re-sync; backend deploys before client
 
 ---
 
@@ -534,10 +536,12 @@ Plans:
   5. The auto-pause prompt is opt-in (off by default) and dismissing it leaves the trip recording normally
 
 **Plans**: 4 plans
+
 - [x] 18-01-PLAN.md — Schema v2→v3: trip_breaks table + total_paused_seconds + auto_pause_enabled + DAO + migration test
 - [x] 18-02-PLAN.md — Accumulator pause model (excludes paused distance/time, frozen elapsed) + finalize breaks + persist
 - [ ] 18-03-PLAN.md — Cross-isolate pause/resume commands + active-tracking PAUSED UI + break count
 - [ ] 18-04-PLAN.md — Opt-in auto-pause: settings toggle + stuck-streak detector + Pause-action notification
+
 **UI hint**: yes
 
 ### Phase 19: Full Trip Editing
@@ -602,12 +606,10 @@ Plans:
 **Plans**: TBD
 **UI hint**: yes
 
----
-
 ## v0.3 Progress
 
 **Execution Order:**
-v0.3 phases execute in numeric order after the (paused) v0.2 phases: 17 -> 18 -> 19 -> 20 -> 21 -> 22 -> 23 -> 24 -> 25
+v0.3 phases execute in numeric order after the (paused) v0.2 phases: 17 -> 18 -> 19 -> 20 -> 21 -> 22 -> 23 -> 24 -> 25 -> 26
 
 Note: Phase 17 is a small, independent UI fix + quick-label and is the safe first phase. Phase 18 introduces the break/pause data model (schema migration) that Phase 19 (full editing) depends on. Phases 20 and 21 are largely independent of the tracking-data work and build on existing auth/onboarding and settings/preferences. Phase 22 (home-screen widget) has the highest platform-integration risk and lands last, after the pause/resume state model exists so the widget can reflect accurate state.
 
@@ -619,8 +621,9 @@ Note: Phase 17 is a small, independent UI fix + quick-label and is the safe firs
 | 20. First-Run Login with Skip | v0.3 | 1/1 | Complete | 2026-06-06 |
 | 21. Home & Office Locations + Geofence Auto-Label | v0.3 | 3/3 | Complete | 2026-06-06 |
 | 22. Home-Screen Widget | v0.3 | 1/1 | Complete | 2026-06-09 |
-| 24. Automatic Cloud Sync & Restore | v0.3 | 0/TBD | Not started | - |
-| 25. Interrupted-Trip Recovery | v0.3 | 0/TBD | Not started | - |
+| 24. Automatic Cloud Sync & Restore | v0.3 | 3/3 | Complete | 2026-06-16 |
+| 25. Interrupted-Trip Recovery | v0.3 | 3/3 | Complete | 2026-06-28 |
+| 26. Sync Breaks & Edit Metadata to Cloud | v0.3 | 0/TBD | Not started | - |
 
 ### Phase 23: Resolve Deferred UAT Items
 
@@ -672,3 +675,19 @@ Plans:
 - [ ] 25-01-PLAN.md — Persistence Foundation
 - [ ] 25-02-PLAN.md — Engine Recovery
 - [ ] 25-03-PLAN.md — UI & Notifier Wiring
+
+### Phase 26: Sync Breaks & Edit Metadata to Cloud
+
+**Goal**: The cloud copy of a trip carries everything the local copy knows — break segments, paused total, edited flag, and direction source — so a restore to a new device reproduces the trip exactly instead of silently dropping v0.3 metadata
+**Depends on**: Phase 18 (trip_breaks + total_paused_seconds model), Phase 19 (is_edited), Phase 21 (direction_source), Phase 24 (auto-restore + conflict reconciliation paths that must round-trip the new fields)
+**Requirements**: TBD
+**Success Criteria** (what must be TRUE):
+
+  1. The sync payload and Firestore document include `totalPausedSeconds`, `isEdited`, `directionSource`, and an embedded `breaks` array of `{startTime, endTime}` ISO-string segments (bounded, e.g. max 50 per trip); the zod schema accepts all four as optional with defaults so older clients keep syncing
+  2. The backend deploys BEFORE any client that emits the new fields (the non-strict zod schema would silently strip unknown keys, losing data without an error)
+  3. Restore writes the breaks into `trip_breaks` in the same transaction as the trip insert, and a restored trip with breaks survives a subsequent edit without its paused time recomputing to zero
+  4. Trips already in Firestore without the new fields restore cleanly with defaults (no parse failures), and a one-time backfill re-enqueues local trips that have breaks or edits so their cloud copies gain the metadata
+  5. Conflict resolution treats breaks as riding along with whichever side wins (no per-break field merge UI)
+
+**Plans**: TBD
+**UI hint**: no

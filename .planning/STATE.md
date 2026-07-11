@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: App Improvements
-status: completed
-stopped_at: Phase 24 Execution complete: verified and committed.
-last_updated: "2026-06-16T02:00:00.000Z"
-last_activity: 2026-06-16
+status: active
+stopped_at: "Phase 26 added to roadmap — not yet planned"
+last_updated: "2026-07-11T00:00:00.000Z"
+last_activity: 2026-07-11
 progress:
-  total_phases: 6
+  total_phases: 7
   completed_phases: 6
   total_plans: 14
   completed_plans: 14
-  percent: 100
+  percent: 86
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-06)
 
 **Core value:** Show people the reality of their commute -- time wasted in traffic and how it changes over time.
-**Current focus:** Phase 21 — home-office-locations-geofence (v0.3 App Improvements)
+**Current focus:** Phase 26 — Sync Breaks & Edit Metadata to Cloud (v0.3 App Improvements)
 
 ## Current Position
 
-Phase: 25 — Interrupted-Trip Recovery
-Plan: 3 complete
-Status: Completed
-Last activity: 2026-06-16
+Phase: 26 — Sync Breaks & Edit Metadata to Cloud
+Plan: not yet planned
+Status: Not started
+Last activity: 2026-07-11
 
-**v0.3 progress:** 7/7 phases complete (17, 18, 19, 20, 21, 22, 23 done); Milestone v0.3 completed.
+**v0.3 progress:** 8/9 phases complete (17–25 done, merged to main 2026-07-06 in PR #2); Phase 26 added 2026-07-11.
 
 ## Performance Metrics
 
@@ -73,6 +73,10 @@ Last activity: 2026-06-16
 | Phase 25 P01 | 15min | 3 tasks | 4 files |
 
 ## Accumulated Context
+
+### Roadmap Evolution
+
+- Phase 26 added (2026-07-11): Sync Breaks & Edit Metadata to Cloud — extend the Firestore trip payload/zod schema with totalPausedSeconds, isEdited, directionSource, and an embedded breaks array; restore writes trip_breaks; one-time backfill re-sync for trips with breaks/edits; backend deploys before client
 
 ### Decisions
 
