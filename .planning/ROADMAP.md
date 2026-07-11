@@ -498,6 +498,7 @@ Note: Phases 1-7 deliver the complete local-first experience without any authent
 - [x] **Phase 22: Home-Screen Widget** - Android home-screen widget that starts/stops a commute with one tap and reflects the current tracking state ✓ 2026-06-09
 - [x] **Phase 24: Automatic Cloud Sync & Restore** - Auto-restore cloud trips on sign-in, immediate sync on trip finish, and automatic re-attempt of previously-failed sync items (merged to main in PR #2, 2026-07-06)
 - [x] **Phase 25: Interrupted-Trip Recovery** - Detect a mid-trip force-quit / app-clear / OS interruption, log it, and offer to resume or discard the interrupted trip on next launch (merged to main in PR #2, 2026-07-06)
+- [ ] **Phase 25.1: Fix Sync Conflict & Auto-Retry Bugs (INSERTED)** - Fix the broken auto-retry throttle and the fake Merge conflict resolution found by Phase 24 verification, before Phase 26 extends the same files
 - [ ] **Phase 26: Sync Breaks & Edit Metadata to Cloud** - Extend the Firestore trip payload with totalPausedSeconds, isEdited, directionSource, and an embedded breaks array; restore writes trip_breaks; one-time backfill re-sync; backend deploys before client
 
 ---
@@ -606,34 +607,18 @@ Plans:
 **Plans**: TBD
 **UI hint**: yes
 
-## v0.3 Progress
-
-**Execution Order:**
-v0.3 phases execute in numeric order after the (paused) v0.2 phases: 17 -> 18 -> 19 -> 20 -> 21 -> 22 -> 23 -> 24 -> 25 -> 26
-
-Note: Phase 17 is a small, independent UI fix + quick-label and is the safe first phase. Phase 18 introduces the break/pause data model (schema migration) that Phase 19 (full editing) depends on. Phases 20 and 21 are largely independent of the tracking-data work and build on existing auth/onboarding and settings/preferences. Phase 22 (home-screen widget) has the highest platform-integration risk and lands last, after the pause/resume state model exists so the widget can reflect accurate state.
-
-| Phase | Milestone | Plans Complete | Status | Completed |
-|-------|-----------|----------------|--------|-----------|
-| 17. Tracking UI Fixes & Quick Label | v0.3 | 2/2 | Complete | 2026-06-06 |
-| 18. Trip Pause & Breaks | v0.3 | 4/4 | Complete | 2026-06-06 |
-| 19. Full Trip Editing | v0.3 | 2/2 | Complete | 2026-06-06 |
-| 20. First-Run Login with Skip | v0.3 | 1/1 | Complete | 2026-06-06 |
-| 21. Home & Office Locations + Geofence Auto-Label | v0.3 | 3/3 | Complete | 2026-06-06 |
-| 22. Home-Screen Widget | v0.3 | 1/1 | Complete | 2026-06-09 |
-| 24. Automatic Cloud Sync & Restore | v0.3 | 3/3 | Complete | 2026-06-16 |
-| 25. Interrupted-Trip Recovery | v0.3 | 3/3 | Complete | 2026-06-28 |
-| 26. Sync Breaks & Edit Metadata to Cloud | v0.3 | 0/TBD | Not started | - |
-
 ### Phase 23: Resolve Deferred UAT Items
 
-**Goal**: Execute and resolve deferred UAT and verification items from v0.1 checklist.
-**Depends on**: Phase 22
+**Goal**: Close out the backlog of deferred human/device verification accumulated across v0.1, v0.2, and early v0.3 in one consolidated device session — triaging what's stale, running what's still relevant, and completing the UAT sessions that were started and abandoned mid-run — so no phase is left with a phantom "pending" verification status
+**Depends on**: Phase 22, Phase 15 (Phase 14's deferred iOS items were explicitly blocked pending Phase 15's Always-permission upgrade, which has since shipped)
 **Requirements**: UAT-01
 **Success Criteria** (what must be TRUE):
 
-  1. A deferred UAT verification item is automated or manually closed.
-  2. The tracking system stability is verified via integration tests.
+  1. The v0.1 device checklist (`.planning/v0.1-DEVICE-CHECKLIST.md`, 48 items across 9 groups) is triaged: items still relevant are run on a real Android device and checked off; items superseded by later phases (e.g. Group E dashboard, already flagged stale against Phase 8's UI overhaul) are marked superseded with a one-line reason instead of silently left pending
+  2. Phase 14's 3 deferred iOS device-UAT items (backgrounded/locked-screen commute, stop-and-go traffic accuracy, Approximate Location handling — all deferred pending Phase 15) are run on a real iPhone and `14-HUMAN-UAT.md` is updated with results
+  3. Phase 21's UAT session (`21-UAT.md`, stalled at test 1 of 5, "awaiting user response" since 2026-06-08) is completed — all 5 geofence auto-label scenarios are run and recorded
+  4. Phase 22's UAT session (`22-UAT.md`, stalled at test 1 of 3, "awaiting user response" since 2026-06-09) is completed — all 3 home-screen-widget scenarios are run and recorded
+  5. No phase in the project has a dangling `testing` / `partial` / `pending` UAT or verification status when this phase closes — each is resolved to pass, marked superseded, or explicitly logged as a known gap with a follow-up phase or todo
 
 **Plans**: TBD
 **UI hint**: no
@@ -676,10 +661,24 @@ Plans:
 - [ ] 25-02-PLAN.md — Engine Recovery
 - [ ] 25-03-PLAN.md — UI & Notifier Wiring
 
+### Phase 25.1: Fix Sync Conflict & Auto-Retry Bugs (INSERTED)
+
+**Goal**: The two correctness defects found by Phase 24's verification — a broken auto-retry throttle and a fake Merge conflict resolution — are fixed before Phase 26 extends the same files with breaks/edit-metadata sync
+**Depends on**: Phase 24 (sync engine, conflict resolution sheet)
+**Requirements**: TBD
+**Success Criteria** (what must be TRUE):
+
+  1. `SyncEngine._lastAutoRetry` is assigned when a retry occurs, so `kFailedAutoRetryWindow` actually throttles auto-retry triggers (connectivity restore, app resume) instead of firing on every trigger
+  2. Selecting "Merge" in the conflict resolution sheet no longer silently runs the same code path as "Use Cloud" — it either performs a real field-by-field merge, or (if field-by-field is descoped) the option is removed/relabeled so the UI doesn't promise something it doesn't do
+  3. A regression test exists for the auto-retry time gate (asserting a second trigger within the window does not re-fire) and for the Merge path (asserting merged output differs from pure Use Cloud when local/cloud fields differ)
+
+**Plans**: TBD
+**UI hint**: yes
+
 ### Phase 26: Sync Breaks & Edit Metadata to Cloud
 
 **Goal**: The cloud copy of a trip carries everything the local copy knows — break segments, paused total, edited flag, and direction source — so a restore to a new device reproduces the trip exactly instead of silently dropping v0.3 metadata
-**Depends on**: Phase 18 (trip_breaks + total_paused_seconds model), Phase 19 (is_edited), Phase 21 (direction_source), Phase 24 (auto-restore + conflict reconciliation paths that must round-trip the new fields)
+**Depends on**: Phase 18 (trip_breaks + total_paused_seconds model), Phase 19 (is_edited), Phase 21 (direction_source), Phase 24 (auto-restore + conflict reconciliation paths that must round-trip the new fields), Phase 25.1 (fix the conflict-sheet Merge stub before extending it with break fields)
 **Requirements**: TBD
 **Success Criteria** (what must be TRUE):
 
@@ -691,3 +690,24 @@ Plans:
 
 **Plans**: TBD
 **UI hint**: no
+
+## v0.3 Progress
+
+**Execution Order:**
+v0.3 phases execute in numeric order after the (paused) v0.2 phases: 17 -> 18 -> 19 -> 20 -> 21 -> 22 -> 23 -> 24 -> 25 -> 25.1 -> 26
+
+Note: Phase 17 is a small, independent UI fix + quick-label and is the safe first phase. Phase 18 introduces the break/pause data model (schema migration) that Phase 19 (full editing) depends on. Phases 20 and 21 are largely independent of the tracking-data work and build on existing auth/onboarding and settings/preferences. Phase 22 (home-screen widget) has the highest platform-integration risk and lands last, after the pause/resume state model exists so the widget can reflect accurate state.
+
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 17. Tracking UI Fixes & Quick Label | v0.3 | 2/2 | Complete | 2026-06-06 |
+| 18. Trip Pause & Breaks | v0.3 | 4/4 | Complete | 2026-06-06 |
+| 19. Full Trip Editing | v0.3 | 2/2 | Complete | 2026-06-06 |
+| 20. First-Run Login with Skip | v0.3 | 1/1 | Complete | 2026-06-06 |
+| 21. Home & Office Locations + Geofence Auto-Label | v0.3 | 3/3 | Complete | 2026-06-06 |
+| 22. Home-Screen Widget | v0.3 | 1/1 | Complete | 2026-06-09 |
+| 23. Resolve Deferred UAT Items | v0.3 | 1/1 | Needs Review | - |
+| 24. Automatic Cloud Sync & Restore | v0.3 | 3/3 | Complete | 2026-06-16 |
+| 25. Interrupted-Trip Recovery | v0.3 | 3/3 | Complete | 2026-06-28 |
+| 25.1. Fix Sync Conflict & Auto-Retry Bugs (INSERTED) | v0.3 | 0/TBD | Not started | - |
+| 26. Sync Breaks & Edit Metadata to Cloud | v0.3 | 0/TBD | Not started | - |

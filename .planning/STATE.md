@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: App Improvements
 status: active
-stopped_at: "Phase 26 added to roadmap — not yet planned"
+stopped_at: "Phase 25.1 inserted (sync bug fixes) and Phase 23 rescoped (UAT audit) — neither planned yet"
 last_updated: "2026-07-11T00:00:00.000Z"
 last_activity: 2026-07-11
 progress:
-  total_phases: 7
-  completed_phases: 6
+  total_phases: 11
+  completed_phases: 8
   total_plans: 14
   completed_plans: 14
-  percent: 86
+  percent: 73
 ---
 
 # Project State
@@ -21,16 +21,18 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-06)
 
 **Core value:** Show people the reality of their commute -- time wasted in traffic and how it changes over time.
-**Current focus:** Phase 26 — Sync Breaks & Edit Metadata to Cloud (v0.3 App Improvements)
+**Current focus:** Phase 25.1 — Fix Sync Conflict & Auto-Retry Bugs (v0.3 App Improvements)
 
 ## Current Position
 
-Phase: 26 — Sync Breaks & Edit Metadata to Cloud
+Phase: 25.1 — Fix Sync Conflict & Auto-Retry Bugs (INSERTED, blocks Phase 26)
 Plan: not yet planned
 Status: Not started
 Last activity: 2026-07-11
 
-**v0.3 progress:** 8/9 phases complete (17–25 done, merged to main 2026-07-06 in PR #2); Phase 26 added 2026-07-11.
+**v0.3 progress:** 8/11 phases complete (17,18,19,20,21,22,24,25 done, merged to main 2026-07-06 in PR #2). Phase 23 rescoped 2026-07-11 (UAT audit found it never really executed — stalled at 1 thin plan). Phase 25.1 inserted 2026-07-11 (Phase 24 verification found 2 unfixed correctness bugs: broken auto-retry throttle, fake Merge conflict resolution). Phase 26 added 2026-07-11, now depends on 25.1.
+
+**Recommended execution order for the remaining work:** 25.1 (bug fixes, no device needed) → 26 (sync schema, no device needed) → 23 (one consolidated device session covering the v0.1 checklist + stalled 14/21/22 UAT sessions).
 
 ## Performance Metrics
 
@@ -77,6 +79,9 @@ Last activity: 2026-07-11
 ### Roadmap Evolution
 
 - Phase 26 added (2026-07-11): Sync Breaks & Edit Metadata to Cloud — extend the Firestore trip payload/zod schema with totalPausedSeconds, isEdited, directionSource, and an embedded breaks array; restore writes trip_breaks; one-time backfill re-sync for trips with breaks/edits; backend deploys before client
+- Phase 25.1 inserted (2026-07-11), urgent, before Phase 26: Fix Sync Conflict & Auto-Retry Bugs — Phase 24's own verification (2026-06-16, gaps_found) caught `SyncEngine._lastAutoRetry` never being assigned (auto-retry throttle permanently open) and the conflict-sheet "Merge" option being a no-op alias for "Use Cloud"; neither was fixed before the branch merged to main. Phase 26 now depends on 25.1 since both touch `sync_engine.dart` / `conflict_resolution_sheet.dart`.
+- Phase 23 rescoped (2026-07-11): a `/gsd-audit-uat` run found Phase 23 ("Resolve Deferred UAT Items") had only ever gotten one thin plan (a home_widget unit test) despite STATE.md previously claiming it complete. Rewrote its Goal/Success Criteria to the real backlog: the v0.1 device checklist (48 items, 0 checked, `.planning/v0.1-DEVICE-CHECKLIST.md`), Phase 14's 3 iOS items (deferred pending Phase 15, now unblocked), and Phase 21/22's UAT sessions (both stalled at test 1, "awaiting user response" since June).
+- Roadmap structure bug fixed (2026-07-11): the `## v0.3 Progress` heading sat BEFORE phases 23–26's `### Phase N:` detail sections instead of after them (pre-existing drift from the original overnight GSD session, not introduced this session). This silently broke every GSD tool that scans "current milestone" phases — `audit-uat`, `roadmap analyze`, `phase insert` — they all stopped at Phase 22 and couldn't see 23–26. Moved the Progress block to the end of the v0.3 section, matching the v0.2 section's pattern. Worth checking other milestone sections if similar tooling gaps show up.
 
 ### Decisions
 
