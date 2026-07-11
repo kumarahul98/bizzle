@@ -609,23 +609,117 @@ void main() {
       await db.close();
     });
 
-    test('immediate sync-on-finish (rising edge) still fires regardless of time gate', () async {
-      api.syncThrow = const SyncException.http(400);
+    Future<String> rowStatus(int id) async {
+      final row = await (db.select(
+        db.syncQueue,
+      )..where((q) => q.id.equals(id))).getSingle();
+      return row.status;
+    }
+
+    test(
+      'immediate sync-on-finish (rising edge) still fires regardless of time gate',
+      () async {
+        api.syncThrow = const SyncException.http(400);
+        await engine.start();
+
+        // Simulate that an auto-retry JUST happened so the time gate is closed.
+        await engine.retryFailed();
+        await _pumpEventQueue();
+
+        // Enqueue a new item (sync-on-finish)
+        await tripsDao.insertTrip(_trip('t2'));
+        await queueDao.enqueueCreate('t2');
+
+        // The watchPending trigger should fire and ignore the time gate.
+        await _pumpEventQueue();
+
+        expect(
+          api.syncCalls,
+          isNotEmpty,
+          reason: 'Immediate sync-on-finish must fire',
+        );
+      },
+    );
+
+    // ---- D-07: 4h auto-retry gate contract ---------------------------------
+
+    test('second trigger within window does not re-fire retryFailed', () async {
+      await tripsDao.insertTrip(_trip('t1'));
+      final t1Id = await queueDao.enqueueCreate('t1');
+      await queueDao.markFailed(t1Id);
       await engine.start();
-      
-      // Simulate that an auto-retry JUST happened so the time gate is closed.
-      await engine.retryFailed(); 
+
+      // First auto trigger: _lastAutoRetry is null, so the gate is open —
+      // retryFailed() fires, re-enqueues t1, and drains it to synced.
+      engine.handleResume();
       await _pumpEventQueue();
-      
-      // Enqueue a new item (sync-on-finish)
+      expect(await rowStatus(t1Id), kSyncStatusSynced);
+      final callsAfterFirst = api.syncCalls.length;
+
+      // A second failed row appears, then a second auto trigger fires with
+      // the clock UNCHANGED — still inside kFailedAutoRetryWindow.
       await tripsDao.insertTrip(_trip('t2'));
-      await queueDao.enqueueCreate('t2');
-      
-      // The watchPending trigger should fire and ignore the time gate.
+      final t2Id = await queueDao.enqueueCreate('t2');
+      await queueDao.markFailed(t2Id);
+      engine.handleResume();
       await _pumpEventQueue();
-      
-      expect(api.syncCalls, isNotEmpty, reason: 'Immediate sync-on-finish must fire');
+
+      // No resetFailed ran: the failed row is untouched and zero new
+      // network calls were made.
+      expect(await rowStatus(t2Id), kSyncStatusFailed);
+      expect(api.syncCalls.length, callsAfterFirst);
     });
+
+    test('trigger after window elapses DOES re-fire retryFailed', () async {
+      await tripsDao.insertTrip(_trip('t1'));
+      final t1Id = await queueDao.enqueueCreate('t1');
+      await queueDao.markFailed(t1Id);
+      await engine.start();
+
+      // First auto trigger stamps _lastAutoRetry and drains t1.
+      engine.handleResume();
+      await _pumpEventQueue();
+      expect(await rowStatus(t1Id), kSyncStatusSynced);
+
+      await tripsDao.insertTrip(_trip('t2'));
+      final t2Id = await queueDao.enqueueCreate('t2');
+      await queueDao.markFailed(t2Id);
+
+      // Advance past kFailedAutoRetryWindow — the gate must reopen and the
+      // next trigger re-fires retryFailed(), draining the failed row.
+      clock = clock.add(kFailedAutoRetryWindow + const Duration(minutes: 1));
+      engine.handleResume();
+      await _pumpEventQueue();
+
+      expect(await rowStatus(t2Id), kSyncStatusSynced);
+    });
+
+    test(
+      'manual retryFailed stamps the window, suppressing a following auto '
+      'trigger',
+      () async {
+        await tripsDao.insertTrip(_trip('t1'));
+        final t1Id = await queueDao.enqueueCreate('t1');
+        await queueDao.markFailed(t1Id);
+
+        // Manual retry (D-03): never blocked, drains the failed row, AND
+        // stamps _lastAutoRetry.
+        await engine.retryFailed();
+        await _pumpEventQueue();
+        expect(await rowStatus(t1Id), kSyncStatusSynced);
+
+        await tripsDao.insertTrip(_trip('t2'));
+        final t2Id = await queueDao.enqueueCreate('t2');
+        await queueDao.markFailed(t2Id);
+
+        // Auto trigger with the clock UNCHANGED — the manual call already
+        // stamped the window, so this trigger must be suppressed.
+        engine.handleResume();
+        await _pumpEventQueue();
+
+        expect(await rowStatus(t2Id), kSyncStatusFailed);
+      },
+    );
   });
 }
 
