@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: App Improvements
 status: Not started
-stopped_at: Phase 25.1 context gathered
-last_updated: "2026-07-11T09:43:18.704Z"
+stopped_at: Phase 25.1 UI-SPEC approved
+last_updated: "2026-07-11T10:25:54.744Z"
 last_activity: 2026-07-11
 progress:
   total_phases: 16
@@ -152,9 +152,9 @@ Full checklist: `.planning/v0.1-DEVICE-CHECKLIST.md` (Groups A-I). Resume v0.1 c
 
 ## Session Continuity
 
-Last session: 2026-07-11T09:43:18.693Z
-Stopped at: Phase 25.1 context gathered
-Resume file: .planning/phases/25.1-fix-sync-conflict-auto-retry-bugs/25.1-CONTEXT.md
+Last session: 2026-07-11T10:25:54.729Z
+Stopped at: Phase 25.1 UI-SPEC approved
+Resume file: .planning/phases/25.1-fix-sync-conflict-auto-retry-bugs/25.1-UI-SPEC.md
 
 [2026-06-16] Phase 25 Planning complete: generated and verified 3 PLAN.md files. 3 PLAN.md files.
 [2026-06-16] Completed 24-02-PLAN.md
