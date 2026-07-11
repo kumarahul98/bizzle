@@ -51,19 +51,19 @@ class _ConflictResolutionSheetState
 
         final merged = cloudTrip.copyWith(
           id: drift.Value(localTrip.id),
-          startTime: selections['startTime'] == 'local'
+          startTime: (selections['startTime'] ?? 'local') == 'local'
               ? drift.Value(localTrip.startTime)
               : cloudTrip.startTime,
-          endTime: selections['endTime'] == 'local'
+          endTime: (selections['endTime'] ?? 'local') == 'local'
               ? drift.Value(localTrip.endTime)
               : cloudTrip.endTime,
-          durationSeconds: selections['durationSeconds'] == 'local'
+          durationSeconds: (selections['durationSeconds'] ?? 'local') == 'local'
               ? drift.Value(localTrip.durationSeconds)
               : cloudTrip.durationSeconds,
-          distanceMeters: selections['distanceMeters'] == 'local'
+          distanceMeters: (selections['distanceMeters'] ?? 'local') == 'local'
               ? drift.Value(localTrip.distanceMeters)
               : cloudTrip.distanceMeters,
-          direction: selections['direction'] == 'local'
+          direction: (selections['direction'] ?? 'local') == 'local'
               ? drift.Value(localTrip.direction)
               : cloudTrip.direction,
           updatedAt: drift.Value(DateTime.now().toUtc()),
@@ -172,7 +172,7 @@ class _ConflictResolutionSheetState
                                       ],
                                       selected: {
                                         _mergeSelections[tripId]?[field] ??
-                                            'cloud',
+                                            'local',
                                       },
                                       onSelectionChanged: (set) {
                                         setState(() {
