@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: App Improvements
 status: executing
-stopped_at: Completed 25.1-01-PLAN.md
-last_updated: "2026-07-11T12:05:07.937Z"
-last_activity: 2026-07-11 -- Phase 25.1 plan 01 executed (auto-retry gate tests + rename)
+stopped_at: Completed 25.1-02-PLAN.md
+last_updated: "2026-07-11T12:16:20.781Z"
+last_activity: 2026-07-11 -- Phase 25.1 plan 02 executed (merge default flip to local + D-08 test)
 progress:
   total_phases: 16
   completed_phases: 10
   total_plans: 34
-  completed_plans: 30
-  percent: 88
+  completed_plans: 31
+  percent: 91
 ---
 
 # Project State
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 ## Current Position
 
 Phase: 25.1 — Fix Sync Conflict & Auto-Retry Bugs (INSERTED, blocks Phase 26)
-Plan: 1 of 2 complete (25.1-01 done; next: 25.1-02)
+Plan: 2 of 2 complete (all plans executed; phase verification pending)
 Status: Executing
-Last activity: 2026-07-11 -- Phase 25.1 plan 01 executed (auto-retry gate tests + rename)
+Last activity: 2026-07-11 -- Phase 25.1 plan 02 executed (merge default flip to local + D-08 test)
 
 **v0.3 progress:** 8/11 phases complete (17,18,19,20,21,22,24,25 done, merged to main 2026-07-06 in PR #2). Phase 23 rescoped 2026-07-11 (UAT audit found it never really executed — stalled at 1 thin plan; now Android-only, its one iOS criterion removed). Phase 25.1 inserted 2026-07-11 (Phase 24 verification found 2 unfixed correctness bugs: broken auto-retry throttle, fake Merge conflict resolution). Phase 26 added 2026-07-11, now depends on 25.1.
 
@@ -85,6 +85,7 @@ Phases 25.1 and 26 are platform-agnostic (Dart/backend, shared by both platforms
 | Phase 24 P02 | 15min | 1 task | 3 files |
 | Phase 25 P01 | 15min | 3 tasks | 4 files |
 | Phase 25.1 P01 | 10min | 2 tasks | 3 files |
+| Phase 25.1 P02 | 7min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -109,6 +110,8 @@ Recent decisions affecting current work:
 - [Phase 24-02]: Pause uploads during auto-restore so that guest trips do not upload until cloud trips are properly restored and reconciled
 - [Phase 25.1-01]: Auto-retry gate condition consolidated into single getter autoRetryWindowElapsed (renamed from isAutoRetryExhausted, same polarity: true = window elapsed, safe to auto-retry); minimal-diff form kept at both trigger call sites, no shared trigger-dispatch extraction
 - [Phase 25.1-01]: D-07 gate contract test-pinned BEFORE the D-04 rename — 3 regression tests committed passing against the pre-rename code, so the rename was verified by an already-pinned contract
+- [Phase 25.1-02]: Merge default flipped to 'local' at BOTH leak points in one commit (displayed SegmentedButton default + all 5 _applyAll fallback ternaries) so display and apply never diverge; 'Merge All' with no per-field selections now equals 'Keep All Local' (accepted D-06 consequence, no UI signal added)
+- [Phase 25.1-02]: D-08 merge widget test uses an enlarged 800x1600 test viewport — the default 600px surface clips the distanceMeters row's Cloud segment under the bottom sheet and silently drops the tap; conflict-sheet tests assert on the Drift row (findById), never widget internals
 - [v0.2 Research]: No new packages needed — port is configuration + one platform branch
 - [v0.2 Research]: flutter_map (OSM) already in use — google_maps_flutter iOS setup is NOT needed
 - [v0.2 Research]: firebase_options.dart already carries iOS client config — iOS Firebase app pre-registered
@@ -155,10 +158,11 @@ Full checklist: `.planning/v0.1-DEVICE-CHECKLIST.md` (Groups A-I). Resume v0.1 c
 
 ## Session Continuity
 
-Last session: 2026-07-11T12:05:07.937Z
-Stopped at: Completed 25.1-01-PLAN.md
+Last session: 2026-07-11T12:16:20.781Z
+Stopped at: Completed 25.1-02-PLAN.md
 Resume file: None
 
+[2026-07-11] Completed 25.1-02-PLAN.md (D-05 merge default flip to local at both leak points + D-08 two-differing-field merge test — all Phase 25.1 plans done)
 [2026-07-11] Completed 25.1-01-PLAN.md (D-07 gate regression tests + D-04 autoRetryWindowElapsed rename/consolidation)
 
 [2026-06-16] Phase 25 Planning complete: generated and verified 3 PLAN.md files. 3 PLAN.md files.

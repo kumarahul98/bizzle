@@ -701,7 +701,7 @@ Plans:
 Plans:
 
 - [x] 25.1-01-PLAN.md — D-07 auto-retry gate regression tests (3 new assertions) + D-04 predicate consolidation/rename (autoRetryWindowElapsed) across sync_engine.dart and the dashboard banner (2026-07-11)
-- [ ] 25.1-02-PLAN.md — D-05 merge default flip to 'local' at both leak points (display + _applyAll fallbacks) + D-08 strengthened two-differing-field merge widget test
+- [x] 25.1-02-PLAN.md — D-05 merge default flip to 'local' at both leak points (display + _applyAll fallbacks) + D-08 strengthened two-differing-field merge widget test (2026-07-11)
 
 ### Phase 26: Sync Breaks & Edit Metadata to Cloud
 
@@ -737,5 +737,5 @@ Note: Phase 17 is a small, independent UI fix + quick-label and is the safe firs
 | 23. Resolve Deferred UAT Items (Android) | v0.3 | 0/TBD | Not started (rescoped 2026-07-11) | - |
 | 24. Automatic Cloud Sync & Restore | v0.3 | 3/3 | Complete | 2026-06-16 |
 | 25. Interrupted-Trip Recovery | v0.3 | 3/3 | Complete | 2026-06-28 |
-| 25.1. Fix Sync Conflict & Auto-Retry Bugs (INSERTED) | v0.3 | 1/2 | In progress | - |
+| 25.1. Fix Sync Conflict & Auto-Retry Bugs (INSERTED) | v0.3 | 2/2 | Plans complete (verification pending) | - |
 | 26. Sync Breaks & Edit Metadata to Cloud | v0.3 | 0/TBD | Not started | - |
