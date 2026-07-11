@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: App Improvements
-status: executing
-stopped_at: Completed 25.1-02-PLAN.md
-last_updated: "2026-07-11T12:16:20.781Z"
-last_activity: 2026-07-11 -- Phase 25.1 plan 02 executed (merge default flip to local + D-08 test)
+status: phase_complete
+stopped_at: Phase 25.1 verified and complete
+last_updated: "2026-07-12T00:00:00.000Z"
+last_activity: 2026-07-12 -- Phase 25.1 verified (3/3 must-haves) and marked complete; 1 visual UAT item tracked in 25.1-HUMAN-UAT.md
 progress:
   total_phases: 16
-  completed_phases: 10
+  completed_phases: 11
   total_plans: 34
   completed_plans: 31
   percent: 91
@@ -21,18 +21,18 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-06)
 
 **Core value:** Show people the reality of their commute -- time wasted in traffic and how it changes over time.
-**Current focus:** Phase 25.1 — Fix Sync Conflict & Auto-Retry Bugs (v0.3 App Improvements)
+**Current focus:** Phase 26 — Sync Breaks & Edit Metadata to Cloud (v0.3 App Improvements)
 
 ## Current Position
 
-Phase: 25.1 — Fix Sync Conflict & Auto-Retry Bugs (INSERTED, blocks Phase 26)
-Plan: 2 of 2 complete (all plans executed; phase verification pending)
-Status: Executing
-Last activity: 2026-07-11 -- Phase 25.1 plan 02 executed (merge default flip to local + D-08 test)
+Phase: 26 — Sync Breaks & Edit Metadata to Cloud (next up; Phase 25.1 dependency now satisfied)
+Plan: not yet planned
+Status: Ready to discuss/plan
+Last activity: 2026-07-12 -- Phase 25.1 verified (3/3 must-haves) and marked complete
 
-**v0.3 progress:** 8/11 phases complete (17,18,19,20,21,22,24,25 done, merged to main 2026-07-06 in PR #2). Phase 23 rescoped 2026-07-11 (UAT audit found it never really executed — stalled at 1 thin plan; now Android-only, its one iOS criterion removed). Phase 25.1 inserted 2026-07-11 (Phase 24 verification found 2 unfixed correctness bugs: broken auto-retry throttle, fake Merge conflict resolution). Phase 26 added 2026-07-11, now depends on 25.1.
+**v0.3 progress:** 9/11 phases complete (17,18,19,20,21,22,24,25 done and merged to main 2026-07-06 in PR #2; 25.1 completed 2026-07-12 on main). Phase 23 rescoped 2026-07-11 (UAT audit found it never really executed — stalled at 1 thin plan; now Android-only, its one iOS criterion removed). Phase 25.1 (inserted 2026-07-11) fixed the broken auto-retry throttle and fake Merge conflict resolution; one visual UAT item remains tracked in 25.1-HUMAN-UAT.md (Merge sheet "Local" pre-selected on device).
 
-**Recommended execution order for the remaining work:** 25.1 (bug fixes, no device needed) → 26 (sync schema, no device needed) → 23 (one consolidated Android device session covering the v0.1 checklist + stalled 21/22 UAT sessions).
+**Recommended execution order for the remaining work:** 26 (sync schema, no device needed) → 23 (one consolidated Android device session covering the v0.1 checklist + stalled 21/22 UAT sessions).
 
 ## Platform Focus (as of 2026-07-11)
 

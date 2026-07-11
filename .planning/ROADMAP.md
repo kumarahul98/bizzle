@@ -8,7 +8,7 @@ Deliver an offline-first Android commute tracker that records GPS trips, compute
 
 - ✅ **v0.1 Android MVP** - Phases 1-11 (formally open — 13 device-UAT items deferred, resumable)
 - ⏸️ **v0.2 iOS Support** - Phases 12-16 (PAUSED as of 2026-07-11 — see summary in the v0.2 section; 12/13 complete, 14 code-complete/device-unverified, 15 trimmed & merged (Live Activity dropped), 16 not started)
-- 🚧 **v0.3 App Improvements** - Phases 17-26 (8/11 complete; remaining Phases 23, 25.1, 26 are Android-only)
+- 🚧 **v0.3 App Improvements** - Phases 17-26 (9/11 complete; remaining Phases 23, 26 are Android-only)
 
 ## Phases
 
@@ -520,7 +520,7 @@ Note: Phases 1-7 deliver the complete local-first experience without any authent
 - [ ] **Phase 23: Resolve Deferred UAT Items (Android)** - Triage the v0.1 device checklist and complete the stalled Phase 21/22 UAT sessions on a real Android device
 - [x] **Phase 24: Automatic Cloud Sync & Restore** - Auto-restore cloud trips on sign-in, immediate sync on trip finish, and automatic re-attempt of previously-failed sync items (merged to main in PR #2, 2026-07-06)
 - [x] **Phase 25: Interrupted-Trip Recovery** - Detect a mid-trip force-quit / app-clear / OS interruption, log it, and offer to resume or discard the interrupted trip on next launch (merged to main in PR #2, 2026-07-06)
-- [ ] **Phase 25.1: Fix Sync Conflict & Auto-Retry Bugs (INSERTED)** - Fix the broken auto-retry throttle and the fake Merge conflict resolution found by Phase 24 verification, before Phase 26 extends the same files
+- [x] **Phase 25.1: Fix Sync Conflict & Auto-Retry Bugs (INSERTED)** - Fix the broken auto-retry throttle and the fake Merge conflict resolution found by Phase 24 verification, before Phase 26 extends the same files ✓ 2026-07-12
 - [ ] **Phase 26: Sync Breaks & Edit Metadata to Cloud** - Extend the Firestore trip payload with totalPausedSeconds, isEdited, directionSource, and an embedded breaks array; restore writes trip_breaks; one-time backfill re-sync; backend deploys before client
 
 ---
@@ -737,5 +737,5 @@ Note: Phase 17 is a small, independent UI fix + quick-label and is the safe firs
 | 23. Resolve Deferred UAT Items (Android) | v0.3 | 0/TBD | Not started (rescoped 2026-07-11) | - |
 | 24. Automatic Cloud Sync & Restore | v0.3 | 3/3 | Complete | 2026-06-16 |
 | 25. Interrupted-Trip Recovery | v0.3 | 3/3 | Complete | 2026-06-28 |
-| 25.1. Fix Sync Conflict & Auto-Retry Bugs (INSERTED) | v0.3 | 2/2 | Plans complete (verification pending) | - |
+| 25.1. Fix Sync Conflict & Auto-Retry Bugs (INSERTED) | v0.3 | 2/2 | Complete | 2026-07-12 |
 | 26. Sync Breaks & Edit Metadata to Cloud | v0.3 | 0/TBD | Not started | - |
