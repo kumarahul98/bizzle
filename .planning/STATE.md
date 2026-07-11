@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: App Improvements
 status: executing
-stopped_at: Phase 25.1 UI-SPEC approved
-last_updated: "2026-07-11T11:39:03.388Z"
-last_activity: 2026-07-11 -- Phase 25.1 planning complete
+stopped_at: Completed 25.1-01-PLAN.md
+last_updated: "2026-07-11T12:05:07.937Z"
+last_activity: 2026-07-11 -- Phase 25.1 plan 01 executed (auto-retry gate tests + rename)
 progress:
   total_phases: 16
   completed_phases: 10
   total_plans: 34
-  completed_plans: 29
-  percent: 63
+  completed_plans: 30
+  percent: 88
 ---
 
 # Project State
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 ## Current Position
 
 Phase: 25.1 — Fix Sync Conflict & Auto-Retry Bugs (INSERTED, blocks Phase 26)
-Plan: not yet planned
-Status: Ready to execute
-Last activity: 2026-07-11 -- Phase 25.1 planning complete
+Plan: 1 of 2 complete (25.1-01 done; next: 25.1-02)
+Status: Executing
+Last activity: 2026-07-11 -- Phase 25.1 plan 01 executed (auto-retry gate tests + rename)
 
 **v0.3 progress:** 8/11 phases complete (17,18,19,20,21,22,24,25 done, merged to main 2026-07-06 in PR #2). Phase 23 rescoped 2026-07-11 (UAT audit found it never really executed — stalled at 1 thin plan; now Android-only, its one iOS criterion removed). Phase 25.1 inserted 2026-07-11 (Phase 24 verification found 2 unfixed correctness bugs: broken auto-retry throttle, fake Merge conflict resolution). Phase 26 added 2026-07-11, now depends on 25.1.
 
@@ -84,6 +84,7 @@ Phases 25.1 and 26 are platform-agnostic (Dart/backend, shared by both platforms
 | Phase 21 P03 | 5 min | 3 tasks | 6 files |
 | Phase 24 P02 | 15min | 1 task | 3 files |
 | Phase 25 P01 | 15min | 3 tasks | 4 files |
+| Phase 25.1 P01 | 10min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -106,6 +107,8 @@ Recent decisions affecting current work:
 - [v0.3 Roadmap]: Phase 22 (home-screen widget) sequenced last — highest platform-integration risk, and depends on Phase 18 state model for accurate widget state
 - [v0.3 Roadmap]: Phase 21 geofence labeling takes precedence over time-of-day heuristic only on a confident proximity match; purely additive (falls back to existing behavior with no Home/Office set)
 - [Phase 24-02]: Pause uploads during auto-restore so that guest trips do not upload until cloud trips are properly restored and reconciled
+- [Phase 25.1-01]: Auto-retry gate condition consolidated into single getter autoRetryWindowElapsed (renamed from isAutoRetryExhausted, same polarity: true = window elapsed, safe to auto-retry); minimal-diff form kept at both trigger call sites, no shared trigger-dispatch extraction
+- [Phase 25.1-01]: D-07 gate contract test-pinned BEFORE the D-04 rename — 3 regression tests committed passing against the pre-rename code, so the rename was verified by an already-pinned contract
 - [v0.2 Research]: No new packages needed — port is configuration + one platform branch
 - [v0.2 Research]: flutter_map (OSM) already in use — google_maps_flutter iOS setup is NOT needed
 - [v0.2 Research]: firebase_options.dart already carries iOS client config — iOS Firebase app pre-registered
@@ -152,9 +155,11 @@ Full checklist: `.planning/v0.1-DEVICE-CHECKLIST.md` (Groups A-I). Resume v0.1 c
 
 ## Session Continuity
 
-Last session: 2026-07-11T10:25:54.729Z
-Stopped at: Phase 25.1 UI-SPEC approved
-Resume file: .planning/phases/25.1-fix-sync-conflict-auto-retry-bugs/25.1-UI-SPEC.md
+Last session: 2026-07-11T12:05:07.937Z
+Stopped at: Completed 25.1-01-PLAN.md
+Resume file: None
+
+[2026-07-11] Completed 25.1-01-PLAN.md (D-07 gate regression tests + D-04 autoRetryWindowElapsed rename/consolidation)
 
 [2026-06-16] Phase 25 Planning complete: generated and verified 3 PLAN.md files. 3 PLAN.md files.
 [2026-06-16] Completed 24-02-PLAN.md
