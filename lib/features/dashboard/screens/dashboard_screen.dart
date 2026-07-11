@@ -191,7 +191,7 @@ class _StuckBannerGate extends ConsumerWidget {
     // Only instantiated/read when syncStatus is SyncFailed.
     // This prevents eager database instantiation in unrelated tests.
     final syncEngine = ref.read(syncEngineProvider);
-    if (!syncEngine.isAutoRetryExhausted) return const SizedBox.shrink();
+    if (!syncEngine.autoRetryWindowElapsed) return const SizedBox.shrink();
 
     return SyncStuckBanner(
       onReviewSettings: onReviewSettings,

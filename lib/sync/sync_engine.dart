@@ -99,9 +99,12 @@ class SyncEngine {
     return until != null && _now().isBefore(until);
   }
 
-  /// Whether the auto-retry time gate is open (exhausted).
-  bool get isAutoRetryExhausted =>
-      _lastAutoRetry == null || _now().difference(_lastAutoRetry!) > kFailedAutoRetryWindow;
+  /// Whether [kFailedAutoRetryWindow] has elapsed since the last auto-retry
+  /// (or none has happened yet) — true means the gate is open and an
+  /// auto-retry may fire now.
+  bool get autoRetryWindowElapsed =>
+      _lastAutoRetry == null ||
+      _now().difference(_lastAutoRetry!) > kFailedAutoRetryWindow;
 
   /// Pure exponential-backoff delay for [retryCount]: `base × 2^retryCount`
   /// capped at [kSyncRetryMaxDelay]. Guards against shift overflow by capping
@@ -348,7 +351,7 @@ class SyncEngine {
     _connectivitySub = Connectivity().onConnectivityChanged.listen((results) {
       final nowOnline = results.any((r) => r != ConnectivityResult.none);
       if (!_wasOnline && nowOnline) {
-        if (_lastAutoRetry == null || _now().difference(_lastAutoRetry!) > kFailedAutoRetryWindow) {
+        if (autoRetryWindowElapsed) {
           unawaited(retryFailed());
         } else {
           unawaited(processPending());
@@ -365,7 +368,7 @@ class SyncEngine {
 
   @visibleForTesting
   void handleResume() {
-    if (_lastAutoRetry == null || _now().difference(_lastAutoRetry!) > kFailedAutoRetryWindow) {
+    if (autoRetryWindowElapsed) {
       unawaited(retryFailed());
     } else {
       unawaited(processPending());
