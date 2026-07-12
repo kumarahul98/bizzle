@@ -727,7 +727,7 @@ Plans:
 **Wave 2** *(blocked on Wave 1)*
 
 - [x] 26-03-PLAN.md — Client wire contract: TripSerializer/ApiClient/SyncEngine emit breaks + metadata (depends on live backend deploy, SC2 gate)
-- [ ] 26-04-PLAN.md — One-time backfill trigger: TripsDao query + MainShell sign-in seam wiring (D-01/D-02/D-03, SC4)
+- [x] 26-04-PLAN.md — One-time backfill trigger: TripsDao query + MainShell sign-in seam wiring (D-01/D-02/D-03, SC4)
 
 **Wave 3** *(blocked on Wave 2)*
 
@@ -758,4 +758,4 @@ Note: Phase 17 is a small, independent UI fix + quick-label and is the safe firs
 | 24. Automatic Cloud Sync & Restore | v0.3 | 3/3 | Complete | 2026-06-16 |
 | 25. Interrupted-Trip Recovery | v0.3 | 3/3 | Complete | 2026-06-28 |
 | 25.1. Fix Sync Conflict & Auto-Retry Bugs (INSERTED) | v0.3 | 2/2 | Complete | 2026-07-12 |
-| 26. Sync Breaks & Edit Metadata to Cloud | v0.3 | 3/6 | In Progress|  |
+| 26. Sync Breaks & Edit Metadata to Cloud | v0.3 | 4/6 | In Progress|  |
