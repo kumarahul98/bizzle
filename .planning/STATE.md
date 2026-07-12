@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: App Improvements
 status: executing
-stopped_at: Completed 26-01-PLAN.md (backend wire contract + live deploy, SC2 gate)
-last_updated: "2026-07-12T14:56:25.136Z"
+stopped_at: Completed 26-02-PLAN.md (schema v7 + batch break lookup + backfill marker DAO + Phase 26 constants)
+last_updated: "2026-07-12T18:58:21.497Z"
 last_activity: 2026-07-12
 progress:
   total_phases: 16
   completed_phases: 11
   total_plans: 40
-  completed_plans: 32
+  completed_plans: 33
   percent: 69
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 ## Current Position
 
 Phase: 26 (sync-breaks-edit-metadata-to-cloud) — EXECUTING
-Plan: 2 of 6
+Plan: 3 of 6
 Status: Ready to execute
 Last activity: 2026-07-12
 
@@ -87,6 +87,7 @@ Phases 25.1 and 26 are platform-agnostic (Dart/backend, shared by both platforms
 | Phase 25.1 P01 | 10min | 2 tasks | 3 files |
 | Phase 25.1 P02 | 7min | 2 tasks | 2 files |
 | Phase 26 P01 | 25min | 3 tasks | 11 files |
+| Phase 26 P02 | 25min | 2 tasks | 25 files |
 
 ## Accumulated Context
 
@@ -130,6 +131,8 @@ Recent decisions affecting current work:
 - [Phase ?]: IOS-08 accuracy-blocked start surfaces kTrackingReducedAccuracyBlockedMessage (distinct stable string) vs generic message on Android (T-02-07 preserved)
 - [Phase 26-01]: kMaxBreaksPerTrip=50 DoS cap on the embedded breaks array; directionSource enum locked to literal 'manual'/'geofence'/'time' matching client kDirectionSource* constants byte-for-byte; read-side defaulting lives ONLY in tripConverter.fromFirestore (?? 0/false/'time'/[]) — no zod parse on the restore path
 - [Phase 26-01]: nodejs20 runtime decommissions 2026-10-30 (deploy warning) — bump to nodejs22 before then or future deploys are blocked
+- [Phase 26-02]: backfillMarkerVersion made a required UserPreferencesValue field (not optional-with-default), forcing compile-time propagation to every existing call site (14 files beyond declared plan scope) to guarantee the marker is never silently dropped
+- [Phase 26-02]: migration_v3/v5/v6_test.dart bumped their migrateAndValidate() target to the new terminal version 7 -- Drift's compiled row mapper reads every currently-defined column regardless of physical DDL, so a test that stops migration at an older version and then calls a DAO getOrDefault() crashes; matches the pre-existing convention documented in migration_v5_test.dart
 
 ### Pending Todos
 
@@ -161,8 +164,8 @@ Full checklist: `.planning/v0.1-DEVICE-CHECKLIST.md` (Groups A-I). Resume v0.1 c
 
 ## Session Continuity
 
-Last session: 2026-07-12T14:56:15.716Z
-Stopped at: Completed 26-01-PLAN.md (backend wire contract + live deploy, SC2 gate)
+Last session: 2026-07-12T18:58:21.494Z
+Stopped at: Completed 26-02-PLAN.md (schema v7 + batch break lookup + backfill marker DAO + Phase 26 constants)
 Resume file: None
 
 [2026-07-11] Completed 25.1-02-PLAN.md (D-05 merge default flip to local at both leak points + D-08 two-differing-field merge test — all Phase 25.1 plans done)
