@@ -716,7 +716,27 @@ Plans:
   4. Trips already in Firestore without the new fields restore cleanly with defaults (no parse failures), and a one-time backfill re-enqueues local trips that have breaks or edits so their cloud copies gain the metadata
   5. Conflict resolution treats breaks as riding along with whichever side wins (no per-break field merge UI)
 
-**Plans**: TBD
+**Plans**: 6 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 26-01-PLAN.md — Backend: extend zod tripSchema/Trip/TripDoc/Firestore converter/both handlers + tests, deploy live (SC1, SC2, SC4 legacy-doc defaults)
+- [ ] 26-02-PLAN.md — Client: schema v6->v7 backfill marker migration, TripBreaksDao batch lookup, UserPreferencesDao marker, Phase 26 constants
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [ ] 26-03-PLAN.md — Client wire contract: TripSerializer/ApiClient/SyncEngine emit breaks + metadata (depends on live backend deploy, SC2 gate)
+- [ ] 26-04-PLAN.md — One-time backfill trigger: TripsDao query + MainShell sign-in seam wiring (D-01/D-02/D-03, SC4)
+
+**Wave 3** *(blocked on Wave 2)*
+
+- [ ] 26-05-PLAN.md — RestoreController: D-07 metadata-excluded conflicts, atomic trip+breaks insert, D-10/D-11 enrichment (SC3, SC4)
+
+**Wave 4** *(blocked on Wave 3)*
+
+- [ ] 26-06-PLAN.md — Merge resolution extraction (D-06) + D-04 ride-along + Use-Cloud breaks carry-along + D-05 indicator (SC5)
+
 **UI hint**: no
 
 ## v0.3 Progress
