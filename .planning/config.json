@@ -37,8 +37,8 @@
   "project_code": null,
   "phase_naming": "sequential",
   "model_overrides": {
-    "gsd-planner": "Claude Sonnet 4.6 (Thinking)",
-    "gsd-executor": "Gemini 3.5 Flash (High)"
+    "gsd-planner": "opus",
+    "gsd-executor": "sonnet"
   },
   "agent_skills": {},
   "mode": "yolo",
