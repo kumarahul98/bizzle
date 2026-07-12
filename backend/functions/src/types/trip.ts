@@ -7,6 +7,22 @@ import { Timestamp } from 'firebase-admin/firestore';
 export type Direction = 'to_office' | 'to_home';
 
 /**
+ * How `direction` was determined on the client (Phase 26). Mirrors the Drift
+ * `direction_source` column values and the `kDirectionSource*` constants in
+ * `lib/config/constants.dart` byte-for-byte.
+ */
+export type DirectionSource = 'manual' | 'geofence' | 'time';
+
+/**
+ * A single paused segment within a trip (Phase 26). Mirrors a row in the
+ * client's `trip_breaks` table, projected to its two wire-relevant fields.
+ */
+export interface TripBreak {
+  startTime: string;
+  endTime: string;
+}
+
+/**
  * The cross-phase trip contract (Phase 10 server <-> Phase 11 client).
  *
  * Fields mirror the Drift `trips` table (lib/database/tables/trips_table.dart)
@@ -29,6 +45,14 @@ export interface Trip {
   isManualEntry: boolean;
   createdAt: string;
   updatedAt: string;
+  /** Total time paused across all breaks, in seconds (Phase 26). */
+  totalPausedSeconds: number;
+  /** Whether the user manually edited this trip's details (Phase 26). */
+  isEdited: boolean;
+  /** How `direction` was determined (Phase 26). */
+  directionSource: DirectionSource;
+  /** Embedded paused segments for this trip (Phase 26), bounded by `kMaxBreaksPerTrip`. */
+  breaks: TripBreak[];
 }
 
 /**

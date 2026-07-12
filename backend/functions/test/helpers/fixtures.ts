@@ -27,6 +27,10 @@ export function makeTrip(overrides: Partial<Trip> = {}): Trip {
     isManualEntry: false,
     createdAt: '2026-05-01T08:45:00.000Z',
     updatedAt: '2026-05-01T08:45:00.000Z',
+    totalPausedSeconds: 0,
+    isEdited: false,
+    directionSource: 'time',
+    breaks: [],
     ...overrides,
   };
 }
