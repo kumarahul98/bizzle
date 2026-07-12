@@ -80,7 +80,12 @@ class RestoreController extends Notifier<RestoreState> {
   Future<void> restore() async {
     state = const RestoreRestoring();
     try {
-      final companions = await ref.read(apiClientProvider).restoreTrips();
+      // Phase 26: ApiClient.restoreTrips() now returns ParsedTrip (trip +
+      // breaks). This plan (26-03) only wires the trip half through
+      // unchanged so restore keeps compiling/passing; persisting the
+      // restored break companions is Plan 05's job (RESEARCH.md scope).
+      final parsed = await ref.read(apiClientProvider).restoreTrips();
+      final companions = parsed.map((p) => p.trip).toList();
       final tripsDao = ref.read(tripsDaoProvider);
 
       final localTrips = await tripsDao.getAllTrips();

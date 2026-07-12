@@ -11,6 +11,7 @@ import 'package:traevy/database/database.dart';
 import 'package:traevy/sync/api_client.dart';
 import 'package:traevy/sync/sync_engine.dart';
 import 'package:traevy/sync/sync_status.dart';
+import 'package:traevy/sync/trip_serializer.dart';
 
 /// Recording fake of the [ApiClient] surface used by [SyncEngine]. Records
 /// every call and can be configured to throw a chosen [SyncException] (or to
@@ -21,6 +22,11 @@ class FakeApiClient implements ApiClient {
 
   /// Each entry is the list of trip ids passed to one [syncTrips] call.
   final List<List<String>> syncCalls = <List<String>>[];
+
+  /// Each entry is the `breaksByTripId` map passed to one [syncTrips] call
+  /// (Phase 26) — parallel to [syncCalls].
+  final List<Map<String, List<TripBreakRow>>> syncBreaksCalls =
+      <Map<String, List<TripBreakRow>>>[];
 
   /// Each entry is a trip id passed to one [deleteTrip] call.
   final List<String> deleteCalls = <String>[];
@@ -36,8 +42,12 @@ class FakeApiClient implements ApiClient {
   Completer<void>? syncGate;
 
   @override
-  Future<void> syncTrips(List<TripRow> trips) async {
+  Future<void> syncTrips(
+    List<TripRow> trips,
+    Map<String, List<TripBreakRow>> breaksByTripId,
+  ) async {
     syncCalls.add(trips.map((t) => t.id).toList());
+    syncBreaksCalls.add(breaksByTripId);
     if (syncGate != null) await syncGate!.future;
     if (syncThrow != null) throw syncThrow!;
   }
@@ -49,7 +59,7 @@ class FakeApiClient implements ApiClient {
   }
 
   @override
-  Future<List<TripsCompanion>> restoreTrips() async => <TripsCompanion>[];
+  Future<List<ParsedTrip>> restoreTrips() async => <ParsedTrip>[];
 }
 
 /// Builds a live [TripsCompanion] for [id] so `findById` returns a real row.
@@ -84,6 +94,7 @@ void main() {
         apiClient: api,
         syncQueueDao: queueDao,
         tripsDao: tripsDao,
+        tripBreaksDao: db.tripBreaksDao,
         status: status,
         isSignedIn: () => signedIn,
         isOnline: () async => online,
@@ -216,6 +227,45 @@ void main() {
       expect(api.syncCalls, isEmpty);
       expect(api.deleteCalls.toSet(), {'x', 'y'});
     });
+
+    // ---- Phase 26: batch break-fetch passed through to syncTrips ----------
+
+    test(
+      'a queued trip with break rows drains with a non-empty breaksByTripId '
+      'map passed to syncTrips; a break-less trip has no map entry',
+      () async {
+        await tripsDao.insertTrip(_trip('t1'));
+        await tripsDao.insertTrip(_trip('t2'));
+        await db.tripBreaksDao.insertBreaks([
+          TripBreaksCompanion.insert(
+            id: 'b1',
+            tripId: 't1',
+            startTime: DateTime.utc(2026, 1, 1, 8, 10),
+            endTime: Value<DateTime>(DateTime.utc(2026, 1, 1, 8, 15)),
+          ),
+          TripBreaksCompanion.insert(
+            id: 'b2',
+            tripId: 't1',
+            startTime: DateTime.utc(2026, 1, 1, 8, 40),
+            endTime: Value<DateTime>(DateTime.utc(2026, 1, 1, 8, 45)),
+          ),
+        ]);
+        await queueDao.enqueueCreate('t1');
+        await queueDao.enqueueCreate('t2');
+
+        await buildEngine().processPending();
+
+        expect(api.syncCalls, hasLength(1));
+        expect(api.syncBreaksCalls, hasLength(1));
+        final breaksByTripId = api.syncBreaksCalls.single;
+        expect(breaksByTripId.keys, ['t1']);
+        expect(breaksByTripId['t1'], hasLength(2));
+        expect(breaksByTripId['t1']!.first.id, 'b1');
+        // t2 has no breaks — absent from the map (ApiClient serializes it
+        // with an empty breaks array via `?? const []`).
+        expect(breaksByTripId.containsKey('t2'), isFalse);
+      },
+    );
 
     // ---- Missing-trip skip -------------------------------------------------
 
@@ -521,6 +571,7 @@ void main() {
         apiClient: api,
         syncQueueDao: queueDao,
         tripsDao: tripsDao,
+        tripBreaksDao: db.tripBreaksDao,
         status: status,
         isSignedIn: () => true,
         isOnline: () async => true,
@@ -597,6 +648,7 @@ void main() {
         apiClient: api,
         syncQueueDao: queueDao,
         tripsDao: tripsDao,
+        tripBreaksDao: db.tripBreaksDao,
         status: status,
         isSignedIn: () => true,
         isOnline: () async => true,

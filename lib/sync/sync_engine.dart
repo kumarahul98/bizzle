@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/daos/sync_queue_dao.dart';
+import 'package:traevy/database/daos/trip_breaks_dao.dart';
 import 'package:traevy/database/daos/trips_dao.dart';
 import 'package:traevy/database/database.dart';
 import 'package:traevy/database/providers.dart';
@@ -47,6 +48,7 @@ class SyncEngine {
     required ApiClient apiClient,
     required SyncQueueDao syncQueueDao,
     required TripsDao tripsDao,
+    required TripBreaksDao tripBreaksDao,
     required SyncStatusNotifier status,
     required bool Function() isSignedIn,
     required Future<bool> Function() isOnline,
@@ -54,6 +56,7 @@ class SyncEngine {
   }) : _api = apiClient,
        _queueDao = syncQueueDao,
        _tripsDao = tripsDao,
+       _tripBreaksDao = tripBreaksDao,
        _status = status,
        _isSignedIn = isSignedIn,
        _isOnline = isOnline,
@@ -62,6 +65,7 @@ class SyncEngine {
   final ApiClient _api;
   final SyncQueueDao _queueDao;
   final TripsDao _tripsDao;
+  final TripBreaksDao _tripBreaksDao;
   final SyncStatusNotifier _status;
   final bool Function() _isSignedIn;
   final Future<bool> Function() _isOnline;
@@ -212,13 +216,19 @@ class SyncEngine {
       effForTrip[entry.key] = entry.value;
     }
 
+    // Phase 26: ONE batch break-fetch for the whole drain, before the chunk
+    // loop — never N+1 (once per chunk or once per trip).
+    final breaksByTripId = await _tripBreaksDao.breaksForTripIds(
+      liveTrips.map((t) => t.id).toList(),
+    );
+
     for (var i = 0; i < liveTrips.length; i += kMaxSyncBatchTrips) {
       final end = (i + kMaxSyncBatchTrips < liveTrips.length)
           ? i + kMaxSyncBatchTrips
           : liveTrips.length;
       final chunk = liveTrips.sublist(i, end);
       try {
-        await _api.syncTrips(chunk);
+        await _api.syncTrips(chunk, breaksByTripId);
         for (final trip in chunk) {
           await _markAllSynced(effForTrip[trip.id]!);
         }
@@ -417,6 +427,7 @@ final Provider<SyncEngine> syncEngineProvider = Provider<SyncEngine>(
       apiClient: ref.watch(apiClientProvider),
       syncQueueDao: ref.watch(syncQueueDaoProvider),
       tripsDao: ref.watch(tripsDaoProvider),
+      tripBreaksDao: ref.watch(tripBreaksDaoProvider),
       status: ref.read(syncStatusProvider.notifier),
       isSignedIn: () => ref.read(authStateProvider) is AuthSignedIn,
       isOnline: () async => (await Connectivity().checkConnectivity()).any(
