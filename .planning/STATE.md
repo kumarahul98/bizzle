@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: App Improvements
-status: Ready to discuss/plan
+status: executing
 stopped_at: Phase 26 context gathered
-last_updated: "2026-07-12T05:13:31.145Z"
-last_activity: 2026-07-12 -- Phase 25.1 verified (3/3 must-haves) and marked complete
+last_updated: "2026-07-12T14:15:42.619Z"
+last_activity: 2026-07-12 -- Phase 26 planning complete
 progress:
   total_phases: 16
   completed_phases: 11
-  total_plans: 34
+  total_plans: 40
   completed_plans: 31
   percent: 69
 ---
@@ -27,8 +27,8 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 
 Phase: 26 — Sync Breaks & Edit Metadata to Cloud (next up; Phase 25.1 dependency now satisfied)
 Plan: not yet planned
-Status: Ready to discuss/plan
-Last activity: 2026-07-12 -- Phase 25.1 verified (3/3 must-haves) and marked complete
+Status: Ready to execute
+Last activity: 2026-07-12 -- Phase 26 planning complete
 
 **v0.3 progress:** 9/11 phases complete (17,18,19,20,21,22,24,25 done and merged to main 2026-07-06 in PR #2; 25.1 completed 2026-07-12 on main). Phase 23 rescoped 2026-07-11 (UAT audit found it never really executed — stalled at 1 thin plan; now Android-only, its one iOS criterion removed). Phase 25.1 (inserted 2026-07-11) fixed the broken auto-retry throttle and fake Merge conflict resolution; one visual UAT item remains tracked in 25.1-HUMAN-UAT.md (Merge sheet "Local" pre-selected on device).
 
