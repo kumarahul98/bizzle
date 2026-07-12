@@ -169,7 +169,8 @@ class _FakeSyncEngine implements SyncEngine {
 }
 
 /// Scripted [ApiClient] for the restore-tap test. `restoreTrips()` returns a
-/// fixed companion list (or throws) — no network, no token seam.
+/// fixed companion list wrapped as breaks-less [ParsedTrip]s (Phase 26), or
+/// throws — no network, no token seam.
 class _FakeApiClient implements ApiClient {
   _FakeApiClient(this._companions, {this.throwOnRestore = false});
 
@@ -177,9 +178,11 @@ class _FakeApiClient implements ApiClient {
   final bool throwOnRestore;
 
   @override
-  Future<List<TripsCompanion>> restoreTrips() async {
+  Future<List<ParsedTrip>> restoreTrips() async {
     if (throwOnRestore) throw const SyncException.transport();
-    return _companions;
+    return _companions
+        .map((c) => (trip: c, breaks: const <TripBreaksCompanion>[]))
+        .toList();
   }
 
   @override
@@ -932,4 +935,4 @@ TripsCompanion _restoreCompanion(String id) =>
       'isManualEntry': false,
       'createdAt': '2026-05-01T08:30:00.000Z',
       'updatedAt': '2026-05-01T08:30:00.000Z',
-    });
+    }).trip;

@@ -20,9 +20,10 @@ import 'package:traevy/sync/trip_serializer.dart';
 
 /// Scripted [ApiClient] for restore tests. `restoreTrips()` returns a fixed
 /// list of companions (built from sample JSON via the real
-/// `TripSerializer.fromJson`), or throws when [throwOnRestore] is set. No
-/// network, no token seam, no Firebase. All other ApiClient members are
-/// unreachable in these tests and surface via noSuchMethod if touched.
+/// `TripSerializer.fromJson`), each wrapped as a breaks-less [ParsedTrip]
+/// (Phase 26), or throws when [throwOnRestore] is set. No network, no token
+/// seam, no Firebase. All other ApiClient members are unreachable in these
+/// tests and surface via noSuchMethod if touched.
 class _FakeApiClient implements ApiClient {
   _FakeApiClient(this._companions, {this.throwOnRestore = false});
 
@@ -31,10 +32,12 @@ class _FakeApiClient implements ApiClient {
   int restoreCallCount = 0;
 
   @override
-  Future<List<TripsCompanion>> restoreTrips() async {
+  Future<List<ParsedTrip>> restoreTrips() async {
     restoreCallCount++;
     if (throwOnRestore) throw const SyncException.transport();
-    return _companions;
+    return _companions
+        .map((c) => (trip: c, breaks: const <TripBreaksCompanion>[]))
+        .toList();
   }
 
   @override
@@ -71,8 +74,14 @@ TripsCompanion _companion(
   String startTime = '2026-05-01T08:00:00.000Z',
   String endTime = '2026-05-01T08:30:00.000Z',
 }) => TripSerializer.fromJson(
-  _tripJson(id, direction: direction, durationSeconds: durationSeconds, startTime: startTime, endTime: endTime),
-);
+  _tripJson(
+    id,
+    direction: direction,
+    durationSeconds: durationSeconds,
+    startTime: startTime,
+    endTime: endTime,
+  ),
+).trip;
 
 void main() {
   late AppDatabase db;
@@ -180,8 +189,16 @@ void main() {
 
         final api = _FakeApiClient(<TripsCompanion>[
           _companion('t1'),
-          _companion('t2', startTime: '2026-05-01T09:00:00.000Z', endTime: '2026-05-01T09:30:00.000Z'),
-          _companion('t3', startTime: '2026-05-01T10:00:00.000Z', endTime: '2026-05-01T10:30:00.000Z'),
+          _companion(
+            't2',
+            startTime: '2026-05-01T09:00:00.000Z',
+            endTime: '2026-05-01T09:30:00.000Z',
+          ),
+          _companion(
+            't3',
+            startTime: '2026-05-01T10:00:00.000Z',
+            endTime: '2026-05-01T10:30:00.000Z',
+          ),
         ]);
         final container = containerWith(api);
 
@@ -199,7 +216,11 @@ void main() {
     test('Test D: all-new on empty DB → RestoreSuccess(2)', () async {
       final api = _FakeApiClient(<TripsCompanion>[
         _companion('a1'),
-        _companion('a2', startTime: '2026-05-01T09:00:00.000Z', endTime: '2026-05-01T09:30:00.000Z'),
+        _companion(
+          'a2',
+          startTime: '2026-05-01T09:00:00.000Z',
+          endTime: '2026-05-01T09:30:00.000Z',
+        ),
       ]);
       final container = containerWith(api);
 
@@ -216,12 +237,20 @@ void main() {
       () async {
         await db.tripsDao.insertOrIgnoreTrips(<TripsCompanion>[
           _companion('x1'),
-          _companion('x2', startTime: '2026-05-01T09:00:00.000Z', endTime: '2026-05-01T09:30:00.000Z'),
+          _companion(
+            'x2',
+            startTime: '2026-05-01T09:00:00.000Z',
+            endTime: '2026-05-01T09:30:00.000Z',
+          ),
         ]);
 
         final api = _FakeApiClient(<TripsCompanion>[
           _companion('x1'),
-          _companion('x2', startTime: '2026-05-01T09:00:00.000Z', endTime: '2026-05-01T09:30:00.000Z'),
+          _companion(
+            'x2',
+            startTime: '2026-05-01T09:00:00.000Z',
+            endTime: '2026-05-01T09:30:00.000Z',
+          ),
         ]);
         final container = containerWith(api);
 
@@ -257,7 +286,11 @@ void main() {
       () async {
         final api = _FakeApiClient(<TripsCompanion>[
           _companion('s1'),
-          _companion('s2', startTime: '2026-05-01T09:00:00.000Z', endTime: '2026-05-01T09:30:00.000Z'),
+          _companion(
+            's2',
+            startTime: '2026-05-01T09:00:00.000Z',
+            endTime: '2026-05-01T09:30:00.000Z',
+          ),
         ]);
         final container = containerWith(api);
 

@@ -49,7 +49,7 @@ TripsCompanion _companion(
     startTime: startTime,
     endTime: endTime,
   ),
-);
+).trip;
 
 void main() {
   late AppDatabase db;
