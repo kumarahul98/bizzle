@@ -225,5 +225,73 @@ void main() {
         expect(summaries.single.distanceMeters, 0.0);
       },
     );
+
+    group('tripIdsWithNonDefaultMetadata (Phase 26, D-01)', () {
+      /// Insert a trip with all-default metadata, returning its id.
+      /// Optional overrides flip individual metadata conditions.
+      Future<String> insertTripWith({
+        bool isEdited = false,
+        String directionSource = kDirectionSourceTime,
+      }) async {
+        final id = uuid.v4();
+        final start = DateTime.utc(2026, 5, 1, 8);
+        await db.tripsDao.insertTrip(
+          TripsCompanion.insert(
+            id: id,
+            startTime: start,
+            endTime: start.add(const Duration(minutes: 30)),
+            durationSeconds: 1800,
+            distanceMeters: 5000,
+            direction: kDirectionToOffice,
+            timeMovingSeconds: 1500,
+            timeStuckSeconds: 300,
+            isEdited: Value(isEdited),
+            directionSource: Value(directionSource),
+          ),
+        );
+        return id;
+      }
+
+      Future<void> insertBreakFor(String tripId) {
+        final start = DateTime.utc(2026, 5, 1, 8, 10);
+        return db.tripBreaksDao.insertBreaks([
+          TripBreaksCompanion.insert(
+            id: uuid.v4(),
+            tripId: tripId,
+            startTime: start,
+            endTime: Value(start.add(const Duration(minutes: 5))),
+          ),
+        ]);
+      }
+
+      test('trip with isEdited=true is included', () async {
+        final id = await insertTripWith(isEdited: true);
+        expect(await db.tripsDao.tripIdsWithNonDefaultMetadata(), [id]);
+      });
+
+      test('trip with directionSource=geofence is included', () async {
+        final id = await insertTripWith(
+          directionSource: kDirectionSourceGeofence,
+        );
+        expect(await db.tripsDao.tripIdsWithNonDefaultMetadata(), [id]);
+      });
+
+      test('trip with a break row is included', () async {
+        final id = await insertTripWith();
+        await insertBreakFor(id);
+        expect(await db.tripsDao.tripIdsWithNonDefaultMetadata(), [id]);
+      });
+
+      test('all-default trip is excluded', () async {
+        await insertTripWith();
+        expect(await db.tripsDao.tripIdsWithNonDefaultMetadata(), isEmpty);
+      });
+
+      test('trip matching multiple conditions appears exactly once', () async {
+        final id = await insertTripWith(isEdited: true);
+        await insertBreakFor(id);
+        expect(await db.tripsDao.tripIdsWithNonDefaultMetadata(), [id]);
+      });
+    });
   });
 }
