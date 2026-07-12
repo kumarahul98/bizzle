@@ -77,6 +77,12 @@ export async function syncTripsHandler(
           isManualEntry: trip.isManualEntry,
           createdAt: trip.createdAt,
           updatedAt: trip.updatedAt,
+          // Phase 26 metadata: `trip.*` is already-validated, already-defaulted
+          // zod output (tripSchema's `.default()`s), so no `??` is needed here.
+          totalPausedSeconds: trip.totalPausedSeconds,
+          isEdited: trip.isEdited,
+          directionSource: trip.directionSource,
+          breaks: trip.breaks,
           // `deleted:false` is deliberate (D-11, client-authoritative): re-syncing
           // an id resurrects a server-soft-deleted trip. An offline client that
           // never saw the delete will un-delete it on next sync — by design.

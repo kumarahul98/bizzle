@@ -4,7 +4,7 @@ import {
   QueryDocumentSnapshot,
   Timestamp,
 } from 'firebase-admin/firestore';
-import type { Direction, TripDoc } from '../types/trip';
+import type { Direction, DirectionSource, TripBreak, TripDoc } from '../types/trip';
 
 /**
  * Coerce a Firestore timestamp-shaped value into an ISO 8601 UTC string.
@@ -56,6 +56,13 @@ export const tripConverter: FirestoreDataConverter<TripDoc> = {
       isManualEntry: data.isManualEntry as boolean,
       createdAt: toIsoString(data.createdAt),
       updatedAt: toIsoString(data.updatedAt),
+      // Phase 26 metadata fields: defaulted field-by-field for legacy docs
+      // written before this phase (SC4). zod never runs on this read path
+      // (Anti-Pattern in RESEARCH.md) — defaulting happens here, not via parse.
+      totalPausedSeconds: (data.totalPausedSeconds as number | undefined) ?? 0,
+      isEdited: (data.isEdited as boolean | undefined) ?? false,
+      directionSource: (data.directionSource as DirectionSource | undefined) ?? 'time',
+      breaks: (data.breaks as TripBreak[] | undefined) ?? [],
       deleted: data.deleted as boolean,
       deletedAt: toNullableTimestamp(data.deletedAt),
       serverUpdatedAt:

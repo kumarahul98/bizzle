@@ -46,7 +46,15 @@ describe('POST /trips/sync', () => {
   describe('happy path (criterion 1)', () => {
     it('writes trip docs with forced userId and deleted:false', async () => {
       const t1 = makeTrip();
-      const t2 = makeTrip();
+      const t2 = makeTrip({
+        totalPausedSeconds: 180,
+        isEdited: true,
+        directionSource: 'geofence',
+        breaks: [
+          { startTime: '2026-05-01T08:10:00.000Z', endTime: '2026-05-01T08:12:00.000Z' },
+          { startTime: '2026-05-01T08:20:00.000Z', endTime: '2026-05-01T08:23:00.000Z' },
+        ],
+      });
 
       const res = await request(app)
         .post('/trips/sync')
@@ -69,6 +77,13 @@ describe('POST /trips/sync', () => {
       expect(d1.startTime).toBe(t1.startTime);
       expect(d1.endTime).toBe(t1.endTime);
       expect(d1.serverUpdatedAt).toBeDefined();
+
+      // Phase 26 metadata round-trips losslessly to the raw Firestore doc.
+      const d2 = snap2.data()!;
+      expect(d2.totalPausedSeconds).toBe(180);
+      expect(d2.isEdited).toBe(true);
+      expect(d2.directionSource).toBe('geofence');
+      expect(d2.breaks).toEqual(t2.breaks);
     });
   });
 
