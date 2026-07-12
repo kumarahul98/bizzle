@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: App Improvements
 status: executing
-stopped_at: Phase 26 context gathered
-last_updated: "2026-07-12T14:15:42.619Z"
-last_activity: 2026-07-12 -- Phase 26 planning complete
+stopped_at: Completed 26-01-PLAN.md (backend wire contract + live deploy, SC2 gate)
+last_updated: "2026-07-12T14:56:25.136Z"
+last_activity: 2026-07-12
 progress:
   total_phases: 16
   completed_phases: 11
   total_plans: 40
-  completed_plans: 31
+  completed_plans: 32
   percent: 69
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-06)
 
 **Core value:** Show people the reality of their commute -- time wasted in traffic and how it changes over time.
-**Current focus:** Phase 26 — Sync Breaks & Edit Metadata to Cloud (v0.3 App Improvements)
+**Current focus:** Phase 26 — sync-breaks-edit-metadata-to-cloud
 
 ## Current Position
 
-Phase: 26 — Sync Breaks & Edit Metadata to Cloud (next up; Phase 25.1 dependency now satisfied)
-Plan: not yet planned
+Phase: 26 (sync-breaks-edit-metadata-to-cloud) — EXECUTING
+Plan: 2 of 6
 Status: Ready to execute
-Last activity: 2026-07-12 -- Phase 26 planning complete
+Last activity: 2026-07-12
 
 **v0.3 progress:** 9/11 phases complete (17,18,19,20,21,22,24,25 done and merged to main 2026-07-06 in PR #2; 25.1 completed 2026-07-12 on main). Phase 23 rescoped 2026-07-11 (UAT audit found it never really executed — stalled at 1 thin plan; now Android-only, its one iOS criterion removed). Phase 25.1 (inserted 2026-07-11) fixed the broken auto-retry throttle and fake Merge conflict resolution; one visual UAT item remains tracked in 25.1-HUMAN-UAT.md (Merge sheet "Local" pre-selected on device).
 
@@ -86,6 +86,7 @@ Phases 25.1 and 26 are platform-agnostic (Dart/backend, shared by both platforms
 | Phase 25 P01 | 15min | 3 tasks | 4 files |
 | Phase 25.1 P01 | 10min | 2 tasks | 3 files |
 | Phase 25.1 P02 | 7min | 2 tasks | 2 files |
+| Phase 26 P01 | 25min | 3 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -127,6 +128,8 @@ Recent decisions affecting current work:
 - [Phase ?]: DEVELOPMENT_TEAM 2DG5SFXZ5Z (Personal Team, Rahul kumar) committed to project.pbxproj — standard practice, non-secret; free provisioning install 2026-06-02, expires 2026-06-09
 - [Phase ?]: TrackingNotifier rewired to TrackingEventSource seam; trackingEventSourceProvider selects MainIsolateTrackingEngine (iOS) vs FbsTrackingEventSource (Android) — D-04 single runtime switch
 - [Phase ?]: IOS-08 accuracy-blocked start surfaces kTrackingReducedAccuracyBlockedMessage (distinct stable string) vs generic message on Android (T-02-07 preserved)
+- [Phase 26-01]: kMaxBreaksPerTrip=50 DoS cap on the embedded breaks array; directionSource enum locked to literal 'manual'/'geofence'/'time' matching client kDirectionSource* constants byte-for-byte; read-side defaulting lives ONLY in tripConverter.fromFirestore (?? 0/false/'time'/[]) — no zod parse on the restore path
+- [Phase 26-01]: nodejs20 runtime decommissions 2026-10-30 (deploy warning) — bump to nodejs22 before then or future deploys are blocked
 
 ### Pending Todos
 
@@ -158,9 +161,9 @@ Full checklist: `.planning/v0.1-DEVICE-CHECKLIST.md` (Groups A-I). Resume v0.1 c
 
 ## Session Continuity
 
-Last session: 2026-07-12T05:13:31.131Z
-Stopped at: Phase 26 context gathered
-Resume file: .planning/phases/26-sync-breaks-edit-metadata-to-cloud/26-CONTEXT.md
+Last session: 2026-07-12T14:56:15.716Z
+Stopped at: Completed 26-01-PLAN.md (backend wire contract + live deploy, SC2 gate)
+Resume file: None
 
 [2026-07-11] Completed 25.1-02-PLAN.md (D-05 merge default flip to local at both leak points + D-08 two-differing-field merge test — all Phase 25.1 plans done)
 [2026-07-11] Completed 25.1-01-PLAN.md (D-07 gate regression tests + D-04 autoRetryWindowElapsed rename/consolidation)

@@ -721,7 +721,7 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 26-01-PLAN.md — Backend: extend zod tripSchema/Trip/TripDoc/Firestore converter/both handlers + tests, deploy live (SC1, SC2, SC4 legacy-doc defaults)
+- [x] 26-01-PLAN.md — Backend: extend zod tripSchema/Trip/TripDoc/Firestore converter/both handlers + tests, deploy live (SC1, SC2, SC4 legacy-doc defaults)
 - [ ] 26-02-PLAN.md — Client: schema v6->v7 backfill marker migration, TripBreaksDao batch lookup, UserPreferencesDao marker, Phase 26 constants
 
 **Wave 2** *(blocked on Wave 1)*
@@ -758,4 +758,4 @@ Note: Phase 17 is a small, independent UI fix + quick-label and is the safe firs
 | 24. Automatic Cloud Sync & Restore | v0.3 | 3/3 | Complete | 2026-06-16 |
 | 25. Interrupted-Trip Recovery | v0.3 | 3/3 | Complete | 2026-06-28 |
 | 25.1. Fix Sync Conflict & Auto-Retry Bugs (INSERTED) | v0.3 | 2/2 | Complete | 2026-07-12 |
-| 26. Sync Breaks & Edit Metadata to Cloud | v0.3 | 0/TBD | Not started | - |
+| 26. Sync Breaks & Edit Metadata to Cloud | v0.3 | 1/6 | In Progress|  |
