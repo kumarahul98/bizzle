@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:traevy/config/constants.dart';
+import 'package:traevy/database/providers.dart';
 import 'package:traevy/features/dashboard/screens/dashboard_screen.dart';
 import 'package:traevy/features/settings/screens/settings_screen.dart';
 import 'package:traevy/features/shell/providers/main_shell_provider.dart';
@@ -51,18 +52,30 @@ class _MainShellState extends ConsumerState<MainShell> {
       if (action == 'start') {
         _handleStart();
       } else if (action == 'pause') {
-        _showConfirmationDialog('Pause Commute', 'Are you sure you want to pause?', () {
-          ref.read(trackingStateProvider.notifier).pause();
-        });
+        _showConfirmationDialog(
+          'Pause Commute',
+          'Are you sure you want to pause?',
+          () {
+            ref.read(trackingStateProvider.notifier).pause();
+          },
+        );
       } else if (action == 'stop') {
-        _showConfirmationDialog('Stop Commute', 'Are you sure you want to stop and save this trip?', () {
-          ref.read(trackingStateProvider.notifier).stop();
-        });
+        _showConfirmationDialog(
+          'Stop Commute',
+          'Are you sure you want to stop and save this trip?',
+          () {
+            ref.read(trackingStateProvider.notifier).stop();
+          },
+        );
       }
     }
   }
 
-  void _showConfirmationDialog(String title, String message, VoidCallback onConfirm) {
+  void _showConfirmationDialog(
+    String title,
+    String message,
+    VoidCallback onConfirm,
+  ) {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -93,17 +106,19 @@ class _MainShellState extends ConsumerState<MainShell> {
     final status = await service.preflight();
     if (!mounted) return;
     if (status == TrackingPermissionStatus.denied) return;
-    
-    if (status == TrackingPermissionStatus.permanentlyDenied || 
+
+    if (status == TrackingPermissionStatus.permanentlyDenied ||
         status == TrackingPermissionStatus.notificationDenied) {
       // Permissions are denied, standard logic will handle prompts if user clicks normally.
       // But we can just surface a quick snackbar here.
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Permissions required to start tracking.')),
+        const SnackBar(
+          content: Text('Permissions required to start tracking.'),
+        ),
       );
       return;
     }
-    
+
     ref.read(trackingStateProvider.notifier).start();
   }
 
@@ -114,13 +129,13 @@ class _MainShellState extends ConsumerState<MainShell> {
         const SnackBar(content: Text(kAutoRestoreInProgress)),
       );
     }
-    
+
     await ref.read(restoreControllerProvider.notifier).restore();
-    
+
     if (!mounted) return;
-    
+
     ref.read(syncEngineProvider).resumeUploads();
-    
+
     final restoreState = ref.read(restoreControllerProvider);
     if (restoreState is RestoreSuccess) {
       if (restoreState.count == 0) {
@@ -131,7 +146,10 @@ class _MainShellState extends ConsumerState<MainShell> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              kAutoRestoreResultTemplate.replaceAll('{n}', restoreState.count.toString()),
+              kAutoRestoreResultTemplate.replaceAll(
+                '{n}',
+                restoreState.count.toString(),
+              ),
             ),
           ),
         );
@@ -141,6 +159,43 @@ class _MainShellState extends ConsumerState<MainShell> {
         const SnackBar(content: Text(kAutoRestoreError)),
       );
     }
+  }
+
+  /// One-time backfill of trips with non-default v0.3 metadata (Phase 26,
+  /// D-01/D-02/D-03).
+  ///
+  /// Marker-guarded exactly-once per install: if the stored marker is
+  /// already at (or past) [kBackfillMarkerVersion] this is a silent no-op.
+  /// Otherwise every candidate id from
+  /// `TripsDao.tripIdsWithNonDefaultMetadata()` is re-enqueued for upload
+  /// and the marker is stamped AFTER the enqueue loop completes — the
+  /// sync queue is persistent with retries, so enqueue-time is when the
+  /// backfill counts as done. Deliberately silent (no snackbar/dialog):
+  /// unlike auto-restore, backfill has no user-visible outcome to report.
+  Future<void> _runBackfillIfNeeded() async {
+    if (!mounted) return;
+    final prefsDao = ref.read(userPreferencesDaoProvider);
+    final markerVersion = await prefsDao.getBackfillMarkerVersion();
+    if (markerVersion >= kBackfillMarkerVersion) return;
+    if (!mounted) return;
+    final candidateIds = await ref
+        .read(tripsDaoProvider)
+        .tripIdsWithNonDefaultMetadata();
+    if (!mounted) return;
+    final syncQueueDao = ref.read(syncQueueDaoProvider);
+    for (final id in candidateIds) {
+      await syncQueueDao.enqueueUpdate(id);
+    }
+    await prefsDao.setBackfillMarkerVersion(kBackfillMarkerVersion);
+  }
+
+  /// Sign-in sequencing (Phase 26, T-26-12): auto-restore fully completes
+  /// BEFORE the backfill runs, so the backfill's enqueues never race
+  /// Phase 24's restore-then-resume-uploads sequence. Fire-and-forget from
+  /// the `ref.listen` callback; the sequencing lives here.
+  Future<void> _runAutoRestoreThenBackfill() async {
+    await _runAutoRestore();
+    await _runBackfillIfNeeded();
   }
 
   @override
@@ -160,10 +215,10 @@ class _MainShellState extends ConsumerState<MainShell> {
     ref.listen<AuthState>(authStateProvider, (previous, next) {
       if (next is AuthSignedIn && !_hasRunAutoRestoreForCurrentSession) {
         _hasRunAutoRestoreForCurrentSession = true;
-        _runAutoRestore();
+        _runAutoRestoreThenBackfill();
       }
     });
-    
+
     ref.listen<RestoreState>(restoreControllerProvider, (previous, next) {
       if (next is RestoreConflictState) {
         showModalBottomSheet<void>(
@@ -181,7 +236,10 @@ class _MainShellState extends ConsumerState<MainShell> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                kAutoRestoreResultTemplate.replaceAll('{n}', next.count.toString()),
+                kAutoRestoreResultTemplate.replaceAll(
+                  '{n}',
+                  next.count.toString(),
+                ),
               ),
             ),
           );
