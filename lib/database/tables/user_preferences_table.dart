@@ -95,6 +95,16 @@ class UserPreferences extends Table {
   /// NEVER log (T-21-03). Added by schema migration v5 → v6 (additive).
   RealColumn get officeLng => real().nullable()();
 
+  /// Version-keyed backfill marker (Phase 26, D-03): tracks "backfill done
+  /// for payload schema v{N}" so the one-time re-sync for trips with breaks
+  /// or edits runs at most once per target schema version, not once per app
+  /// launch. `0` = backfill has never run on this install. Compared against
+  /// `kBackfillMarkerVersion` (`lib/config/constants.dart`) by
+  /// `UserPreferencesDao.getBackfillMarkerVersion()`. Added by schema
+  /// migration v6 → v7 (additive).
+  IntColumn get backfillMarkerVersion =>
+      integer().withDefault(const Constant(0))();
+
   @override
   Set<Column<Object>> get primaryKey => {id};
 }

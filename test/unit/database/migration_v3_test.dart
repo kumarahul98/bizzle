@@ -60,19 +60,20 @@ void main() {
             );
         await oldDb.close();
 
-        // 2. Run the real migration up to the current terminal version (v5)
-        //    and validate the resulting schema against the generated v5
-        //    snapshot. A real v2 install upgrades straight through v3/v4 to
-        //    v5, so this exercises the full stepwise chain (D-04). The v3
+        // 2. Run the real migration up to the current terminal version (v7)
+        //    and validate the resulting schema against the generated v7
+        //    snapshot. A real v2 install upgrades straight through v3..v7,
+        //    so this exercises the full stepwise chain (D-04). The v3
         //    columns added by Phase 18 (total_paused_seconds,
         //    auto_pause_enabled) are asserted below to prove the v2 → v3 step
         //    still preserves data. Migrating to the terminal version is also
         //    required so the real DAO's getOrDefault() can read every column
         //    (has_seen_onboarding was added at v5; the Phase 21 coords +
-        //    direction_source at v6).
+        //    direction_source at v6; the Phase 26 backfill_marker_version at
+        //    v7).
         final migratedDb = AppDatabase(schema.newConnection());
         addTearDown(migratedDb.close);
-        await verifier.migrateAndValidate(migratedDb, 6);
+        await verifier.migrateAndValidate(migratedDb, 7);
 
         // 3a. The previously-inserted trip still exists after migration.
         final tripRow = await migratedDb.tripsDao.findById(tripId);

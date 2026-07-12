@@ -37,7 +37,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -120,6 +120,20 @@ class AppDatabase extends _$AppDatabase {
         await m.addColumn(userPreferences, userPreferences.officeLat);
         await m.addColumn(userPreferences, userPreferences.officeLng);
         await m.addColumn(trips, trips.directionSource);
+      }
+      if (from < 7 && to >= 7) {
+        // Phase 26 (D-03): additive-only v6 → v7 migration. Adds the
+        // version-keyed user_preferences.backfill_marker_version column
+        // (default 0) that tracks whether the one-time re-sync of trips with
+        // breaks/edits has run for the current payload schema. No UPDATE/DROP
+        // touches existing rows, so every historical preferences row survives
+        // unchanged and reads backfill_marker_version=0 (never run). Ordered
+        // AFTER the from<6 branch so a v1..v6 install runs every branch in
+        // sequence.
+        await m.addColumn(
+          userPreferences,
+          userPreferences.backfillMarkerVersion,
+        );
       }
     },
     beforeOpen: (details) async {

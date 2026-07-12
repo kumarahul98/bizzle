@@ -69,11 +69,14 @@ void main() {
             );
         await oldDb.close();
 
-        // 2. Run the real v5 → v6 migration and validate the DDL diff against
-        //    the generated v6 snapshot (proves no schema drift).
+        // 2. Run the real migration up to the terminal version and validate
+        //    the DDL diff against the generated snapshot. The v5 → v6 step
+        //    still runs as part of the stepwise upgrade; migrating to the
+        //    terminal version is required so the real DAOs can read every
+        //    column (Phase 26 added backfill_marker_version after v6).
         final migratedDb = AppDatabase(schema.newConnection());
         addTearDown(migratedDb.close);
-        await verifier.migrateAndValidate(migratedDb, 6);
+        await verifier.migrateAndValidate(migratedDb, 7);
 
         // 3a. The trip survives unchanged (additive migration).
         final tripRow = await migratedDb.tripsDao.findById(tripId);
