@@ -323,7 +323,8 @@ Future<void> _pickReminderTime(
 ) async {
   // Parse the current reminderTime into a TimeOfDay for the picker's
   // initialTime; fall back to 08:00 when no time is set yet.
-  final initial = _parseReminderTimeOfDay(prefs.reminderTime) ??
+  final initial =
+      _parseReminderTimeOfDay(prefs.reminderTime) ??
       const TimeOfDay(hour: 8, minute: 0);
 
   final picked = await showTimePicker(
@@ -333,7 +334,8 @@ Future<void> _pickReminderTime(
   );
   if (picked == null) return;
 
-  final hhMm = '${picked.hour.toString().padLeft(2, '0')}:'
+  final hhMm =
+      '${picked.hour.toString().padLeft(2, '0')}:'
       '${picked.minute.toString().padLeft(2, '0')}';
 
   await ref
@@ -417,6 +419,10 @@ UserPreferencesValue _copyPrefs(
   homeLng: prefs.homeLng,
   officeLat: prefs.officeLat,
   officeLng: prefs.officeLng,
+  // Preserve the Phase 26 backfill marker — a generic settings write must
+  // never reset it, or the one-time re-sync would appear to "never have
+  // run" and retrigger unnecessarily.
+  backfillMarkerVersion: prefs.backfillMarkerVersion,
 );
 
 class _UnsetSentinel {

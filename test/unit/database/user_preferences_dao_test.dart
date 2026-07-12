@@ -53,6 +53,7 @@ void main() {
         homeLng: null,
         officeLat: null,
         officeLng: null,
+        backfillMarkerVersion: 0,
       );
 
       await db.userPreferencesDao.upsert(updated);
@@ -83,6 +84,7 @@ void main() {
         homeLng: null,
         officeLat: null,
         officeLng: null,
+        backfillMarkerVersion: 0,
       );
       const second = UserPreferencesValue(
         userId: kDefaultUserId,
@@ -99,6 +101,7 @@ void main() {
         homeLng: null,
         officeLat: null,
         officeLng: null,
+        backfillMarkerVersion: 0,
       );
 
       await db.userPreferencesDao.upsert(first);
@@ -143,6 +146,7 @@ void main() {
         homeLng: null,
         officeLat: null,
         officeLng: null,
+        backfillMarkerVersion: 0,
       );
 
       await db.userPreferencesDao.upsert(updated);
@@ -208,6 +212,7 @@ void main() {
           homeLng: null,
           officeLat: null,
           officeLng: null,
+          backfillMarkerVersion: 0,
         );
         await db.userPreferencesDao.upsert(prior);
 
@@ -216,6 +221,59 @@ void main() {
         final read = await db.userPreferencesDao.getOrDefault();
         expect(read.hasSeenOnboarding, isTrue);
         // Other columns survive the single-column upsert.
+        expect(read.userId, 'real-uid');
+        expect(read.darkMode, 'dark');
+        expect(read.morningCutoffHour, 9);
+        expect(read.reminderTime, '08:30');
+        expect(read.autoPauseEnabled, isTrue);
+      },
+    );
+
+    test(
+      'setBackfillMarkerVersion(2) creates the row on a fresh DB and '
+      'getBackfillMarkerVersion reflects it (Phase 26, D-03)',
+      () async {
+        // Fresh DB has no prefs row (D-04 no-seed). getBackfillMarkerVersion
+        // must report 0 (never run) until the setter writes it.
+        final before = await db.userPreferencesDao.getBackfillMarkerVersion();
+        expect(before, 0);
+
+        await db.userPreferencesDao.setBackfillMarkerVersion(2);
+
+        final after = await db.userPreferencesDao.getBackfillMarkerVersion();
+        expect(after, 2);
+      },
+    );
+
+    test(
+      'setBackfillMarkerVersion does not disturb other columns set by a '
+      'prior upsert',
+      () async {
+        const prior = UserPreferencesValue(
+          userId: 'real-uid',
+          darkMode: 'dark',
+          morningCutoffHour: 9,
+          eveningCutoffHour: 17,
+          reminderEnabled: true,
+          reminderTime: '08:30',
+          weekendReminder: true,
+          weeklyNotificationEnabled: true,
+          autoPauseEnabled: true,
+          hasSeenOnboarding: false,
+          homeLat: null,
+          homeLng: null,
+          officeLat: null,
+          officeLng: null,
+          backfillMarkerVersion: 0,
+        );
+        await db.userPreferencesDao.upsert(prior);
+
+        await db.userPreferencesDao.setBackfillMarkerVersion(2);
+
+        final read = await db.userPreferencesDao.getOrDefault();
+        expect(read.backfillMarkerVersion, 2);
+        // Other columns survive the single-column upsert — including
+        // darkMode, which a naive full-object write would silently reset.
         expect(read.userId, 'real-uid');
         expect(read.darkMode, 'dark');
         expect(read.morningCutoffHour, 9);

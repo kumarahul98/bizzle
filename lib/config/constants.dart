@@ -1211,3 +1211,30 @@ const String kRecoveryResumeAction = 'Resume';
 
 /// Action label for discarding the interrupted trip.
 const String kRecoveryDiscardAction = 'Discard';
+
+// ---------------------------------------------------------------------------
+// Phase 26 — Sync Breaks & Edit Metadata to Cloud
+// ---------------------------------------------------------------------------
+
+/// Maximum number of break segments embedded in a single trip's sync
+/// payload. Must numerically match the backend's `kMaxBreaksPerTrip` DoS cap
+/// in `backend/functions/src/utils/validation.ts` — a payload with more
+/// breaks than this is rejected server-side (400). ALSO enforced
+/// client-side at serialization time: `TripSerializer.toJson` (Plan 03)
+/// truncates to this cap, oldest-first, so sync never emits a payload the
+/// backend would reject.
+const int kMaxBreaksPerTrip = 50;
+
+/// Target backfill schema version (Phase 26, D-03): "backfill done for
+/// payload schema v2". Compared against
+/// `UserPreferencesDao.getBackfillMarkerVersion()` — when the stored marker
+/// is less than this value, the one-time re-sync for trips with breaks or
+/// edits has not yet run for the current payload shape and should trigger.
+const int kBackfillMarkerVersion = 2;
+
+/// D-05 read-only conflict-sheet indicator shown only when the local and
+/// cloud break counts differ for a trip. `{local}`/`{cloud}` are replaced
+/// via `.replaceAll`, mirroring [kAutoRestoreResultTemplate]'s `{n}`
+/// placeholder convention.
+const String kConflictBreaksDifferTemplate =
+    'Local: {local} breaks · Cloud: {cloud} breaks';

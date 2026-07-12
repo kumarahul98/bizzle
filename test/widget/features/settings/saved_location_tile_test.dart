@@ -33,6 +33,7 @@ UserPreferencesValue _prefs({
   homeLng: homeLng,
   officeLat: officeLat,
   officeLng: officeLng,
+  backfillMarkerVersion: 0,
 );
 
 Future<int> _pumpTile(

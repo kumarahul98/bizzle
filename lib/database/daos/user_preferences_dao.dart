@@ -36,6 +36,7 @@ class UserPreferencesValue {
     required this.homeLng,
     required this.officeLat,
     required this.officeLng,
+    required this.backfillMarkerVersion,
   });
 
   /// The defaults used the first time the user launches the app —
@@ -54,7 +55,8 @@ class UserPreferencesValue {
       homeLat = null,
       homeLng = null,
       officeLat = null,
-      officeLng = null;
+      officeLng = null,
+      backfillMarkerVersion = 0;
 
   /// Owning user placeholder (Phase 8 replaces with Cognito sub).
   final String userId;
@@ -101,6 +103,12 @@ class UserPreferencesValue {
 
   /// Saved Office longitude (Phase 21, D-01). Null = not set. PII-adjacent.
   final double? officeLng;
+
+  /// Version-keyed backfill marker (Phase 26, D-03): "backfill done for
+  /// payload schema v{N}". `0` = backfill has never run on this install.
+  /// Compared against [kBackfillMarkerVersion] by the caller that decides
+  /// whether the one-time re-sync for trips with breaks/edits should run.
+  final int backfillMarkerVersion;
 }
 
 /// Data-access object for the single-row user_preferences table.
@@ -143,6 +151,7 @@ class UserPreferencesDao extends DatabaseAccessor<AppDatabase>
       homeLng: row.homeLng,
       officeLat: row.officeLat,
       officeLng: row.officeLng,
+      backfillMarkerVersion: row.backfillMarkerVersion,
     );
   }
 
@@ -176,6 +185,7 @@ class UserPreferencesDao extends DatabaseAccessor<AppDatabase>
               homeLng: row.homeLng,
               officeLat: row.officeLat,
               officeLng: row.officeLng,
+              backfillMarkerVersion: row.backfillMarkerVersion,
             ),
     );
   }
@@ -225,6 +235,7 @@ class UserPreferencesDao extends DatabaseAccessor<AppDatabase>
         homeLng: Value<double?>(value.homeLng),
         officeLat: Value<double?>(value.officeLat),
         officeLng: Value<double?>(value.officeLng),
+        backfillMarkerVersion: Value<int>(value.backfillMarkerVersion),
       ),
     );
   }
@@ -281,6 +292,29 @@ class UserPreferencesDao extends DatabaseAccessor<AppDatabase>
         id: const Value<int>(_kUserPreferencesId),
         officeLat: Value<double?>(lat),
         officeLng: Value<double?>(lng),
+      ),
+    );
+  }
+
+  /// Read the backfill marker version (Phase 26, D-03). `0` on a fresh DB
+  /// (no row) — backfill has never run on this install. Compare the result
+  /// against `kBackfillMarkerVersion` to decide whether the one-time
+  /// re-sync for trips with breaks/edits should run.
+  Future<int> getBackfillMarkerVersion() async {
+    final value = await getOrDefault();
+    return value.backfillMarkerVersion;
+  }
+
+  /// Set the backfill marker version (Phase 26, D-03). Single-column upsert
+  /// mirroring [setHasSeenOnboarding]: targets the single row at `id = 1`;
+  /// the first write CREATES it (a fresh install has no row per D-04), later
+  /// writes update only `backfill_marker_version` in place. Every other
+  /// column keeps its existing value (or table default on first write).
+  Future<void> setBackfillMarkerVersion(int version) {
+    return into(userPreferences).insertOnConflictUpdate(
+      UserPreferencesCompanion.insert(
+        id: const Value<int>(_kUserPreferencesId),
+        backfillMarkerVersion: Value<int>(version),
       ),
     );
   }

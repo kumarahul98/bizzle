@@ -38,6 +38,29 @@ class TripBreaksDao extends DatabaseAccessor<AppDatabase>
         .get();
   }
 
+  /// All break segments for every trip in [tripIds], keyed by `tripId` and
+  /// ordered by `startTime` ascending within each trip's list (Phase 26).
+  ///
+  /// A single `WHERE tripId IN (...)` query, grouped client-side into the
+  /// result map — avoids the N+1 pattern of calling [breaksForTrip] once per
+  /// trip during sync (RESEARCH.md Don't-Hand-Roll). An empty [tripIds]
+  /// short-circuits to `{}` without touching the database.
+  Future<Map<String, List<TripBreakRow>>> breaksForTripIds(
+    List<String> tripIds,
+  ) async {
+    if (tripIds.isEmpty) return {};
+    final rows =
+        await (select(tripBreaks)
+              ..where((b) => b.tripId.isIn(tripIds))
+              ..orderBy([(b) => OrderingTerm.asc(b.startTime)]))
+            .get();
+    final result = <String, List<TripBreakRow>>{};
+    for (final row in rows) {
+      result.putIfAbsent(row.tripId, () => []).add(row);
+    }
+    return result;
+  }
+
   /// Delete every break segment for [tripId].
   ///
   /// First step of Plan 02's atomic full-edit (D-12): the write path

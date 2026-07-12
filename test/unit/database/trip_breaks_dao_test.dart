@@ -148,5 +148,81 @@ void main() {
         throwsA(isA<SqliteException>()),
       );
     });
+
+    group('breaksForTripIds', () {
+      test('empty list returns {} with no query executed', () async {
+        final result = await db.tripBreaksDao.breaksForTripIds([]);
+        expect(result, isEmpty);
+      });
+
+      test(
+        'two trips each with breaks returns a correctly-keyed and ordered '
+        'map, excluding a third trip not in the requested id list',
+        () async {
+          final tripA = await insertParentTrip();
+          final tripB = await insertParentTrip();
+          final tripC = await insertParentTrip();
+
+          // tripA: two breaks inserted out of chronological order, to prove
+          // ordering is by startTime, not insertion order.
+          await db.tripBreaksDao.insertBreaks([
+            TripBreaksCompanion.insert(
+              id: uuid.v4(),
+              tripId: tripA,
+              startTime: DateTime.utc(2026, 1, 1, 8, 40),
+              endTime: Value<DateTime>(DateTime.utc(2026, 1, 1, 8, 45)),
+            ),
+            TripBreaksCompanion.insert(
+              id: uuid.v4(),
+              tripId: tripA,
+              startTime: DateTime.utc(2026, 1, 1, 8, 10),
+              endTime: Value<DateTime>(DateTime.utc(2026, 1, 1, 8, 15)),
+            ),
+          ]);
+
+          // tripB: a single break.
+          await db.tripBreaksDao.insertBreaks([
+            TripBreaksCompanion.insert(
+              id: uuid.v4(),
+              tripId: tripB,
+              startTime: DateTime.utc(2026, 1, 1, 9, 0),
+              endTime: Value<DateTime>(DateTime.utc(2026, 1, 1, 9, 5)),
+            ),
+          ]);
+
+          // tripC: breaks exist but tripC is NOT in the requested id list —
+          // must be excluded from the result entirely.
+          await db.tripBreaksDao.insertBreaks([
+            TripBreaksCompanion.insert(
+              id: uuid.v4(),
+              tripId: tripC,
+              startTime: DateTime.utc(2026, 1, 1, 10, 0),
+              endTime: Value<DateTime>(DateTime.utc(2026, 1, 1, 10, 5)),
+            ),
+          ]);
+
+          final result = await db.tripBreaksDao.breaksForTripIds([
+            tripA,
+            tripB,
+          ]);
+
+          expect(result.keys, unorderedEquals([tripA, tripB]));
+          expect(result[tripA], hasLength(2));
+          expect(
+            result[tripA]!.first.startTime.isAtSameMomentAs(
+              DateTime.utc(2026, 1, 1, 8, 10),
+            ),
+            isTrue,
+          );
+          expect(
+            result[tripA]!.last.startTime.isAtSameMomentAs(
+              DateTime.utc(2026, 1, 1, 8, 40),
+            ),
+            isTrue,
+          );
+          expect(result[tripB], hasLength(1));
+        },
+      );
+    });
   });
 }

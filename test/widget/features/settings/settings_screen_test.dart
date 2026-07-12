@@ -392,6 +392,7 @@ void main() {
             homeLng: null,
             officeLat: null,
             officeLng: null,
+            backfillMarkerVersion: 0,
           ),
           notificationService: fakeNotif,
         );
@@ -516,6 +517,7 @@ void main() {
             homeLng: null,
             officeLat: null,
             officeLng: null,
+            backfillMarkerVersion: 0,
           ),
         );
         await _scrollTo(tester, find.text('Daily reminder'));
@@ -573,6 +575,7 @@ void main() {
             homeLng: null,
             officeLat: null,
             officeLng: null,
+            backfillMarkerVersion: 0,
           ),
         );
         await _scrollTo(tester, find.text(kSettingsReminderTimeLabel));
@@ -607,6 +610,7 @@ void main() {
             homeLng: null,
             officeLat: null,
             officeLng: null,
+            backfillMarkerVersion: 0,
           ),
           notificationService: fakeNotif,
         );
@@ -655,6 +659,7 @@ void main() {
             homeLng: null,
             officeLat: null,
             officeLng: null,
+            backfillMarkerVersion: 0,
           ),
           notificationService: fakeNotif,
         );
@@ -700,6 +705,7 @@ void main() {
             homeLng: null,
             officeLat: null,
             officeLng: null,
+            backfillMarkerVersion: 0,
           ),
           notificationService: fakeNotif,
         );
