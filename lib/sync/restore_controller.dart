@@ -1,9 +1,14 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:traevy/config/constants.dart';
+import 'package:traevy/database/daos/trip_breaks_dao.dart';
+import 'package:traevy/database/daos/trips_dao.dart';
 import 'package:traevy/database/database.dart';
 import 'package:traevy/database/providers.dart';
 import 'package:traevy/sync/api_client.dart';
 import 'package:traevy/sync/restore_conflict.dart';
+import 'package:traevy/sync/trip_serializer.dart';
 
 /// Finite state of the manual restore-from-cloud flow (SYNC-03, D-08). A
 /// sealed model — never a raw string — per the CLAUDE.md "sealed classes for
@@ -50,12 +55,18 @@ class RestoreError extends RestoreState {
 
 /// Drives the manual restore-from-cloud flow (SYNC-03, D-08).
 ///
-/// `restore()` downloads all of the authenticated user's trips via Plan 01's
-/// [ApiClient.restoreTrips] (which already maps the response envelope to
-/// `List<TripsCompanion>` via `TripSerializer.fromJson` internally — HIGH-3),
-/// then writes them into Drift in a SINGLE batch with dedupe-by-UUID
-/// (`TripsDao.insertOrIgnoreTrips` — MEDIUM-3). It reports the count of NEW
-/// trips inserted.
+/// `restore()` downloads all of the authenticated user's trips via
+/// [ApiClient.restoreTrips] (`List<ParsedTrip>` — trip companion + break
+/// companions, Phase 26), then writes them into Drift with dedupe-by-UUID:
+///   * breakless new trips go through the single-batch
+///     `TripsDao.insertOrIgnoreTrips` fast path (MEDIUM-3);
+///   * new trips carrying breaks are inserted per-trip inside a
+///     `db.transaction()` (trip row THEN break rows — atomic, RESEARCH.md
+///     Pitfall 2);
+///   * existing same-UUID, non-conflicting trips whose local metadata is
+///     still at its defaults are ENRICHED from the cloud copy (D-10/D-11) —
+///     a real local value is never overwritten.
+/// It reports the count of NEW trips inserted.
 ///
 /// Restore is a DOWNLOAD: it NEVER enqueues sync_queue rows (it is the inverse
 /// of the upload engine). It is client-authoritative — existing local rows are
@@ -80,13 +91,10 @@ class RestoreController extends Notifier<RestoreState> {
   Future<void> restore() async {
     state = const RestoreRestoring();
     try {
-      // Phase 26: ApiClient.restoreTrips() now returns ParsedTrip (trip +
-      // breaks). This plan (26-03) only wires the trip half through
-      // unchanged so restore keeps compiling/passing; persisting the
-      // restored break companions is Plan 05's job (RESEARCH.md scope).
-      final parsed = await ref.read(apiClientProvider).restoreTrips();
-      final companions = parsed.map((p) => p.trip).toList();
+      final parsedTrips = await ref.read(apiClientProvider).restoreTrips();
+      final database = ref.read(appDatabaseProvider);
       final tripsDao = ref.read(tripsDaoProvider);
+      final tripBreaksDao = ref.read(tripBreaksDaoProvider);
 
       final localTrips = await tripsDao.getAllTrips();
       // Lookup structures built once so the per-cloud-trip work below stays
@@ -99,18 +107,41 @@ class RestoreController extends Notifier<RestoreState> {
       final localsByStart = [...localTrips]
         ..sort((a, b) => a.startTime.compareTo(b.startTime));
       final conflicts = <RestoreConflict>[];
-      final nonConflicts = <TripsCompanion>[];
+      // Split insert path (RESEARCH.md Pitfall 2): breakless new trips keep
+      // the single-batch insertOrIgnoreTrips fast path; trips carrying
+      // breaks are inserted per-trip inside a transaction so the trip row
+      // and its break rows can never be separated by a crash.
+      final nonConflictsNoBreaks = <TripsCompanion>[];
+      final nonConflictsWithBreaks = <ParsedTrip>[];
 
-      for (final cloud in companions) {
+      for (final parsed in parsedTrips) {
+        final cloud = parsed.trip;
+        final cloudBreaks = parsed.breaks;
         bool isConflict = false;
 
         final sameUuidLocal = localById[cloud.id.value];
         if (sameUuidLocal != null) {
           if (_isDifferent(sameUuidLocal, cloud)) {
             conflicts.add(
-              SameUuidConflict(localTrip: sameUuidLocal, cloudTrip: cloud),
+              SameUuidConflict(
+                localTrip: sameUuidLocal,
+                cloudTrip: cloud,
+                cloudBreaks: cloudBreaks,
+                localBreaks: await tripBreaksDao.breaksForTrip(
+                  sameUuidLocal.id,
+                ),
+              ),
             );
             isConflict = true;
+          } else {
+            await _enrichFromCloud(
+              database: database,
+              tripsDao: tripsDao,
+              tripBreaksDao: tripBreaksDao,
+              local: sameUuidLocal,
+              cloud: cloud,
+              cloudBreaks: cloudBreaks,
+            );
           }
         } else if (cloud.startTime.present && cloud.endTime.present) {
           for (final local in localsByStart) {
@@ -119,7 +150,12 @@ class RestoreController extends Notifier<RestoreState> {
             if (!local.startTime.isBefore(cloud.endTime.value)) break;
             if (_isOverlap(local, cloud)) {
               conflicts.add(
-                OverlapConflict(localTrip: local, cloudTrip: cloud),
+                OverlapConflict(
+                  localTrip: local,
+                  cloudTrip: cloud,
+                  cloudBreaks: cloudBreaks,
+                  localBreaks: await tripBreaksDao.breaksForTrip(local.id),
+                ),
               );
               isConflict = true;
               break;
@@ -128,11 +164,25 @@ class RestoreController extends Notifier<RestoreState> {
         }
 
         if (!isConflict && sameUuidLocal == null) {
-          nonConflicts.add(cloud);
+          if (cloudBreaks.isEmpty) {
+            nonConflictsNoBreaks.add(cloud);
+          } else {
+            nonConflictsWithBreaks.add(parsed);
+          }
         }
       }
 
-      final inserted = await tripsDao.insertOrIgnoreTrips(nonConflicts);
+      var inserted = await tripsDao.insertOrIgnoreTrips(nonConflictsNoBreaks);
+      for (final entry in nonConflictsWithBreaks) {
+        // Atomic trip + breaks insert — mirrors the finalize-time pattern in
+        // tracking_service_controller.dart, MINUS the enqueue call: restore
+        // is a download and never touches sync_queue.
+        await database.transaction(() async {
+          await tripsDao.insertTrip(entry.trip);
+          await tripBreaksDao.insertBreaks(entry.breaks);
+        });
+        inserted++;
+      }
 
       if (conflicts.isNotEmpty) {
         state = RestoreConflictState(conflicts);
@@ -142,6 +192,76 @@ class RestoreController extends Notifier<RestoreState> {
     } on Object {
       state = const RestoreError();
     }
+  }
+
+  /// D-10/D-11 enrichment for a same-UUID, non-conflicting local trip.
+  ///
+  /// Each of the four v0.3 metadata fields is adopted from the cloud copy
+  /// INDEPENDENTLY, and only when the local value is still at its default
+  /// while the cloud carries a real value:
+  ///   * breaks — local has none AND cloud has some (D-10);
+  ///   * `totalPausedSeconds` — local 0 AND cloud non-zero;
+  ///   * `directionSource` — local `'time'` AND cloud non-`'time'`;
+  ///   * `isEdited` — local false AND cloud true.
+  /// A real local value is provably never replaced (T-26-13). All writes run
+  /// in ONE `db.transaction()` and NEVER enqueue sync_queue rows (restore is
+  /// a pure download — matches the kConflictUseCloud precedent).
+  Future<void> _enrichFromCloud({
+    required AppDatabase database,
+    required TripsDao tripsDao,
+    required TripBreaksDao tripBreaksDao,
+    required TripRow local,
+    required TripsCompanion cloud,
+    required List<TripBreaksCompanion> cloudBreaks,
+  }) async {
+    final localBreaks = await tripBreaksDao.breaksForTrip(local.id);
+    final enrichBreaks = localBreaks.isEmpty && cloudBreaks.isNotEmpty;
+    final enrichPaused =
+        local.totalPausedSeconds == 0 &&
+        cloud.totalPausedSeconds.present &&
+        cloud.totalPausedSeconds.value != 0;
+    final enrichDirectionSource =
+        local.directionSource == kDirectionSourceTime &&
+        cloud.directionSource.present &&
+        cloud.directionSource.value != kDirectionSourceTime;
+    final enrichIsEdited =
+        !local.isEdited && cloud.isEdited.present && cloud.isEdited.value;
+
+    if (!enrichBreaks &&
+        !enrichPaused &&
+        !enrichDirectionSource &&
+        !enrichIsEdited) {
+      return;
+    }
+
+    await database.transaction(() async {
+      if (enrichPaused || enrichDirectionSource || enrichIsEdited) {
+        // Only Value(...)-wrapped columns are touched (updateTrip contract);
+        // every non-enrichable field stays Value.absent() so a real local
+        // value is never overwritten.
+        await tripsDao.updateTrip(
+          TripsCompanion(
+            id: Value(local.id),
+            totalPausedSeconds: enrichPaused
+                ? Value(cloud.totalPausedSeconds.value)
+                : const Value.absent(),
+            directionSource: enrichDirectionSource
+                ? Value(cloud.directionSource.value)
+                : const Value.absent(),
+            isEdited: enrichIsEdited
+                ? Value(cloud.isEdited.value)
+                : const Value.absent(),
+          ),
+        );
+      }
+      if (enrichBreaks) {
+        // Remap defensively onto the LOCAL trip id (same UUID by
+        // construction, but the local row is the FK parent being enriched).
+        await tripBreaksDao.insertBreaks(
+          cloudBreaks.map((b) => b.copyWith(tripId: Value(local.id))).toList(),
+        );
+      }
+    });
   }
 
   /// True when the cloud copy differs from the local row on a REAL trip

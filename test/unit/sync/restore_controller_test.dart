@@ -170,7 +170,9 @@ void main() {
     ProviderContainer containerWith(_FakeApiClient api) {
       final container = ProviderContainer(
         overrides: [
+          appDatabaseProvider.overrideWithValue(db),
           tripsDaoProvider.overrideWithValue(db.tripsDao),
+          tripBreaksDaoProvider.overrideWithValue(db.tripBreaksDao),
           syncQueueDaoProvider.overrideWithValue(db.syncQueueDao),
           apiClientProvider.overrideWithValue(api),
         ],
