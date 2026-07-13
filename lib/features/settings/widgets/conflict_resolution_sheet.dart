@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/providers.dart';
+import 'package:traevy/sync/merge_resolution.dart';
 import 'package:traevy/sync/restore_conflict.dart';
 import 'package:traevy/sync/restore_controller.dart';
 import 'package:drift/drift.dart' as drift;
@@ -49,25 +50,11 @@ class _ConflictResolutionSheetState
         final cloudTrip = conflict.cloudTrip;
         final selections = _mergeSelections[localTrip.id] ?? {};
 
-        final merged = cloudTrip.copyWith(
-          id: drift.Value(localTrip.id),
-          startTime: (selections['startTime'] ?? 'local') == 'local'
-              ? drift.Value(localTrip.startTime)
-              : cloudTrip.startTime,
-          endTime: (selections['endTime'] ?? 'local') == 'local'
-              ? drift.Value(localTrip.endTime)
-              : cloudTrip.endTime,
-          durationSeconds: (selections['durationSeconds'] ?? 'local') == 'local'
-              ? drift.Value(localTrip.durationSeconds)
-              : cloudTrip.durationSeconds,
-          distanceMeters: (selections['distanceMeters'] ?? 'local') == 'local'
-              ? drift.Value(localTrip.distanceMeters)
-              : cloudTrip.distanceMeters,
-          direction: (selections['direction'] ?? 'local') == 'local'
-              ? drift.Value(localTrip.direction)
-              : cloudTrip.direction,
-          updatedAt: drift.Value(DateTime.now().toUtc()),
-        );
+        final merged = resolveMerge(
+          local: localTrip,
+          cloud: cloudTrip,
+          selections: selections,
+        ).trip;
         await tripsDao.updateTrip(merged);
         resolvedCount++;
       }
