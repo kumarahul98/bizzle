@@ -28,34 +28,59 @@ class _ConflictResolutionSheetState
 
   Future<void> _applyAll(String defaultAction) async {
     final tripsDao = ref.read(tripsDaoProvider);
+    final breaksDao = ref.read(tripBreaksDaoProvider);
+    final database = ref.read(appDatabaseProvider);
     int resolvedCount = 0;
 
     for (final conflict in widget.conflicts) {
       final action = _resolutions[conflict.localTrip.id] ?? defaultAction;
+      final localTripId = conflict.localTrip.id;
 
       if (action == kConflictKeepLocal) {
         continue;
       }
 
       final companion = conflict.cloudTrip.copyWith(
-        id: drift.Value(conflict.localTrip.id),
+        id: drift.Value(localTripId),
         updatedAt: drift.Value(DateTime.now().toUtc()),
       );
 
       if (action == kConflictUseCloud) {
-        await tripsDao.updateTrip(companion);
+        // T-26-16/T-26-17: cloud breaks ride along with "Use Cloud" too
+        // (closing the SC5 gap beyond Merge alone), remapped to the LOCAL
+        // trip id (an OverlapConflict's cloudBreaks carry a DIFFERENT
+        // original tripId) and written atomically with the trip update.
+        final remappedBreaks = [
+          for (final b in conflict.cloudBreaks)
+            b.copyWith(tripId: drift.Value(localTripId)),
+        ];
+        await database.transaction(() async {
+          await tripsDao.updateTrip(companion);
+          await breaksDao.deleteBreaksForTrip(localTripId);
+          if (remappedBreaks.isNotEmpty) {
+            await breaksDao.insertBreaks(remappedBreaks);
+          }
+        });
         resolvedCount++;
       } else if (action == kConflictMerge) {
         final localTrip = conflict.localTrip;
         final cloudTrip = conflict.cloudTrip;
         final selections = _mergeSelections[localTrip.id] ?? {};
 
-        final merged = resolveMerge(
+        final result = resolveMerge(
           local: localTrip,
           cloud: cloudTrip,
           selections: selections,
-        ).trip;
-        await tripsDao.updateTrip(merged);
+          localBreaks: conflict.localBreaks,
+          cloudBreaks: conflict.cloudBreaks,
+        );
+        await database.transaction(() async {
+          await tripsDao.updateTrip(result.trip);
+          await breaksDao.deleteBreaksForTrip(localTripId);
+          if (result.breaks.isNotEmpty) {
+            await breaksDao.insertBreaks(result.breaks);
+          }
+        });
         resolvedCount++;
       }
     }
@@ -124,6 +149,30 @@ class _ConflictResolutionSheetState
                         onChanged: (val) =>
                             setState(() => _resolutions[tripId] = val!),
                       ),
+                      // D-05: read-only breaks-differ indicator, informational
+                      // for ANY resolution choice (not gated behind Merge).
+                      // No per-break controls — just a visible count line.
+                      if (conflict.localBreaks.length !=
+                          conflict.cloudBreaks.length)
+                        Padding(
+                          padding: const EdgeInsets.only(
+                            left: 16.0,
+                            right: 16.0,
+                            bottom: 8.0,
+                          ),
+                          child: Text(
+                            kConflictBreaksDifferTemplate
+                                .replaceAll(
+                                  '{local}',
+                                  conflict.localBreaks.length.toString(),
+                                )
+                                .replaceAll(
+                                  '{cloud}',
+                                  conflict.cloudBreaks.length.toString(),
+                                ),
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ),
                       if (selectedAction == kConflictMerge)
                         Padding(
                           padding: const EdgeInsets.only(

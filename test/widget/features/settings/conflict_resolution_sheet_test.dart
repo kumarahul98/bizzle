@@ -10,6 +10,20 @@ import 'package:traevy/sync/restore_conflict.dart';
 import 'package:traevy/sync/restore_controller.dart';
 import 'package:traevy/features/settings/widgets/conflict_resolution_sheet.dart';
 import 'package:traevy/sync/trip_serializer.dart';
+import 'package:uuid/uuid.dart';
+
+List<TripBreaksCompanion> _cloudBreaks(
+  String cloudTripId,
+  List<(String start, String end)> times,
+) => [
+  for (final t in times)
+    TripBreaksCompanion.insert(
+      id: const Uuid().v4(),
+      tripId: cloudTripId,
+      startTime: DateTime.parse(t.$1),
+      endTime: drift.Value(DateTime.parse(t.$2)),
+    ),
+];
 
 Map<String, dynamic> _tripJson(
   String id, {
@@ -120,6 +134,8 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         tripsDaoProvider.overrideWithValue(db.tripsDao),
+        tripBreaksDaoProvider.overrideWithValue(db.tripBreaksDao),
+        appDatabaseProvider.overrideWithValue(db),
       ],
     );
     addTearDown(container.dispose);
@@ -174,6 +190,8 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         tripsDaoProvider.overrideWithValue(db.tripsDao),
+        tripBreaksDaoProvider.overrideWithValue(db.tripBreaksDao),
+        appDatabaseProvider.overrideWithValue(db),
       ],
     );
     addTearDown(container.dispose);
@@ -233,6 +251,8 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           tripsDaoProvider.overrideWithValue(db.tripsDao),
+          tripBreaksDaoProvider.overrideWithValue(db.tripBreaksDao),
+          appDatabaseProvider.overrideWithValue(db),
         ],
       );
       addTearDown(container.dispose);
@@ -299,6 +319,8 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           tripsDaoProvider.overrideWithValue(db.tripsDao),
+          tripBreaksDaoProvider.overrideWithValue(db.tripBreaksDao),
+          appDatabaseProvider.overrideWithValue(db),
         ],
       );
       addTearDown(container.dispose);
@@ -371,6 +393,154 @@ void main() {
       expect(updated.distanceMeters, 20000.0); // CLOUD via explicit selection
       expect(updated.durationSeconds, isNot(999)); // not pure Use Cloud
       expect(updated.distanceMeters, isNot(12000.0)); // not pure Keep Local
+    },
+  );
+
+  testWidgets(
+    'D-05: breaks-differ indicator is visible when local/cloud break counts differ',
+    (WidgetTester tester) async {
+      final container = ProviderContainer(
+        overrides: [
+          tripsDaoProvider.overrideWithValue(db.tripsDao),
+          tripBreaksDaoProvider.overrideWithValue(db.tripBreaksDao),
+          appDatabaseProvider.overrideWithValue(db),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final local1 = _localRow('d1', 100);
+      await db.into(db.trips).insert(local1);
+
+      final conflicts = <RestoreConflict>[
+        SameUuidConflict(
+          localTrip: local1,
+          cloudTrip: _companion('d1'),
+          localBreaks: const [],
+          cloudBreaks: _cloudBreaks('d1', [
+            ('2026-05-01T08:05:00.000Z', '2026-05-01T08:10:00.000Z'),
+          ]),
+        ),
+      ];
+
+      await tester.pumpWidget(buildSubject(conflicts, container));
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      final tile = find.text('Modified Conflict').first;
+      await tester.ensureVisible(tile);
+      await tester.tap(tile);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(
+          kConflictBreaksDifferTemplate
+              .replaceAll('{local}', '0')
+              .replaceAll('{cloud}', '1'),
+        ),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'D-05: breaks-differ indicator is absent when local/cloud break counts are equal (including both-zero)',
+    (WidgetTester tester) async {
+      final container = ProviderContainer(
+        overrides: [
+          tripsDaoProvider.overrideWithValue(db.tripsDao),
+          tripBreaksDaoProvider.overrideWithValue(db.tripBreaksDao),
+          appDatabaseProvider.overrideWithValue(db),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final local1 = _localRow('d2', 100);
+      await db.into(db.trips).insert(local1);
+
+      final conflicts = <RestoreConflict>[
+        SameUuidConflict(
+          localTrip: local1,
+          cloudTrip: _companion('d2'),
+          localBreaks: const [],
+          cloudBreaks: const [],
+        ),
+      ];
+
+      await tester.pumpWidget(buildSubject(conflicts, container));
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      final tile = find.text('Modified Conflict').first;
+      await tester.ensureVisible(tile);
+      await tester.tap(tile);
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('breaks ·'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'Choosing "Use All Cloud" on a conflict with differing breaks replaces the '
+    'local trip_breaks rows with cloud\'s breaks',
+    (WidgetTester tester) async {
+      final container = ProviderContainer(
+        overrides: [
+          tripsDaoProvider.overrideWithValue(db.tripsDao),
+          tripBreaksDaoProvider.overrideWithValue(db.tripBreaksDao),
+          appDatabaseProvider.overrideWithValue(db),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final local1 = _localRow('d3', 100);
+      await db.into(db.trips).insert(local1);
+      await db.tripBreaksDao.insertBreaks([
+        TripBreaksCompanion.insert(
+          id: const Uuid().v4(),
+          tripId: 'd3',
+          startTime: DateTime.parse('2026-05-01T08:05:00.000Z'),
+          endTime: drift.Value(DateTime.parse('2026-05-01T08:10:00.000Z')),
+        ),
+      ]);
+
+      final cloudBreaks = _cloudBreaks('d3', [
+        ('2026-05-01T09:05:00.000Z', '2026-05-01T09:10:00.000Z'),
+        ('2026-05-01T09:15:00.000Z', '2026-05-01T09:20:00.000Z'),
+      ]);
+
+      final conflicts = <RestoreConflict>[
+        SameUuidConflict(
+          localTrip: local1,
+          cloudTrip: _companion('d3', durationSeconds: 999),
+          localBreaks: await db.tripBreaksDao.breaksForTrip('d3'),
+          cloudBreaks: cloudBreaks,
+        ),
+      ];
+
+      await tester.pumpWidget(buildSubject(conflicts, container));
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Use All Cloud'));
+      await tester.pumpAndSettle();
+
+      final resultBreaks = await db.tripBreaksDao.breaksForTrip('d3');
+      expect(resultBreaks, hasLength(2));
+      expect(
+        resultBreaks[0].startTime.isAtSameMomentAs(
+          cloudBreaks[0].startTime.value,
+        ),
+        isTrue,
+      );
+      expect(
+        resultBreaks[1].startTime.isAtSameMomentAs(
+          cloudBreaks[1].startTime.value,
+        ),
+        isTrue,
+      );
+      for (final b in resultBreaks) {
+        expect(b.tripId, 'd3');
+      }
     },
   );
 }
