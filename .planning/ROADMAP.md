@@ -758,4 +758,4 @@ Note: Phase 17 is a small, independent UI fix + quick-label and is the safe firs
 | 24. Automatic Cloud Sync & Restore | v0.3 | 3/3 | Complete | 2026-06-16 |
 | 25. Interrupted-Trip Recovery | v0.3 | 3/3 | Complete | 2026-06-28 |
 | 25.1. Fix Sync Conflict & Auto-Retry Bugs (INSERTED) | v0.3 | 2/2 | Complete | 2026-07-12 |
-| 26. Sync Breaks & Edit Metadata to Cloud | v0.3 | 6/6 | Complete   | 2026-07-13 |
+| 26. Sync Breaks & Edit Metadata to Cloud | v0.3 | 6/6 | Complete    | 2026-07-13 |

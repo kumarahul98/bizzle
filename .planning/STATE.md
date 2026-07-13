@@ -4,7 +4,7 @@ milestone: v0.3
 milestone_name: App Improvements
 status: executing
 stopped_at: Phase 26 plan 26-06 complete (phase 26 done, all 6 plans shipped)
-last_updated: "2026-07-13T02:28:33.370Z"
+last_updated: "2026-07-13T11:53:15.536Z"
 last_activity: 2026-07-13
 progress:
   total_phases: 16
@@ -25,8 +25,8 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 
 ## Current Position
 
-Phase: 26 (sync-breaks-edit-metadata-to-cloud) — EXECUTING
-Plan: 6 of 6
+Phase: 26
+Plan: Not started
 Status: Ready to execute
 Last activity: 2026-07-13
 
@@ -62,6 +62,7 @@ Phases 25.1 and 26 are platform-agnostic (Dart/backend, shared by both platforms
 | 14 | TBD | - | - |
 | 15 | TBD | - | - |
 | 16 | TBD | - | - |
+| 26 | 6 | - | - |
 
 **v0.3 Phases:**
 
