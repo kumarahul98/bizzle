@@ -36,6 +36,8 @@ findings:
   info: 5
   total: 6
 status: issues_found
+resolved:
+  - WR-01 (fixed in commit b7727ca — open breaks filtered before serialize; regression test added)
 ---
 
 # Phase 26: Code Review Report
@@ -83,6 +85,12 @@ quality items. No data-loss or security issues were found.
 ## Warnings
 
 ### WR-01: A break with a null `endTime` throws a non-`SyncException` that bypasses drain failure handling
+
+**RESOLVED** (commit `b7727ca`): `TripSerializer.toJson` now filters open
+(null-`endTime`) breaks via `.where((b) => b.endTime != null)` before the cap,
+making the `endTime!` provably safe — an open break degrades to "skipped"
+instead of throwing. Regression test `toJson skips open (null-endTime) breaks
+instead of throwing (WR-01)` added to `trip_serializer_test.dart`.
 
 **File:** `lib/sync/trip_serializer.dart:72` (and `lib/sync/sync_engine.dart:230-240`)
 **Issue:** `TripSerializer.toJson` dereferences `b.endTime!`. The map is built
