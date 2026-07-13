@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: App Improvements
 status: executing
-stopped_at: Phase 26 plan 26-05 complete
-last_updated: "2026-07-13T01:31:05.368Z"
+stopped_at: Phase 26 plan 26-06 complete (phase 26 done, all 6 plans shipped)
+last_updated: "2026-07-13T02:28:33.370Z"
 last_activity: 2026-07-13
 progress:
   total_phases: 16
-  completed_phases: 11
+  completed_phases: 12
   total_plans: 40
-  completed_plans: 36
-  percent: 69
+  completed_plans: 37
+  percent: 75
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 ## Current Position
 
 Phase: 26 (sync-breaks-edit-metadata-to-cloud) — EXECUTING
-Plan: 5 of 6
+Plan: 6 of 6
 Status: Ready to execute
 Last activity: 2026-07-13
 
@@ -90,6 +90,7 @@ Phases 25.1 and 26 are platform-agnostic (Dart/backend, shared by both platforms
 | Phase 26 P02 | 25min | 2 tasks | 25 files |
 | Phase 26 P03 | ~30min | 3 tasks | 11 files |
 | Phase 26 P05 | ~20min | 3 tasks | 4 files |
+| Phase 26 P06 | ~10min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -138,6 +139,8 @@ Recent decisions affecting current work:
 - [Phase 26-03]: Client-side take(kMaxBreaksPerTrip) truncation (oldest-first) at serialization time mirrors the backend zod .max(50) so a >50-break trip can never become a non-retryable 400 poison pill in the sync queue
 - [Phase 26-03]: RestoreController maps ParsedTrip.trip through and discards parsed breaks for now -- persisting restored break companions into trip_breaks is Plan 05's explicit scope; ParsedTrip.breaks (fresh UUIDs, correct tripIds) is ready at the exact call site
 - [Phase 26-05]: D-07 shipped: _isDifferent excludes totalPausedSeconds/directionSource/isEdited; restore() splits bulk vs per-trip transactional insert by breaks-presence; D-10/D-11 enrichment adopts cloud metadata per-field only when local is default
+- [Phase 26-06]: resolveMerge's D-04 ride-along fields reuse the SAME resolved booleans as the pre-existing startTime/direction ternaries -- no new/independent selection keys introduced
+- [Phase 26-06]: Use Cloud (bulk and per-trip) now also replaces local trip_breaks with cloud's breaks and both Use-Cloud and Merge writes are wrapped in one database.transaction, closing SC5 and T-26-17
 
 ### Pending Todos
 
@@ -169,9 +172,9 @@ Full checklist: `.planning/v0.1-DEVICE-CHECKLIST.md` (Groups A-I). Resume v0.1 c
 
 ## Session Continuity
 
-Last session: 2026-07-13T01:31:05.363Z
-Stopped at: Phase 26 plan 26-05 complete
-Resume file: .planning/phases/26-sync-breaks-edit-metadata-to-cloud/26-05-SUMMARY.md
+Last session: 2026-07-13T02:28:33.359Z
+Stopped at: Phase 26 plan 26-06 complete (phase 26 done, all 6 plans shipped)
+Resume file: None
 
 [2026-07-11] Completed 25.1-02-PLAN.md (D-05 merge default flip to local at both leak points + D-08 two-differing-field merge test — all Phase 25.1 plans done)
 [2026-07-11] Completed 25.1-01-PLAN.md (D-07 gate regression tests + D-04 autoRetryWindowElapsed rename/consolidation)
