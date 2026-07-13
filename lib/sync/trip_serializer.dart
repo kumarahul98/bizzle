@@ -44,6 +44,17 @@ class TripSerializer {
   /// ordered by `startTime` ascending, so `.take(kMaxBreaksPerTrip)` keeps
   /// the FIRST 50 chronologically (oldest-first retention) — the trip itself
   /// always syncs; only excess break detail beyond 50 is dropped.
+  ///
+  /// Open (null-`endTime`) breaks are filtered out BEFORE the cap (WR-01).
+  /// `trip_breaks_table.dart` guarantees a finalized/persisted trip never
+  /// carries an open segment (finalize closes every break, D-05/D-07), so in
+  /// practice this filter removes nothing — but a bare `endTime!` on a stray
+  /// open break would throw a `TypeError` synchronously inside
+  /// `ApiClient.syncTrips`, which escapes `SyncEngine._drain`'s
+  /// `on SyncException` handler and silently leaves the whole chunk `pending`
+  /// (an unbounded re-drain, not a clean terminal failure). Filtering keeps
+  /// the `!` provably safe and degrades a malformed break to "skipped", not
+  /// "chunk stuck".
   static Map<String, dynamic> toJson(TripRow t, List<TripBreakRow> breaks) =>
       <String, dynamic>{
         'id': t.id,
@@ -62,13 +73,12 @@ class TripSerializer {
         'isEdited': t.isEdited,
         'directionSource': t.directionSource,
         'breaks': breaks
+            .where((b) => b.endTime != null)
             .take(kMaxBreaksPerTrip)
             .map(
               (b) => <String, dynamic>{
                 'startTime': b.startTime.toUtc().toIso8601String(),
-                // Safe `!`: trip_breaks_table.dart's own doc guarantees a
-                // finalized/persisted trip never carries an open (null
-                // endTime) break — finalize closes every segment (D-05/D-07).
+                // Provably safe `!`: open breaks are filtered above (WR-01).
                 'endTime': b.endTime!.toUtc().toIso8601String(),
               },
             )

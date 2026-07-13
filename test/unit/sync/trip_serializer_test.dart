@@ -270,6 +270,31 @@ void main() {
         expect(breaksJson, hasLength(kMaxBreaksPerTrip));
       },
     );
+
+    test(
+      'toJson skips open (null-endTime) breaks instead of throwing (WR-01)',
+      () {
+        // A stray open break should never reach a finalized trip, but if it
+        // does, toJson must degrade it to "skipped" rather than throwing a
+        // TypeError that escapes SyncEngine._drain's SyncException handler.
+        final closed = buildBreaks('t', 1).single;
+        // endTime omitted → null: the open-break case under test.
+        final open = TripBreakRow(
+          id: 'break-open',
+          tripId: 't',
+          startTime: DateTime.utc(2026, 5, 31, 8, 50),
+        );
+
+        final json = TripSerializer.toJson(gpsTrip(), [closed, open]);
+
+        final breaksJson = json['breaks']! as List<dynamic>;
+        expect(breaksJson, hasLength(1));
+        expect(
+          (breaksJson.single as Map<String, dynamic>)['startTime'],
+          closed.startTime.toUtc().toIso8601String(),
+        );
+      },
+    );
   });
 
   group('TripSerializer.fromJson', () {
