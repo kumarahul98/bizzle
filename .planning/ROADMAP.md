@@ -731,7 +731,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2)*
 
-- [ ] 26-05-PLAN.md — RestoreController: D-07 metadata-excluded conflicts, atomic trip+breaks insert, D-10/D-11 enrichment (SC3, SC4)
+- [x] 26-05-PLAN.md — RestoreController: D-07 metadata-excluded conflicts, atomic trip+breaks insert, D-10/D-11 enrichment (SC3, SC4)
 
 **Wave 4** *(blocked on Wave 3)*
 
@@ -758,4 +758,4 @@ Note: Phase 17 is a small, independent UI fix + quick-label and is the safe firs
 | 24. Automatic Cloud Sync & Restore | v0.3 | 3/3 | Complete | 2026-06-16 |
 | 25. Interrupted-Trip Recovery | v0.3 | 3/3 | Complete | 2026-06-28 |
 | 25.1. Fix Sync Conflict & Auto-Retry Bugs (INSERTED) | v0.3 | 2/2 | Complete | 2026-07-12 |
-| 26. Sync Breaks & Edit Metadata to Cloud | v0.3 | 4/6 | In Progress|  |
+| 26. Sync Breaks & Edit Metadata to Cloud | v0.3 | 5/6 | In Progress|  |

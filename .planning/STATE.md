@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: App Improvements
 status: executing
-stopped_at: Phase 26 plan 26-04 complete (inline)
-last_updated: "2026-07-12T21:30:44.257Z"
-last_activity: 2026-07-12
+stopped_at: Phase 26 plan 26-05 complete
+last_updated: "2026-07-13T01:31:05.368Z"
+last_activity: 2026-07-13
 progress:
   total_phases: 16
   completed_phases: 11
   total_plans: 40
-  completed_plans: 35
+  completed_plans: 36
   percent: 69
 ---
 
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 ## Current Position
 
 Phase: 26 (sync-breaks-edit-metadata-to-cloud) — EXECUTING
-Plan: 4 of 6
+Plan: 5 of 6
 Status: Ready to execute
-Last activity: 2026-07-12
+Last activity: 2026-07-13
 
 **v0.3 progress:** 9/11 phases complete (17,18,19,20,21,22,24,25 done and merged to main 2026-07-06 in PR #2; 25.1 completed 2026-07-12 on main). Phase 23 rescoped 2026-07-11 (UAT audit found it never really executed — stalled at 1 thin plan; now Android-only, its one iOS criterion removed). Phase 25.1 (inserted 2026-07-11) fixed the broken auto-retry throttle and fake Merge conflict resolution; one visual UAT item remains tracked in 25.1-HUMAN-UAT.md (Merge sheet "Local" pre-selected on device).
 
@@ -89,6 +89,7 @@ Phases 25.1 and 26 are platform-agnostic (Dart/backend, shared by both platforms
 | Phase 26 P01 | 25min | 3 tasks | 11 files |
 | Phase 26 P02 | 25min | 2 tasks | 25 files |
 | Phase 26 P03 | ~30min | 3 tasks | 11 files |
+| Phase 26 P05 | ~20min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -136,6 +137,7 @@ Recent decisions affecting current work:
 - [Phase 26-02]: migration_v3/v5/v6_test.dart bumped their migrateAndValidate() target to the new terminal version 7 -- Drift's compiled row mapper reads every currently-defined column regardless of physical DDL, so a test that stops migration at an older version and then calls a DAO getOrDefault() crashes; matches the pre-existing convention documented in migration_v5_test.dart
 - [Phase 26-03]: Client-side take(kMaxBreaksPerTrip) truncation (oldest-first) at serialization time mirrors the backend zod .max(50) so a >50-break trip can never become a non-retryable 400 poison pill in the sync queue
 - [Phase 26-03]: RestoreController maps ParsedTrip.trip through and discards parsed breaks for now -- persisting restored break companions into trip_breaks is Plan 05's explicit scope; ParsedTrip.breaks (fresh UUIDs, correct tripIds) is ready at the exact call site
+- [Phase 26-05]: D-07 shipped: _isDifferent excludes totalPausedSeconds/directionSource/isEdited; restore() splits bulk vs per-trip transactional insert by breaks-presence; D-10/D-11 enrichment adopts cloud metadata per-field only when local is default
 
 ### Pending Todos
 
@@ -167,9 +169,9 @@ Full checklist: `.planning/v0.1-DEVICE-CHECKLIST.md` (Groups A-I). Resume v0.1 c
 
 ## Session Continuity
 
-Last session: 2026-07-12T21:30:44.253Z
-Stopped at: Phase 26 plan 26-04 complete (inline)
-Resume file: .planning/phases/26-sync-breaks-edit-metadata-to-cloud/26-04-SUMMARY.md
+Last session: 2026-07-13T01:31:05.363Z
+Stopped at: Phase 26 plan 26-05 complete
+Resume file: .planning/phases/26-sync-breaks-edit-metadata-to-cloud/26-05-SUMMARY.md
 
 [2026-07-11] Completed 25.1-02-PLAN.md (D-05 merge default flip to local at both leak points + D-08 two-differing-field merge test — all Phase 25.1 plans done)
 [2026-07-11] Completed 25.1-01-PLAN.md (D-07 gate regression tests + D-04 autoRetryWindowElapsed rename/consolidation)
