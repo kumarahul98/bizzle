@@ -12,22 +12,32 @@ import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/database.dart';
 import 'package:traevy/database/providers.dart';
+import 'package:traevy/features/trips/providers/trip_management_providers.dart';
 import 'package:traevy/sync/api_client.dart';
+import 'package:traevy/sync/restore_conflict.dart';
 import 'package:traevy/sync/restore_controller.dart';
 import 'package:traevy/sync/trip_serializer.dart';
 
 /// Scripted [ApiClient] for restore tests. `restoreTrips()` returns a fixed
-/// list of companions (built from sample JSON via the real
-/// `TripSerializer.fromJson`), each wrapped as a breaks-less [ParsedTrip]
-/// (Phase 26), or throws when [throwOnRestore] is set. No network, no token
-/// seam, no Firebase. All other ApiClient members are unreachable in these
-/// tests and surface via noSuchMethod if touched.
+/// list of [ParsedTrip]s (built from sample JSON via the real
+/// `TripSerializer.fromJson`), or throws when [throwOnRestore] is set. The
+/// default constructor wraps bare companions as breaks-less ParsedTrips;
+/// [_FakeApiClient.parsed] takes ParsedTrips directly (Phase 26 — trips
+/// carrying breaks). No network, no token seam, no Firebase. All other
+/// ApiClient members are unreachable in these tests and surface via
+/// noSuchMethod if touched.
 class _FakeApiClient implements ApiClient {
-  _FakeApiClient(this._companions, {this.throwOnRestore = false});
+  _FakeApiClient(List<TripsCompanion> companions, {this.throwOnRestore = false})
+    : _parsedTrips = companions
+          .map((c) => (trip: c, breaks: const <TripBreaksCompanion>[]))
+          .toList();
 
-  final List<TripsCompanion> _companions;
+  _FakeApiClient.parsed(this._parsedTrips) : throwOnRestore = false;
+
+  final List<ParsedTrip> _parsedTrips;
   final bool throwOnRestore;
   int restoreCallCount = 0;
 
@@ -35,9 +45,7 @@ class _FakeApiClient implements ApiClient {
   Future<List<ParsedTrip>> restoreTrips() async {
     restoreCallCount++;
     if (throwOnRestore) throw const SyncException.transport();
-    return _companions
-        .map((c) => (trip: c, breaks: const <TripBreaksCompanion>[]))
-        .toList();
+    return _parsedTrips;
   }
 
   @override
@@ -45,13 +53,19 @@ class _FakeApiClient implements ApiClient {
 }
 
 /// Build a restored-trip JSON map (camelCase, ISO-8601 UTC) for [id], matching
-/// the Phase 10 restore envelope shape that `TripSerializer.fromJson` parses.
+/// the Phase 10/26 restore envelope shape that `TripSerializer.fromJson`
+/// parses. The Phase 26 metadata fields default to their server-omission
+/// defaults; [breaks] entries are `{startTime, endTime}` ISO-UTC maps.
 Map<String, dynamic> _tripJson(
   String id, {
   String direction = 'to_office',
   int durationSeconds = 1800,
   String startTime = '2026-05-01T08:00:00.000Z',
   String endTime = '2026-05-01T08:30:00.000Z',
+  int totalPausedSeconds = 0,
+  bool isEdited = false,
+  String directionSource = kDirectionSourceTime,
+  List<Map<String, String>> breaks = const [],
 }) => <String, dynamic>{
   'id': id,
   'startTime': startTime,
@@ -65,6 +79,10 @@ Map<String, dynamic> _tripJson(
   'isManualEntry': false,
   'createdAt': '2026-05-01T08:30:00.000Z',
   'updatedAt': '2026-05-01T08:30:00.000Z',
+  'totalPausedSeconds': totalPausedSeconds,
+  'isEdited': isEdited,
+  'directionSource': directionSource,
+  'breaks': breaks,
 };
 
 TripsCompanion _companion(
@@ -82,6 +100,44 @@ TripsCompanion _companion(
     endTime: endTime,
   ),
 ).trip;
+
+/// Build a full [ParsedTrip] (trip + break companions) via the real
+/// serializer, with Phase 26 metadata and an embedded [breaks] list.
+ParsedTrip _parsedTrip(
+  String id, {
+  String direction = 'to_office',
+  int durationSeconds = 1800,
+  String startTime = '2026-05-01T08:00:00.000Z',
+  String endTime = '2026-05-01T08:30:00.000Z',
+  int totalPausedSeconds = 0,
+  bool isEdited = false,
+  String directionSource = kDirectionSourceTime,
+  List<Map<String, String>> breaks = const [],
+}) => TripSerializer.fromJson(
+  _tripJson(
+    id,
+    direction: direction,
+    durationSeconds: durationSeconds,
+    startTime: startTime,
+    endTime: endTime,
+    totalPausedSeconds: totalPausedSeconds,
+    isEdited: isEdited,
+    directionSource: directionSource,
+    breaks: breaks,
+  ),
+);
+
+/// Two in-window break maps for a trip spanning 08:00–08:30 UTC.
+const List<Map<String, String>> _twoBreaks = [
+  {
+    'startTime': '2026-05-01T08:05:00.000Z',
+    'endTime': '2026-05-01T08:10:00.000Z',
+  },
+  {
+    'startTime': '2026-05-01T08:15:00.000Z',
+    'endTime': '2026-05-01T08:20:00.000Z',
+  },
+];
 
 void main() {
   late AppDatabase db;
@@ -311,5 +367,290 @@ void main() {
       await container.read(restoreControllerProvider.notifier).restore();
       expect(container.read(restoreControllerProvider), isA<RestoreSuccess>());
     });
+  });
+
+  // -------------------------------------------------------------------------
+  // Phase 26 Plan 05 — D-07 / atomic insert / D-10-D-11 / SC3
+  // -------------------------------------------------------------------------
+
+  ProviderContainer phase26Container(_FakeApiClient api) {
+    final container = ProviderContainer(
+      overrides: [
+        appDatabaseProvider.overrideWithValue(db),
+        tripsDaoProvider.overrideWithValue(db.tripsDao),
+        tripBreaksDaoProvider.overrideWithValue(db.tripBreaksDao),
+        syncQueueDaoProvider.overrideWithValue(db.syncQueueDao),
+        apiClientProvider.overrideWithValue(api),
+      ],
+    );
+    addTearDown(container.dispose);
+    return container;
+  }
+
+  group('D-07 metadata excluded from conflict detection', () {
+    test(
+      'same-UUID trip differing ONLY in directionSource → RestoreSuccess, '
+      'no conflict',
+      () async {
+        await db.tripsDao.insertOrIgnoreTrips(<TripsCompanion>[
+          _companion('m1'),
+        ]);
+
+        final api = _FakeApiClient.parsed([
+          _parsedTrip('m1', directionSource: kDirectionSourceGeofence),
+        ]);
+        final container = phase26Container(api);
+
+        await container.read(restoreControllerProvider.notifier).restore();
+
+        final state = container.read(restoreControllerProvider);
+        expect(state, isA<RestoreSuccess>());
+        expect((state as RestoreSuccess).count, 0);
+      },
+    );
+
+    test(
+      'same-UUID trip differing ONLY in totalPausedSeconds + isEdited → '
+      'RestoreSuccess, no conflict',
+      () async {
+        await db.tripsDao.insertOrIgnoreTrips(<TripsCompanion>[
+          _companion('m2'),
+        ]);
+
+        final api = _FakeApiClient.parsed([
+          _parsedTrip('m2', totalPausedSeconds: 300, isEdited: true),
+        ]);
+        final container = phase26Container(api);
+
+        await container.read(restoreControllerProvider.notifier).restore();
+
+        expect(
+          container.read(restoreControllerProvider),
+          isA<RestoreSuccess>(),
+        );
+      },
+    );
+
+    test(
+      'same-UUID trip differing in BOTH startTime (real) AND '
+      'totalPausedSeconds (metadata) → exactly ONE conflict, carrying both '
+      "sides' breaks",
+      () async {
+        await db.tripsDao.insertOrIgnoreTrips(<TripsCompanion>[
+          _companion('m3'),
+        ]);
+
+        final api = _FakeApiClient.parsed([
+          _parsedTrip(
+            'm3',
+            startTime: '2026-05-01T08:01:00.000Z',
+            totalPausedSeconds: 300,
+            breaks: const [
+              {
+                'startTime': '2026-05-01T08:05:00.000Z',
+                'endTime': '2026-05-01T08:10:00.000Z',
+              },
+            ],
+          ),
+        ]);
+        final container = phase26Container(api);
+
+        await container.read(restoreControllerProvider.notifier).restore();
+
+        final state = container.read(restoreControllerProvider);
+        expect(state, isA<RestoreConflictState>());
+        final conflicts = (state as RestoreConflictState).conflicts;
+        expect(conflicts.length, 1);
+        final conflict = conflicts.single;
+        expect(conflict, isA<SameUuidConflict>());
+        expect(conflict.cloudBreaks.length, 1);
+        expect(conflict.localBreaks, isEmpty);
+      },
+    );
+  });
+
+  group('new trip with breaks — atomic insert', () {
+    test(
+      'cloud trip with 2 breaks and no local match inserts the trip row AND '
+      'both break rows; counts toward RestoreSuccess',
+      () async {
+        final api = _FakeApiClient.parsed([
+          _parsedTrip('b1', totalPausedSeconds: 600, breaks: _twoBreaks),
+        ]);
+        final container = phase26Container(api);
+
+        await container.read(restoreControllerProvider.notifier).restore();
+
+        final state = container.read(restoreControllerProvider);
+        expect(state, isA<RestoreSuccess>());
+        expect((state as RestoreSuccess).count, 1);
+
+        final trip = await db.tripsDao.findById('b1');
+        expect(trip, isNotNull);
+        expect(trip!.totalPausedSeconds, 600);
+        expect((await db.tripBreaksDao.breaksForTrip('b1')).length, 2);
+
+        // Restore is a pure download — never enqueues.
+        expect(await db.syncQueueDao.watchPending().first, isEmpty);
+      },
+    );
+
+    test(
+      'mixed batch: breakless bulk path + with-breaks transactional path '
+      'both count toward RestoreSuccess',
+      () async {
+        final api = _FakeApiClient.parsed([
+          _parsedTrip('b2'),
+          _parsedTrip(
+            'b3',
+            startTime: '2026-05-01T10:00:00.000Z',
+            endTime: '2026-05-01T10:30:00.000Z',
+            breaks: const [
+              {
+                'startTime': '2026-05-01T10:05:00.000Z',
+                'endTime': '2026-05-01T10:10:00.000Z',
+              },
+            ],
+          ),
+        ]);
+        final container = phase26Container(api);
+
+        await container.read(restoreControllerProvider.notifier).restore();
+
+        final state = container.read(restoreControllerProvider);
+        expect(state, isA<RestoreSuccess>());
+        expect((state as RestoreSuccess).count, 2);
+        expect(await db.tripBreaksDao.breaksForTrip('b2'), isEmpty);
+        expect((await db.tripBreaksDao.breaksForTrip('b3')).length, 1);
+      },
+    );
+  });
+
+  group('D-10/D-11 enrichment', () {
+    test(
+      'existing default-metadata local trip is enriched with cloud breaks + '
+      'all three metadata fields, without enqueueing',
+      () async {
+        await db.tripsDao.insertOrIgnoreTrips(<TripsCompanion>[
+          _companion('e1'),
+        ]);
+
+        final api = _FakeApiClient.parsed([
+          _parsedTrip(
+            'e1',
+            totalPausedSeconds: 300,
+            isEdited: true,
+            directionSource: kDirectionSourceGeofence,
+            breaks: _twoBreaks,
+          ),
+        ]);
+        final container = phase26Container(api);
+
+        await container.read(restoreControllerProvider.notifier).restore();
+
+        final state = container.read(restoreControllerProvider);
+        expect(state, isA<RestoreSuccess>());
+        expect((state as RestoreSuccess).count, 0);
+
+        final trip = await db.tripsDao.findById('e1');
+        expect(trip!.totalPausedSeconds, 300);
+        expect(trip.isEdited, isTrue);
+        expect(trip.directionSource, kDirectionSourceGeofence);
+        expect((await db.tripBreaksDao.breaksForTrip('e1')).length, 2);
+
+        expect(await db.syncQueueDao.watchPending().first, isEmpty);
+      },
+    );
+
+    test(
+      'real local values are NEVER overwritten — per-field guard (D-11)',
+      () async {
+        // Local trip with REAL metadata: 1 break, paused 120, edited, manual.
+        await db.tripsDao.insertTrip(
+          _parsedTrip(
+            'e2',
+            totalPausedSeconds: 120,
+            isEdited: true,
+            directionSource: kDirectionSourceManual,
+          ).trip,
+        );
+        await db.tripBreaksDao.insertBreaks([
+          TripBreaksCompanion.insert(
+            id: 'local-break-1',
+            tripId: 'e2',
+            startTime: DateTime.parse('2026-05-01T08:05:00.000Z'),
+            endTime: Value(DateTime.parse('2026-05-01T08:07:00.000Z')),
+          ),
+        ]);
+
+        final api = _FakeApiClient.parsed([
+          _parsedTrip(
+            'e2',
+            totalPausedSeconds: 999,
+            directionSource: kDirectionSourceGeofence,
+            breaks: _twoBreaks,
+          ),
+        ]);
+        final container = phase26Container(api);
+
+        await container.read(restoreControllerProvider.notifier).restore();
+
+        // Metadata-only difference → no conflict (D-07), and no field of
+        // the local trip was replaced (D-11).
+        expect(
+          container.read(restoreControllerProvider),
+          isA<RestoreSuccess>(),
+        );
+        final trip = await db.tripsDao.findById('e2');
+        expect(trip!.totalPausedSeconds, 120);
+        expect(trip.isEdited, isTrue);
+        expect(trip.directionSource, kDirectionSourceManual);
+        final breaks = await db.tripBreaksDao.breaksForTrip('e2');
+        expect(breaks.length, 1);
+        expect(breaks.single.id, 'local-break-1');
+      },
+    );
+  });
+
+  group('SC3 restore-then-edit preserves breaks', () {
+    test(
+      "a restored trip's breaks and totalPausedSeconds survive a "
+      'direction-only edit (breaks: null)',
+      () async {
+        final api = _FakeApiClient.parsed([
+          _parsedTrip('sc3', totalPausedSeconds: 300, breaks: _twoBreaks),
+        ]);
+        final container = phase26Container(api);
+
+        await container.read(restoreControllerProvider.notifier).restore();
+        expect(
+          (container.read(restoreControllerProvider) as RestoreSuccess).count,
+          1,
+        );
+
+        final restored = await db.tripsDao.findById('sc3');
+        expect(restored!.totalPausedSeconds, 300);
+
+        // Direction-only edit: breaks null leaves existing breaks untouched
+        // per the editTrip documented contract.
+        await container
+            .read(tripManagementProvider.notifier)
+            .editTrip(
+              tripId: 'sc3',
+              direction: kDirectionToHome,
+              startTimeUtc: restored.startTime,
+              endTimeUtc: restored.endTime,
+            );
+        expect(
+          container.read(tripManagementProvider),
+          isA<TripManagementSaved>(),
+        );
+
+        final edited = await db.tripsDao.findById('sc3');
+        expect(edited!.direction, kDirectionToHome);
+        expect(edited.totalPausedSeconds, 300);
+        expect((await db.tripBreaksDao.breaksForTrip('sc3')).length, 2);
+      },
+    );
   });
 }

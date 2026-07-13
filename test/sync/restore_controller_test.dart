@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart' hide isNull;
+import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:traevy/database/database.dart';
@@ -44,21 +45,35 @@ class FakeTripsDao implements TripsDao {
 void main() {
   late FakeApiClient apiClient;
   late FakeTripsDao tripsDao;
+  late AppDatabase db;
   late ProviderContainer container;
 
   setUp(() {
     apiClient = FakeApiClient();
     tripsDao = FakeTripsDao();
+    // Real in-memory DB for the Phase 26 provider reads (`restore()` reads
+    // appDatabaseProvider + tripBreaksDaoProvider eagerly for the atomic
+    // with-breaks insert / enrichment paths and the conflict breaks fetch).
+    // All fixtures here are breakless, so only `breaksForTrip` (→ []) runs.
+    db = AppDatabase(
+      DatabaseConnection(
+        NativeDatabase.memory(),
+        closeStreamsSynchronously: true,
+      ),
+    );
     container = ProviderContainer(
       overrides: [
         apiClientProvider.overrideWithValue(apiClient),
+        appDatabaseProvider.overrideWithValue(db),
         tripsDaoProvider.overrideWithValue(tripsDao),
+        tripBreaksDaoProvider.overrideWithValue(db.tripBreaksDao),
       ],
     );
   });
 
-  tearDown(() {
+  tearDown(() async {
     container.dispose();
+    await db.close();
   });
 
   final startTime = DateTime.parse('2023-01-01T08:00:00Z');
