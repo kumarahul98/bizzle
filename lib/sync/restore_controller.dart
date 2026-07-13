@@ -144,6 +144,17 @@ class RestoreController extends Notifier<RestoreState> {
     }
   }
 
+  /// True when the cloud copy differs from the local row on a REAL trip
+  /// field (times, duration, distance, direction, moving/stuck seconds,
+  /// manual-entry flag, polyline).
+  ///
+  /// D-07 (Phase 26, deliberate — do NOT "fix" this back in): the four v0.3
+  /// metadata fields — `totalPausedSeconds`, `directionSource`, `isEdited`,
+  /// and breaks — are intentionally EXCLUDED from this comparison.
+  /// Pre-Phase-26 cloud copies carry none of them, so comparing them would
+  /// flag a spurious conflict for nearly every trip on the first
+  /// post-upgrade restore (conflict-prompt storm, T-26-14). Local metadata
+  /// always wins silently; the Plan 04 backfill pushes local metadata up.
   bool _isDifferent(TripRow local, TripsCompanion cloud) {
     if (cloud.startTime.present &&
         !local.startTime.isAtSameMomentAs(cloud.startTime.value))
@@ -154,16 +165,10 @@ class RestoreController extends Notifier<RestoreState> {
     if (cloud.durationSeconds.present &&
         local.durationSeconds != cloud.durationSeconds.value)
       return true;
-    if (cloud.totalPausedSeconds.present &&
-        local.totalPausedSeconds != cloud.totalPausedSeconds.value)
-      return true;
     if (cloud.distanceMeters.present &&
         local.distanceMeters != cloud.distanceMeters.value)
       return true;
     if (cloud.direction.present && local.direction != cloud.direction.value)
-      return true;
-    if (cloud.directionSource.present &&
-        local.directionSource != cloud.directionSource.value)
       return true;
     if (cloud.timeMovingSeconds.present &&
         local.timeMovingSeconds != cloud.timeMovingSeconds.value)
@@ -173,8 +178,6 @@ class RestoreController extends Notifier<RestoreState> {
       return true;
     if (cloud.isManualEntry.present &&
         local.isManualEntry != cloud.isManualEntry.value)
-      return true;
-    if (cloud.isEdited.present && local.isEdited != cloud.isEdited.value)
       return true;
     if (cloud.routePolyline.present &&
         local.routePolyline != cloud.routePolyline.value)
