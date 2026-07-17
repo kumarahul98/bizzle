@@ -116,7 +116,13 @@ class _LocationPickerScreenState extends ConsumerState<LocationPickerScreen> {
       await dao.setOfficeLocation(center.latitude, center.longitude);
     }
     // LOC-02: re-label historical trips now that the anchor has changed.
+    // The provider is keepAlive, so its cached body will not re-run on a
+    // later save without an explicit invalidate; awaiting `.future` after
+    // invalidating forces the backfill to actually run (invalidating a
+    // never-listened keepAlive provider alone is a no-op). The scan is a
+    // bounded local Drift read, so briefly awaiting it on confirm is fine.
     ref.invalidate(geofenceBackfillProvider);
+    await ref.read(geofenceBackfillProvider.future);
     if (!mounted) return;
     navigator.pop();
     messenger.showSnackBar(
