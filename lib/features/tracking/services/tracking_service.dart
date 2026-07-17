@@ -34,6 +34,7 @@ import 'package:traevy/features/tracking/services/auto_pause_detector.dart';
 import 'package:traevy/features/tracking/services/location_settings_builder.dart';
 import 'package:traevy/features/tracking/services/tracking_service_events.dart';
 import 'package:traevy/features/tracking/services/trip_accumulator.dart';
+import 'package:traevy/features/tracking/services/trip_state_persister.dart';
 import 'package:home_widget/home_widget.dart';
 
 /// flutter_background_service onStart entrypoint. Runs in a background
@@ -82,7 +83,10 @@ Future<void> trackingServiceOnStart(ServiceInstance service) async {
     service.invoke(kServiceReadyEvent);
   }
 
-  var accumulator = TripAccumulator(startedAt: DateTime.now().toUtc());
+  var accumulator = TripAccumulator(
+    startedAt: DateTime.now().toUtc(),
+    persister: TripStatePersister(),
+  );
   var stopping = false;
 
   service.on(kSetInitialStateCommand).listen((event) {
@@ -90,7 +94,10 @@ Future<void> trackingServiceOnStart(ServiceInstance service) async {
     if (event != null && event['initialState'] != null) {
       try {
         final state = Map<String, dynamic>.from(event['initialState'] as Map);
-        accumulator = TripAccumulator.restore(state);
+        accumulator = TripAccumulator.restore(
+          state,
+          persister: TripStatePersister(),
+        );
       } catch (e) {
         // T-25-03: Ensure parsing exceptions in the background isolate are caught
         // and logged so a malformed state doesn't crash the background process.
