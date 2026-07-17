@@ -32,6 +32,8 @@ Last activity: 2026-07-13
 
 **v0.3 progress:** 9/11 phases complete (17,18,19,20,21,22,24,25 done and merged to main 2026-07-06 in PR #2; 25.1 completed 2026-07-12 on main). Phase 23 rescoped 2026-07-11 (UAT audit found it never really executed — stalled at 1 thin plan; now Android-only, its one iOS criterion removed). Phase 25.1 (inserted 2026-07-11) fixed the broken auto-retry throttle and fake Merge conflict resolution; one visual UAT item remains tracked in 25.1-HUMAN-UAT.md (Merge sheet "Local" pre-selected on device).
 
+**v0.3 verification reconciliation (2026-07-14):** VERIFICATION.md now exists for Phases 21/22/25; Phase 24 re-verified off its stale gaps_found → human_needed (6/6 static truths after 25.1's fixes). Results: Phase 24 → SYNC-04/SYNC-05 Complete; Phase 22 → WIDGET-01 code-complete but held Pending on device UAT (owned by Phase 23); Phase 21 → LOC-01 Complete. **Two real production bugs surfaced (both CI-invisible, both contradicting the milestone audit's "no broken wiring" claim), neither fixed yet:** (1) **TRACK-13 BLOCKED** — `TripStatePersister` is never injected into `TripAccumulator` at any of the 4 production construction sites (`main_isolate_tracking_engine.dart:119,121`, `tracking_service.dart:85,88`), so `_persistState()` always early-returns and `active_trip.json` is never written during a real trip; interrupted-trip recovery cannot fire. (2) **LOC-02 backfill dead** — `geofenceBackfillProvider` is only `ref.invalidate`d (`location_picker_screen.dart:119`), never watched, so the historical re-label of pre-existing trips never runs (new-trip labeling is fine). Fixes to be routed through GSD (`/gsd-debug` or `/gsd-quick`).
+
 **Recommended execution order for the remaining work:** 26 (sync schema, no device needed) → 23 (one consolidated Android device session covering the v0.1 checklist + stalled 21/22 UAT sessions).
 
 ## Platform Focus (as of 2026-07-11)
@@ -177,6 +179,8 @@ Last session: 2026-07-13T02:28:33.359Z
 Stopped at: Phase 26 plan 26-06 complete (phase 26 done, all 6 plans shipped)
 Resume file: None
 
+[2026-07-18] Fixed both reconciliation bugs (2 parallel single-module agents, central verification, full suite 653 green). PERSIST-INJECT-FIX (TRACK-13): TripStatePersister injected at all 4 production TripAccumulator sites + production-shaped persistence regression test — commit 452afd8. GEO-BACKFILL-FIX (LOC-02): confirm path awaits geofenceBackfillProvider.future instead of dead invalidate + widget regression test — commit c22a2aa. Traceability: TRACK-13 → Complete, LOC-02 caveat dropped. No open v0.3 code gaps remain; sole remaining blocker is the Phase 23 device session (WIDGET-01 + the two fixes' end-to-end device confirmation).
+[2026-07-14] Verification reconciliation of Phases 21/22/24/25 run (4 gsd-verifier passes). Wrote VERIFICATION.md for 21 (gaps_found, 5/6), 22 (human_needed, 4/4 code), 25 (gaps_found, 1/5 — real bug); re-verified 24 (human_needed, 6/6, off stale gaps_found). REQUIREMENTS.md traceability reconciled: LOC-01/SYNC-04/SYNC-05 → Complete; WIDGET-01 held Pending; TRACK-13 → Blocked. Two production bugs found (TRACK-13 persister injection; LOC-02 dead backfill trigger) — logged, not fixed.
 [2026-07-11] Completed 25.1-02-PLAN.md (D-05 merge default flip to local at both leak points + D-08 two-differing-field merge test — all Phase 25.1 plans done)
 [2026-07-11] Completed 25.1-01-PLAN.md (D-07 gate regression tests + D-04 autoRetryWindowElapsed rename/consolidation)
 
