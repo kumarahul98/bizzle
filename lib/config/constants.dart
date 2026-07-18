@@ -352,6 +352,27 @@ const String kWidgetKeyDuration = 'widget_duration';
 const String kWidgetTitleIdle = 'Start Commute';
 const String kWidgetTitleActive = 'Stop Commute';
 
+/// Phase 28 — richer widget content for the larger (full-width) layout.
+///
+/// Values are PRE-FORMATTED display strings written from Dart; the native
+/// `CommuteWidgetProvider` never computes. Unknown values are written as
+/// [kWidgetValueUnknown] (never blank) so the layout can't collapse.
+///
+/// Active-state keys ride the existing 5 s throttled write in
+/// `tracking_service.dart`; idle-state keys are pushed from the MAIN isolate
+/// (Drift lives there) on launch, app-resume, and post-trip-save.
+const String kWidgetKeySpeed = 'widget_speed';
+const String kWidgetKeyMoving = 'widget_moving';
+const String kWidgetKeyStuck = 'widget_stuck';
+const String kWidgetKeyPaused = 'widget_paused';
+const String kWidgetKeyTodayTrips = 'widget_today_trips';
+const String kWidgetKeyTodayTraffic = 'widget_today_traffic';
+const String kWidgetKeyWeekTotal = 'widget_week_total';
+const String kWidgetKeyWeekStuck = 'widget_week_stuck';
+
+/// Placeholder written whenever a widget value is unknown/unavailable.
+const String kWidgetValueUnknown = '--';
+
 /// Minimum gap between successive active-trip state persists (Phase 25
 /// interrupted-trip recovery). `TripAccumulator` snapshots its FULL state —
 /// including the growing sample list — to disk, so per-sample (~3 s) writes

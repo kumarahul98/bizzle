@@ -4,10 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:traevy/config/constants.dart';
+import 'package:traevy/database/daos/trips_dao.dart';
 import 'package:traevy/database/providers.dart';
+import 'package:traevy/features/dashboard/providers/dashboard_providers.dart';
 import 'package:traevy/features/dashboard/screens/dashboard_screen.dart';
 import 'package:traevy/features/settings/screens/settings_screen.dart';
 import 'package:traevy/features/shell/providers/main_shell_provider.dart';
+import 'package:traevy/features/stats/providers/stats_providers.dart';
+import 'package:traevy/features/stats/services/stats_service.dart';
 import 'package:traevy/features/stats/screens/stats_screen.dart';
 import 'package:traevy/features/tour/page_tour_host.dart';
 import 'package:traevy/features/tour/tour_config.dart';
@@ -30,13 +34,15 @@ class MainShell extends ConsumerStatefulWidget {
   ConsumerState<MainShell> createState() => _MainShellState();
 }
 
-class _MainShellState extends ConsumerState<MainShell> {
+class _MainShellState extends ConsumerState<MainShell>
+    with WidgetsBindingObserver {
   StreamSubscription<Uri?>? _sub;
   bool _hasRunAutoRestoreForCurrentSession = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _sub = HomeWidget.widgetClicked.listen(_onWidgetClicked);
     HomeWidget.initiallyLaunchedFromHomeWidget().then((uri) {
       if (uri != null) _onWidgetClicked(uri);
@@ -45,12 +51,41 @@ class _MainShellState extends ConsumerState<MainShell> {
     // force-stop / OS kill (the stop handler needs the service alive to clear
     // it). No-op when a trip is genuinely running (service owns the widget).
     unawaited(reconcileWidgetOnStartup());
+    // Phase 28: seed the idle stats once the first frame's providers resolve
+    // (the ref.listen below only fires on subsequent changes).
+    WidgetsBinding.instance.addPostFrameCallback((_) => _pushWidgetIdleStats());
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _sub?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Phase 28: refresh the widget's idle stats on resume — the widget never
+    // self-refreshes (updatePeriodMillis=0), so without this the numbers go
+    // stale (e.g. across a midnight rollover) until the next trip is saved.
+    if (state == AppLifecycleState.resumed) {
+      _pushWidgetIdleStats();
+    }
+  }
+
+  /// Push today/this-week stats to the home-screen widget. Cheap and
+  /// event-driven — never polled (see the 5s throttle rationale in
+  /// tracking_service.dart).
+  void _pushWidgetIdleStats() {
+    if (!mounted) return;
+    final todayTrips = ref.read(todaysTripSummariesProvider).asData?.value;
+    if (todayTrips == null) return;
+    unawaited(
+      writeWidgetIdleStats(
+        todayTrips: todayTrips,
+        weekStats: ref.read(statsSummaryProvider).asData?.value,
+      ),
+    );
   }
 
   void _onWidgetClicked(Uri? uri) {
@@ -207,6 +242,18 @@ class _MainShellState extends ConsumerState<MainShell> {
 
   @override
   Widget build(BuildContext context) {
+    // Phase 28: the trip providers are reactive, so listening here refreshes
+    // the widget's idle stats whenever trips change — which covers the
+    // post-trip-save case without hooking the tracking controller.
+    ref.listen<AsyncValue<List<TripSummary>>>(
+      todaysTripSummariesProvider,
+      (_, __) => _pushWidgetIdleStats(),
+    );
+    ref.listen<AsyncValue<StatsSummary>>(
+      statsSummaryProvider,
+      (_, __) => _pushWidgetIdleStats(),
+    );
+
     ref.listen<TrackingState>(trackingStateProvider, (previous, next) {
       if (next is TrackingInterrupted) {
         showDialog<void>(

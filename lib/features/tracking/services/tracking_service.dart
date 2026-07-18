@@ -205,10 +205,15 @@ Future<void> trackingServiceOnStart(ServiceInstance service) async {
     try {
       final distance =
           '${(snapshot.distanceMeters / 1000).toStringAsFixed(1)} km';
-      final m = snapshot.elapsedSeconds ~/ 60;
-      final h = m ~/ 60;
-      final min = m % 60;
-      final duration = h > 0 ? '${h}h ${min}m' : '${min}m';
+      final duration = formatWidgetDuration(snapshot.elapsedSeconds);
+      // Phase 28: the larger widget layout shows speed and the moving-vs-stuck
+      // split. All of it already rides this same 5 s-throttled tick — no extra
+      // timer, just more fields on the write we were already doing.
+      final speed = snapshot.currentSpeedMs < 0
+          ? kWidgetValueUnknown
+          : '${(snapshot.currentSpeedMs * 3.6).round()} km/h';
+      final moving = formatWidgetDuration(snapshot.timeMovingSeconds);
+      final stuck = formatWidgetDuration(snapshot.timeStuckSeconds);
 
       HomeWidget.saveWidgetData<String>(
         kWidgetKeyDistance,
@@ -217,6 +222,22 @@ Future<void> trackingServiceOnStart(ServiceInstance service) async {
       HomeWidget.saveWidgetData<String>(
         kWidgetKeyDuration,
         duration,
+      ).catchError((_) => false);
+      HomeWidget.saveWidgetData<String>(
+        kWidgetKeySpeed,
+        speed,
+      ).catchError((_) => false);
+      HomeWidget.saveWidgetData<String>(
+        kWidgetKeyMoving,
+        moving,
+      ).catchError((_) => false);
+      HomeWidget.saveWidgetData<String>(
+        kWidgetKeyStuck,
+        stuck,
+      ).catchError((_) => false);
+      HomeWidget.saveWidgetData<bool>(
+        kWidgetKeyPaused,
+        snapshot.isPaused,
       ).catchError((_) => false);
       HomeWidget.updateWidget(
         name: kWidgetProviderName,
