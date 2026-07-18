@@ -446,9 +446,12 @@ void main() {
     );
 
     testWidgets(
-      'TRACK-10: Auto-pause toggle renders OFF by default (opt-in, SC#5)',
+      'UX-08: Auto-pause toggle renders ON by default (Phase 27 default '
+      'flip, supersedes TRACK-10/SC#5 opt-in)',
       (tester) async {
-        // Default prefs carry autoPauseEnabled:false.
+        // Default prefs (UserPreferencesValue.defaults()) now carry
+        // autoPauseEnabled:true — Phase 27 (UX-08) flips auto-pause ON out
+        // of the box.
         await _pumpSettingsScreen(tester);
         final autoPauseRow = find.ancestor(
           of: find.text(kSettingsAutoPauseLabel),
@@ -461,12 +464,12 @@ void main() {
             matching: find.byType(TraevyToggle),
           ),
         );
-        expect(toggle.value, isFalse);
-        // Subtitle reflects the OFF state.
+        expect(toggle.value, isTrue);
+        // Subtitle reflects the ON state.
         expect(
           find.descendant(
             of: autoPauseRow,
-            matching: find.text(kSettingsAutoPauseOffSubtitle),
+            matching: find.text(kSettingsAutoPauseOnSubtitle),
           ),
           findsOneWidget,
         );
@@ -478,8 +481,29 @@ void main() {
       'with no notification side-effect',
       (tester) async {
         final fakeNotif = _FakeNotificationService();
+        // Explicit OFF starting state (Phase 27 flipped the DEFAULT to ON —
+        // this test exercises the OFF-to-ON toggle path specifically, which
+        // now requires an explicit fixture rather than relying on
+        // defaults()).
         final dao = await _pumpSettingsScreen(
           tester,
+          prefs: const UserPreferencesValue(
+            userId: 'test',
+            darkMode: kDarkModeSystem,
+            morningCutoffHour: 12,
+            eveningCutoffHour: 12,
+            reminderEnabled: false,
+            reminderTime: null,
+            weekendReminder: false,
+            weeklyNotificationEnabled: false,
+            autoPauseEnabled: false,
+            hasSeenOnboarding: false,
+            homeLat: null,
+            homeLng: null,
+            officeLat: null,
+            officeLng: null,
+            backfillMarkerVersion: 0,
+          ),
           notificationService: fakeNotif,
         );
         final autoPauseRow = find.ancestor(

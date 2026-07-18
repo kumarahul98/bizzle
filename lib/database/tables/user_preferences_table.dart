@@ -54,14 +54,19 @@ class UserPreferences extends Table {
   BoolColumn get weeklyNotificationEnabled =>
       boolean().withDefault(const Constant(false))();
 
-  /// True if the user has opted into auto-pause (Phase 18, D-10).
+  /// True if the user has opted into auto-pause (Phase 18, D-10; default
+  /// flipped Phase 27, UX-08).
   ///
-  /// Off by default so auto-pause is strictly opt-in: existing users see
-  /// no behaviour change until they enable it. Added by schema migration
-  /// v2 → v3; `withDefault(const Constant(false))` gives every existing
-  /// row false automatically.
+  /// Added by schema migration v2 → v3 with a `false` (opt-in) default.
+  /// Phase 27 (UX-08) flips the DEFAULT to `true` — auto-pause is now ON
+  /// out of the box for fresh installs — while the v7 → v8 migration
+  /// explicitly backfills every EXISTING row to `true` too, so upgraded
+  /// installs get the same behaviour change (see `database.dart` v8
+  /// branch). `withDefault(const Constant(true))` covers the `onCreate`
+  /// (fresh-install, no row) path only; it does NOT retroactively change
+  /// already-created rows, hence the explicit backfill.
   BoolColumn get autoPauseEnabled =>
-      boolean().withDefault(const Constant(false))();
+      boolean().withDefault(const Constant(true))();
 
   /// True once the user has cleared the first-run login wall (Phase 20,
   /// D-01/D-02). Drives the root gate in `lib/app.dart`: while false a guest
@@ -104,6 +109,16 @@ class UserPreferences extends Table {
   /// migration v6 → v7 (additive).
   IntColumn get backfillMarkerVersion =>
       integer().withDefault(const Constant(0))();
+
+  /// CSV of page keys whose one-time guided tour has already been shown
+  /// (Phase 27, UX-07 tour persistence scaffold). Empty string = no tour
+  /// seen yet. Parsed into a `Set<String>` by
+  /// `UserPreferencesValue.seenTourKeys`; mutated one key at a time by
+  /// `UserPreferencesDao.markTourSeen()`. Added by schema migration v7 →
+  /// v8 (additive) — existing rows read `''` (no tours seen), so every
+  /// upgraded install still sees each page's tour once, same as a fresh
+  /// install.
+  TextColumn get seenTours => text().withDefault(const Constant(''))();
 
   @override
   Set<Column<Object>> get primaryKey => {id};

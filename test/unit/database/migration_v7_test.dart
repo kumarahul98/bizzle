@@ -68,11 +68,14 @@ void main() {
             );
         await oldDb.close();
 
-        // 2. Run the real v6 → v7 migration and validate the DDL diff against
-        //    the generated v7 snapshot (proves no schema drift).
+        // 2. Run the real migration up to the terminal version and validate
+        //    the DDL diff against the generated snapshot. The v6 → v7 step
+        //    still runs as part of the stepwise upgrade; migrating to the
+        //    terminal version is required so the real DAO's getOrDefault()
+        //    can read every column (Phase 27 added seen_tours after v7).
         final migratedDb = AppDatabase(schema.newConnection());
         addTearDown(migratedDb.close);
-        await verifier.migrateAndValidate(migratedDb, 7);
+        await verifier.migrateAndValidate(migratedDb, 8);
 
         // 3a. The trip survives unchanged (additive migration).
         final tripRow = await migratedDb.tripsDao.findById(tripId);

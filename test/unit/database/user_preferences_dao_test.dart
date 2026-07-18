@@ -127,7 +127,8 @@ void main() {
       expect(value.reminderTime, isNull);
       expect(value.weekendReminder, isFalse);
       expect(value.weeklyNotificationEnabled, isFalse);
-      expect(value.autoPauseEnabled, isFalse);
+      // Phase 27 (UX-08): auto-pause default flipped ON for fresh installs.
+      expect(value.autoPauseEnabled, isTrue);
     });
 
     test('watch() emits updated value after upsert()', () async {
@@ -189,7 +190,11 @@ void main() {
         expect(value.darkMode, kDarkModeSystem);
         expect(value.morningCutoffHour, kDefaultDirectionCutoffHour);
         expect(value.reminderEnabled, isFalse);
-        expect(value.autoPauseEnabled, isFalse);
+        // Phase 27 (UX-08): auto-pause default flipped ON for fresh installs
+        // (this row was just CREATED by the single-column upsert, so every
+        // other column — including auto_pause_enabled — takes its table
+        // default).
+        expect(value.autoPauseEnabled, isTrue);
       },
     );
 

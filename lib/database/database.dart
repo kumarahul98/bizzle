@@ -37,7 +37,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -133,6 +133,49 @@ class AppDatabase extends _$AppDatabase {
         await m.addColumn(
           userPreferences,
           userPreferences.backfillMarkerVersion,
+        );
+      }
+      if (from < 8 && to >= 8) {
+        // Phase 27 (UX-08/UX-07): v7 → v8 migration bundling two
+        // user_preferences changes to avoid a second codegen/migration
+        // round-trip. Uses `alterTable` (SQLite's 12-step table-rebuild
+        // procedure), NOT `addColumn` + a bare `UPDATE`, because a plain
+        // `addColumn` only ever adds a NEW column — it cannot change the
+        // DEFAULT constraint already baked into an EXISTING column's DDL
+        // (`auto_pause_enabled` was added back at v3 with `DEFAULT 0`;
+        // that constraint is permanent for every row-holding install unless
+        // the table is rebuilt). Rebuilding here — instead of a bare
+        // `customStatement('UPDATE ...')` — keeps every upgraded install's
+        // on-disk schema byte-for-byte identical to a fresh install's (both
+        // read `auto_pause_enabled` as `DEFAULT 1` and `seen_tours` as
+        // `DEFAULT ''` from the DDL itself), which is what
+        // `SchemaVerifier.migrateAndValidate` asserts in the migration
+        // tests — a bare UPDATE only fixes data for the single existing
+        // row, not the column's DEFAULT metadata for any future INSERT.
+        //   1. `seenTours` is declared a "new" column (doesn't exist on
+        //      disk yet); it has no transformer, so every existing row
+        //      takes its table default (`''` — no tours seen), same as a
+        //      fresh install (additive, UX-07 scaffold).
+        //   2. `autoPauseEnabled` already exists on disk (added at v3
+        //      with the old `false` default) but gets an explicit
+        //      `columnTransformer` of `Constant(true)`, so every EXISTING
+        //      row is rewritten to `true` during the rebuild — this is
+        //      the backfill (D-10 opt-in default is superseded by UX-08)
+        //      — while the rebuilt column's own DDL also now carries the
+        //      new `DEFAULT 1` for any future insert.
+        //   3. Every other column has neither entry, so `alterTable`
+        //      copies its existing value across unchanged — no other
+        //      historical trip or preferences data is touched. Ordered
+        //      AFTER the from<7 branch so a v1..v7 install runs every
+        //      branch in sequence.
+        await m.alterTable(
+          TableMigration(
+            userPreferences,
+            newColumns: [userPreferences.seenTours],
+            columnTransformer: {
+              userPreferences.autoPauseEnabled: const Constant(true),
+            },
+          ),
         );
       }
     },

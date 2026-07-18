@@ -140,7 +140,23 @@ ProviderContainer _container({
           officeLng: null,
           backfillMarkerVersion: 0,
         )
-      : const UserPreferencesValue.defaults();
+      : const UserPreferencesValue(
+          userId: kDefaultUserId,
+          darkMode: kDarkModeSystem,
+          morningCutoffHour: 12,
+          eveningCutoffHour: 12,
+          reminderEnabled: false,
+          reminderTime: null,
+          weekendReminder: false,
+          weeklyNotificationEnabled: false,
+          autoPauseEnabled: false,
+          hasSeenOnboarding: false,
+          homeLat: null,
+          homeLng: null,
+          officeLat: null,
+          officeLng: null,
+          backfillMarkerVersion: 0,
+        );
   return ProviderContainer(
     overrides: [
       trackingEventSourceProvider.overrideWithValue(source),

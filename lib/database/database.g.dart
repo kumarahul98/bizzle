@@ -1641,7 +1641,7 @@ class $UserPreferencesTable extends UserPreferences
     defaultConstraints: GeneratedColumn.constraintIsAlways(
       'CHECK ("auto_pause_enabled" IN (0, 1))',
     ),
-    defaultValue: const Constant(false),
+    defaultValue: const Constant(true),
   );
   static const VerificationMeta _hasSeenOnboardingMeta = const VerificationMeta(
     'hasSeenOnboarding',
@@ -1713,6 +1713,18 @@ class $UserPreferencesTable extends UserPreferences
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _seenToursMeta = const VerificationMeta(
+    'seenTours',
+  );
+  @override
+  late final GeneratedColumn<String> seenTours = GeneratedColumn<String>(
+    'seen_tours',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1731,6 +1743,7 @@ class $UserPreferencesTable extends UserPreferences
     officeLat,
     officeLng,
     backfillMarkerVersion,
+    seenTours,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1864,6 +1877,12 @@ class $UserPreferencesTable extends UserPreferences
         ),
       );
     }
+    if (data.containsKey('seen_tours')) {
+      context.handle(
+        _seenToursMeta,
+        seenTours.isAcceptableOrUnknown(data['seen_tours']!, _seenToursMeta),
+      );
+    }
     return context;
   }
 
@@ -1937,6 +1956,10 @@ class $UserPreferencesTable extends UserPreferences
         DriftSqlType.int,
         data['${effectivePrefix}backfill_marker_version'],
       )!,
+      seenTours: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}seen_tours'],
+      )!,
     );
   }
 
@@ -1982,12 +2005,17 @@ class UserPreferencesRow extends DataClass
   /// Added by schema migration v1 → v2 (D-07, D-13).
   final bool weeklyNotificationEnabled;
 
-  /// True if the user has opted into auto-pause (Phase 18, D-10).
+  /// True if the user has opted into auto-pause (Phase 18, D-10; default
+  /// flipped Phase 27, UX-08).
   ///
-  /// Off by default so auto-pause is strictly opt-in: existing users see
-  /// no behaviour change until they enable it. Added by schema migration
-  /// v2 → v3; `withDefault(const Constant(false))` gives every existing
-  /// row false automatically.
+  /// Added by schema migration v2 → v3 with a `false` (opt-in) default.
+  /// Phase 27 (UX-08) flips the DEFAULT to `true` — auto-pause is now ON
+  /// out of the box for fresh installs — while the v7 → v8 migration
+  /// explicitly backfills every EXISTING row to `true` too, so upgraded
+  /// installs get the same behaviour change (see `database.dart` v8
+  /// branch). `withDefault(const Constant(true))` covers the `onCreate`
+  /// (fresh-install, no row) path only; it does NOT retroactively change
+  /// already-created rows, hence the explicit backfill.
   final bool autoPauseEnabled;
 
   /// True once the user has cleared the first-run login wall (Phase 20,
@@ -2029,6 +2057,16 @@ class UserPreferencesRow extends DataClass
   /// `UserPreferencesDao.getBackfillMarkerVersion()`. Added by schema
   /// migration v6 → v7 (additive).
   final int backfillMarkerVersion;
+
+  /// CSV of page keys whose one-time guided tour has already been shown
+  /// (Phase 27, UX-07 tour persistence scaffold). Empty string = no tour
+  /// seen yet. Parsed into a `Set<String>` by
+  /// `UserPreferencesValue.seenTourKeys`; mutated one key at a time by
+  /// `UserPreferencesDao.markTourSeen()`. Added by schema migration v7 →
+  /// v8 (additive) — existing rows read `''` (no tours seen), so every
+  /// upgraded install still sees each page's tour once, same as a fresh
+  /// install.
+  final String seenTours;
   const UserPreferencesRow({
     required this.id,
     required this.userId,
@@ -2046,6 +2084,7 @@ class UserPreferencesRow extends DataClass
     this.officeLat,
     this.officeLng,
     required this.backfillMarkerVersion,
+    required this.seenTours,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2078,6 +2117,7 @@ class UserPreferencesRow extends DataClass
       map['office_lng'] = Variable<double>(officeLng);
     }
     map['backfill_marker_version'] = Variable<int>(backfillMarkerVersion);
+    map['seen_tours'] = Variable<String>(seenTours);
     return map;
   }
 
@@ -2109,6 +2149,7 @@ class UserPreferencesRow extends DataClass
           ? const Value.absent()
           : Value(officeLng),
       backfillMarkerVersion: Value(backfillMarkerVersion),
+      seenTours: Value(seenTours),
     );
   }
 
@@ -2138,6 +2179,7 @@ class UserPreferencesRow extends DataClass
       backfillMarkerVersion: serializer.fromJson<int>(
         json['backfillMarkerVersion'],
       ),
+      seenTours: serializer.fromJson<String>(json['seenTours']),
     );
   }
   @override
@@ -2162,6 +2204,7 @@ class UserPreferencesRow extends DataClass
       'officeLat': serializer.toJson<double?>(officeLat),
       'officeLng': serializer.toJson<double?>(officeLng),
       'backfillMarkerVersion': serializer.toJson<int>(backfillMarkerVersion),
+      'seenTours': serializer.toJson<String>(seenTours),
     };
   }
 
@@ -2182,6 +2225,7 @@ class UserPreferencesRow extends DataClass
     Value<double?> officeLat = const Value.absent(),
     Value<double?> officeLng = const Value.absent(),
     int? backfillMarkerVersion,
+    String? seenTours,
   }) => UserPreferencesRow(
     id: id ?? this.id,
     userId: userId ?? this.userId,
@@ -2200,6 +2244,7 @@ class UserPreferencesRow extends DataClass
     officeLat: officeLat.present ? officeLat.value : this.officeLat,
     officeLng: officeLng.present ? officeLng.value : this.officeLng,
     backfillMarkerVersion: backfillMarkerVersion ?? this.backfillMarkerVersion,
+    seenTours: seenTours ?? this.seenTours,
   );
   UserPreferencesRow copyWithCompanion(UserPreferencesCompanion data) {
     return UserPreferencesRow(
@@ -2237,6 +2282,7 @@ class UserPreferencesRow extends DataClass
       backfillMarkerVersion: data.backfillMarkerVersion.present
           ? data.backfillMarkerVersion.value
           : this.backfillMarkerVersion,
+      seenTours: data.seenTours.present ? data.seenTours.value : this.seenTours,
     );
   }
 
@@ -2258,7 +2304,8 @@ class UserPreferencesRow extends DataClass
           ..write('homeLng: $homeLng, ')
           ..write('officeLat: $officeLat, ')
           ..write('officeLng: $officeLng, ')
-          ..write('backfillMarkerVersion: $backfillMarkerVersion')
+          ..write('backfillMarkerVersion: $backfillMarkerVersion, ')
+          ..write('seenTours: $seenTours')
           ..write(')'))
         .toString();
   }
@@ -2281,6 +2328,7 @@ class UserPreferencesRow extends DataClass
     officeLat,
     officeLng,
     backfillMarkerVersion,
+    seenTours,
   );
   @override
   bool operator ==(Object other) =>
@@ -2301,7 +2349,8 @@ class UserPreferencesRow extends DataClass
           other.homeLng == this.homeLng &&
           other.officeLat == this.officeLat &&
           other.officeLng == this.officeLng &&
-          other.backfillMarkerVersion == this.backfillMarkerVersion);
+          other.backfillMarkerVersion == this.backfillMarkerVersion &&
+          other.seenTours == this.seenTours);
 }
 
 class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
@@ -2321,6 +2370,7 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
   final Value<double?> officeLat;
   final Value<double?> officeLng;
   final Value<int> backfillMarkerVersion;
+  final Value<String> seenTours;
   const UserPreferencesCompanion({
     this.id = const Value.absent(),
     this.userId = const Value.absent(),
@@ -2338,6 +2388,7 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
     this.officeLat = const Value.absent(),
     this.officeLng = const Value.absent(),
     this.backfillMarkerVersion = const Value.absent(),
+    this.seenTours = const Value.absent(),
   });
   UserPreferencesCompanion.insert({
     this.id = const Value.absent(),
@@ -2356,6 +2407,7 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
     this.officeLat = const Value.absent(),
     this.officeLng = const Value.absent(),
     this.backfillMarkerVersion = const Value.absent(),
+    this.seenTours = const Value.absent(),
   });
   static Insertable<UserPreferencesRow> custom({
     Expression<int>? id,
@@ -2374,6 +2426,7 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
     Expression<double>? officeLat,
     Expression<double>? officeLng,
     Expression<int>? backfillMarkerVersion,
+    Expression<String>? seenTours,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -2394,6 +2447,7 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
       if (officeLng != null) 'office_lng': officeLng,
       if (backfillMarkerVersion != null)
         'backfill_marker_version': backfillMarkerVersion,
+      if (seenTours != null) 'seen_tours': seenTours,
     });
   }
 
@@ -2414,6 +2468,7 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
     Value<double?>? officeLat,
     Value<double?>? officeLng,
     Value<int>? backfillMarkerVersion,
+    Value<String>? seenTours,
   }) {
     return UserPreferencesCompanion(
       id: id ?? this.id,
@@ -2434,6 +2489,7 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
       officeLng: officeLng ?? this.officeLng,
       backfillMarkerVersion:
           backfillMarkerVersion ?? this.backfillMarkerVersion,
+      seenTours: seenTours ?? this.seenTours,
     );
   }
 
@@ -2492,6 +2548,9 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
         backfillMarkerVersion.value,
       );
     }
+    if (seenTours.present) {
+      map['seen_tours'] = Variable<String>(seenTours.value);
+    }
     return map;
   }
 
@@ -2513,7 +2572,8 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
           ..write('homeLng: $homeLng, ')
           ..write('officeLat: $officeLat, ')
           ..write('officeLng: $officeLng, ')
-          ..write('backfillMarkerVersion: $backfillMarkerVersion')
+          ..write('backfillMarkerVersion: $backfillMarkerVersion, ')
+          ..write('seenTours: $seenTours')
           ..write(')'))
         .toString();
   }
@@ -3668,6 +3728,7 @@ typedef $$UserPreferencesTableCreateCompanionBuilder =
       Value<double?> officeLat,
       Value<double?> officeLng,
       Value<int> backfillMarkerVersion,
+      Value<String> seenTours,
     });
 typedef $$UserPreferencesTableUpdateCompanionBuilder =
     UserPreferencesCompanion Function({
@@ -3687,6 +3748,7 @@ typedef $$UserPreferencesTableUpdateCompanionBuilder =
       Value<double?> officeLat,
       Value<double?> officeLng,
       Value<int> backfillMarkerVersion,
+      Value<String> seenTours,
     });
 
 class $$UserPreferencesTableFilterComposer
@@ -3775,6 +3837,11 @@ class $$UserPreferencesTableFilterComposer
 
   ColumnFilters<int> get backfillMarkerVersion => $composableBuilder(
     column: $table.backfillMarkerVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get seenTours => $composableBuilder(
+    column: $table.seenTours,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -3867,6 +3934,11 @@ class $$UserPreferencesTableOrderingComposer
     column: $table.backfillMarkerVersion,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get seenTours => $composableBuilder(
+    column: $table.seenTours,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$UserPreferencesTableAnnotationComposer
@@ -3943,6 +4015,9 @@ class $$UserPreferencesTableAnnotationComposer
     column: $table.backfillMarkerVersion,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get seenTours =>
+      $composableBuilder(column: $table.seenTours, builder: (column) => column);
 }
 
 class $$UserPreferencesTableTableManager
@@ -3998,6 +4073,7 @@ class $$UserPreferencesTableTableManager
                 Value<double?> officeLat = const Value.absent(),
                 Value<double?> officeLng = const Value.absent(),
                 Value<int> backfillMarkerVersion = const Value.absent(),
+                Value<String> seenTours = const Value.absent(),
               }) => UserPreferencesCompanion(
                 id: id,
                 userId: userId,
@@ -4015,6 +4091,7 @@ class $$UserPreferencesTableTableManager
                 officeLat: officeLat,
                 officeLng: officeLng,
                 backfillMarkerVersion: backfillMarkerVersion,
+                seenTours: seenTours,
               ),
           createCompanionCallback:
               ({
@@ -4034,6 +4111,7 @@ class $$UserPreferencesTableTableManager
                 Value<double?> officeLat = const Value.absent(),
                 Value<double?> officeLng = const Value.absent(),
                 Value<int> backfillMarkerVersion = const Value.absent(),
+                Value<String> seenTours = const Value.absent(),
               }) => UserPreferencesCompanion.insert(
                 id: id,
                 userId: userId,
@@ -4051,6 +4129,7 @@ class $$UserPreferencesTableTableManager
                 officeLat: officeLat,
                 officeLng: officeLng,
                 backfillMarkerVersion: backfillMarkerVersion,
+                seenTours: seenTours,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

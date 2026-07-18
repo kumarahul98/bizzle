@@ -73,10 +73,11 @@ void main() {
         //    the DDL diff against the generated snapshot. The v5 → v6 step
         //    still runs as part of the stepwise upgrade; migrating to the
         //    terminal version is required so the real DAOs can read every
-        //    column (Phase 26 added backfill_marker_version after v6).
+        //    column (Phase 26 added backfill_marker_version after v6; Phase
+        //    27 added seen_tours after v7).
         final migratedDb = AppDatabase(schema.newConnection());
         addTearDown(migratedDb.close);
-        await verifier.migrateAndValidate(migratedDb, 7);
+        await verifier.migrateAndValidate(migratedDb, 8);
 
         // 3a. The trip survives unchanged (additive migration).
         final tripRow = await migratedDb.tripsDao.findById(tripId);
