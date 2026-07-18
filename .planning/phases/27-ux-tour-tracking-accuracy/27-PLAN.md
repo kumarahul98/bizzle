@@ -1,9 +1,18 @@
 ---
 phase: 27-ux-tour-tracking-accuracy
 created: 2026-07-18
-status: in_progress
+status: code_complete
 mode: autonomous-overnight
 requirements: [TRACK-14, UX-07, UX-08]
+commits: [675fec1 (TRACK-14), 26b017b (UX-08), 5f75640 (UX-07)]
+result: >
+  All 3 concerns built overnight via subagents (2 Sonnet waves + 1 Opus tour).
+  Full suite 664 green, 0 analyzer errors/warnings, release APK built.
+  Tour uses a custom Overlay coach-mark (showcaseview 5.x wrapper deprecated /
+  fights IndexedStack). On-device UAT pending: (1) stand still → distance stays
+  ~0; (2) Settings show Auto-pause ON + existing install backfilled; (3) each
+  tab tours once with Skip. Watch item: tour tooltip placement on very short
+  viewports (no auto-scroll; targets kept near top).
 ---
 
 # Phase 27 — UX Tour + Tracking Accuracy
