@@ -346,6 +346,117 @@ void main() {
     );
   });
 
+  group(
+    'TripAccumulator.addSample() — minimum-move floor '
+    '(Phase 27, kTrackingMinMoveMeters)',
+    () {
+      test('rejects distance below kTrackingMinMoveMeters (GPS jitter)', () {
+        const lat2 = 37.77492;
+        const lng2 = -122.4194;
+        final segmentMeters = Geolocator.distanceBetween(
+          37.7749,
+          -122.4194,
+          lat2,
+          lng2,
+        );
+        // Sanity: the two fixes really are within GPS-jitter range of each
+        // other, below the floor this test exercises.
+        expect(segmentMeters, lessThan(kTrackingMinMoveMeters));
+
+        final acc = TripAccumulator(startedAt: start)
+          ..addSample(
+            _pos(
+              lat: 37.7749,
+              lng: -122.4194,
+              speedMs: 0,
+              timestamp: start,
+            ),
+          )
+          ..addSample(
+            _pos(
+              lat: lat2,
+              lng: lng2,
+              speedMs: 0,
+              timestamp: start.add(kTrackingSampleInterval),
+            ),
+          );
+
+        expect(acc.distanceMetersForTest, 0);
+      });
+
+      test('counts distance at/above kTrackingMinMoveMeters (real movement)', () {
+        const lat2 = 37.77508;
+        const lng2 = -122.4194;
+        final segmentMeters = Geolocator.distanceBetween(
+          37.7749,
+          -122.4194,
+          lat2,
+          lng2,
+        );
+        expect(segmentMeters, greaterThanOrEqualTo(kTrackingMinMoveMeters));
+
+        final acc = TripAccumulator(startedAt: start)
+          ..addSample(
+            _pos(
+              lat: 37.7749,
+              lng: -122.4194,
+              speedMs: 5,
+              timestamp: start,
+            ),
+          )
+          ..addSample(
+            _pos(
+              lat: lat2,
+              lng: lng2,
+              speedMs: 5,
+              timestamp: start.add(kTrackingSampleInterval),
+            ),
+          );
+
+        expect(acc.distanceMetersForTest, closeTo(segmentMeters, 1e-6));
+        expect(acc.distanceMetersForTest, closeTo(20, 1));
+      });
+
+      test(
+        'gate does not alter time attribution or sample/polyline count for '
+        'a normal moving sequence',
+        () {
+          final acc = TripAccumulator(startedAt: start)
+            ..addSample(
+              _pos(
+                lat: 37.7749,
+                lng: -122.4194,
+                speedMs: 20, // 72 km/h — moving
+                timestamp: start,
+              ),
+            )
+            ..addSample(
+              _pos(
+                lat: 37.7800,
+                lng: -122.4194,
+                speedMs: 20,
+                timestamp: start.add(const Duration(seconds: 5)),
+              ),
+            );
+
+          // Time attribution unchanged: prev.speed above threshold →
+          // moving, same as the D-03 group above.
+          expect(acc.timeMovingSecondsForTest, 5);
+          expect(acc.timeStuckSecondsForTest, 0);
+
+          // Distance still accumulates normally — this segment (~567m) is
+          // well above the floor, so the gate is a no-op here.
+          expect(acc.distanceMetersForTest, greaterThan(kTrackingMinMoveMeters));
+
+          // Sample/polyline count is unaffected by the distance-floor gate
+          // — every accepted sample is still recorded.
+          final trip = acc.finalize(start.add(const Duration(seconds: 10)));
+          expect(trip.encodedPolyline, isNotEmpty);
+        },
+      );
+    },
+  );
+
   group('TripAccumulator.finalize()', () {
     test('ignores addSample calls after finalize', () {
       final acc = TripAccumulator(startedAt: start)

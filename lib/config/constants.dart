@@ -292,6 +292,18 @@ const Duration kTrackingUiUpdateInterval = Duration(seconds: 1);
 /// `.planning/phases/02-core-tracking/02-RESEARCH.md` §6.
 const double kTrackingMaxAcceptableAccuracyMeters = 30;
 
+/// Minimum segment length (meters) a `TripAccumulator.addSample` distance
+/// delta must clear before it is added to the running distance total.
+/// Below this floor, the delta is GPS noise rather than real movement — a
+/// stationary device still emits fixes that drift by roughly 0.79 m per
+/// sample at `kTrackingSampleInterval` (3 s), which silently accumulates
+/// into hundreds of meters over a long stationary period. This floor
+/// applies ONLY to the distance total; it does not affect the polyline
+/// (every sample is still recorded) or moving/stuck time attribution.
+///
+/// See `.planning/phases/27-ux-tour-tracking-accuracy/27-PLAN.md`.
+const double kTrackingMinMoveMeters = 5.0;
+
 /// Maximum time gap (seconds) between two accepted samples before their
 /// interval is excluded from moving/stuck time attribution. Longer gaps
 /// (tunnels, GPS dropouts) still contribute to the encoded polyline, but
