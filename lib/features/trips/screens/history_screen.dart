@@ -5,6 +5,7 @@ import 'package:traevy/config/constants.dart';
 import 'package:traevy/config/routes.dart';
 import 'package:traevy/config/theme.dart';
 import 'package:traevy/database/daos/trips_dao.dart';
+import 'package:traevy/features/tour/tour_config.dart';
 import 'package:traevy/features/trips/providers/history_providers.dart';
 import 'package:traevy/features/trips/widgets/history_view_toggle.dart';
 import 'package:traevy/features/trips/widgets/manual_entry_sheet.dart';
@@ -108,11 +109,14 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                   ),
                   const SizedBox(width: 8),
                   // Add trip icon button — 36dp text-bg circle.
-                  _IconCircleButton(
-                    onTap: _showManualEntry,
-                    backgroundColor: Theme.of(context).colorScheme.onSurface,
-                    icon: Icons.add_rounded,
-                    iconColor: bgColor,
+                  KeyedSubtree(
+                    key: TourKeys.tripsAdd,
+                    child: _IconCircleButton(
+                      onTap: _showManualEntry,
+                      backgroundColor: Theme.of(context).colorScheme.onSurface,
+                      icon: Icons.add_rounded,
+                      iconColor: bgColor,
+                    ),
                   ),
                 ],
               ),
@@ -123,9 +127,12 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
               padding: const EdgeInsets.symmetric(
                 horizontal: _kHorizontalPadding,
               ),
-              child: HistoryViewToggle(
-                selectedView: _view,
-                onChanged: _onViewChanged,
+              child: KeyedSubtree(
+                key: TourKeys.tripsView,
+                child: HistoryViewToggle(
+                  selectedView: _view,
+                  onChanged: _onViewChanged,
+                ),
               ),
             ),
             const SizedBox(height: 16),

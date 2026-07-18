@@ -17,6 +17,7 @@ import 'package:traevy/features/settings/widgets/restore_row.dart';
 import 'package:traevy/features/settings/widgets/saved_location_tile.dart';
 import 'package:traevy/features/settings/widgets/settings_row.dart';
 import 'package:traevy/features/settings/widgets/settings_section.dart';
+import 'package:traevy/features/tour/tour_config.dart';
 import 'package:traevy/shared/widgets/traevy_toggle.dart';
 
 /// The Traevy-restyled Settings screen — four grouped sections inside
@@ -49,7 +50,10 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               ),
               const _AccountSection(),
-              const _LocationsSection(),
+              KeyedSubtree(
+                key: TourKeys.settingsLocations,
+                child: const _LocationsSection(),
+              ),
               _RecordingSection(prefs: prefs, ref: ref),
               _NotificationsSection(prefs: prefs, ref: ref),
               _AppearanceSection(prefs: prefs, ref: ref),
@@ -184,14 +188,17 @@ class _RecordingSection extends StatelessWidget {
         // bound to user_preferences.auto_pause_enabled (default OFF). No
         // notification side-effect — flipping it only upserts the preference;
         // the service-side detector reads the gate live via the UI isolate.
-        SettingsRow(
-          label: kSettingsAutoPauseLabel,
-          subtitle: prefs.autoPauseEnabled
-              ? kSettingsAutoPauseOnSubtitle
-              : kSettingsAutoPauseOffSubtitle,
-          trailing: TraevyToggle(
-            value: prefs.autoPauseEnabled,
-            onChanged: (v) => unawaited(_toggleAutoPause(ref, prefs, v)),
+        KeyedSubtree(
+          key: TourKeys.settingsAutoPause,
+          child: SettingsRow(
+            label: kSettingsAutoPauseLabel,
+            subtitle: prefs.autoPauseEnabled
+                ? kSettingsAutoPauseOnSubtitle
+                : kSettingsAutoPauseOffSubtitle,
+            trailing: TraevyToggle(
+              value: prefs.autoPauseEnabled,
+              onChanged: (v) => unawaited(_toggleAutoPause(ref, prefs, v)),
+            ),
           ),
         ),
       ],

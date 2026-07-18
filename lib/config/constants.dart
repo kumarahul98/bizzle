@@ -1263,3 +1263,110 @@ const int kBackfillMarkerVersion = 2;
 /// placeholder convention.
 const String kConflictBreaksDifferTemplate =
     'Local: {local} breaks · Cloud: {cloud} breaks';
+
+// ---------------------------------------------------------------------------
+// Phase 27 — Per-page guided tour (UX-07)
+// ---------------------------------------------------------------------------
+//
+// The first time a MainShell tab becomes visible, a lightweight coach-mark
+// tour spotlights 2 key elements with a Skip button, then never shows again
+// for that page. Persistence is the `seen_tours` CSV on user_preferences
+// (Phase 27 Concern 2 scaffold): each page key below is appended once the
+// page's tour is finished OR skipped (skip marks THIS page seen only).
+
+/// `seen_tours` CSV token identifying the Dashboard (Today) tab's tour.
+const String kTourKeyDashboard = 'dashboard';
+
+/// `seen_tours` CSV token identifying the History (Trips) tab's tour.
+const String kTourKeyTrips = 'trips';
+
+/// `seen_tours` CSV token identifying the Stats tab's tour.
+const String kTourKeyStats = 'stats';
+
+/// `seen_tours` CSV token identifying the Settings tab's tour.
+const String kTourKeySettings = 'settings';
+
+/// Coach-mark button label to skip (and permanently dismiss) the current
+/// page's tour. Skip marks only THIS page's tour seen (D: per-page skip).
+const String kTourSkipLabel = 'Skip';
+
+/// Coach-mark button label advancing to the next step within a page's tour.
+const String kTourNextLabel = 'Next';
+
+/// Coach-mark button label on the final step of a page's tour — dismisses it.
+const String kTourDoneLabel = 'Got it';
+
+/// Coach-mark step counter template. `{current}`/`{total}` are replaced via
+/// `.replaceAll`, mirroring [kAutoRestoreResultTemplate]'s `{n}` convention.
+const String kTourStepCounterTemplate = '{current} of {total}';
+
+// --- Dashboard (Today) tour copy ------------------------------------------
+
+/// Dashboard step 1 title — the START / record hero.
+const String kTourDashboardRecordTitle = 'Record your commute';
+
+/// Dashboard step 1 body — the START / record hero.
+const String kTourDashboardRecordBody =
+    'Tap START to track a trip. Traevy captures your route and the time you '
+    'spend stuck in traffic automatically.';
+
+/// Dashboard step 2 title — today's summary.
+const String kTourDashboardTodayTitle = 'Today at a glance';
+
+/// Dashboard step 2 body — today's summary.
+const String kTourDashboardTodayBody =
+    'Your commutes for today show up here, each with its time, distance and '
+    'traffic breakdown.';
+
+// --- History (Trips) tour copy --------------------------------------------
+
+/// History step 1 title — the list / calendar view toggle.
+const String kTourTripsViewTitle = 'List or calendar';
+
+/// History step 1 body — the list / calendar view toggle.
+const String kTourTripsViewBody =
+    'Switch between a running list of your trips and a calendar to browse '
+    'them by day.';
+
+/// History step 2 title — the add-trip button.
+const String kTourTripsAddTitle = 'Add a trip by hand';
+
+/// History step 2 body — the add-trip button.
+const String kTourTripsAddBody =
+    'Forgot to hit record? Tap here to enter a commute manually — then open '
+    'any trip to view or edit it.';
+
+// --- Stats tour copy -------------------------------------------------------
+
+/// Stats step 1 title — the traffic-loss hero.
+const String kTourStatsTrafficTitle = 'Time lost to traffic';
+
+/// Stats step 1 body — the traffic-loss hero.
+const String kTourStatsTrafficBody =
+    'See how much of your week disappeared while you were stuck in traffic.';
+
+/// Stats step 2 title — the moving-vs-stuck breakdown chart.
+const String kTourStatsBreakdownTitle = 'Your traffic breakdown';
+
+/// Stats step 2 body — the moving-vs-stuck breakdown chart.
+const String kTourStatsBreakdownBody =
+    'This chart splits your commute into time moving versus time stuck, so '
+    'you can see the balance at a glance.';
+
+// --- Settings tour copy ----------------------------------------------------
+
+/// Settings step 1 title — the auto-pause toggle.
+const String kTourSettingsAutoPauseTitle = 'Auto-pause when stopped';
+
+/// Settings step 1 body — the auto-pause toggle.
+const String kTourSettingsAutoPauseBody =
+    "When you've been stationary a while, Traevy can pause recording so long "
+    "stops never inflate your trip. It's on by default.";
+
+/// Settings step 2 title — the Home / Office location rows.
+const String kTourSettingsLocationsTitle = 'Set home & office';
+
+/// Settings step 2 body — the Home / Office location rows.
+const String kTourSettingsLocationsBody =
+    'Save your home and office and Traevy labels each trip by direction '
+    'automatically — to office or to home.';

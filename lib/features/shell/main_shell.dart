@@ -9,6 +9,8 @@ import 'package:traevy/features/dashboard/screens/dashboard_screen.dart';
 import 'package:traevy/features/settings/screens/settings_screen.dart';
 import 'package:traevy/features/shell/providers/main_shell_provider.dart';
 import 'package:traevy/features/stats/screens/stats_screen.dart';
+import 'package:traevy/features/tour/page_tour_host.dart';
+import 'package:traevy/features/tour/tour_config.dart';
 import 'package:traevy/features/tracking/providers/tracking_providers.dart';
 import 'package:traevy/features/tracking/services/tracking_permission_service.dart';
 import 'package:traevy/features/tracking/services/widget_state_writer.dart';
@@ -253,14 +255,23 @@ class _MainShellState extends ConsumerState<MainShell> {
     });
 
     final index = ref.watch(mainShellIndexProvider);
+    // Each tab screen is wrapped in a PageTourHost that runs its one-time
+    // guided tour the first time that tab becomes visible (UX-07). The screens
+    // themselves stay const; the tours (pageKey + steps) come from
+    // buildPageTours(), tab order matching the IndexedStack below.
+    final tours = buildPageTours();
+    const screens = <Widget>[
+      DashboardScreen(),
+      HistoryScreen(),
+      StatsScreen(),
+      SettingsScreen(),
+    ];
     return Scaffold(
       body: IndexedStack(
         index: index,
-        children: const <Widget>[
-          DashboardScreen(),
-          HistoryScreen(),
-          StatsScreen(),
-          SettingsScreen(),
+        children: <Widget>[
+          for (var i = 0; i < screens.length; i++)
+            PageTourHost(tour: tours[i], child: screens[i]),
         ],
       ),
       bottomNavigationBar: NavigationBar(

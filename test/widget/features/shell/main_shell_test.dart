@@ -23,6 +23,7 @@ import 'package:traevy/features/shell/main_shell.dart';
 import 'package:traevy/features/stats/providers/stats_providers.dart';
 import 'package:traevy/features/stats/screens/stats_screen.dart';
 import 'package:traevy/features/stats/services/stats_service.dart';
+import 'package:traevy/features/tour/tour_config.dart';
 import 'package:traevy/features/tracking/providers/tracking_providers.dart';
 import 'package:traevy/features/tracking/state/tracking_state.dart';
 import 'package:traevy/features/trips/providers/history_providers.dart';
@@ -30,6 +31,27 @@ import 'package:traevy/features/trips/screens/history_screen.dart';
 import 'package:traevy/sync/restore_controller.dart';
 import 'package:traevy/sync/sync_engine.dart';
 import 'package:uuid/uuid.dart';
+
+/// Preferences value with every page's guided tour already marked seen, so the
+/// Phase 27 coach-mark (UX-07) never triggers in shell tests.
+UserPreferencesValue _allToursSeenPrefs() => UserPreferencesValue(
+  userId: kDefaultUserId,
+  darkMode: kDarkModeSystem,
+  morningCutoffHour: kDefaultDirectionCutoffHour,
+  eveningCutoffHour: kDefaultDirectionCutoffHour,
+  reminderEnabled: false,
+  reminderTime: null,
+  weekendReminder: false,
+  weeklyNotificationEnabled: false,
+  autoPauseEnabled: true,
+  hasSeenOnboarding: true,
+  homeLat: null,
+  homeLng: null,
+  officeLat: null,
+  officeLng: null,
+  backfillMarkerVersion: 0,
+  seenTours: allTourPageKeys.join(','),
+);
 
 /// Minimal stub notifier that skips fbs initialisation.
 ///
@@ -157,8 +179,12 @@ Future<void> _pumpShell(
         // SettingsScreen (mounted by IndexedStack) watches userPreferenceProvider
         // which opens a Drift stream. Override with a completed stream so no
         // pending timers remain after the test tears down.
+        //
+        // Phase 27: seed every page's tour as already-seen so the per-page
+        // coach-mark (UX-07) never triggers here — its full-screen scrim would
+        // otherwise intercept the NavigationBar taps these tests perform.
         userPreferenceProvider.overrideWith(
-          (ref) => Stream.value(const UserPreferencesValue.defaults()),
+          (ref) => Stream.value(_allToursSeenPrefs()),
         ),
         if (db != null) ...[
           appDatabaseProvider.overrideWithValue(db),

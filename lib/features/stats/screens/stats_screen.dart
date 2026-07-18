@@ -7,6 +7,7 @@ import 'package:traevy/features/stats/widgets/donut_card.dart';
 import 'package:traevy/features/stats/widgets/traffic_loss_hero.dart';
 import 'package:traevy/features/stats/widgets/trend_bars_card.dart';
 import 'package:traevy/features/stats/widgets/weekday_chart_card.dart';
+import 'package:traevy/features/tour/tour_config.dart';
 
 const double _kHorizontalPadding = 20;
 const double _kTopPadding = 16;
@@ -89,9 +90,15 @@ class StatsScreen extends ConsumerWidget {
             if (loading) ...<Widget>[
               const Center(child: CircularProgressIndicator()),
             ] else ...<Widget>[
-              const TrafficLossHero(),
+              KeyedSubtree(
+                key: TourKeys.statsTraffic,
+                child: const TrafficLossHero(),
+              ),
               const SizedBox(height: _kCardGap),
-              const DonutCard(),
+              KeyedSubtree(
+                key: TourKeys.statsBreakdown,
+                child: const DonutCard(),
+              ),
               const SizedBox(height: _kCardGap),
               const TrendBarsCard(),
               const SizedBox(height: _kCardGap),
