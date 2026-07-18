@@ -327,6 +327,19 @@ const Duration kTrackingNotificationRefreshInterval = Duration(seconds: 5);
 /// RemoteViews rebuild every second (~2700 broadcasts on a 45-min trip).
 const Duration kTrackingWidgetRefreshInterval = Duration(seconds: 5);
 
+/// Home-screen widget (WIDGET-01) — shared identifiers for the native
+/// `CommuteWidgetProvider` and the SharedPreferences keys it reads in
+/// `onUpdate`. Centralized so the background-isolate writes
+/// (`tracking_service.dart`) and the app-launch reconciliation
+/// (`widget_state_writer.dart`) never drift on a magic string.
+const String kWidgetProviderName = 'CommuteWidgetProvider';
+const String kWidgetKeyTitle = 'widget_title';
+const String kWidgetKeyShowStats = 'widget_show_stats';
+const String kWidgetKeyDistance = 'widget_distance';
+const String kWidgetKeyDuration = 'widget_duration';
+const String kWidgetTitleIdle = 'Start Commute';
+const String kWidgetTitleActive = 'Stop Commute';
+
 /// Minimum gap between successive active-trip state persists (Phase 25
 /// interrupted-trip recovery). `TripAccumulator` snapshots its FULL state —
 /// including the growing sample list — to disk, so per-sample (~3 s) writes

@@ -11,6 +11,7 @@ import 'package:traevy/features/shell/providers/main_shell_provider.dart';
 import 'package:traevy/features/stats/screens/stats_screen.dart';
 import 'package:traevy/features/tracking/providers/tracking_providers.dart';
 import 'package:traevy/features/tracking/services/tracking_permission_service.dart';
+import 'package:traevy/features/tracking/services/widget_state_writer.dart';
 import 'package:traevy/features/tracking/state/tracking_state.dart';
 import 'package:traevy/features/tracking/widgets/recovery_prompt_dialog.dart';
 import 'package:traevy/features/trips/screens/history_screen.dart';
@@ -38,6 +39,10 @@ class _MainShellState extends ConsumerState<MainShell> {
     HomeWidget.initiallyLaunchedFromHomeWidget().then((uri) {
       if (uri != null) _onWidgetClicked(uri);
     });
+    // WIDGET-01: reset a widget left frozen on the active state by a prior
+    // force-stop / OS kill (the stop handler needs the service alive to clear
+    // it). No-op when a trip is genuinely running (service owns the widget).
+    unawaited(reconcileWidgetOnStartup());
   }
 
   @override

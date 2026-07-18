@@ -34,6 +34,7 @@ import 'package:traevy/features/tracking/services/auto_pause_detector.dart';
 import 'package:traevy/features/tracking/services/location_settings_builder.dart';
 import 'package:traevy/features/tracking/services/tracking_service_events.dart';
 import 'package:traevy/features/tracking/services/trip_accumulator.dart';
+import 'package:traevy/features/tracking/services/widget_state_writer.dart';
 import 'package:traevy/features/tracking/services/trip_state_persister.dart';
 import 'package:home_widget/home_widget.dart';
 
@@ -175,11 +176,11 @@ Future<void> trackingServiceOnStart(ServiceInstance service) async {
   );
 
   print('=== TRACKING SERVICE ONSTART BOOTED ===');
-  HomeWidget.saveWidgetData<String>('widget_title', 'Stop Commute');
-  HomeWidget.saveWidgetData<bool>('widget_show_stats', true);
+  HomeWidget.saveWidgetData<String>(kWidgetKeyTitle, kWidgetTitleActive);
+  HomeWidget.saveWidgetData<bool>(kWidgetKeyShowStats, true);
   HomeWidget.updateWidget(
-    name: 'CommuteWidgetProvider',
-    androidName: 'CommuteWidgetProvider',
+    name: kWidgetProviderName,
+    androidName: kWidgetProviderName,
   );
 
   // Widget refresh throttle: the 1 Hz tick below exists for the in-app
@@ -210,16 +211,16 @@ Future<void> trackingServiceOnStart(ServiceInstance service) async {
       final duration = h > 0 ? '${h}h ${min}m' : '${min}m';
 
       HomeWidget.saveWidgetData<String>(
-        'widget_distance',
+        kWidgetKeyDistance,
         distance,
       ).catchError((_) => false);
       HomeWidget.saveWidgetData<String>(
-        'widget_duration',
+        kWidgetKeyDuration,
         duration,
       ).catchError((_) => false);
       HomeWidget.updateWidget(
-        name: 'CommuteWidgetProvider',
-        androidName: 'CommuteWidgetProvider',
+        name: kWidgetProviderName,
+        androidName: kWidgetProviderName,
       ).catchError((_) => false);
     } catch (_) {}
   });
@@ -248,12 +249,7 @@ Future<void> trackingServiceOnStart(ServiceInstance service) async {
     stopping = true;
     await positionSub?.cancel();
     uiTimer?.cancel();
-    await HomeWidget.saveWidgetData<String>('widget_title', 'Start Commute');
-    await HomeWidget.saveWidgetData<bool>('widget_show_stats', false);
-    await HomeWidget.updateWidget(
-      name: 'CommuteWidgetProvider',
-      androidName: 'CommuteWidgetProvider',
-    );
+    await writeWidgetIdle();
     final trip = accumulator.finalize(DateTime.now().toUtc());
     // WR-05: if the app is force-stopped before the UI isolate can
     // receive and persist kTripFinalizedEvent, the trip is lost. Save it

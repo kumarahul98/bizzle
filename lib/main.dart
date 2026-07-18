@@ -60,42 +60,8 @@ import 'package:traevy/config/constants.dart';
 import 'package:traevy/features/auth/providers/auth_providers.dart';
 import 'package:traevy/features/tracking/services/tracking_notification_service.dart';
 import 'package:traevy/features/tracking/services/tracking_service.dart';
-import 'package:flutter_background_service/flutter_background_service.dart';
-import 'package:home_widget/home_widget.dart';
 import 'package:traevy/firebase_options.dart';
 import 'package:traevy/notifications/notification_service.dart';
-import 'package:traevy/features/tracking/providers/tracking_providers.dart';
-
-@pragma('vm:entry-point')
-Future<void> backgroundCallback(Uri? uri) async {
-  WidgetsFlutterBinding.ensureInitialized();
-  print('=== BACKGROUND CALLBACK FIRED: $uri ===');
-  if (uri?.host == 'toggletracking') {
-    final container = ProviderContainer();
-    try {
-      final service = FlutterBackgroundService();
-      final isRunning = await service.isRunning();
-      print('=== SERVICE IS RUNNING: $isRunning ===');
-      if (isRunning) {
-        await HomeWidget.saveWidgetData<String>('widget_title', 'Stopping...');
-        await HomeWidget.updateWidget(
-          name: 'CommuteWidgetProvider',
-          androidName: 'CommuteWidgetProvider',
-        );
-        await container.read(trackingServiceControllerProvider).stop();
-      } else {
-        await HomeWidget.saveWidgetData<String>('widget_title', 'Starting...');
-        await HomeWidget.updateWidget(
-          name: 'CommuteWidgetProvider',
-          androidName: 'CommuteWidgetProvider',
-        );
-        await container.read(trackingServiceControllerProvider).start();
-      }
-    } finally {
-      container.dispose();
-    }
-  }
-}
 
 // Helper: run [fn] with a [timeout]. If it exceeds the timeout or throws,
 // the error is swallowed so startup always proceeds to runApp.
@@ -164,10 +130,6 @@ Future<void> main() async {
         await NotificationService().initialize();
       },
       timeout: const Duration(seconds: 8),
-    ),
-    _safeInit(
-      'HomeWidget',
-      () => HomeWidget.registerBackgroundCallback(backgroundCallback),
     ),
     // configureBackgroundService is Android-only. Phase 14 replaced
     // flutter_background_service with a main-isolate GPS engine on iOS
