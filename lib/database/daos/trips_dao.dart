@@ -249,6 +249,38 @@ class TripsDao extends DatabaseAccessor<AppDatabase> with _$TripsDaoMixin {
         .get();
   }
 
+  /// Ids of every trip with non-default v0.3 metadata (Phase 26, D-01
+  /// backfill candidate query).
+  ///
+  /// "Non-default metadata" means ANY of:
+  ///   * one or more `trip_breaks` rows exist for the trip,
+  ///   * `is_edited = true`,
+  ///   * `direction_source != kDirectionSourceTime`.
+  ///
+  /// Deliberately wider than the literal roadmap wording ("breaks or
+  /// edits") per CONTEXT.md D-01, so geofence-/manual-labeled trips are
+  /// included and their `direction_source` reaches the cloud copy.
+  ///
+  /// A single query with OR'd conditions — a trip matching several
+  /// conditions still appears exactly once (one row per trip, no join).
+  /// Projects to plain ids: the caller feeds them straight into
+  /// `SyncQueueDao.enqueueUpdate`, which re-reads the payload at sync time.
+  Future<List<String>> tripIdsWithNonDefaultMetadata() {
+    final breaks = attachedDatabase.tripBreaks;
+    final query = select(trips)
+      ..where(
+        (t) =>
+            t.isEdited.equals(true) |
+            t.directionSource.equals(kDirectionSourceTime).not() |
+            existsQuery(
+              attachedDatabase.selectOnly(breaks)
+                ..addColumns([breaks.id])
+                ..where(breaks.tripId.equalsExp(t.id)),
+            ),
+      );
+    return query.map((row) => row.id).get();
+  }
+
   /// Rewrite the direction label and provenance source for a single trip
   /// (Phase 21, LOC-02 backfill).
   ///

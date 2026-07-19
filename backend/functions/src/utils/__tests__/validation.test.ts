@@ -3,6 +3,7 @@ import {
   syncTripsBody,
   tripIdParam,
   kMaxSyncBatchTrips,
+  kMaxBreaksPerTrip,
 } from '../validation';
 
 const VALID_UUID = '3f2504e0-4f89-41d3-9a0c-0305e82c3301';
@@ -21,8 +22,22 @@ function makeValidTrip(overrides: Record<string, unknown> = {}): Record<string, 
     isManualEntry: false,
     createdAt: '2026-06-01T08:45:01.000Z',
     updatedAt: '2026-06-01T08:45:01.000Z',
+    totalPausedSeconds: 0,
+    isEdited: false,
+    directionSource: 'time',
+    breaks: [],
     ...overrides,
   };
+}
+
+/** Trip payload with the 4 Phase 26 keys omitted entirely (old-client shape). */
+function makeLegacyTrip(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  const trip = makeValidTrip(overrides);
+  delete trip.totalPausedSeconds;
+  delete trip.isEdited;
+  delete trip.directionSource;
+  delete trip.breaks;
+  return trip;
 }
 
 describe('tripSchema', () => {
@@ -76,6 +91,76 @@ describe('tripSchema', () => {
   it('accepts a routePolyline at the length cap', () => {
     const atCap = 'x'.repeat(100000);
     expect(tripSchema.safeParse(makeValidTrip({ routePolyline: atCap })).success).toBe(true);
+  });
+});
+
+describe('tripSchema — Phase 26 metadata fields', () => {
+  it('defaults all 4 new fields when omitted entirely (old-client compatibility)', () => {
+    const parsed = tripSchema.safeParse(makeLegacyTrip());
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.totalPausedSeconds).toBe(0);
+      expect(parsed.data.isEdited).toBe(false);
+      expect(parsed.data.directionSource).toBe('time');
+      expect(parsed.data.breaks).toEqual([]);
+    }
+  });
+
+  it('accepts a trip with a breaks array present', () => {
+    const result = tripSchema.safeParse(
+      makeValidTrip({
+        breaks: [
+          { startTime: '2026-06-01T08:10:00.000Z', endTime: '2026-06-01T08:15:00.000Z' },
+        ],
+      }),
+    );
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects a breaks array over kMaxBreaksPerTrip (51 entries)', () => {
+    const breaks = Array.from({ length: kMaxBreaksPerTrip + 1 }, () => ({
+      startTime: '2026-06-01T08:10:00.000Z',
+      endTime: '2026-06-01T08:15:00.000Z',
+    }));
+    expect(tripSchema.safeParse(makeValidTrip({ breaks })).success).toBe(false);
+  });
+
+  it('accepts a breaks array at the kMaxBreaksPerTrip cap (50 entries)', () => {
+    const breaks = Array.from({ length: kMaxBreaksPerTrip }, () => ({
+      startTime: '2026-06-01T08:10:00.000Z',
+      endTime: '2026-06-01T08:15:00.000Z',
+    }));
+    expect(tripSchema.safeParse(makeValidTrip({ breaks })).success).toBe(true);
+  });
+
+  it('rejects an invalid directionSource value', () => {
+    expect(
+      tripSchema.safeParse(makeValidTrip({ directionSource: 'bogus' })).success,
+    ).toBe(false);
+  });
+
+  it.each(['manual', 'geofence', 'time'])(
+    'accepts directionSource %s (matches client kDirectionSource* constants)',
+    (value) => {
+      expect(
+        tripSchema.safeParse(makeValidTrip({ directionSource: value })).success,
+      ).toBe(true);
+    },
+  );
+
+  it('rejects a break entry with a non-ISO startTime', () => {
+    const result = tripSchema.safeParse(
+      makeValidTrip({
+        breaks: [{ startTime: 'not-a-date', endTime: '2026-06-01T08:15:00.000Z' }],
+      }),
+    );
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects a negative totalPausedSeconds', () => {
+    expect(
+      tripSchema.safeParse(makeValidTrip({ totalPausedSeconds: -1 })).success,
+    ).toBe(false);
   });
 });
 

@@ -19,7 +19,7 @@ import {
   FieldValue,
   Timestamp,
 } from 'firebase-admin/firestore';
-import type { TripDoc } from '../../src/types/trip';
+import type { DirectionSource, TripBreak, TripDoc } from '../../src/types/trip';
 
 const FIRESTORE_HOST = process.env.FIRESTORE_EMULATOR_HOST;
 const AUTH_HOST = process.env.FIREBASE_AUTH_EMULATOR_HOST;
@@ -58,6 +58,10 @@ export interface SeedTripInput {
   startTime?: string;
   endTime?: string;
   direction?: 'to_office' | 'to_home';
+  totalPausedSeconds?: number;
+  isEdited?: boolean;
+  directionSource?: DirectionSource;
+  breaks?: TripBreak[];
 }
 
 /**
@@ -65,6 +69,13 @@ export interface SeedTripInput {
  * matching the Plan 02 doc shape ({@link TripDoc}): camelCase fields, ISO 8601
  * UTC string timestamps, server metadata. Used to pre-seed state for the
  * delete/restore/ownership tests without going through the sync handler.
+ *
+ * The 4 Phase 26 metadata fields default to their zero-values (matching
+ * `tripConverter.fromFirestore`'s own defaults) when omitted, so every
+ * existing call site stays backward compatible. For the SC4 "legacy doc"
+ * test that needs a doc literally MISSING the 4 keys, write directly via the
+ * exported `db` handle instead of this helper — `seedTrip`'s `TripDoc`-typed
+ * literal always includes them.
  */
 export async function seedTrip(input: SeedTripInput): Promise<void> {
   const deleted = input.deleted ?? false;
@@ -82,6 +93,10 @@ export async function seedTrip(input: SeedTripInput): Promise<void> {
     isManualEntry: false,
     createdAt: '2026-05-01T08:45:00.000Z',
     updatedAt: '2026-05-01T08:45:00.000Z',
+    totalPausedSeconds: input.totalPausedSeconds ?? 0,
+    isEdited: input.isEdited ?? false,
+    directionSource: input.directionSource ?? 'time',
+    breaks: input.breaks ?? [],
     deleted,
     deletedAt: deleted ? Timestamp.now() : null,
     serverUpdatedAt: Timestamp.now(),

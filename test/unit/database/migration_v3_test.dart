@@ -60,19 +60,20 @@ void main() {
             );
         await oldDb.close();
 
-        // 2. Run the real migration up to the current terminal version (v5)
-        //    and validate the resulting schema against the generated v5
-        //    snapshot. A real v2 install upgrades straight through v3/v4 to
-        //    v5, so this exercises the full stepwise chain (D-04). The v3
+        // 2. Run the real migration up to the current terminal version (v8)
+        //    and validate the resulting schema against the generated v8
+        //    snapshot. A real v2 install upgrades straight through v3..v8,
+        //    so this exercises the full stepwise chain (D-04). The v3
         //    columns added by Phase 18 (total_paused_seconds,
         //    auto_pause_enabled) are asserted below to prove the v2 → v3 step
         //    still preserves data. Migrating to the terminal version is also
         //    required so the real DAO's getOrDefault() can read every column
         //    (has_seen_onboarding was added at v5; the Phase 21 coords +
-        //    direction_source at v6).
+        //    direction_source at v6; the Phase 26 backfill_marker_version at
+        //    v7; the Phase 27 seen_tours at v8).
         final migratedDb = AppDatabase(schema.newConnection());
         addTearDown(migratedDb.close);
-        await verifier.migrateAndValidate(migratedDb, 6);
+        await verifier.migrateAndValidate(migratedDb, 8);
 
         // 3a. The previously-inserted trip still exists after migration.
         final tripRow = await migratedDb.tripsDao.findById(tripId);
@@ -84,10 +85,17 @@ void main() {
         //     pre-existing row (D-02/D-03 — active duration == wall-clock).
         expect(tripRow.totalPausedSeconds, 0);
 
-        // 3c. The user_preferences row written before migration reflects
-        //     auto_pause_enabled = false (D-10 — opt-in default).
+        // 3c. At v3 the pre-existing user_preferences row got
+        //     auto_pause_enabled = false (D-10 — opt-in default, which held
+        //     at v3). But this install upgrades all the way to the current
+        //     terminal version, and the Phase 27 v7 → v8 migration
+        //     explicitly backfills EVERY existing row's auto_pause_enabled
+        //     to true (UX-08 supersedes D-10) — so by the time the DAO
+        //     reads it here, it is true, not false. This assertion is
+        //     scoped to what the FULL migration chain guarantees for this
+        //     row today, not to the v3 step in isolation.
         final prefs = await migratedDb.userPreferencesDao.getOrDefault();
-        expect(prefs.autoPauseEnabled, isFalse);
+        expect(prefs.autoPauseEnabled, isTrue);
       },
     );
   });

@@ -16,11 +16,38 @@ export const kMaxSyncBatchTrips = 1000;
 const kMaxRoutePolylineChars = 100000;
 
 /**
+ * Maximum number of break segments accepted per trip (Phase 26, T-26-01 DoS
+ * cap). Rejects an oversized `breaks` array with a 400 before any Firestore
+ * work, mirroring the `kMaxRoutePolylineChars`/`kMaxSyncBatchTrips` pattern.
+ */
+export const kMaxBreaksPerTrip = 50;
+
+/**
+ * zod schema for a single embedded break segment (Phase 26, T-26-03). Reuses
+ * the same `.datetime()` validator already applied to the trip-level
+ * `startTime`/`endTime` fields.
+ */
+const tripBreakSchema = z.object({
+  startTime: z.string().datetime(),
+  endTime: z.string().datetime(),
+});
+
+/**
  * zod schema mirroring the {@link import('../types/trip').Trip} contract.
  *
  * `id` is a UUID (D-09: the doc id is the client trip UUID). `userId` is
  * optional and ignored — the server forces it to the token uid (D-08).
  * Timestamps are ISO 8601 strings; `direction` is the locked enum.
+ *
+ * The 4 Phase 26 metadata fields (`totalPausedSeconds`, `isEdited`,
+ * `directionSource`, `breaks`) are `.default()`-backed: zod 4 semantics make
+ * the key optional on input AND fill the default in parsed output when
+ * absent, so an older client that omits them still validates (old-client
+ * compatibility, SC1/SC4). `directionSource`'s enum values are the literal
+ * strings `'manual'`/`'geofence'`/`'time'`, matching the client's
+ * `kDirectionSourceManual`/`kDirectionSourceGeofence`/`kDirectionSourceTime`
+ * constants in `lib/config/constants.dart` byte-for-byte (T-26-02) — a
+ * mismatch here would silently poison-pill every sync from a valid client.
  */
 export const tripSchema = z.object({
   id: z.string().uuid(),
@@ -36,6 +63,10 @@ export const tripSchema = z.object({
   isManualEntry: z.boolean(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
+  totalPausedSeconds: z.number().int().nonnegative().default(0),
+  isEdited: z.boolean().default(false),
+  directionSource: z.enum(['manual', 'geofence', 'time']).default('time'),
+  breaks: z.array(tripBreakSchema).max(kMaxBreaksPerTrip).default([]),
 });
 
 /**

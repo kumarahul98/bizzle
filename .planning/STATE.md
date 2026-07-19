@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: App Improvements
-status: active
-stopped_at: "Phase 25.1 inserted (sync bug fixes) and Phase 23 rescoped (UAT audit) — neither planned yet"
-last_updated: "2026-07-11T00:00:00.000Z"
-last_activity: 2026-07-11
+status: executing
+stopped_at: Phase 26 plan 26-06 complete (phase 26 done, all 6 plans shipped)
+last_updated: "2026-07-13T11:53:15.536Z"
+last_activity: 2026-07-13
 progress:
-  total_phases: 11
-  completed_phases: 8
-  total_plans: 14
-  completed_plans: 14
-  percent: 73
+  total_phases: 16
+  completed_phases: 12
+  total_plans: 40
+  completed_plans: 37
+  percent: 75
 ---
 
 # Project State
@@ -21,18 +21,20 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-06)
 
 **Core value:** Show people the reality of their commute -- time wasted in traffic and how it changes over time.
-**Current focus:** Phase 25.1 — Fix Sync Conflict & Auto-Retry Bugs (v0.3 App Improvements)
+**Current focus:** Phase 26 — sync-breaks-edit-metadata-to-cloud
 
 ## Current Position
 
-Phase: 25.1 — Fix Sync Conflict & Auto-Retry Bugs (INSERTED, blocks Phase 26)
-Plan: not yet planned
-Status: Not started
-Last activity: 2026-07-11
+Phase: 26
+Plan: Not started
+Status: Ready to execute
+Last activity: 2026-07-13
 
-**v0.3 progress:** 8/11 phases complete (17,18,19,20,21,22,24,25 done, merged to main 2026-07-06 in PR #2). Phase 23 rescoped 2026-07-11 (UAT audit found it never really executed — stalled at 1 thin plan; now Android-only, its one iOS criterion removed). Phase 25.1 inserted 2026-07-11 (Phase 24 verification found 2 unfixed correctness bugs: broken auto-retry throttle, fake Merge conflict resolution). Phase 26 added 2026-07-11, now depends on 25.1.
+**v0.3 progress:** 9/11 phases complete (17,18,19,20,21,22,24,25 done and merged to main 2026-07-06 in PR #2; 25.1 completed 2026-07-12 on main). Phase 23 rescoped 2026-07-11 (UAT audit found it never really executed — stalled at 1 thin plan; now Android-only, its one iOS criterion removed). Phase 25.1 (inserted 2026-07-11) fixed the broken auto-retry throttle and fake Merge conflict resolution; one visual UAT item remains tracked in 25.1-HUMAN-UAT.md (Merge sheet "Local" pre-selected on device).
 
-**Recommended execution order for the remaining work:** 25.1 (bug fixes, no device needed) → 26 (sync schema, no device needed) → 23 (one consolidated Android device session covering the v0.1 checklist + stalled 21/22 UAT sessions).
+**v0.3 verification reconciliation (2026-07-14):** VERIFICATION.md now exists for Phases 21/22/25; Phase 24 re-verified off its stale gaps_found → human_needed (6/6 static truths after 25.1's fixes). Results: Phase 24 → SYNC-04/SYNC-05 Complete; Phase 22 → WIDGET-01 code-complete but held Pending on device UAT (owned by Phase 23); Phase 21 → LOC-01 Complete. **Two real production bugs surfaced (both CI-invisible, both contradicting the milestone audit's "no broken wiring" claim), neither fixed yet:** (1) **TRACK-13 BLOCKED** — `TripStatePersister` is never injected into `TripAccumulator` at any of the 4 production construction sites (`main_isolate_tracking_engine.dart:119,121`, `tracking_service.dart:85,88`), so `_persistState()` always early-returns and `active_trip.json` is never written during a real trip; interrupted-trip recovery cannot fire. (2) **LOC-02 backfill dead** — `geofenceBackfillProvider` is only `ref.invalidate`d (`location_picker_screen.dart:119`), never watched, so the historical re-label of pre-existing trips never runs (new-trip labeling is fine). Fixes to be routed through GSD (`/gsd-debug` or `/gsd-quick`).
+
+**Recommended execution order for the remaining work:** 26 (sync schema, no device needed) → 23 (one consolidated Android device session covering the v0.1 checklist + stalled 21/22 UAT sessions).
 
 ## Platform Focus (as of 2026-07-11)
 
@@ -62,6 +64,7 @@ Phases 25.1 and 26 are platform-agnostic (Dart/backend, shared by both platforms
 | 14 | TBD | - | - |
 | 15 | TBD | - | - |
 | 16 | TBD | - | - |
+| 26 | 6 | - | - |
 
 **v0.3 Phases:**
 
@@ -84,6 +87,13 @@ Phases 25.1 and 26 are platform-agnostic (Dart/backend, shared by both platforms
 | Phase 21 P03 | 5 min | 3 tasks | 6 files |
 | Phase 24 P02 | 15min | 1 task | 3 files |
 | Phase 25 P01 | 15min | 3 tasks | 4 files |
+| Phase 25.1 P01 | 10min | 2 tasks | 3 files |
+| Phase 25.1 P02 | 7min | 2 tasks | 2 files |
+| Phase 26 P01 | 25min | 3 tasks | 11 files |
+| Phase 26 P02 | 25min | 2 tasks | 25 files |
+| Phase 26 P03 | ~30min | 3 tasks | 11 files |
+| Phase 26 P05 | ~20min | 3 tasks | 4 files |
+| Phase 26 P06 | ~10min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -106,6 +116,10 @@ Recent decisions affecting current work:
 - [v0.3 Roadmap]: Phase 22 (home-screen widget) sequenced last — highest platform-integration risk, and depends on Phase 18 state model for accurate widget state
 - [v0.3 Roadmap]: Phase 21 geofence labeling takes precedence over time-of-day heuristic only on a confident proximity match; purely additive (falls back to existing behavior with no Home/Office set)
 - [Phase 24-02]: Pause uploads during auto-restore so that guest trips do not upload until cloud trips are properly restored and reconciled
+- [Phase 25.1-01]: Auto-retry gate condition consolidated into single getter autoRetryWindowElapsed (renamed from isAutoRetryExhausted, same polarity: true = window elapsed, safe to auto-retry); minimal-diff form kept at both trigger call sites, no shared trigger-dispatch extraction
+- [Phase 25.1-01]: D-07 gate contract test-pinned BEFORE the D-04 rename — 3 regression tests committed passing against the pre-rename code, so the rename was verified by an already-pinned contract
+- [Phase 25.1-02]: Merge default flipped to 'local' at BOTH leak points in one commit (displayed SegmentedButton default + all 5 _applyAll fallback ternaries) so display and apply never diverge; 'Merge All' with no per-field selections now equals 'Keep All Local' (accepted D-06 consequence, no UI signal added)
+- [Phase 25.1-02]: D-08 merge widget test uses an enlarged 800x1600 test viewport — the default 600px surface clips the distanceMeters row's Cloud segment under the bottom sheet and silently drops the tap; conflict-sheet tests assert on the Drift row (findById), never widget internals
 - [v0.2 Research]: No new packages needed — port is configuration + one platform branch
 - [v0.2 Research]: flutter_map (OSM) already in use — google_maps_flutter iOS setup is NOT needed
 - [v0.2 Research]: firebase_options.dart already carries iOS client config — iOS Firebase app pre-registered
@@ -121,6 +135,15 @@ Recent decisions affecting current work:
 - [Phase ?]: DEVELOPMENT_TEAM 2DG5SFXZ5Z (Personal Team, Rahul kumar) committed to project.pbxproj — standard practice, non-secret; free provisioning install 2026-06-02, expires 2026-06-09
 - [Phase ?]: TrackingNotifier rewired to TrackingEventSource seam; trackingEventSourceProvider selects MainIsolateTrackingEngine (iOS) vs FbsTrackingEventSource (Android) — D-04 single runtime switch
 - [Phase ?]: IOS-08 accuracy-blocked start surfaces kTrackingReducedAccuracyBlockedMessage (distinct stable string) vs generic message on Android (T-02-07 preserved)
+- [Phase 26-01]: kMaxBreaksPerTrip=50 DoS cap on the embedded breaks array; directionSource enum locked to literal 'manual'/'geofence'/'time' matching client kDirectionSource* constants byte-for-byte; read-side defaulting lives ONLY in tripConverter.fromFirestore (?? 0/false/'time'/[]) — no zod parse on the restore path
+- [Phase 26-01]: nodejs20 runtime decommissions 2026-10-30 (deploy warning) — bump to nodejs22 before then or future deploys are blocked
+- [Phase 26-02]: backfillMarkerVersion made a required UserPreferencesValue field (not optional-with-default), forcing compile-time propagation to every existing call site (14 files beyond declared plan scope) to guarantee the marker is never silently dropped
+- [Phase 26-02]: migration_v3/v5/v6_test.dart bumped their migrateAndValidate() target to the new terminal version 7 -- Drift's compiled row mapper reads every currently-defined column regardless of physical DDL, so a test that stops migration at an older version and then calls a DAO getOrDefault() crashes; matches the pre-existing convention documented in migration_v5_test.dart
+- [Phase 26-03]: Client-side take(kMaxBreaksPerTrip) truncation (oldest-first) at serialization time mirrors the backend zod .max(50) so a >50-break trip can never become a non-retryable 400 poison pill in the sync queue
+- [Phase 26-03]: RestoreController maps ParsedTrip.trip through and discards parsed breaks for now -- persisting restored break companions into trip_breaks is Plan 05's explicit scope; ParsedTrip.breaks (fresh UUIDs, correct tripIds) is ready at the exact call site
+- [Phase 26-05]: D-07 shipped: _isDifferent excludes totalPausedSeconds/directionSource/isEdited; restore() splits bulk vs per-trip transactional insert by breaks-presence; D-10/D-11 enrichment adopts cloud metadata per-field only when local is default
+- [Phase 26-06]: resolveMerge's D-04 ride-along fields reuse the SAME resolved booleans as the pre-existing startTime/direction ternaries -- no new/independent selection keys introduced
+- [Phase 26-06]: Use Cloud (bulk and per-trip) now also replaces local trip_breaks with cloud's breaks and both Use-Cloud and Merge writes are wrapped in one database.transaction, closing SC5 and T-26-17
 
 ### Pending Todos
 
@@ -152,9 +175,15 @@ Full checklist: `.planning/v0.1-DEVICE-CHECKLIST.md` (Groups A-I). Resume v0.1 c
 
 ## Session Continuity
 
-Last session: 2026-06-16T04:50:02.000Z
-Stopped at: Completed 25-01-PLAN.md
-Resume file: .planning/phases/25-interrupted-trip-recovery/25-02-PLAN.md
+Last session: 2026-07-13T02:28:33.359Z
+Stopped at: Phase 26 plan 26-06 complete (phase 26 done, all 6 plans shipped)
+Resume file: None
+
+[2026-07-18 overnight] Phase 27 (UX Tour + Tracking Accuracy) built autonomously with subagents (2 Sonnet waves + 1 Opus). All 3 items done + committed, full suite 664 green, APK built: (1) TRACK-14 GPS stationary-drift fix — 5m min-move floor gating the distance total only (commit 675fec1); (2) UX-08 auto-pause/"break" ON by default via table+DAO defaults + v7→v8 TableMigration backfilling existing rows, plus seen_tours column (commit 26b017b); (3) UX-07 per-page once-only guided tour with Skip — custom Overlay coach-mark, PageTourHost triggers on tab-visible not initState (IndexedStack builds all pages up front), persisted via seen_tours (commit 5f75640). On-device UAT of all 3 pending. See .planning/phases/27-ux-tour-tracking-accuracy/27-PLAN.md.
+[2026-07-18] Fixed both reconciliation bugs (2 parallel single-module agents, central verification, full suite 653 green). PERSIST-INJECT-FIX (TRACK-13): TripStatePersister injected at all 4 production TripAccumulator sites + production-shaped persistence regression test — commit 452afd8. GEO-BACKFILL-FIX (LOC-02): confirm path awaits geofenceBackfillProvider.future instead of dead invalidate + widget regression test — commit c22a2aa. Traceability: TRACK-13 → Complete, LOC-02 caveat dropped. No open v0.3 code gaps remain; sole remaining blocker is the Phase 23 device session (WIDGET-01 + the two fixes' end-to-end device confirmation).
+[2026-07-14] Verification reconciliation of Phases 21/22/24/25 run (4 gsd-verifier passes). Wrote VERIFICATION.md for 21 (gaps_found, 5/6), 22 (human_needed, 4/4 code), 25 (gaps_found, 1/5 — real bug); re-verified 24 (human_needed, 6/6, off stale gaps_found). REQUIREMENTS.md traceability reconciled: LOC-01/SYNC-04/SYNC-05 → Complete; WIDGET-01 held Pending; TRACK-13 → Blocked. Two production bugs found (TRACK-13 persister injection; LOC-02 dead backfill trigger) — logged, not fixed.
+[2026-07-11] Completed 25.1-02-PLAN.md (D-05 merge default flip to local at both leak points + D-08 two-differing-field merge test — all Phase 25.1 plans done)
+[2026-07-11] Completed 25.1-01-PLAN.md (D-07 gate regression tests + D-04 autoRetryWindowElapsed rename/consolidation)
 
 [2026-06-16] Phase 25 Planning complete: generated and verified 3 PLAN.md files. 3 PLAN.md files.
 [2026-06-16] Completed 24-02-PLAN.md

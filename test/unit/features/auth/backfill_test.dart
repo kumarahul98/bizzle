@@ -227,6 +227,7 @@ void main() {
           homeLng: null,
           officeLat: null,
           officeLng: null,
+          backfillMarkerVersion: 0,
         );
         await db.userPreferencesDao.upsert(prefs);
 
@@ -262,6 +263,7 @@ void main() {
           homeLng: null,
           officeLat: null,
           officeLng: null,
+          backfillMarkerVersion: 0,
         );
         await db.userPreferencesDao.upsert(prefs);
         await db.userPreferencesDao.backfillUserId('uid-first');
@@ -333,6 +335,7 @@ void main() {
           homeLng: null,
           officeLat: null,
           officeLng: null,
+          backfillMarkerVersion: 0,
         );
         await db.userPreferencesDao.upsert(prefs);
 

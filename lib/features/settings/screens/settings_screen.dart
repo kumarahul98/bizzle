@@ -17,6 +17,7 @@ import 'package:traevy/features/settings/widgets/restore_row.dart';
 import 'package:traevy/features/settings/widgets/saved_location_tile.dart';
 import 'package:traevy/features/settings/widgets/settings_row.dart';
 import 'package:traevy/features/settings/widgets/settings_section.dart';
+import 'package:traevy/features/tour/tour_config.dart';
 import 'package:traevy/shared/widgets/traevy_toggle.dart';
 
 /// The Traevy-restyled Settings screen — four grouped sections inside
@@ -49,7 +50,10 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               ),
               const _AccountSection(),
-              const _LocationsSection(),
+              KeyedSubtree(
+                key: TourKeys.settingsLocations,
+                child: const _LocationsSection(),
+              ),
               _RecordingSection(prefs: prefs, ref: ref),
               _NotificationsSection(prefs: prefs, ref: ref),
               _AppearanceSection(prefs: prefs, ref: ref),
@@ -184,14 +188,17 @@ class _RecordingSection extends StatelessWidget {
         // bound to user_preferences.auto_pause_enabled (default OFF). No
         // notification side-effect — flipping it only upserts the preference;
         // the service-side detector reads the gate live via the UI isolate.
-        SettingsRow(
-          label: kSettingsAutoPauseLabel,
-          subtitle: prefs.autoPauseEnabled
-              ? kSettingsAutoPauseOnSubtitle
-              : kSettingsAutoPauseOffSubtitle,
-          trailing: TraevyToggle(
-            value: prefs.autoPauseEnabled,
-            onChanged: (v) => unawaited(_toggleAutoPause(ref, prefs, v)),
+        KeyedSubtree(
+          key: TourKeys.settingsAutoPause,
+          child: SettingsRow(
+            label: kSettingsAutoPauseLabel,
+            subtitle: prefs.autoPauseEnabled
+                ? kSettingsAutoPauseOnSubtitle
+                : kSettingsAutoPauseOffSubtitle,
+            trailing: TraevyToggle(
+              value: prefs.autoPauseEnabled,
+              onChanged: (v) => unawaited(_toggleAutoPause(ref, prefs, v)),
+            ),
           ),
         ),
       ],
@@ -323,7 +330,8 @@ Future<void> _pickReminderTime(
 ) async {
   // Parse the current reminderTime into a TimeOfDay for the picker's
   // initialTime; fall back to 08:00 when no time is set yet.
-  final initial = _parseReminderTimeOfDay(prefs.reminderTime) ??
+  final initial =
+      _parseReminderTimeOfDay(prefs.reminderTime) ??
       const TimeOfDay(hour: 8, minute: 0);
 
   final picked = await showTimePicker(
@@ -333,7 +341,8 @@ Future<void> _pickReminderTime(
   );
   if (picked == null) return;
 
-  final hhMm = '${picked.hour.toString().padLeft(2, '0')}:'
+  final hhMm =
+      '${picked.hour.toString().padLeft(2, '0')}:'
       '${picked.minute.toString().padLeft(2, '0')}';
 
   await ref
@@ -417,6 +426,10 @@ UserPreferencesValue _copyPrefs(
   homeLng: prefs.homeLng,
   officeLat: prefs.officeLat,
   officeLng: prefs.officeLng,
+  // Preserve the Phase 26 backfill marker — a generic settings write must
+  // never reset it, or the one-time re-sync would appear to "never have
+  // run" and retrigger unnecessarily.
+  backfillMarkerVersion: prefs.backfillMarkerVersion,
 );
 
 class _UnsetSentinel {

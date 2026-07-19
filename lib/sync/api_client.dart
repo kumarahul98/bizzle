@@ -126,10 +126,19 @@ class ApiClient {
   }
 
   /// `POST /trips/sync` — batch upsert of [trips] (D-02). Body is
-  /// `{ "trips": [ <serialized> ] }`. Throws on non-2xx.
-  Future<void> syncTrips(List<TripRow> trips) async {
+  /// `{ "trips": [ <serialized> ] }`. A trip with no entry in
+  /// [breaksByTripId] serializes with an empty `breaks` array (never
+  /// throws). Throws on non-2xx.
+  Future<void> syncTrips(
+    List<TripRow> trips,
+    Map<String, List<TripBreakRow>> breaksByTripId,
+  ) async {
     final body = jsonEncode({
-      'trips': trips.map(TripSerializer.toJson).toList(),
+      'trips': trips
+          .map(
+            (t) => TripSerializer.toJson(t, breaksByTripId[t.id] ?? const []),
+          )
+          .toList(),
     });
     await _send(
       (token) => _client.post(
@@ -157,9 +166,10 @@ class ApiClient {
   /// `GET /trips/restore` (D-02). Unwraps the FULL double-wrapped envelope
   /// `decoded['body']['data']['trips']` (MEDIUM-1 — matches restore-trips.ts
   /// `{statusCode, body:{data:{trips}}}`) and maps each trip JSON object to a
-  /// [TripsCompanion]. Throws [SyncException.transport] on a malformed envelope
-  /// rather than silently returning `[]`.
-  Future<List<TripsCompanion>> restoreTrips() async {
+  /// [ParsedTrip] (trip companion + break companions, Phase 26). Throws
+  /// [SyncException.transport] on a malformed envelope rather than silently
+  /// returning `[]`.
+  Future<List<ParsedTrip>> restoreTrips() async {
     final res = await _send(
       (token) => _client.get(
         Uri.parse('$_baseUrl$kRestoreTripsPath'),

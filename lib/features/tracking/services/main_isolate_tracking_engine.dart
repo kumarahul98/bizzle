@@ -36,6 +36,7 @@ import 'package:traevy/features/tracking/services/auto_pause_detector.dart';
 import 'package:traevy/features/tracking/services/location_settings_builder.dart';
 import 'package:traevy/features/tracking/services/tracking_event_source.dart';
 import 'package:traevy/features/tracking/services/trip_accumulator.dart';
+import 'package:traevy/features/tracking/services/trip_state_persister.dart';
 
 /// iOS main-isolate implementation of [TrackingEventSource].
 ///
@@ -116,9 +117,17 @@ final class MainIsolateTrackingEngine implements TrackingEventSource {
   Future<bool> start({Map<String, dynamic>? initialAccumulatorState}) async {
     _stopping = false;
     if (initialAccumulatorState != null) {
-      _accumulator = TripAccumulator.restore(initialAccumulatorState);
+      // PERSIST-INJECT-FIX: a recovered trip MUST keep persisting until
+      // finalize, so inject the default persister on the restore path too.
+      _accumulator = TripAccumulator.restore(
+        initialAccumulatorState,
+        persister: TripStatePersister(),
+      );
     } else {
-      _accumulator = TripAccumulator(startedAt: DateTime.now().toUtc());
+      _accumulator = TripAccumulator(
+        startedAt: DateTime.now().toUtc(),
+        persister: TripStatePersister(),
+      );
     }
     final accumulator = _accumulator!;
     // Phase 18 (Plan 04, D-11): run the same service-side stuck-streak detector

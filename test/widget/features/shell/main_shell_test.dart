@@ -4,22 +4,54 @@
 // ConsumerWidget and lib/features/shell/providers/main_shell_provider.dart
 // with mainShellIndexProvider.
 
+import 'package:drift/drift.dart' hide isNotNull, isNull;
+import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:traevy/config/constants.dart';
 import 'package:traevy/config/theme.dart';
 import 'package:traevy/database/daos/trips_dao.dart';
 import 'package:traevy/database/daos/user_preferences_dao.dart';
+import 'package:traevy/database/database.dart';
+import 'package:traevy/database/providers.dart';
+import 'package:traevy/features/auth/models/auth_state.dart';
+import 'package:traevy/features/auth/providers/auth_providers.dart';
 import 'package:traevy/features/dashboard/screens/dashboard_screen.dart';
 import 'package:traevy/features/settings/providers/settings_providers.dart';
 import 'package:traevy/features/shell/main_shell.dart';
 import 'package:traevy/features/stats/providers/stats_providers.dart';
 import 'package:traevy/features/stats/screens/stats_screen.dart';
 import 'package:traevy/features/stats/services/stats_service.dart';
+import 'package:traevy/features/tour/tour_config.dart';
 import 'package:traevy/features/tracking/providers/tracking_providers.dart';
 import 'package:traevy/features/tracking/state/tracking_state.dart';
 import 'package:traevy/features/trips/providers/history_providers.dart';
 import 'package:traevy/features/trips/screens/history_screen.dart';
+import 'package:traevy/sync/restore_controller.dart';
+import 'package:traevy/sync/sync_engine.dart';
+import 'package:uuid/uuid.dart';
+
+/// Preferences value with every page's guided tour already marked seen, so the
+/// Phase 27 coach-mark (UX-07) never triggers in shell tests.
+UserPreferencesValue _allToursSeenPrefs() => UserPreferencesValue(
+  userId: kDefaultUserId,
+  darkMode: kDarkModeSystem,
+  morningCutoffHour: kDefaultDirectionCutoffHour,
+  eveningCutoffHour: kDefaultDirectionCutoffHour,
+  reminderEnabled: false,
+  reminderTime: null,
+  weekendReminder: false,
+  weeklyNotificationEnabled: false,
+  autoPauseEnabled: true,
+  hasSeenOnboarding: true,
+  homeLat: null,
+  homeLng: null,
+  officeLat: null,
+  officeLng: null,
+  backfillMarkerVersion: 0,
+  seenTours: allTourPageKeys.join(','),
+);
 
 /// Minimal stub notifier that skips fbs initialisation.
 ///
@@ -73,13 +105,67 @@ StatsSummary _emptyStats() => const StatsSummary(
   hasAnyTrips: false,
 );
 
+/// Minimal fake [AuthStateNotifier] that returns a fixed [AuthState].
+///
+/// Extends [AuthStateNotifier] so the `authStateProvider.overrideWith`
+/// factory type-check passes (Riverpod 3.x requires the factory to return
+/// the exact Notifier subtype declared in the provider). Returns a
+/// configurable fixed state without subscribing to Firebase streams.
+/// Mirrors `settings_screen_test.dart`'s `_FakeAuthNotifier`.
+class _FakeAuthNotifier extends AuthStateNotifier {
+  _FakeAuthNotifier(this._state);
+
+  final AuthState _state;
+
+  @override
+  AuthState build() => _state;
+}
+
+/// Fake [RestoreController] whose `restore()` completes instantly with
+/// [RestoreSuccess] — keeps `_runAutoRestore()` deterministic (no network,
+/// no ApiClient construction) so the backfill sequencing after it can be
+/// asserted.
+class _FakeRestoreController extends RestoreController {
+  @override
+  RestoreState build() => const RestoreIdle();
+
+  @override
+  Future<void> restore() async {
+    state = const RestoreSuccess(0);
+  }
+}
+
+/// Fake [SyncEngine] exposing only the two members `_runAutoRestore()`
+/// touches. Any other access fails fast via noSuchMethod, mirroring the
+/// fake style in `settings_screen_test.dart`.
+class _FakeSyncEngine implements SyncEngine {
+  @override
+  void pauseUploads() {}
+
+  @override
+  void resumeUploads() {}
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 /// Pump [MainShell] with all required provider overrides so platform channels
 /// and Drift I/O are never reached in the test host.
 ///
 /// IndexedStack mounts all four tabs simultaneously, so overrides must cover
 /// providers from every tab screen: Dashboard (tracking + trips + stats),
 /// History (trips), Stats (stats), and Settings (userPreferenceProvider).
-Future<void> _pumpShell(WidgetTester tester) async {
+///
+/// When [db] is provided (Phase 26 backfill tests), the real in-memory
+/// [AppDatabase] backs `appDatabaseProvider` (and therefore the trips /
+/// sync-queue / user-preferences DAO providers), auth starts at [authState]
+/// (default [AuthGuest]), and restore/sync-engine are faked so the sign-in
+/// transition sequencing is deterministic.
+Future<void> _pumpShell(
+  WidgetTester tester, {
+  AppDatabase? db,
+  AuthState authState = const AuthGuest(),
+}) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -93,9 +179,19 @@ Future<void> _pumpShell(WidgetTester tester) async {
         // SettingsScreen (mounted by IndexedStack) watches userPreferenceProvider
         // which opens a Drift stream. Override with a completed stream so no
         // pending timers remain after the test tears down.
+        //
+        // Phase 27: seed every page's tour as already-seen so the per-page
+        // coach-mark (UX-07) never triggers here — its full-screen scrim would
+        // otherwise intercept the NavigationBar taps these tests perform.
         userPreferenceProvider.overrideWith(
-          (ref) => Stream.value(const UserPreferencesValue.defaults()),
+          (ref) => Stream.value(_allToursSeenPrefs()),
         ),
+        if (db != null) ...[
+          appDatabaseProvider.overrideWithValue(db),
+          authStateProvider.overrideWith(() => _FakeAuthNotifier(authState)),
+          restoreControllerProvider.overrideWith(_FakeRestoreController.new),
+          syncEngineProvider.overrideWithValue(_FakeSyncEngine()),
+        ],
       ],
       child: MaterialApp(
         theme: buildLightTheme(),
@@ -202,6 +298,100 @@ void main() {
         // DashboardScreen is NOT in the foreground after back press.
         // (It is still mounted by IndexedStack but not the active index.)
         expect(find.byType(DashboardScreen), findsNothing);
+      },
+    );
+  });
+
+  group('MainShell one-time backfill (Phase 26, D-01/D-02/D-03)', () {
+    late AppDatabase db;
+    const uuid = Uuid();
+
+    setUp(() {
+      db = AppDatabase(
+        DatabaseConnection(
+          NativeDatabase.memory(),
+          closeStreamsSynchronously: true,
+        ),
+      );
+    });
+
+    tearDown(() async {
+      await db.close();
+    });
+
+    /// Seed one backfill-candidate trip (isEdited=true) and return its id.
+    Future<String> seedEditedTrip() async {
+      final id = uuid.v4();
+      final start = DateTime.utc(2026, 6, 1, 8);
+      await db.tripsDao.insertTrip(
+        TripsCompanion.insert(
+          id: id,
+          startTime: start,
+          endTime: start.add(const Duration(minutes: 30)),
+          durationSeconds: 1800,
+          distanceMeters: 5000,
+          direction: kDirectionToOffice,
+          timeMovingSeconds: 1500,
+          timeStuckSeconds: 300,
+          isEdited: const Value(true),
+        ),
+      );
+      return id;
+    }
+
+    /// Fire the AuthGuest -> AuthSignedIn transition the `ref.listen`
+    /// callback in MainShell reacts to, then settle the async
+    /// restore-then-backfill sequence (extra pump expires snackbar timers).
+    Future<void> signInAndSettle(WidgetTester tester) async {
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(MainShell)),
+      );
+      container.read(authStateProvider.notifier).state = const AuthSignedIn(
+        uid: 'u',
+        name: 'n',
+        email: 'e',
+      );
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 5));
+    }
+
+    testWidgets(
+      'sign-in transition enqueues candidate trips once and stamps the marker',
+      (tester) async {
+        final tripId = await seedEditedTrip();
+        expect(await db.userPreferencesDao.getBackfillMarkerVersion(), 0);
+
+        await _pumpShell(tester, db: db);
+        await signInAndSettle(tester);
+
+        final pending = await db.syncQueueDao.getPending();
+        expect(pending, hasLength(1));
+        expect(pending.single.tripId, tripId);
+        expect(pending.single.action, kSyncActionUpdate);
+        expect(
+          await db.userPreferencesDao.getBackfillMarkerVersion(),
+          kBackfillMarkerVersion,
+        );
+      },
+    );
+
+    testWidgets(
+      'sign-in with marker already stamped enqueues nothing (exactly-once)',
+      (tester) async {
+        await seedEditedTrip();
+        await db.userPreferencesDao.setBackfillMarkerVersion(
+          kBackfillMarkerVersion,
+        );
+
+        await _pumpShell(tester, db: db);
+        await signInAndSettle(tester);
+
+        expect(await db.syncQueueDao.getPending(), isEmpty);
+        expect(
+          await db.userPreferencesDao.getBackfillMarkerVersion(),
+          kBackfillMarkerVersion,
+        );
       },
     );
   });

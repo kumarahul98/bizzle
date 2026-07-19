@@ -18,14 +18,21 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **TRACK-01**: User can start and stop commute recording with a single tap
 - [ ] **TRACK-02**: GPS captures location in background while screen is off via foreground service
 - [x] **TRACK-03
+
 **: Trip direction auto-labeled (morning = to_office, evening = to_home) with editable override
+
 - [ ] **TRACK-04**: Each trip records start/end time, duration, distance, and encoded route polyline
 - [ ] **TRACK-05**: Per-trip traffic breakdown: time moving vs time stuck (speed < 10 km/h threshold)
 - [x] **TRACK-06
+
 **: User can edit trip details (direction label, adjust times)
+
 - [x] **TRACK-07
+
 **: User can delete a trip with confirmation dialog
+
 - [x] **TRACK-08
+
 **: User can manually enter a forgotten trip (date, duration, direction — no GPS data)
 
 ### Trip History
@@ -222,15 +229,19 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TRACK-11 | Phase 19 | Complete |
 | TRACK-12 | Phase 17 | Complete |
 | AUTH-04 | Phase 20 | Complete |
-| LOC-01 | Phase 21 | Pending |
-| LOC-02 | Phase 21 | Complete |
-| WIDGET-01 | Phase 22 | Pending |
-| SYNC-04 | Phase 24 | Pending |
-| SYNC-05 | Phase 24 | Pending |
-| TRACK-13 | Phase 25 | Pending |
+| LOC-01 | Phase 21 | Complete |
+| LOC-02 | Phase 21 | Complete (new-trip labeling + historical backfill both verified; GEO-BACKFILL-FIX landed 2026-07-18, commit c22a2aa, regression-tested) |
+| WIDGET-01 | Phase 22 | Pending (code-complete & wired; on-device start/stop UAT owned by Phase 23) |
+| SYNC-04 | Phase 24 | Complete |
+| SYNC-05 | Phase 24 | Complete |
+| TRACK-13 | Phase 25 | Complete (PERSIST-INJECT-FIX landed 2026-07-18, commit 452afd8; recovery persistence now regression-tested — end-to-end force-quit device UAT still owned by Phase 23) |
 | UX-06 | Phase 17 | Complete |
+| TRACK-14 | Phase 27 | Complete (GPS stationary-drift fix — 5m min-move floor; commit 675fec1, regression-tested; on-device stand-still check pending) |
+| UX-08 | Phase 27 | Complete (auto-pause/"break" ON by default, new + backfilled existing installs; commit 26b017b) |
+| UX-07 | Phase 27 | Complete (per-page once-only guided tour with Skip; commit 5f75640; on-device tour walkthrough pending) |
 
 **Coverage:**
+
 - v1 requirements: 31 total — mapped to phases: 31 — unmapped: 0
 - v0.2 requirements: 14 total — mapped to phases: 14 — unmapped: 0
 - v0.3 requirements: 9 total — mapped to phases: 9 — unmapped: 0
@@ -239,3 +250,6 @@ Which phases cover which requirements. Updated during roadmap creation.
 *Requirements defined: 2026-04-11*
 *Last updated: 2026-06-02 — added v0.2 (iOS Support) requirements IOS-01..IOS-12 (full Android→iOS parity); PLAT-01 promoted from v2. Traceability for IOS-* filled during v0.2 roadmap creation.*
 *Last updated: 2026-06-06 — v0.3 (App Improvements) roadmap created: TRACK-09..12, AUTH-04, LOC-01, LOC-02, WIDGET-01, UX-06 mapped to Phases 17-22. Added SYNC-04, SYNC-05 (Phase 24 — Automatic Cloud Sync & Restore) and TRACK-13 (Phase 25 — Interrupted-Trip Recovery).*
+*Last updated: 2026-07-14 — verification reconciliation of Phases 21/22/24/25 (VERIFICATION.md written for 21/22/25, Phase 24 re-verified off its stale gaps_found). Reconciled: LOC-01 → Complete; SYNC-04/SYNC-05 → Complete (Phase 24 now 6/6 static truths after 25.1 fixes, human_needed on 3 device-UX items). WIDGET-01 held Pending (code-complete, device UAT owned by Phase 23). Verification uncovered TWO real production wiring bugs invisible to CI — falsifying the milestone audit's "no broken wiring" claim: (1) TRACK-13 — TripStatePersister never injected into TripAccumulator at any of the 4 production sites, so active_trip.json is never written and interrupted-trip recovery cannot fire; TRACK-13 → Blocked. (2) LOC-02 — geofenceBackfillProvider is only ever invalidate()d, never watched, so the historical re-label of pre-existing trips never runs; new-trip labeling is unaffected. Both need code fixes routed through GSD; neither was fixed during reconciliation.*
+*Last updated: 2026-07-18 (overnight) — Phase 27 (UX Tour + Tracking Accuracy) built autonomously: TRACK-14 (GPS stationary-drift fix, commit 675fec1), UX-08 (auto-pause ON by default + v8 migration, commit 26b017b), UX-07 (per-page once-only guided tour, commit 5f75640). Full suite 664 green, APK built. On-device UAT of all three pending.*
+*Last updated: 2026-07-18 — both reconciliation bugs fixed and regression-tested (full suite 653 green). PERSIST-INJECT-FIX (TRACK-13): TripStatePersister injected at all 4 production TripAccumulator sites — commit 452afd8. GEO-BACKFILL-FIX (LOC-02): confirm path now awaits the backfill provider's .future instead of a dead invalidate — commit c22a2aa. TRACK-13 → Complete; LOC-02 caveat dropped. Both retain only an end-to-end device UAT residual (force-quit recovery; historical re-label on real device), owned by Phase 23 alongside WIDGET-01.*

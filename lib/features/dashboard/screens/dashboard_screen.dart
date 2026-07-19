@@ -10,6 +10,7 @@ import 'package:traevy/features/dashboard/widgets/home_header.dart';
 import 'package:traevy/features/dashboard/widgets/today_section.dart';
 import 'package:traevy/features/dashboard/widgets/week_loss_card.dart';
 import 'package:traevy/features/dashboard/widgets/sync_stuck_banner.dart';
+import 'package:traevy/features/tour/tour_config.dart';
 import 'package:traevy/features/tracking/providers/tracking_providers.dart';
 import 'package:traevy/features/tracking/services/tracking_permission_service.dart';
 import 'package:traevy/sync/sync_engine.dart';
@@ -67,14 +68,20 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: HeroRecordCard(
-                  onStart: () => _handleStart(context, ref),
+                child: KeyedSubtree(
+                  key: TourKeys.dashboardRecord,
+                  child: HeroRecordCard(
+                    onStart: () => _handleStart(context, ref),
+                  ),
                 ),
               ),
             ),
             const SliverToBoxAdapter(child: SizedBox(height: 24)),
             SliverToBoxAdapter(
-              child: TodaySection(trackingState: trackingState),
+              child: KeyedSubtree(
+                key: TourKeys.dashboardToday,
+                child: TodaySection(trackingState: trackingState),
+              ),
             ),
             const SliverToBoxAdapter(child: SizedBox(height: 24)),
             const SliverToBoxAdapter(child: WeekLossCard()),
@@ -191,7 +198,7 @@ class _StuckBannerGate extends ConsumerWidget {
     // Only instantiated/read when syncStatus is SyncFailed.
     // This prevents eager database instantiation in unrelated tests.
     final syncEngine = ref.read(syncEngineProvider);
-    if (!syncEngine.isAutoRetryExhausted) return const SizedBox.shrink();
+    if (!syncEngine.autoRetryWindowElapsed) return const SizedBox.shrink();
 
     return SyncStuckBanner(
       onReviewSettings: onReviewSettings,

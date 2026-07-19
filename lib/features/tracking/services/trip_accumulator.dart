@@ -346,13 +346,19 @@ class TripAccumulator {
 
     // Distance accumulates regardless of gap size — Haversine is robust
     // and the user still traveled between the two fixes even if the
-    // stream paused in between.
-    _distanceMeters += Geolocator.distanceBetween(
+    // stream paused in between. The segment is gated on
+    // kTrackingMinMoveMeters first: below that floor the delta is GPS
+    // jitter from a stationary device, not real movement, and must not
+    // inflate the distance total (Phase 27 Concern 1).
+    final segmentMeters = Geolocator.distanceBetween(
       prev.latitude,
       prev.longitude,
       p.latitude,
       p.longitude,
     );
+    if (segmentMeters >= kTrackingMinMoveMeters) {
+      _distanceMeters += segmentMeters;
+    }
 
     // Time attribution is gap-guarded: gaps longer than
     // kTrackingMaxAttributableGapSeconds don't move the moving/stuck

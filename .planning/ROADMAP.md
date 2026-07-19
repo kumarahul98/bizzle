@@ -8,7 +8,7 @@ Deliver an offline-first Android commute tracker that records GPS trips, compute
 
 - ✅ **v0.1 Android MVP** - Phases 1-11 (formally open — 13 device-UAT items deferred, resumable)
 - ⏸️ **v0.2 iOS Support** - Phases 12-16 (PAUSED as of 2026-07-11 — see summary in the v0.2 section; 12/13 complete, 14 code-complete/device-unverified, 15 trimmed & merged (Live Activity dropped), 16 not started)
-- 🚧 **v0.3 App Improvements** - Phases 17-26 (8/11 complete; remaining Phases 23, 25.1, 26 are Android-only)
+- 🚧 **v0.3 App Improvements** - Phases 17-26 (9/11 complete; remaining Phases 23, 26 are Android-only)
 
 ## Phases
 
@@ -520,8 +520,8 @@ Note: Phases 1-7 deliver the complete local-first experience without any authent
 - [ ] **Phase 23: Resolve Deferred UAT Items (Android)** - Triage the v0.1 device checklist and complete the stalled Phase 21/22 UAT sessions on a real Android device
 - [x] **Phase 24: Automatic Cloud Sync & Restore** - Auto-restore cloud trips on sign-in, immediate sync on trip finish, and automatic re-attempt of previously-failed sync items (merged to main in PR #2, 2026-07-06)
 - [x] **Phase 25: Interrupted-Trip Recovery** - Detect a mid-trip force-quit / app-clear / OS interruption, log it, and offer to resume or discard the interrupted trip on next launch (merged to main in PR #2, 2026-07-06)
-- [ ] **Phase 25.1: Fix Sync Conflict & Auto-Retry Bugs (INSERTED)** - Fix the broken auto-retry throttle and the fake Merge conflict resolution found by Phase 24 verification, before Phase 26 extends the same files
-- [ ] **Phase 26: Sync Breaks & Edit Metadata to Cloud** - Extend the Firestore trip payload with totalPausedSeconds, isEdited, directionSource, and an embedded breaks array; restore writes trip_breaks; one-time backfill re-sync; backend deploys before client
+- [x] **Phase 25.1: Fix Sync Conflict & Auto-Retry Bugs (INSERTED)** - Fix the broken auto-retry throttle and the fake Merge conflict resolution found by Phase 24 verification, before Phase 26 extends the same files ✓ 2026-07-12
+- [x] **Phase 26: Sync Breaks & Edit Metadata to Cloud** - Extend the Firestore trip payload with totalPausedSeconds, isEdited, directionSource, and an embedded breaks array; restore writes trip_breaks; one-time backfill re-sync; backend deploys before client (completed 2026-07-13)
 
 ---
 
@@ -695,8 +695,13 @@ Plans:
   2. Selecting "Merge" in the conflict resolution sheet no longer silently runs the same code path as "Use Cloud" — it either performs a real field-by-field merge, or (if field-by-field is descoped) the option is removed/relabeled so the UI doesn't promise something it doesn't do
   3. A regression test exists for the auto-retry time gate (asserting a second trigger within the window does not re-fire) and for the Merge path (asserting merged output differs from pure Use Cloud when local/cloud fields differ)
 
-**Plans**: TBD
+**Plans**: 2 plans
 **UI hint**: yes
+
+Plans:
+
+- [x] 25.1-01-PLAN.md — D-07 auto-retry gate regression tests (3 new assertions) + D-04 predicate consolidation/rename (autoRetryWindowElapsed) across sync_engine.dart and the dashboard banner (2026-07-11)
+- [x] 25.1-02-PLAN.md — D-05 merge default flip to 'local' at both leak points (display + _applyAll fallbacks) + D-08 strengthened two-differing-field merge widget test (2026-07-11)
 
 ### Phase 26: Sync Breaks & Edit Metadata to Cloud
 
@@ -711,7 +716,27 @@ Plans:
   4. Trips already in Firestore without the new fields restore cleanly with defaults (no parse failures), and a one-time backfill re-enqueues local trips that have breaks or edits so their cloud copies gain the metadata
   5. Conflict resolution treats breaks as riding along with whichever side wins (no per-break field merge UI)
 
-**Plans**: TBD
+**Plans**: 6 plans
+
+Plans:
+**Wave 1**
+
+- [x] 26-01-PLAN.md — Backend: extend zod tripSchema/Trip/TripDoc/Firestore converter/both handlers + tests, deploy live (SC1, SC2, SC4 legacy-doc defaults)
+- [x] 26-02-PLAN.md — Client: schema v6->v7 backfill marker migration, TripBreaksDao batch lookup, UserPreferencesDao marker, Phase 26 constants
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [x] 26-03-PLAN.md — Client wire contract: TripSerializer/ApiClient/SyncEngine emit breaks + metadata (depends on live backend deploy, SC2 gate)
+- [x] 26-04-PLAN.md — One-time backfill trigger: TripsDao query + MainShell sign-in seam wiring (D-01/D-02/D-03, SC4)
+
+**Wave 3** *(blocked on Wave 2)*
+
+- [x] 26-05-PLAN.md — RestoreController: D-07 metadata-excluded conflicts, atomic trip+breaks insert, D-10/D-11 enrichment (SC3, SC4)
+
+**Wave 4** *(blocked on Wave 3)*
+
+- [x] 26-06-PLAN.md — Merge resolution extraction (D-06) + D-04 ride-along + Use-Cloud breaks carry-along + D-05 indicator (SC5)
+
 **UI hint**: no
 
 ## v0.3 Progress
@@ -732,5 +757,5 @@ Note: Phase 17 is a small, independent UI fix + quick-label and is the safe firs
 | 23. Resolve Deferred UAT Items (Android) | v0.3 | 0/TBD | Not started (rescoped 2026-07-11) | - |
 | 24. Automatic Cloud Sync & Restore | v0.3 | 3/3 | Complete | 2026-06-16 |
 | 25. Interrupted-Trip Recovery | v0.3 | 3/3 | Complete | 2026-06-28 |
-| 25.1. Fix Sync Conflict & Auto-Retry Bugs (INSERTED) | v0.3 | 0/TBD | Not started | - |
-| 26. Sync Breaks & Edit Metadata to Cloud | v0.3 | 0/TBD | Not started | - |
+| 25.1. Fix Sync Conflict & Auto-Retry Bugs (INSERTED) | v0.3 | 2/2 | Complete | 2026-07-12 |
+| 26. Sync Breaks & Edit Metadata to Cloud | v0.3 | 6/6 | Complete    | 2026-07-13 |

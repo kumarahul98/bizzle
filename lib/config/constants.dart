@@ -292,6 +292,18 @@ const Duration kTrackingUiUpdateInterval = Duration(seconds: 1);
 /// `.planning/phases/02-core-tracking/02-RESEARCH.md` §6.
 const double kTrackingMaxAcceptableAccuracyMeters = 30;
 
+/// Minimum segment length (meters) a `TripAccumulator.addSample` distance
+/// delta must clear before it is added to the running distance total.
+/// Below this floor, the delta is GPS noise rather than real movement — a
+/// stationary device still emits fixes that drift by roughly 0.79 m per
+/// sample at `kTrackingSampleInterval` (3 s), which silently accumulates
+/// into hundreds of meters over a long stationary period. This floor
+/// applies ONLY to the distance total; it does not affect the polyline
+/// (every sample is still recorded) or moving/stuck time attribution.
+///
+/// See `.planning/phases/27-ux-tour-tracking-accuracy/27-PLAN.md`.
+const double kTrackingMinMoveMeters = 5.0;
+
 /// Maximum time gap (seconds) between two accepted samples before their
 /// interval is excluded from moving/stuck time attribution. Longer gaps
 /// (tunnels, GPS dropouts) still contribute to the encoded polyline, but
@@ -326,6 +338,40 @@ const Duration kTrackingNotificationRefreshInterval = Duration(seconds: 5);
 /// fire two `HomeWidget.saveWidgetData` writes plus an `updateWidget`
 /// RemoteViews rebuild every second (~2700 broadcasts on a 45-min trip).
 const Duration kTrackingWidgetRefreshInterval = Duration(seconds: 5);
+
+/// Home-screen widget (WIDGET-01) — shared identifiers for the native
+/// `CommuteWidgetProvider` and the SharedPreferences keys it reads in
+/// `onUpdate`. Centralized so the background-isolate writes
+/// (`tracking_service.dart`) and the app-launch reconciliation
+/// (`widget_state_writer.dart`) never drift on a magic string.
+const String kWidgetProviderName = 'CommuteWidgetProvider';
+const String kWidgetKeyTitle = 'widget_title';
+const String kWidgetKeyShowStats = 'widget_show_stats';
+const String kWidgetKeyDistance = 'widget_distance';
+const String kWidgetKeyDuration = 'widget_duration';
+const String kWidgetTitleIdle = 'Start Commute';
+const String kWidgetTitleActive = 'Stop Commute';
+
+/// Phase 28 — richer widget content for the larger (full-width) layout.
+///
+/// Values are PRE-FORMATTED display strings written from Dart; the native
+/// `CommuteWidgetProvider` never computes. Unknown values are written as
+/// [kWidgetValueUnknown] (never blank) so the layout can't collapse.
+///
+/// Active-state keys ride the existing 5 s throttled write in
+/// `tracking_service.dart`; idle-state keys are pushed from the MAIN isolate
+/// (Drift lives there) on launch, app-resume, and post-trip-save.
+const String kWidgetKeySpeed = 'widget_speed';
+const String kWidgetKeyMoving = 'widget_moving';
+const String kWidgetKeyStuck = 'widget_stuck';
+const String kWidgetKeyPaused = 'widget_paused';
+const String kWidgetKeyTodayTrips = 'widget_today_trips';
+const String kWidgetKeyTodayTraffic = 'widget_today_traffic';
+const String kWidgetKeyWeekTotal = 'widget_week_total';
+const String kWidgetKeyWeekStuck = 'widget_week_stuck';
+
+/// Placeholder written whenever a widget value is unknown/unavailable.
+const String kWidgetValueUnknown = '--';
 
 /// Minimum gap between successive active-trip state persists (Phase 25
 /// interrupted-trip recovery). `TripAccumulator` snapshots its FULL state —
@@ -1211,3 +1257,137 @@ const String kRecoveryResumeAction = 'Resume';
 
 /// Action label for discarding the interrupted trip.
 const String kRecoveryDiscardAction = 'Discard';
+
+// ---------------------------------------------------------------------------
+// Phase 26 — Sync Breaks & Edit Metadata to Cloud
+// ---------------------------------------------------------------------------
+
+/// Maximum number of break segments embedded in a single trip's sync
+/// payload. Must numerically match the backend's `kMaxBreaksPerTrip` DoS cap
+/// in `backend/functions/src/utils/validation.ts` — a payload with more
+/// breaks than this is rejected server-side (400). ALSO enforced
+/// client-side at serialization time: `TripSerializer.toJson` (Plan 03)
+/// truncates to this cap, oldest-first, so sync never emits a payload the
+/// backend would reject.
+const int kMaxBreaksPerTrip = 50;
+
+/// Target backfill schema version (Phase 26, D-03): "backfill done for
+/// payload schema v2". Compared against
+/// `UserPreferencesDao.getBackfillMarkerVersion()` — when the stored marker
+/// is less than this value, the one-time re-sync for trips with breaks or
+/// edits has not yet run for the current payload shape and should trigger.
+const int kBackfillMarkerVersion = 2;
+
+/// D-05 read-only conflict-sheet indicator shown only when the local and
+/// cloud break counts differ for a trip. `{local}`/`{cloud}` are replaced
+/// via `.replaceAll`, mirroring [kAutoRestoreResultTemplate]'s `{n}`
+/// placeholder convention.
+const String kConflictBreaksDifferTemplate =
+    'Local: {local} breaks · Cloud: {cloud} breaks';
+
+// ---------------------------------------------------------------------------
+// Phase 27 — Per-page guided tour (UX-07)
+// ---------------------------------------------------------------------------
+//
+// The first time a MainShell tab becomes visible, a lightweight coach-mark
+// tour spotlights 2 key elements with a Skip button, then never shows again
+// for that page. Persistence is the `seen_tours` CSV on user_preferences
+// (Phase 27 Concern 2 scaffold): each page key below is appended once the
+// page's tour is finished OR skipped (skip marks THIS page seen only).
+
+/// `seen_tours` CSV token identifying the Dashboard (Today) tab's tour.
+const String kTourKeyDashboard = 'dashboard';
+
+/// `seen_tours` CSV token identifying the History (Trips) tab's tour.
+const String kTourKeyTrips = 'trips';
+
+/// `seen_tours` CSV token identifying the Stats tab's tour.
+const String kTourKeyStats = 'stats';
+
+/// `seen_tours` CSV token identifying the Settings tab's tour.
+const String kTourKeySettings = 'settings';
+
+/// Coach-mark button label to skip (and permanently dismiss) the current
+/// page's tour. Skip marks only THIS page's tour seen (D: per-page skip).
+const String kTourSkipLabel = 'Skip';
+
+/// Coach-mark button label advancing to the next step within a page's tour.
+const String kTourNextLabel = 'Next';
+
+/// Coach-mark button label on the final step of a page's tour — dismisses it.
+const String kTourDoneLabel = 'Got it';
+
+/// Coach-mark step counter template. `{current}`/`{total}` are replaced via
+/// `.replaceAll`, mirroring [kAutoRestoreResultTemplate]'s `{n}` convention.
+const String kTourStepCounterTemplate = '{current} of {total}';
+
+// --- Dashboard (Today) tour copy ------------------------------------------
+
+/// Dashboard step 1 title — the START / record hero.
+const String kTourDashboardRecordTitle = 'Record your commute';
+
+/// Dashboard step 1 body — the START / record hero.
+const String kTourDashboardRecordBody =
+    'Tap START to track a trip. Traevy captures your route and the time you '
+    'spend stuck in traffic automatically.';
+
+/// Dashboard step 2 title — today's summary.
+const String kTourDashboardTodayTitle = 'Today at a glance';
+
+/// Dashboard step 2 body — today's summary.
+const String kTourDashboardTodayBody =
+    'Your commutes for today show up here, each with its time, distance and '
+    'traffic breakdown.';
+
+// --- History (Trips) tour copy --------------------------------------------
+
+/// History step 1 title — the list / calendar view toggle.
+const String kTourTripsViewTitle = 'List or calendar';
+
+/// History step 1 body — the list / calendar view toggle.
+const String kTourTripsViewBody =
+    'Switch between a running list of your trips and a calendar to browse '
+    'them by day.';
+
+/// History step 2 title — the add-trip button.
+const String kTourTripsAddTitle = 'Add a trip by hand';
+
+/// History step 2 body — the add-trip button.
+const String kTourTripsAddBody =
+    'Forgot to hit record? Tap here to enter a commute manually — then open '
+    'any trip to view or edit it.';
+
+// --- Stats tour copy -------------------------------------------------------
+
+/// Stats step 1 title — the traffic-loss hero.
+const String kTourStatsTrafficTitle = 'Time lost to traffic';
+
+/// Stats step 1 body — the traffic-loss hero.
+const String kTourStatsTrafficBody =
+    'See how much of your week disappeared while you were stuck in traffic.';
+
+/// Stats step 2 title — the moving-vs-stuck breakdown chart.
+const String kTourStatsBreakdownTitle = 'Your traffic breakdown';
+
+/// Stats step 2 body — the moving-vs-stuck breakdown chart.
+const String kTourStatsBreakdownBody =
+    'This chart splits your commute into time moving versus time stuck, so '
+    'you can see the balance at a glance.';
+
+// --- Settings tour copy ----------------------------------------------------
+
+/// Settings step 1 title — the auto-pause toggle.
+const String kTourSettingsAutoPauseTitle = 'Auto-pause when stopped';
+
+/// Settings step 1 body — the auto-pause toggle.
+const String kTourSettingsAutoPauseBody =
+    "When you've been stationary a while, Traevy can pause recording so long "
+    "stops never inflate your trip. It's on by default.";
+
+/// Settings step 2 title — the Home / Office location rows.
+const String kTourSettingsLocationsTitle = 'Set home & office';
+
+/// Settings step 2 body — the Home / Office location rows.
+const String kTourSettingsLocationsBody =
+    'Save your home and office and Traevy labels each trip by direction '
+    'automatically — to office or to home.';

@@ -61,6 +61,7 @@ UserPreferencesValue _prefs({required bool hasSeenOnboarding}) {
     homeLng: null,
     officeLat: null,
     officeLng: null,
+    backfillMarkerVersion: 0,
   );
 }
 

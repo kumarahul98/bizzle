@@ -52,7 +52,8 @@ class _PromptDrivingEventSource implements TrackingEventSource {
       const Stream<Map<String, dynamic>?>.empty();
 
   @override
-  Future<bool> start({Map<String, dynamic>? initialAccumulatorState}) async => true;
+  Future<bool> start({Map<String, dynamic>? initialAccumulatorState}) async =>
+      true;
 
   @override
   Future<void> stop() async {}
@@ -137,8 +138,25 @@ ProviderContainer _container({
           homeLng: null,
           officeLat: null,
           officeLng: null,
+          backfillMarkerVersion: 0,
         )
-      : const UserPreferencesValue.defaults();
+      : const UserPreferencesValue(
+          userId: kDefaultUserId,
+          darkMode: kDarkModeSystem,
+          morningCutoffHour: 12,
+          eveningCutoffHour: 12,
+          reminderEnabled: false,
+          reminderTime: null,
+          weekendReminder: false,
+          weeklyNotificationEnabled: false,
+          autoPauseEnabled: false,
+          hasSeenOnboarding: false,
+          homeLat: null,
+          homeLng: null,
+          officeLat: null,
+          officeLng: null,
+          backfillMarkerVersion: 0,
+        );
   return ProviderContainer(
     overrides: [
       trackingEventSourceProvider.overrideWithValue(source),

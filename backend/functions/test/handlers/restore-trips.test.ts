@@ -12,7 +12,7 @@ import { randomUUID } from 'node:crypto';
 import type { Trip } from '../../src/types/trip';
 import { app } from '../../src/index';
 import { mintIdToken } from '../helpers/mint-token';
-import { clearFirestore, seedTrip } from '../helpers/emulator';
+import { clearFirestore, seedTrip, db, Timestamp } from '../helpers/emulator';
 
 describe('GET /trips/restore', () => {
   let tokenA: string;
@@ -87,6 +87,78 @@ describe('GET /trips/restore', () => {
         expect(raw).not.toHaveProperty('deletedAt');
         expect(raw).not.toHaveProperty('serverUpdatedAt');
       }
+    });
+  });
+
+  describe('legacy doc + new metadata (SC4)', () => {
+    it('defaults the 4 new fields for a doc that literally omits them', async () => {
+      const id = randomUUID();
+      // Raw write via the Admin SDK handle, deliberately omitting
+      // totalPausedSeconds/isEdited/directionSource/breaks entirely (not just
+      // setting them to their default values) to prove the converter defaults
+      // a genuinely legacy (pre-Phase-26) Firestore doc without throwing.
+      await db
+        .collection('trips')
+        .doc(id)
+        .set({
+          id,
+          userId: 'userA',
+          startTime: '2026-05-01T08:00:00.000Z',
+          endTime: '2026-05-01T08:45:00.000Z',
+          durationSeconds: 2700,
+          distanceMeters: 12500,
+          routePolyline: null,
+          direction: 'to_office',
+          timeMovingSeconds: 2400,
+          timeStuckSeconds: 300,
+          isManualEntry: false,
+          createdAt: '2026-05-01T08:45:00.000Z',
+          updatedAt: '2026-05-01T08:45:00.000Z',
+          deleted: false,
+          deletedAt: null,
+          serverUpdatedAt: Timestamp.now(),
+        });
+
+      const res = await request(app)
+        .get('/trips/restore')
+        .set('Authorization', `Bearer ${tokenA}`);
+
+      expect(res.status).toBe(200);
+      const trips = res.body.body.data.trips as Trip[];
+      const trip = trips.find((t) => t.id === id);
+      expect(trip).toBeDefined();
+      expect(trip!.totalPausedSeconds).toBe(0);
+      expect(trip!.isEdited).toBe(false);
+      expect(trip!.directionSource).toBe('time');
+      expect(trip!.breaks).toEqual([]);
+    });
+
+    it('round-trips explicit non-default metadata unchanged', async () => {
+      const id = randomUUID();
+      const breaks = [
+        { startTime: '2026-05-01T08:10:00.000Z', endTime: '2026-05-01T08:12:00.000Z' },
+      ];
+      await seedTrip({
+        id,
+        userId: 'userA',
+        totalPausedSeconds: 120,
+        isEdited: true,
+        directionSource: 'manual',
+        breaks,
+      });
+
+      const res = await request(app)
+        .get('/trips/restore')
+        .set('Authorization', `Bearer ${tokenA}`);
+
+      expect(res.status).toBe(200);
+      const trips = res.body.body.data.trips as Trip[];
+      const trip = trips.find((t) => t.id === id);
+      expect(trip).toBeDefined();
+      expect(trip!.totalPausedSeconds).toBe(120);
+      expect(trip!.isEdited).toBe(true);
+      expect(trip!.directionSource).toBe('manual');
+      expect(trip!.breaks).toEqual(breaks);
     });
   });
 });

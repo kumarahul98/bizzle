@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart' hide isNull;
+import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:traevy/database/database.dart';
@@ -7,15 +8,21 @@ import 'package:traevy/database/providers.dart';
 import 'package:traevy/sync/api_client.dart';
 import 'package:traevy/sync/restore_conflict.dart';
 import 'package:traevy/sync/restore_controller.dart';
+import 'package:traevy/sync/trip_serializer.dart';
 
 class FakeApiClient implements ApiClient {
   Future<List<TripsCompanion>> Function()? restoreTripsImpl;
   @override
-  Future<List<TripsCompanion>> restoreTrips() async => restoreTripsImpl!();
-  
+  Future<List<ParsedTrip>> restoreTrips() async => (await restoreTripsImpl!())
+      .map((c) => (trip: c, breaks: const <TripBreaksCompanion>[]))
+      .toList();
+
   @override
-  Future<void> syncTrips(List<TripRow> trips) async {}
-  
+  Future<void> syncTrips(
+    List<TripRow> trips,
+    Map<String, List<TripBreakRow>> breaksByTripId,
+  ) async {}
+
   @override
   Future<void> deleteTrip(String tripId) async {}
 }
@@ -23,12 +30,13 @@ class FakeApiClient implements ApiClient {
 class FakeTripsDao implements TripsDao {
   Future<List<TripRow>> Function()? getAllTripsImpl;
   Future<int> Function(List<TripsCompanion>)? insertOrIgnoreTripsImpl;
-  
+
   @override
   Future<List<TripRow>> getAllTrips() async => getAllTripsImpl!();
-  
+
   @override
-  Future<int> insertOrIgnoreTrips(List<TripsCompanion> companions) async => insertOrIgnoreTripsImpl!(companions);
+  Future<int> insertOrIgnoreTrips(List<TripsCompanion> companions) async =>
+      insertOrIgnoreTripsImpl!(companions);
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -37,21 +45,35 @@ class FakeTripsDao implements TripsDao {
 void main() {
   late FakeApiClient apiClient;
   late FakeTripsDao tripsDao;
+  late AppDatabase db;
   late ProviderContainer container;
 
   setUp(() {
     apiClient = FakeApiClient();
     tripsDao = FakeTripsDao();
+    // Real in-memory DB for the Phase 26 provider reads (`restore()` reads
+    // appDatabaseProvider + tripBreaksDaoProvider eagerly for the atomic
+    // with-breaks insert / enrichment paths and the conflict breaks fetch).
+    // All fixtures here are breakless, so only `breaksForTrip` (→ []) runs.
+    db = AppDatabase(
+      DatabaseConnection(
+        NativeDatabase.memory(),
+        closeStreamsSynchronously: true,
+      ),
+    );
     container = ProviderContainer(
       overrides: [
         apiClientProvider.overrideWithValue(apiClient),
+        appDatabaseProvider.overrideWithValue(db),
         tripsDaoProvider.overrideWithValue(tripsDao),
+        tripBreaksDaoProvider.overrideWithValue(db.tripBreaksDao),
       ],
     );
   });
 
-  tearDown(() {
+  tearDown(() async {
     container.dispose();
+    await db.close();
   });
 
   final startTime = DateTime.parse('2023-01-01T08:00:00Z');
@@ -110,8 +132,10 @@ void main() {
 
   test('restore detects same UUID conflict with different fields', () async {
     tripsDao.getAllTripsImpl = () async => [baseTripRow];
-    
-    final modifiedCompanion = baseCompanion.copyWith(durationSeconds: const Value(2000));
+
+    final modifiedCompanion = baseCompanion.copyWith(
+      durationSeconds: const Value(2000),
+    );
     apiClient.restoreTripsImpl = () async => [modifiedCompanion];
     tripsDao.insertOrIgnoreTripsImpl = (_) async => 0;
 
@@ -141,10 +165,12 @@ void main() {
   test('restore detects time overlap conflict (> 1 min)', () async {
     final existingRow = baseTripRow.copyWith(id: 'uuid-local');
     tripsDao.getAllTripsImpl = () async => [existingRow];
-    
+
     final overlapCompanion = baseCompanion.copyWith(
       id: const Value('uuid-cloud'),
-      startTime: Value(startTime.add(const Duration(minutes: 5))), // 08:05 to 08:35, overlaps by 25 mins
+      startTime: Value(
+        startTime.add(const Duration(minutes: 5)),
+      ), // 08:05 to 08:35, overlaps by 25 mins
       endTime: Value(endTime.add(const Duration(minutes: 5))),
     );
     apiClient.restoreTripsImpl = () async => [overlapCompanion];
@@ -163,10 +189,12 @@ void main() {
   test('restore ignores time overlap <= 1 min', () async {
     final existingRow = baseTripRow.copyWith(id: 'uuid-local');
     tripsDao.getAllTripsImpl = () async => [existingRow];
-    
+
     final noOverlapCompanion = baseCompanion.copyWith(
       id: const Value('uuid-cloud'),
-      startTime: Value(endTime.subtract(const Duration(seconds: 30))), // Overlaps by 30 seconds
+      startTime: Value(
+        endTime.subtract(const Duration(seconds: 30)),
+      ), // Overlaps by 30 seconds
       endTime: Value(endTime.add(const Duration(minutes: 30))),
     );
     apiClient.restoreTripsImpl = () async => [noOverlapCompanion];

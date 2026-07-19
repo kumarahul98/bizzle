@@ -60,6 +60,12 @@ export async function restoreTripsHandler(
         isManualEntry: doc.isManualEntry,
         createdAt: doc.createdAt,
         updatedAt: doc.updatedAt,
+        // Phase 26 metadata: sourced from `doc`, already defaulted by
+        // tripConverter.fromFirestore — no re-defaulting here.
+        totalPausedSeconds: doc.totalPausedSeconds,
+        isEdited: doc.isEdited,
+        directionSource: doc.directionSource,
+        breaks: doc.breaks,
       };
     });
 

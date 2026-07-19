@@ -72,6 +72,7 @@ Future<ThemeMode?> _resolvedThemeMode(
               homeLng: null,
               officeLat: null,
               officeLng: null,
+              backfillMarkerVersion: 0,
             ),
           ),
         ),
