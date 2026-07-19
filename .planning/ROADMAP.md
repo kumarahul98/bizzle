@@ -739,10 +739,66 @@ Plans:
 
 **UI hint**: no
 
+### Phase 29: Sync Home & Office Locations to Cloud
+
+**Goal**: A user who reinstalls or signs in on a new device gets their saved Home and Office locations back automatically, so geofence auto-labeling keeps working without re-picking two map pins
+**Depends on**: Phase 21 (coord columns + geofence resolver), Phase 24 (auto-restore-on-sign-in seam), Phase 26 (sync/restore wire-contract patterns this mirrors)
+**Requirements**: LOC-03
+**Success Criteria** (what must be TRUE):
+
+  1. Setting Home or Office pushes both pairs to Firestore within one sync cycle
+  2. The backend deploys BEFORE any client emits preference payloads (non-strict zod would strip unknown keys and lose data silently — the Phase 26 SC#2 lesson)
+  3. A fresh install that signs in receives its saved Home/Office; geofence auto-labeling works on the first trip with no map interaction
+  4. A device with Home already set locally is NOT changed by restore (D-03 null-only merge — client stays authoritative)
+  5. A user who never set Home/Office syncs and restores cleanly (all-null is valid, not an error)
+  6. No coordinate appears in any log, on device or in Cloud Functions logs
+  7. The Play Data Safety declaration is updated before release (process gate, not code)
+
+**⚠ This phase deliberately reverses a mitigated threat decision.** Phase 21's T-21-02 / T-21-02-01 recorded that Home/Office coords "live only in local Drift […] not sent to any backend", and the constraint is written into the column dartdocs themselves. Phase 29 overturns that on purpose — see D-01 in `29-PLAN.md` for the rationale and the mandatory costs. The Play listing changes from *no location collected* to *precise location collected*. `T-21-03` ("NEVER log") is upheld, not reversed.
+
+**Plans**: 3 plans (not started)
+
+Plans:
+**Wave 1**
+- [ ] 29-01-PLAN.md — Backend: zod schema, both handlers, Firestore converter, tests; deploy live (SC2)
+
+**Wave 2** *(blocked on Wave 1 being live)*
+- [ ] 29-02-PLAN.md — Client wire: ApiClient methods, PreferencesSyncService, D-01 dartdoc rewrite on the four coord columns (no migration — columns exist since v6, schemaVersion stays 8)
+
+**Wave 3** *(blocked on Wave 2)*
+- [ ] 29-03-PLAN.md — Triggers: push on picker-confirm, push/restore on sign-in, D-03 null-only merge
+
+**UI hint**: no
+
+### Phase 30: Geofence Departure Detection
+
+**Goal**: The app notices the user has left Home (or Office) and offers to start tracking, so a commute is captured even when the user forgets to press Start
+**Depends on**: Phase 21 (Home/Office coords already exist — this phase adds *detection*, not storage)
+**Requirements**: AUTO-03
+**Status**: BLOCKED on the 30-00 spike
+
+**⚠ Blocked by a P0 measurement spike that needs a real drive.** The whole feature rests on whether Android's `GEOFENCE_TRANSITION_EXIT` fires soon enough to be useful — unverified for the user's device and OEM, and unanswerable from docs. Task 30-00 is a throwaway spike (≥5 drives, logcat attached) with kill criteria fixed *in advance*: median > 180 s, or ≤ 2/5 firing, cancels the phase. A geofence that fires minutes late would start a trip partway down the road with a mangled distance and a corrupted stuck-vs-moving ratio — attacking the app's core value. Building the permission flow or settings toggle before the spike is trim on a car whose engine may not start.
+
+**Success Criteria** (what must be TRUE):
+
+  0. The 30-00 spike has run and passed its kill criteria — no other criterion is assessable first
+  1. Driving away from Home produces the D-02 notification within the spike-measured latency budget
+  2. Tapping it starts tracking; ignoring it leaves no trace (no partial trip, no orphaned service)
+  3. The toggle is OFF by default; no background-location permission is requested until it is turned on
+  4. Feature off ⇒ behavior identical to the existing app (purely additive)
+  5. No coordinate appears in any log
+
+**Plans**: TBD (spike first)
+
+Plans:
+- [ ] 30-00 — SPIKE: measure EXIT trigger latency on a real drive (throwaway, blocking, P0)
+
+**UI hint**: yes (settings toggle + permission rationale screen)
+
 ## v0.3 Progress
 
 **Execution Order:**
-v0.3 phases execute in numeric order after the (paused) v0.2 phases: 17 -> 18 -> 19 -> 20 -> 21 -> 22 -> 23 -> 24 -> 25 -> 25.1 -> 26
+v0.3 phases execute in numeric order after the (paused) v0.2 phases: 17 -> 18 -> 19 -> 20 -> 21 -> 22 -> 23 -> 24 -> 25 -> 25.1 -> 26 -> 27 -> 28 -> 29 -> 30
 
 Note: Phase 17 is a small, independent UI fix + quick-label and is the safe first phase. Phase 18 introduces the break/pause data model (schema migration) that Phase 19 (full editing) depends on. Phases 20 and 21 are largely independent of the tracking-data work and build on existing auth/onboarding and settings/preferences. Phase 22 (home-screen widget) has the highest platform-integration risk and lands last, after the pause/resume state model exists so the widget can reflect accurate state.
 
@@ -759,3 +815,7 @@ Note: Phase 17 is a small, independent UI fix + quick-label and is the safe firs
 | 25. Interrupted-Trip Recovery | v0.3 | 3/3 | Complete | 2026-06-28 |
 | 25.1. Fix Sync Conflict & Auto-Retry Bugs (INSERTED) | v0.3 | 2/2 | Complete | 2026-07-12 |
 | 26. Sync Breaks & Edit Metadata to Cloud | v0.3 | 6/6 | Complete    | 2026-07-13 |
+| 27. UX Tour + Tracking Accuracy | v0.3 | 3/3 | Code complete (on-device UAT pending) | 2026-07-18 |
+| 28. Widget Content + Responsive Sizing | v0.3 | 0/TBD | In progress | - |
+| 29. Sync Home & Office Locations to Cloud | v0.3 | 0/3 | Not started (reverses T-21-02 — see plan D-01) | - |
+| 30. Geofence Departure Detection | v0.3 | 0/TBD | Blocked on 30-00 spike (needs real drive) | - |

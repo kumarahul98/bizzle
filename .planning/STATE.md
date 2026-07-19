@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: App Improvements
 status: executing
-stopped_at: Phase 26 plan 26-06 complete (phase 26 done, all 6 plans shipped)
-last_updated: "2026-07-13T11:53:15.536Z"
-last_activity: 2026-07-13
+stopped_at: Phases 29 + 30 planned (plans only, no code). Phase 28 still in progress.
+last_updated: "2026-07-20T00:00:00.000Z"
+last_activity: 2026-07-20
 progress:
-  total_phases: 16
-  completed_phases: 12
-  total_plans: 40
-  completed_plans: 37
-  percent: 75
+  total_phases: 18
+  completed_phases: 13
+  total_plans: 44
+  completed_plans: 40
+  percent: 72
 ---
 
 # Project State
@@ -21,14 +21,26 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-06)
 
 **Core value:** Show people the reality of their commute -- time wasted in traffic and how it changes over time.
-**Current focus:** Phase 26 — sync-breaks-edit-metadata-to-cloud
+**Current focus:** Phase 28 (in progress) — then Phase 29, which is planned and ready to execute
 
 ## Current Position
 
-Phase: 26
-Plan: Not started
+Phase: 29 planned (28 still in progress)
+Plan: 29-01 (backend) not started
 Status: Ready to execute
-Last activity: 2026-07-13
+Last activity: 2026-07-20
+
+**Session 2026-07-19/20 (manual GSD — tooling uninstalled, process honoured by hand):**
+
+Two fixes shipped, each on its own branch, neither merged:
+- `chore/android-target-sdk-35` (`a5fffce`) — targetSdk 34 → 35 for Play compliance. Verified in the built APK via aapt2 (`minSdkVersion:'34' targetSdkVersion:'35'`), not just source. minSdk unchanged, so Phase 1 D-08's device-coverage decision stands. **On-device edge-to-edge rendering NOT verified** — Android 15 forces edge-to-edge and no test in this repo can exercise it; bottom nav in main_shell, the flutter_map screens, and bottom sheets need eyes on a device.
+- `fix/wr05-pending-trip-recovery` (`ef4d03e`) — WR-05 had **never once executed**. `tracking_service.dart` called a MethodChannel with no registered native handler, throwing MissingPluginException into a swallowing catch on every stop. Since `finalize()` clears `active_trip.json` immediately before that call, both safety nets were down at once. Replaced with a file-based `PendingTripStore` (mirrors `TripStatePersister`, proven to write from the fbs isolate). Note for future work: a `MainActivity.configureFlutterEngine` handler would NOT have fixed this — the call originates in the background service isolate, which has its own FlutterEngine. 677 tests green (+9).
+
+Branch hygiene: `fix/logo-crispness` deleted after archiving to tag `archive/logo-crispness` (it held an unmerged SVG logo-mark implementation not on main; recover with `git switch -c fix/logo-crispness archive/logo-crispness`).
+
+Two phases planned, no code written:
+- **Phase 29** (sync Home/Office) — ready to execute. Deliberately reverses Phase 21's T-21-02 privacy mitigation; the reversal and its mandatory costs are recorded as D-01 in `29-PLAN.md`. Play Data Safety declaration must change before release.
+- **Phase 30** (geofence departure detection) — BLOCKED on the 30-00 latency spike, which needs a real drive with logcat attached. Kill criteria fixed in advance so the phase can be cancelled on data rather than argued about.
 
 **v0.3 progress:** 9/11 phases complete (17,18,19,20,21,22,24,25 done and merged to main 2026-07-06 in PR #2; 25.1 completed 2026-07-12 on main). Phase 23 rescoped 2026-07-11 (UAT audit found it never really executed — stalled at 1 thin plan; now Android-only, its one iOS criterion removed). Phase 25.1 (inserted 2026-07-11) fixed the broken auto-retry throttle and fake Merge conflict resolution; one visual UAT item remains tracked in 25.1-HUMAN-UAT.md (Merge sheet "Local" pre-selected on device).
 
