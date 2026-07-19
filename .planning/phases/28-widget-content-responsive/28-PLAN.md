@@ -1,9 +1,18 @@
 ---
 phase: 28-widget-content-responsive
 created: 2026-07-18
-status: in_progress
+status: code_complete
 mode: autonomous-subagents
 requirements: [WIDGET-02, WIDGET-03]
+commits: [203c5d5 (plan), 88092b7 (feat), f1f5462 (tests)]
+result: >
+  Code complete and merged to main. Status corrected from in_progress on
+  2026-07-20 — it was stale, the same drift that left the ROADMAP table
+  stopped at Phase 26. Every file named below was touched, the SizeF
+  RemoteViews map is in CommuteWidgetProvider.kt, and idle-stats
+  formatting tests are pinned. Outstanding: the on-device verification
+  in the Verification section (resize wide -> rich stats; shrink to 2x2
+  -> compact; idle numbers match in-app Stats). Owned by Phase 23.
 ---
 
 # Phase 28 — Widget content + responsive sizing

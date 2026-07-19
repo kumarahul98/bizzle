@@ -640,6 +640,17 @@ Plans:
   2. Phase 21's UAT session (`21-UAT.md`, stalled at test 1 of 5, "awaiting user response" since 2026-06-08) is completed — all 5 geofence auto-label scenarios are run and recorded
   3. Phase 22's UAT session (`22-UAT.md`, stalled at test 1 of 3, "awaiting user response" since 2026-06-09) is completed — all 3 home-screen-widget scenarios are run and recorded
   4. No Android phase has a dangling `testing` / `partial` / `pending` UAT or verification status when this phase closes — each is resolved to pass, marked superseded, or explicitly logged as a known gap with a follow-up phase or todo
+  5. The device-only items accumulated since this phase was written (added 2026-07-20) are run and recorded — see the table below. Each is invisible to `flutter analyze` and the full test suite by nature, so none of them can be closed from CI
+
+**Device-only queue (added 2026-07-20).** Every item here was code-verified but is *behaviourally* unverifiable without hardware:
+
+| Source | Test | Why CI cannot cover it |
+|---|---|---|
+| targetSdk 35 (`a5fffce`) | Edge-to-edge rendering: bottom nav in `main_shell`, the `flutter_map` screens (trip detail route, location picker), and bottom sheets | Android 15 forces edge-to-edge; it is a runtime rendering behaviour, not a code path a widget test can drive |
+| WR-05 (`ef4d03e`) | `adb shell am force-stop traevy.traevy` while tracking → tap Stop from the notification → relaunch → the trip must appear in history instead of a fresh idle state | A force-stop race across an isolate boundary; the 2026-04-15 repro in BACKLOG 999.2 is the acceptance test |
+| Phase 27 | Stand still ~15 min → distance stays ~0 (TRACK-14); Settings shows Auto-pause ON and existing installs backfilled (UX-08); each tab tours exactly once with Skip (UX-07) | GPS jitter, migration-on-real-install, and first-run overlay placement |
+| Phase 28 | Resize widget wide → rich stats appear; shrink to 2×2 → compact layout returns; idle numbers match the in-app Stats screen | `RemoteViews(Map<SizeF, …>)` selection happens in the launcher process |
+| Phase 25.1 | Conflict "Merge" sheet — confirm "Local" is pre-selected | Visual state of a sheet, tracked in `25.1-HUMAN-UAT.md` |
 
 **Scope note**: Phase 14's 3 deferred iOS device-UAT items are explicitly OUT of scope here — iOS work is paused (see the PAUSED summary in the v0.2 section above). They resume together with Phase 16's full parity sweep when iOS picks back up.
 
@@ -816,6 +827,6 @@ Note: Phase 17 is a small, independent UI fix + quick-label and is the safe firs
 | 25.1. Fix Sync Conflict & Auto-Retry Bugs (INSERTED) | v0.3 | 2/2 | Complete | 2026-07-12 |
 | 26. Sync Breaks & Edit Metadata to Cloud | v0.3 | 6/6 | Complete    | 2026-07-13 |
 | 27. UX Tour + Tracking Accuracy | v0.3 | 3/3 | Code complete (on-device UAT pending) | 2026-07-18 |
-| 28. Widget Content + Responsive Sizing | v0.3 | 0/TBD | In progress | - |
+| 28. Widget Content + Responsive Sizing | v0.3 | 3/3 | Code complete (on-device UAT pending) | 2026-07-18 |
 | 29. Sync Home & Office Locations to Cloud | v0.3 | 0/3 | Not started (reverses T-21-02 — see plan D-01) | - |
 | 30. Geofence Departure Detection | v0.3 | 0/TBD | Blocked on 30-00 spike (needs real drive) | - |
