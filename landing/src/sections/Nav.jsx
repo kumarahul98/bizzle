@@ -1,6 +1,7 @@
 // Traevy landing — Nav section
 
 import React from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import { useTheme } from '../theme.jsx'
 import { FONTS } from '../tokens.js'
 import { Logo, Container, Button } from '../components/ui.jsx'
@@ -8,7 +9,9 @@ import { Icon } from '../components/Phone.jsx'
 
 function Nav({ onToggleTheme, dark }) {
   const { t } = useTheme();
+  const location = useLocation();
   const [scrolled, setScrolled] = React.useState(false);
+  
   React.useEffect(() => {
     const el = document.scrollingElement || document.documentElement;
     const onScroll = () => setScrolled((window.scrollY || el.scrollTop) > 12);
@@ -16,15 +19,28 @@ function Nav({ onToggleTheme, dark }) {
     onScroll();
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
-  const link = (label, id) => (
-    <a href={`#${id}`} style={{
-      fontSize: 14, fontWeight: 500, color: t.textDim, textDecoration: 'none',
-      fontFamily: FONTS.ui, padding: '6px 2px', transition: 'color .14s ease',
-    }}
-      onMouseEnter={(e) => e.currentTarget.style.color = t.text}
-      onMouseLeave={(e) => e.currentTarget.style.color = t.textDim}
-    >{label}</a>
-  );
+  
+  const isHome = location.pathname === '/';
+  
+  // If we are on the home page, use a standard anchor for smooth scrolling.
+  // Otherwise, use a React Router link to navigate to the home page with the hash.
+  const link = (label, hash, isPagePath = false) => {
+    const Component = (isHome && !isPagePath) ? 'a' : Link;
+    const props = (isHome && !isPagePath) ? { href: hash } : { to: isPagePath ? hash : `/${hash}` };
+    
+    return (
+      <Component {...props} style={{
+        fontSize: 14, fontWeight: 500, color: t.textDim, textDecoration: 'none',
+        fontFamily: FONTS.ui, padding: '6px 2px', transition: 'color .14s ease',
+      }}
+        onMouseEnter={(e) => e.currentTarget.style.color = t.text}
+        onMouseLeave={(e) => e.currentTarget.style.color = t.textDim}
+      >
+        {label}
+      </Component>
+    );
+  };
+  
   return (
     <header style={{
       position: 'sticky', top: 0, zIndex: 50,
@@ -37,12 +53,12 @@ function Nav({ onToggleTheme, dark }) {
       <Container width={1180} style={{
         height: 70, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
-        <a href="#top" style={{ textDecoration: 'none' }}><Logo/></a>
+        <Link to="/" style={{ textDecoration: 'none' }}><Logo/></Link>
         <nav style={{ display: 'flex', alignItems: 'center', gap: 30 }} className="nav-links">
-          {link('The cost', 'why')}
-          {link('How it works', 'how')}
-          {link('Insights', 'insights')}
-          {link('The split', 'insight')}
+          {link('The cost', '#why')}
+          {link('How it works', '#how')}
+          {link('Insights', '#insights')}
+          {link('Blog', '/blog', true)}
         </nav>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button onClick={onToggleTheme} aria-label="Toggle theme" style={{
@@ -52,9 +68,15 @@ function Nav({ onToggleTheme, dark }) {
           }}>
             <Icon name={dark ? 'sun' : 'moon'} size={17} color={t.textDim}/>
           </button>
-          <a href="#waitlist" style={{ textDecoration: 'none' }} className="nav-cta">
-            <Button variant="primary" size="sm">Get the app</Button>
-          </a>
+          {isHome ? (
+            <a href="#waitlist" style={{ textDecoration: 'none' }} className="nav-cta">
+              <Button variant="primary" size="sm">Get the app</Button>
+            </a>
+          ) : (
+            <Link to="/#waitlist" style={{ textDecoration: 'none' }} className="nav-cta">
+              <Button variant="primary" size="sm">Get the app</Button>
+            </Link>
+          )}
         </div>
       </Container>
     </header>
