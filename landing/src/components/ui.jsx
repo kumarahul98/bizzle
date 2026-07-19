@@ -20,7 +20,11 @@ function LogoMark({ size = 26 }) {
       width={size}
       height={size}
       alt="Traevy"
-      style={{ display: 'block', flexShrink: 0 }}
+      style={{ 
+        display: 'block', 
+        flexShrink: 0,
+        filter: dark ? 'drop-shadow(0px 0px 0.6px rgba(200, 134, 46, 0.8))' : 'none'
+      }}
     />
   );
 }
