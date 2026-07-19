@@ -43,7 +43,13 @@ auto-labeling) costs ~30 minutes.
 and `kTrackingMaxAttributableGapSeconds` — they form the same family of
 "reject obviously-wrong GPS samples" constants.
 
-## 999.2 — App kill + relaunch trip recovery
+## 999.2 — App kill + relaunch trip recovery — ✅ IMPLEMENTED 2026-07-20 (device verification pending)
+
+**Status:** Implemented on main in `ef4d03e` (merged `53ffb6d`). The file-based
+approach proposed below was built essentially as specified, with two deliberate
+deviations and one correction to the deferral rationale — see "Resolution" at the
+end of this item. **Device verification has NOT been run**; the repro below is the
+acceptance test and is still outstanding.
 
 **Source:** Phase 2 device verification (2026-04-15)
 **Trigger:** Phase 3 planning
@@ -87,3 +93,44 @@ costs ~1 hour.
 a method channel call `savePendingTrip` as a placeholder. Replace with the
 `dart:io` file approach in Phase 3 (remove the unused method channel import
 and `dart:convert` import when doing so, or repurpose them for the file write).
+
+---
+
+### Resolution (2026-07-20, `ef4d03e`)
+
+The "partial fix" above was worse than it sounds: **the MethodChannel had no
+native handler anywhere in `android/`**, so every stop threw
+`MissingPluginException` into the swallowing `on Object` catch. It never
+persisted anything, on any build, ever. Worse, `TripAccumulator.finalize()`
+clears `active_trip.json` immediately BEFORE that call — so both recovery nets
+were down at the same moment, and the second existed specifically to cover the
+first being cleared.
+
+Registering the handler would NOT have fixed it. That code runs in the
+`flutter_background_service` isolate, which has its own `FlutterEngine`; a
+handler bound to `MainActivity`'s engine is invisible to it. Do not cite this
+item as precedent for a `configureFlutterEngine` MethodChannel.
+
+**Built as:** `lib/features/tracking/services/pending_trip_store.dart` —
+temp-file + atomic rename, cleared by the controller on both terminal outcomes
+(saved / discarded-too-short) and deliberately RETAINED on failure so recovery
+retries. Recovery imports on launch, deduping by trip id via the existing
+`TripsDao.findById`. 9 unit tests.
+
+**Deviations from the proposal above, both deliberate:**
+
+| Proposed | Built | Why |
+|---|---|---|
+| `getApplicationCacheDirectory()` | `getApplicationDocumentsDirectory()` | Android can evict the cache dir under storage pressure. A recovery file the OS may delete is not a recovery file. |
+| Check in `main()` | Check in `TrackingNotifier.build()` | Needs the DAO + controller; `main()` has no clean Riverpod access. |
+
+**The deferral rationale was wrong.** "Requires passing data from `main()` to the
+service isolate… needs an fbs mechanism not yet used" — no such mechanism is
+needed. `path_provider` works *inside* the background isolate; `TripStatePersister`
+already calls it there on the GPS hot path. No cache-dir hand-off, no fbs initial
+data. The ~1 hour estimate was inflated by an untested assumption.
+
+**STILL OUTSTANDING — device verification.** Run the 2026-04-15 repro against the
+fix: force-stop while tracking, tap Stop from the notification, relaunch, and
+confirm the trip now appears in history instead of a fresh idle state. No test in
+the repo can exercise this.

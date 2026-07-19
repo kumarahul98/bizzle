@@ -298,9 +298,34 @@ import Flutter
 
 This is sufficient. **Do not add manual GIDSignIn setup** — `google_sign_in_ios` v6+ handles this automatically through the plugin registration path.
 
-### MethodChannel `traevy/tracking` (savePendingTrip)
+### ~~MethodChannel `traevy/tracking` (savePendingTrip)~~ — REMOVED 2026-07-20
 
-`tracking_service.dart` contains a `MethodChannel('traevy/tracking')` call for `savePendingTrip` — this is an Android platform channel call made inside the service isolate. On iOS this call will throw and be caught by the surrounding `on Object` block (the code already has this guard). No iOS-side implementation of this channel is needed for v0.2; the worst case is that a force-killed trip is lost, which is acceptable for this milestone.
+> **This channel no longer exists.** Removed in `ef4d03e`; see BACKLOG item 999.2.
+> The section below is retained only because it explains a trap worth not
+> re-entering.
+
+The original text read: *"`tracking_service.dart` contains a
+`MethodChannel('traevy/tracking')` call for `savePendingTrip` — an Android
+platform channel call made inside the service isolate. On iOS this call will
+throw and be caught by the surrounding `on Object` block… the worst case is that
+a force-killed trip is lost."*
+
+Two things were wrong with that. It threw on **Android** too — no native handler
+for the channel was ever registered anywhere in `android/`, so every stop hit
+`MissingPluginException` and the recovery never ran on any platform. And the
+"worst case" was not contained: `TripAccumulator.finalize()` clears
+`active_trip.json` immediately before that call, so both recovery paths were
+down simultaneously.
+
+**Replaced by** `PendingTripStore` (`lib/features/tracking/services/pending_trip_store.dart`)
+— a plain `dart:io` file with an atomic temp-file + rename write.
+
+**Note for the iOS port:** a MethodChannel registered in
+`MainActivity.configureFlutterEngine` (or the iOS equivalent) would NOT have
+worked, because the call originates in the `flutter_background_service` isolate,
+which runs its own `FlutterEngine`. The file-based store has no such problem and
+is platform-neutral — it would work on iOS unchanged. It is currently wired only
+on the Android path; iOS still loses a force-killed trip (see the table below).
 
 ---
 
@@ -516,7 +541,7 @@ Each phase has a dependency-ordered rationale. Do not skip steps — each unbloc
 | Speed value unit | `Position.speed` in m/s (same) | `Position.speed` in m/s (same) — `TripAccumulator` unchanged |
 | Accuracy filter | `kTrackingMaxAcceptableAccuracyMeters = 30` (same) | Same constant applies — `TripAccumulator` unchanged |
 | Background process | `flutter_background_service` isolate (Android foreground service type = location) | `flutter_background_service` isolate (onForeground, kept alive by CLLocationManager) |
-| Force-stop recovery | `MethodChannel('traevy/tracking').savePendingTrip` | Channel call throws + caught; trip lost on force-stop (acceptable for v0.2) |
+| Force-stop recovery | `PendingTripStore` — `pending_trip.json` via `dart:io` (was a dead MethodChannel until `ef4d03e`) | Not wired on iOS; trip still lost on force-stop (acceptable for v0.2). The store is platform-neutral, so enabling it is cheap if this becomes unacceptable. |
 
 ---
 
