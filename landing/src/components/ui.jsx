@@ -46,11 +46,11 @@ function Wordmark({ size = 17, color }) {
   const col = color || t.text;
   const glyphs = WORD_TEXT.split('').map((ch) => WORD_GLYPHS[ch]);
   const totalWidth = glyphs.reduce((sum, g) => sum + g.width, 0) + WORD_GLYPH_GAP * (glyphs.length - 1);
-  const scale = size / WORD_GLYPH_HEIGHT;
+  const scale = size / 120; // 100 + 20 (stroke bounds: -6 to 106, plus safety padding)
   let x = 0;
   return (
-    <svg width={totalWidth * scale} height={size} viewBox={`0 0 ${totalWidth} ${WORD_GLYPH_HEIGHT}`}
-      role="img" aria-label="Traevy">
+    <svg width={(totalWidth + 20) * scale} height={size} viewBox={`-10 -10 ${totalWidth + 20} 120`}
+      role="img" aria-label="Traevy" style={{ overflow: 'visible' }}>
       {glyphs.map((g, i) => {
         const tx = x;
         x += g.width + WORD_GLYPH_GAP;
