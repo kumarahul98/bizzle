@@ -24,14 +24,13 @@
 // feature-local — they are deliberately NOT in `lib/config/constants.dart`.
 
 import 'dart:async';
-import 'dart:convert';
 
-import 'package:flutter/services.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/features/tracking/services/auto_pause_detector.dart';
 import 'package:traevy/features/tracking/services/location_settings_builder.dart';
+import 'package:traevy/features/tracking/services/pending_trip_store.dart';
 import 'package:traevy/features/tracking/services/tracking_service_events.dart';
 import 'package:traevy/features/tracking/services/trip_accumulator.dart';
 import 'package:traevy/features/tracking/services/widget_state_writer.dart';
@@ -272,17 +271,27 @@ Future<void> trackingServiceOnStart(ServiceInstance service) async {
     uiTimer?.cancel();
     await writeWidgetIdle();
     final trip = accumulator.finalize(DateTime.now().toUtc());
-    // WR-05: if the app is force-stopped before the UI isolate can
-    // receive and persist kTripFinalizedEvent, the trip is lost. Save it
-    // to SharedPreferences so the UI can recover on relaunch.
+    // WR-05: if the app is force-stopped before the UI isolate can receive
+    // and persist kTripFinalizedEvent, the trip is lost — finalize() has
+    // already cleared active_trip.json, so no recovery path remains. Write
+    // the finished trip to a durable file FIRST; the UI isolate clears it
+    // once the Drift row is committed.
+    //
+    // This MUST be awaited before the invoke below: the whole point is that
+    // the durable write lands before the isolate hop.
+    //
+    // Previously this called MethodChannel('traevy/tracking') — a channel
+    // with no registered native handler, so it threw MissingPluginException
+    // into a swallowing catch on every stop and never once persisted
+    // anything. A handler on MainActivity's engine could not have fixed it:
+    // this code runs in the background service isolate, which has its own
+    // FlutterEngine.
     try {
-      const platform = MethodChannel('traevy/tracking');
-      await platform.invokeMethod<void>(
-        'savePendingTrip',
-        jsonEncode(trip.toMap()),
-      );
+      await PendingTripStore().save(trip.toMap());
     } on Object {
-      // Platform call failed — trip will be lost, but service stops anyway
+      // Disk full / IO failure. The in-memory hand-off below is still the
+      // primary path and succeeds in the overwhelming majority of stops, so
+      // a failed backup must not prevent the trip reaching Drift.
     }
     service.invoke(kTripFinalizedEvent, trip.toMap());
     // The UX-03 notification is dismissed from the UI isolate inside

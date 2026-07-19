@@ -8,6 +8,7 @@ import 'package:traevy/database/daos/trips_dao.dart';
 import 'package:traevy/database/daos/user_preferences_dao.dart';
 import 'package:traevy/database/database.dart';
 import 'package:traevy/features/tracking/services/location_accuracy_gate.dart';
+import 'package:traevy/features/tracking/services/pending_trip_store.dart';
 import 'package:traevy/features/tracking/services/tracking_event_source.dart';
 import 'package:traevy/features/tracking/services/tracking_notification_service.dart';
 import 'package:traevy/features/tracking/state/finalized_trip.dart';
@@ -43,6 +44,12 @@ class TrackingServiceController {
   /// [accuracyGate] is the IOS-08 reduced-accuracy preflight gate. Defaults
   /// to a real [LocationAccuracyGate] backed by Geolocator; inject a fake
   /// in tests.
+  ///
+  /// [pendingTripStore] is the WR-05 durable hand-off slot. The service
+  /// isolate writes the finalized trip there before the isolate hop; this
+  /// controller clears it once the trip has reached its terminal outcome.
+  /// Defaults to a real [PendingTripStore]; inject a temp-dir-backed one in
+  /// tests.
   TrackingServiceController({
     required TrackingEventSource source,
     required AppDatabase database,
@@ -52,6 +59,7 @@ class TrackingServiceController {
     required UserPreferencesDao userPreferencesDao,
     required TripBreaksDao tripBreaksDao,
     LocationAccuracyGate? accuracyGate,
+    PendingTripStore? pendingTripStore,
   }) : _source = source,
        _database = database,
        _tripsDao = tripsDao,
@@ -59,7 +67,8 @@ class TrackingServiceController {
        _notifications = notifications,
        _userPreferencesDao = userPreferencesDao,
        _tripBreaksDao = tripBreaksDao,
-       _accuracyGate = accuracyGate ?? LocationAccuracyGate();
+       _accuracyGate = accuracyGate ?? LocationAccuracyGate(),
+       _pendingTripStore = pendingTripStore ?? PendingTripStore();
 
   final TrackingEventSource _source;
   final AppDatabase _database;
@@ -69,6 +78,7 @@ class TrackingServiceController {
   final UserPreferencesDao _userPreferencesDao;
   final TripBreaksDao _tripBreaksDao;
   final LocationAccuracyGate _accuracyGate;
+  final PendingTripStore _pendingTripStore;
 
   /// Start tracking. Returns `true` if the engine started successfully,
   /// `false` if the Location-Services pre-flight failed or the platform
@@ -203,6 +213,10 @@ class TrackingServiceController {
     if (trip.durationSeconds < kMinTripDurationSeconds ||
         trip.distanceMeters < kMinTripDistanceMeters) {
       await _notifications.dismiss();
+      // WR-05: a deliberately discarded trip is a TERMINAL outcome. Clear the
+      // pending slot or recovery would resurrect and re-discard it on every
+      // launch, forever.
+      await _clearPendingTrip();
       return const PersistDiscardedTooShort();
     }
     try {
@@ -278,10 +292,29 @@ class TrackingServiceController {
         await _syncQueueDao.enqueueCreate(trip.id);
       });
       await _notifications.dismiss();
+      // WR-05: the Drift row is committed — the durable backup has done its
+      // job and must go, so the next launch does not re-import it.
+      await _clearPendingTrip();
       return PersistSaved(trip.id);
     } on Object catch (error) {
       await _notifications.dismiss();
+      // Deliberately NOT clearing the pending slot here: the trip did not
+      // reach Drift, so the backup is the only surviving copy. Leaving it in
+      // place is what lets recovery retry on the next launch.
       return PersistFailed(error);
+    }
+  }
+
+  /// Clear the WR-05 pending slot, swallowing IO errors.
+  ///
+  /// A failure to delete the backup must never turn a SAVED trip into a
+  /// reported failure — the worst case is a duplicate import attempt on the
+  /// next launch, which the recovery path already guards against by trip id.
+  Future<void> _clearPendingTrip() async {
+    try {
+      await _pendingTripStore.clear();
+    } on Object {
+      // Non-fatal by design (see doc comment).
     }
   }
 
