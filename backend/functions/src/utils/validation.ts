@@ -91,3 +91,63 @@ export type TripInput = z.infer<typeof tripSchema>;
 
 /** Inferred type for a validated sync request body. */
 export type SyncTripsBody = z.infer<typeof syncTripsBody>;
+
+/**
+ * Latitude bounds. `.finite()` is load-bearing, not decoration: `z.number()`
+ * rejects `NaN` but ACCEPTS `Infinity`, and an infinite coordinate would sail
+ * through a naive `.min()/.max()` pair on the negative side.
+ */
+const latitudeSchema = z.number().finite().min(-90).max(90);
+
+/** Longitude bounds. Same `.finite()` reasoning as {@link latitudeSchema}. */
+const longitudeSchema = z.number().finite().min(-180).max(180);
+
+/**
+ * zod schema for the saved Home / Office coordinates (Phase 29, T-29-04).
+ *
+ * All four fields are nullable AND `.default(null)`-backed, so a user who has
+ * never set either location still produces a valid payload (SC#5) rather than
+ * a 400.
+ *
+ * The two `.refine`s enforce pair consistency: a latitude without its longitude
+ * is not a location, it is corruption. Firestore would happily store the half
+ * value, and the client's geofence resolver would then read a non-null lat with
+ * a null lng on restore. Rejecting at the boundary is cheaper than defending
+ * every downstream reader.
+ *
+ * Range validation matters more here than it looks (T-29-04): a poisoned
+ * coordinate does not fail loudly, it silently mislabels the direction of every
+ * future trip via the geofence resolver.
+ */
+export const savedLocationsSchema = z
+  .object({
+    homeLat: latitudeSchema.nullable().default(null),
+    homeLng: longitudeSchema.nullable().default(null),
+    officeLat: latitudeSchema.nullable().default(null),
+    officeLng: longitudeSchema.nullable().default(null),
+  })
+  .refine(
+    (v) => (v.homeLat === null) === (v.homeLng === null),
+    { message: 'homeLat and homeLng must both be set or both be null' },
+  )
+  .refine(
+    (v) => (v.officeLat === null) === (v.officeLng === null),
+    { message: 'officeLat and officeLng must both be set or both be null' },
+  );
+
+/**
+ * Request body schema for `POST /preferences/sync` (Phase 29).
+ *
+ * Wrapped in a `savedLocations` object rather than four top-level keys so the
+ * document shape, the wire shape, and {@link import('../types/preferences').SavedLocations}
+ * stay identical — one shape to reason about instead of a mapping step.
+ */
+export const syncPreferencesBody = z.object({
+  savedLocations: savedLocationsSchema,
+});
+
+/** Inferred type for validated saved locations. */
+export type SavedLocationsInput = z.infer<typeof savedLocationsSchema>;
+
+/** Inferred type for a validated preferences sync body. */
+export type SyncPreferencesBody = z.infer<typeof syncPreferencesBody>;

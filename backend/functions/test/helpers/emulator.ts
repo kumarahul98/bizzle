@@ -40,14 +40,23 @@ export const db = getFirestore();
 
 /** The top-level `trips` collection (matches the handler's collection name). */
 const TRIPS = 'trips';
+const USERS = 'users';
 
 /**
- * Delete every doc in the `trips` collection. Run in `beforeEach` so the shared
- * emulator namespace is clean between tests (the suite runs `--runInBand`).
+ * Delete every doc in the `trips` and `users` collections. Run in `beforeEach`
+ * so the shared emulator namespace is clean between tests (the suite runs
+ * `--runInBand`). `users` was added in Phase 29 — the preferences suite relies
+ * on this clearing the per-user document between cases, and clearing it is a
+ * no-op for the trip suites.
  */
 export async function clearFirestore(): Promise<void> {
-  const snap = await db.collection(TRIPS).get();
-  await Promise.all(snap.docs.map((d) => d.ref.delete()));
+  const collections = [TRIPS, USERS];
+  await Promise.all(
+    collections.map(async (name) => {
+      const snap = await db.collection(name).get();
+      await Promise.all(snap.docs.map((d) => d.ref.delete()));
+    }),
+  );
 }
 
 /** Overridable fields for {@link seedTrip}; everything else gets a sane default. */
