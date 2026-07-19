@@ -7,6 +7,7 @@ import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/providers.dart';
 import 'package:traevy/features/settings/providers/settings_providers.dart';
 import 'package:traevy/features/tracking/services/main_isolate_tracking_engine.dart';
+import 'package:traevy/features/tracking/services/pending_trip_store.dart';
 import 'package:traevy/features/tracking/services/tracking_event_source.dart';
 import 'package:traevy/features/tracking/services/tracking_notification_service.dart';
 import 'package:traevy/features/tracking/services/tracking_permission_service.dart';
@@ -182,8 +183,57 @@ class TrackingNotifier extends Notifier<TrackingState> {
       unawaited(_autoPausePromptSub?.cancel());
     });
     _attach();
-    unawaited(_checkInterruptedTrip());
+    unawaited(_recoverThenCheckInterrupted());
     return const TrackingIdle();
+  }
+
+  /// WR-05 recovery runs BEFORE the interrupted-trip check, and sequentially.
+  ///
+  /// The two are mutually exclusive by construction — `finalize()` clears
+  /// `active_trip.json` before the pending slot is written — but ordering them
+  /// makes the precedence explicit: a COMPLETED trip is saved silently, and
+  /// only a genuinely in-progress trip may raise [TrackingInterrupted] and ask
+  /// the user to choose.
+  Future<void> _recoverThenCheckInterrupted() async {
+    await _recoverPendingTrip();
+    await _checkInterruptedTrip();
+  }
+
+  /// Import a trip that was finalized but never reached Drift (WR-05).
+  ///
+  /// Silent by design: the user already pressed Stop and saw the trip end, so
+  /// re-surfacing it as a prompt would be confusing. It simply appears in the
+  /// history where they expect it.
+  Future<void> _recoverPendingTrip() async {
+    final store = PendingTripStore();
+    final map = await store.load();
+    if (map == null) return;
+
+    final FinalizedTrip trip;
+    try {
+      trip = FinalizedTrip.fromMap(map);
+    } on Object {
+      // Undecodable payload (partial write predating the atomic rename, or a
+      // schema change). It can never be imported, so drop it rather than
+      // retrying the same failure on every launch.
+      await store.clear();
+      return;
+    }
+
+    // Dedupe: the process may have died AFTER the Drift commit but BEFORE the
+    // controller cleared the slot. Re-inserting would throw on the primary key
+    // and, worse, enqueue a second sync row for a trip already synced.
+    final existing = await ref.read(tripsDaoProvider).findById(trip.id);
+    if (existing != null) {
+      await store.clear();
+      return;
+    }
+
+    // persistFinalizedTrip clears the slot itself on both terminal outcomes
+    // (saved / discarded-too-short) and deliberately retains it on failure.
+    await ref
+        .read(trackingServiceControllerProvider)
+        .persistFinalizedTrip(trip);
   }
 
   Future<void> _checkInterruptedTrip() async {
