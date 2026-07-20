@@ -80,8 +80,8 @@ class TrackingNotificationService {
   /// singleton out of the unit-test surface.
   TrackingNotificationService({
     FlutterLocalNotificationsPlugin? plugin,
-  })  : _plugin = plugin ?? FlutterLocalNotificationsPlugin(),
-        _platformIsAndroid = Platform.isAndroid;
+  }) : _plugin = plugin ?? FlutterLocalNotificationsPlugin(),
+       _platformIsAndroid = Platform.isAndroid;
 
   /// Test-seam constructor. Allows injecting [platformIsAndroid] to exercise
   /// the iOS gate without relying on dart:io [Platform] (RESEARCH Pitfall 2).
@@ -90,8 +90,8 @@ class TrackingNotificationService {
   TrackingNotificationService.forTesting({
     required bool platformIsAndroid,
     FlutterLocalNotificationsPlugin? plugin,
-  })  : _plugin = plugin ?? FlutterLocalNotificationsPlugin(),
-        _platformIsAndroid = platformIsAndroid;
+  }) : _plugin = plugin ?? FlutterLocalNotificationsPlugin(),
+       _platformIsAndroid = platformIsAndroid;
 
   final FlutterLocalNotificationsPlugin _plugin;
 

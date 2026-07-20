@@ -36,7 +36,8 @@ class _FakeTrackingEventSource implements TrackingEventSource {
       const Stream<Map<String, dynamic>?>.empty();
 
   @override
-  Future<bool> start({Map<String, dynamic>? initialAccumulatorState}) async => true;
+  Future<bool> start({Map<String, dynamic>? initialAccumulatorState}) async =>
+      true;
 
   @override
   Future<void> stop() async {}

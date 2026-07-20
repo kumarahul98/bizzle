@@ -703,8 +703,7 @@ void main() {
         expect(
           log.probeCalls.contains(Permission.notification),
           isFalse,
-          reason:
-              'D-06: currentStatus() on iOS must never probe notification',
+          reason: 'D-06: currentStatus() on iOS must never probe notification',
         );
       },
     );

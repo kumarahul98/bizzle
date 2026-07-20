@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/database.dart';
 import 'package:traevy/features/auth/providers/auth_providers.dart';
+import 'package:traevy/sync/saved_locations.dart';
 import 'package:traevy/sync/trip_serializer.dart';
 
 /// Typed error thrown by [ApiClient]. Plan 02's `SyncEngine` branches on
@@ -195,6 +196,60 @@ class ApiClient {
       return trips
           .map((e) => TripSerializer.fromJson(e as Map<String, dynamic>))
           .toList();
+    } on SyncException {
+      rethrow;
+    } on Object {
+      throw const SyncException.transport();
+    }
+  }
+
+  /// `POST /preferences/sync` — upsert the caller's saved Home/Office
+  /// locations (Phase 29, LOC-03). Body is `{ "savedLocations": {...} }`.
+  ///
+  /// Throws on non-2xx, same as [syncTrips]. A 400 here is a non-retryable
+  /// poison pill by the existing [SyncException.http] classification, which is
+  /// correct: the server rejects only out-of-range or half-set coordinates, and
+  /// retrying the identical bad payload would never succeed.
+  Future<void> syncPreferences(SavedLocations locations) async {
+    final body = jsonEncode({'savedLocations': locations.toJson()});
+    await _send(
+      (token) => _client.post(
+        Uri.parse('$_baseUrl$kSyncPreferencesPath'),
+        headers: _headers(token),
+        body: body,
+      ),
+    );
+  }
+
+  /// `GET /preferences/restore` — the caller's saved Home/Office locations
+  /// (Phase 29, LOC-03). Unwraps the same double-wrapped envelope as
+  /// [restoreTrips]: `decoded['body']['data']['savedLocations']`.
+  ///
+  /// A user who has never synced gets a 200 with an all-null object (the server
+  /// deliberately does not 404), which parses to [SavedLocations.empty]. A
+  /// malformed envelope throws [SyncException.transport] rather than silently
+  /// returning empty — "no locations" and "the response was garbage" must not
+  /// look the same to the caller, because the first is a normal state and the
+  /// second should be retried.
+  Future<SavedLocations> restorePreferences() async {
+    final res = await _send(
+      (token) => _client.get(
+        Uri.parse('$_baseUrl$kRestorePreferencesPath'),
+        headers: _headers(token),
+      ),
+    );
+
+    try {
+      final decoded = jsonDecode(res.body);
+      if (decoded is! Map<String, dynamic>) {
+        throw const SyncException.transport();
+      }
+      final body = decoded['body'] as Map<String, dynamic>?;
+      final data = body?['data'] as Map<String, dynamic>?;
+      final saved = data?['savedLocations'] as Map<String, dynamic>?;
+      if (saved == null) throw const SyncException.transport();
+
+      return SavedLocations.fromJson(saved);
     } on SyncException {
       rethrow;
     } on Object {

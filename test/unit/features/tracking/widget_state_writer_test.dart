@@ -22,10 +22,10 @@ void main() {
     calls.clear();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
-      calls.add(call);
-      // saveWidgetData and updateWidget both return bool in home_widget 0.9.3.
-      return true;
-    });
+          calls.add(call);
+          // saveWidgetData and updateWidget both return bool in home_widget 0.9.3.
+          return true;
+        });
   });
 
   tearDown(() {
@@ -33,30 +33,32 @@ void main() {
         .setMockMethodCallHandler(channel, null);
   });
 
-  test('writeWidgetIdle writes the idle state and refreshes the widget',
-      () async {
-    await writeWidgetIdle();
+  test(
+    'writeWidgetIdle writes the idle state and refreshes the widget',
+    () async {
+      await writeWidgetIdle();
 
-    final saves = calls.where((c) => c.method == 'saveWidgetData').toList();
+      final saves = calls.where((c) => c.method == 'saveWidgetData').toList();
 
-    final showStats = saves.firstWhere(
-      (c) => (c.arguments as Map)['id'] == kWidgetKeyShowStats,
-      orElse: () => throw StateError('widget_show_stats was never written'),
-    );
-    expect((showStats.arguments as Map)['data'], isFalse);
+      final showStats = saves.firstWhere(
+        (c) => (c.arguments as Map)['id'] == kWidgetKeyShowStats,
+        orElse: () => throw StateError('widget_show_stats was never written'),
+      );
+      expect((showStats.arguments as Map)['data'], isFalse);
 
-    final title = saves.firstWhere(
-      (c) => (c.arguments as Map)['id'] == kWidgetKeyTitle,
-      orElse: () => throw StateError('widget_title was never written'),
-    );
-    expect((title.arguments as Map)['data'], kWidgetTitleIdle);
+      final title = saves.firstWhere(
+        (c) => (c.arguments as Map)['id'] == kWidgetKeyTitle,
+        orElse: () => throw StateError('widget_title was never written'),
+      );
+      expect((title.arguments as Map)['data'], kWidgetTitleIdle);
 
-    expect(
-      calls.any((c) => c.method == 'updateWidget'),
-      isTrue,
-      reason: 'the RemoteViews must be refreshed after the data write',
-    );
-  });
+      expect(
+        calls.any((c) => c.method == 'updateWidget'),
+        isTrue,
+        reason: 'the RemoteViews must be refreshed after the data write',
+      );
+    },
+  );
 
   // --- Phase 28: idle-state stats block -----------------------------------
 

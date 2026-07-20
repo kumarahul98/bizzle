@@ -384,38 +384,41 @@ void main() {
         expect(acc.distanceMetersForTest, 0);
       });
 
-      test('counts distance at/above kTrackingMinMoveMeters (real movement)', () {
-        const lat2 = 37.77508;
-        const lng2 = -122.4194;
-        final segmentMeters = Geolocator.distanceBetween(
-          37.7749,
-          -122.4194,
-          lat2,
-          lng2,
-        );
-        expect(segmentMeters, greaterThanOrEqualTo(kTrackingMinMoveMeters));
-
-        final acc = TripAccumulator(startedAt: start)
-          ..addSample(
-            _pos(
-              lat: 37.7749,
-              lng: -122.4194,
-              speedMs: 5,
-              timestamp: start,
-            ),
-          )
-          ..addSample(
-            _pos(
-              lat: lat2,
-              lng: lng2,
-              speedMs: 5,
-              timestamp: start.add(kTrackingSampleInterval),
-            ),
+      test(
+        'counts distance at/above kTrackingMinMoveMeters (real movement)',
+        () {
+          const lat2 = 37.77508;
+          const lng2 = -122.4194;
+          final segmentMeters = Geolocator.distanceBetween(
+            37.7749,
+            -122.4194,
+            lat2,
+            lng2,
           );
+          expect(segmentMeters, greaterThanOrEqualTo(kTrackingMinMoveMeters));
 
-        expect(acc.distanceMetersForTest, closeTo(segmentMeters, 1e-6));
-        expect(acc.distanceMetersForTest, closeTo(20, 1));
-      });
+          final acc = TripAccumulator(startedAt: start)
+            ..addSample(
+              _pos(
+                lat: 37.7749,
+                lng: -122.4194,
+                speedMs: 5,
+                timestamp: start,
+              ),
+            )
+            ..addSample(
+              _pos(
+                lat: lat2,
+                lng: lng2,
+                speedMs: 5,
+                timestamp: start.add(kTrackingSampleInterval),
+              ),
+            );
+
+          expect(acc.distanceMetersForTest, closeTo(segmentMeters, 1e-6));
+          expect(acc.distanceMetersForTest, closeTo(20, 1));
+        },
+      );
 
       test(
         'gate does not alter time attribution or sample/polyline count for '
@@ -446,7 +449,10 @@ void main() {
 
           // Distance still accumulates normally — this segment (~567m) is
           // well above the floor, so the gate is a no-op here.
-          expect(acc.distanceMetersForTest, greaterThan(kTrackingMinMoveMeters));
+          expect(
+            acc.distanceMetersForTest,
+            greaterThan(kTrackingMinMoveMeters),
+          );
 
           // Sample/polyline count is unaffected by the distance-floor gate
           // — every accepted sample is still recorded.
@@ -872,17 +878,28 @@ void main() {
     test('dumpState and restore round-trips state losslessly', () {
       final start = DateTime.utc(2026, 1, 1, 8);
       final acc = TripAccumulator(startedAt: start)
-        ..addSample(_pos(lat: 37.7749, lng: -122.4194, speedMs: 20, timestamp: start))
+        ..addSample(
+          _pos(lat: 37.7749, lng: -122.4194, speedMs: 20, timestamp: start),
+        )
         ..pause(start.add(const Duration(seconds: 10)))
         ..resume(start.add(const Duration(seconds: 20)))
-        ..addSample(_pos(lat: 37.7800, lng: -122.4194, speedMs: 20, timestamp: start.add(const Duration(seconds: 30))));
+        ..addSample(
+          _pos(
+            lat: 37.7800,
+            lng: -122.4194,
+            speedMs: 20,
+            timestamp: start.add(const Duration(seconds: 30)),
+          ),
+        );
 
       final dumped = acc.dumpState();
       final restored = TripAccumulator.restore(dumped);
 
       // Verify the restored accumulator produces the identical snapshot.
       final snapOrig = acc.snapshot(start.add(const Duration(seconds: 40)));
-      final snapRestored = restored.snapshot(start.add(const Duration(seconds: 40)));
+      final snapRestored = restored.snapshot(
+        start.add(const Duration(seconds: 40)),
+      );
 
       expect(snapRestored.startedAt, snapOrig.startedAt);
       expect(snapRestored.elapsedSeconds, snapOrig.elapsedSeconds);

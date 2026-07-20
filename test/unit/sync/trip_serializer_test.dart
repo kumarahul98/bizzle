@@ -105,6 +105,12 @@ void main() {
         'breaks',
       });
       expect(json.containsKey('userId'), isFalse);
+      // Phase 29 (LOC-03) guard: Home/Office coordinates sync on their OWN
+      // endpoint, never as trip fields. This exact-set assertion is what makes
+      // that structural — if a coord ever leaks into the trip payload, this
+      // test fails rather than the leak shipping silently.
+      expect(json.containsKey('homeLat'), isFalse);
+      expect(json.containsKey('officeLat'), isFalse);
     });
 
     test('timestamps serialize as UTC ISO-8601 ending with Z', () {

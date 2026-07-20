@@ -9,6 +9,7 @@ import 'package:traevy/database/daos/sync_queue_dao.dart';
 import 'package:traevy/database/daos/trips_dao.dart';
 import 'package:traevy/database/database.dart';
 import 'package:traevy/sync/api_client.dart';
+import 'package:traevy/sync/saved_locations.dart';
 import 'package:traevy/sync/sync_engine.dart';
 import 'package:traevy/sync/sync_status.dart';
 import 'package:traevy/sync/trip_serializer.dart';
@@ -60,6 +61,17 @@ class FakeApiClient implements ApiClient {
 
   @override
   Future<List<ParsedTrip>> restoreTrips() async => <ParsedTrip>[];
+
+  // Phase 29 (LOC-03): SyncEngine drains the trip sync_queue and must never
+  // reach the preferences endpoints — those are pushed directly, outside the
+  // queue (D-02). Throwing makes an accidental coupling fail loudly.
+  @override
+  Future<void> syncPreferences(SavedLocations locations) async =>
+      throw UnimplementedError('SyncEngine must not sync preferences (D-02)');
+
+  @override
+  Future<SavedLocations> restorePreferences() async =>
+      throw UnimplementedError('SyncEngine must not restore preferences');
 }
 
 /// Builds a live [TripsCompanion] for [id] so `findById` returns a real row.
