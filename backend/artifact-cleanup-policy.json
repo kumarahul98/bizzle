@@ -1,0 +1,17 @@
+[
+  {
+    "name": "delete-superseded-images",
+    "action": { "type": "Delete" },
+    "condition": {
+      "tagState": "ANY",
+      "olderThan": "0s"
+    }
+  },
+  {
+    "name": "keep-3-most-recent",
+    "action": { "type": "Keep" },
+    "mostRecentVersions": {
+      "keepCount": 3
+    }
+  }
+]
