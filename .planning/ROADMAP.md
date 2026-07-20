@@ -651,6 +651,7 @@ Plans:
 | Phase 27 | Stand still ~15 min → distance stays ~0 (TRACK-14); Settings shows Auto-pause ON and existing installs backfilled (UX-08); each tab tours exactly once with Skip (UX-07) | GPS jitter, migration-on-real-install, and first-run overlay placement |
 | Phase 28 | Resize widget wide → rich stats appear; shrink to 2×2 → compact layout returns; idle numbers match the in-app Stats screen | `RemoteViews(Map<SizeF, …>)` selection happens in the launcher process |
 | Phase 25.1 | Conflict "Merge" sheet — confirm "Local" is pre-selected | Visual state of a sheet, tracked in `25.1-HUMAN-UAT.md` |
+| Phase 29 (`bf96bbb`) | **After the backend deploy only:** sign in on a fresh install → Home/Office pins restore → the first trip labels by geofence, not time. Then set a pin while signed out, sign in, and confirm it reaches Firestore | Needs a live backend, a real Google account, and a reinstall — no emulator or test double covers the end-to-end path |
 
 **Scope note**: Phase 14's 3 deferred iOS device-UAT items are explicitly OUT of scope here — iOS work is paused (see the PAUSED summary in the v0.2 section above). They resume together with Phase 16's full parity sweep when iOS picks back up.
 
@@ -767,17 +768,19 @@ Plans:
 
 **⚠ This phase deliberately reverses a mitigated threat decision.** Phase 21's T-21-02 / T-21-02-01 recorded that Home/Office coords "live only in local Drift […] not sent to any backend", and the constraint is written into the column dartdocs themselves. Phase 29 overturns that on purpose — see D-01 in `29-PLAN.md` for the rationale and the mandatory costs. The Play listing changes from *no location collected* to *precise location collected*. `T-21-03` ("NEVER log") is upheld, not reversed.
 
-**Plans**: 3 plans (not started)
+**Plans**: 3 waves — ALL CODE COMPLETE 2026-07-20 on branch `phase-29-sync-home-office`, NOT merged, NOT deployed
 
 Plans:
 **Wave 1**
-- [ ] 29-01-PLAN.md — Backend: zod schema, both handlers, Firestore converter, tests; deploy live (SC2)
+- [x] Backend: zod schema, both handlers, Firestore converter, tests (`5733236`) — built and tested, **deploy NOT run**
 
-**Wave 2** *(blocked on Wave 1 being live)*
-- [ ] 29-02-PLAN.md — Client wire: ApiClient methods, PreferencesSyncService, D-01 dartdoc rewrite on the four coord columns (no migration — columns exist since v6, schemaVersion stays 8)
+**Wave 2**
+- [x] Client wire: ApiClient methods, PreferencesSyncService, D-01 dartdoc rewrite (`9843204`)
 
-**Wave 3** *(blocked on Wave 2)*
-- [ ] 29-03-PLAN.md — Triggers: push on picker-confirm, push/restore on sign-in, D-03 null-only merge
+**Wave 3**
+- [x] Triggers: push on picker-confirm, restore-then-push on sign-in, D-03 null-only merge (`bf96bbb`)
+
+**Two human gates before release** (see `29-SUMMARY.md`): the backend must be deployed (SC#2 — a client emitting payloads the endpoint cannot answer loses data silently), and the Play Data Safety declaration must change from *no location collected* to *precise location collected* (D-01). The branch stays off `main` until both clear.
 
 **UI hint**: no
 
@@ -828,5 +831,5 @@ Note: Phase 17 is a small, independent UI fix + quick-label and is the safe firs
 | 26. Sync Breaks & Edit Metadata to Cloud | v0.3 | 6/6 | Complete    | 2026-07-13 |
 | 27. UX Tour + Tracking Accuracy | v0.3 | 3/3 | Code complete (on-device UAT pending) | 2026-07-18 |
 | 28. Widget Content + Responsive Sizing | v0.3 | 3/3 | Code complete (on-device UAT pending) | 2026-07-18 |
-| 29. Sync Home & Office Locations to Cloud | v0.3 | 0/3 | Not started (reverses T-21-02 — see plan D-01) | - |
+| 29. Sync Home & Office Locations to Cloud | v0.3 | 3/3 | Code complete, blocked on deploy + Data Safety gates | 2026-07-20 |
 | 30. Geofence Departure Detection | v0.3 | 0/TBD | Blocked on 30-00 spike (needs real drive) | - |
