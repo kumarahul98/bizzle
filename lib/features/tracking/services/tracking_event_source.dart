@@ -119,7 +119,9 @@ final class FbsTrackingEventSource implements TrackingEventSource {
   Future<bool> start({Map<String, dynamic>? initialAccumulatorState}) async {
     final started = await _service.startService();
     if (started && initialAccumulatorState != null) {
-      _service.invoke(kSetInitialStateCommand, {'initialState': initialAccumulatorState});
+      _service.invoke(kSetInitialStateCommand, {
+        'initialState': initialAccumulatorState,
+      });
     }
     return started;
   }

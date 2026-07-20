@@ -120,51 +120,53 @@ void main() {
     );
   });
 
-  group('IOS-14: enriched two-line body template constants (RED until Plan 03)',
-      () {
-    test(
-      'kTrackingNotificationBodyLine1Template contains {elapsed} and {km} '
-      'placeholders',
-      () {
-        // RED: kTrackingNotificationBodyLine1Template does not exist yet.
-        // Plan 03 adds it to lib/config/constants.dart.
-        expect(
-          kTrackingNotificationBodyLine1Template,
-          contains('{elapsed}'),
-          reason: 'IOS-14: line 1 must contain the {elapsed} placeholder',
-        );
-        expect(
-          kTrackingNotificationBodyLine1Template,
-          contains('{km}'),
-          reason: 'IOS-14: line 1 must contain the {km} placeholder',
-        );
-      },
-    );
+  group(
+    'IOS-14: enriched two-line body template constants (RED until Plan 03)',
+    () {
+      test(
+        'kTrackingNotificationBodyLine1Template contains {elapsed} and {km} '
+        'placeholders',
+        () {
+          // RED: kTrackingNotificationBodyLine1Template does not exist yet.
+          // Plan 03 adds it to lib/config/constants.dart.
+          expect(
+            kTrackingNotificationBodyLine1Template,
+            contains('{elapsed}'),
+            reason: 'IOS-14: line 1 must contain the {elapsed} placeholder',
+          );
+          expect(
+            kTrackingNotificationBodyLine1Template,
+            contains('{km}'),
+            reason: 'IOS-14: line 1 must contain the {km} placeholder',
+          );
+        },
+      );
 
-    test(
-      'kTrackingNotificationBodyLine2Template contains {stuck} placeholder',
-      () {
-        // RED: kTrackingNotificationBodyLine2Template does not exist yet.
-        // Plan 03 adds it to lib/config/constants.dart.
-        expect(
-          kTrackingNotificationBodyLine2Template,
-          contains('{stuck}'),
-          reason: 'IOS-14: line 2 must contain the {stuck} placeholder',
-        );
-      },
-    );
+      test(
+        'kTrackingNotificationBodyLine2Template contains {stuck} placeholder',
+        () {
+          // RED: kTrackingNotificationBodyLine2Template does not exist yet.
+          // Plan 03 adds it to lib/config/constants.dart.
+          expect(
+            kTrackingNotificationBodyLine2Template,
+            contains('{stuck}'),
+            reason: 'IOS-14: line 2 must contain the {stuck} placeholder',
+          );
+        },
+      );
 
-    test(
-      'kTrackingNotificationBodyLine1Template and '
-      'kTrackingNotificationBodyLine2Template are distinct strings',
-      () {
-        // RED until Plan 03.
-        expect(
-          kTrackingNotificationBodyLine1Template,
-          isNot(equals(kTrackingNotificationBodyLine2Template)),
-          reason: 'IOS-14: two-line body templates must be distinct',
-        );
-      },
-    );
-  });
+      test(
+        'kTrackingNotificationBodyLine1Template and '
+        'kTrackingNotificationBodyLine2Template are distinct strings',
+        () {
+          // RED until Plan 03.
+          expect(
+            kTrackingNotificationBodyLine1Template,
+            isNot(equals(kTrackingNotificationBodyLine2Template)),
+            reason: 'IOS-14: two-line body templates must be distinct',
+          );
+        },
+      );
+    },
+  );
 }

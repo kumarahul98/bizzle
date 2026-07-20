@@ -8,7 +8,9 @@ void main() {
     late TripStatePersister persister;
 
     setUp(() async {
-      tempDir = await Directory.systemTemp.createTemp('trip_state_persister_test');
+      tempDir = await Directory.systemTemp.createTemp(
+        'trip_state_persister_test',
+      );
       persister = TripStatePersister(
         directoryProvider: () async => tempDir,
       );
@@ -38,7 +40,7 @@ void main() {
     test('clear removes the file', () async {
       final data = {'tripId': '1234', 'distance': 5.0};
       await persister.saveState(data);
-      
+
       var state = await persister.loadState();
       expect(state, isNotNull);
 

@@ -8,6 +8,7 @@ import 'package:traevy/database/providers.dart';
 import 'package:traevy/sync/api_client.dart';
 import 'package:traevy/sync/restore_conflict.dart';
 import 'package:traevy/sync/restore_controller.dart';
+import 'package:traevy/sync/saved_locations.dart';
 import 'package:traevy/sync/trip_serializer.dart';
 
 class FakeApiClient implements ApiClient {
@@ -25,6 +26,17 @@ class FakeApiClient implements ApiClient {
 
   @override
   Future<void> deleteTrip(String tripId) async {}
+
+  // Phase 29 (LOC-03): the restore-conflict flow must never touch the
+  // preferences endpoints. These throw rather than no-op so an accidental call
+  // fails the suite loudly instead of passing silently.
+  @override
+  Future<void> syncPreferences(SavedLocations locations) async =>
+      throw UnimplementedError('restore flow must not sync preferences');
+
+  @override
+  Future<SavedLocations> restorePreferences() async =>
+      throw UnimplementedError('restore flow must not restore preferences');
 }
 
 class FakeTripsDao implements TripsDao {

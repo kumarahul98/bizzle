@@ -83,21 +83,37 @@ class UserPreferences extends Table {
 
   /// Saved Home latitude (Phase 21, D-01). Null = not set; single-row table.
   ///
-  /// PII-adjacent — this coordinate reveals where the user lives. NEVER log it
-  /// (T-21-03). Stored locally in Drift only; no sync field carries it.
+  /// PII — this coordinate reveals where the user lives. **NEVER log it**
+  /// (T-21-03, still in force).
+  ///
+  /// **These coordinates DO leave the device as of Phase 29 (LOC-03).** Until
+  /// then this dartdoc read "Stored locally in Drift only; no sync field
+  /// carries it", per Phase 21's T-21-02. Phase 29 reversed that decision
+  /// deliberately so a reinstall restores Home/Office instead of silently
+  /// degrading geofence labeling — see D-01 in
+  /// `.planning/phases/29-sync-home-office-locations/29-PLAN.md`, and the Play
+  /// Data Safety declaration that reversal requires.
+  ///
+  /// What did NOT change: T-21-03. Transporting a coordinate over TLS to our
+  /// own Firestore is a different act from writing it to a log sink. The sync
+  /// path (`PreferencesSyncService`, `ApiClient.syncPreferences`) logs nothing.
+  ///
   /// Added by schema migration v5 → v6 (additive); existing rows read null.
   RealColumn get homeLat => real().nullable()();
 
-  /// Saved Home longitude (Phase 21, D-01). Null = not set. PII-adjacent —
-  /// NEVER log (T-21-03). Added by schema migration v5 → v6 (additive).
+  /// Saved Home longitude (Phase 21, D-01). Null = not set. PII — NEVER log
+  /// (T-21-03). Syncs to the cloud as of Phase 29; see [homeLat] for the full
+  /// posture. Added by schema migration v5 → v6 (additive).
   RealColumn get homeLng => real().nullable()();
 
-  /// Saved Office latitude (Phase 21, D-01). Null = not set. PII-adjacent —
-  /// NEVER log (T-21-03). Added by schema migration v5 → v6 (additive).
+  /// Saved Office latitude (Phase 21, D-01). Null = not set. PII — NEVER log
+  /// (T-21-03). Syncs to the cloud as of Phase 29; see [homeLat] for the full
+  /// posture. Added by schema migration v5 → v6 (additive).
   RealColumn get officeLat => real().nullable()();
 
-  /// Saved Office longitude (Phase 21, D-01). Null = not set. PII-adjacent —
-  /// NEVER log (T-21-03). Added by schema migration v5 → v6 (additive).
+  /// Saved Office longitude (Phase 21, D-01). Null = not set. PII — NEVER log
+  /// (T-21-03). Syncs to the cloud as of Phase 29; see [homeLat] for the full
+  /// posture. Added by schema migration v5 → v6 (additive).
   RealColumn get officeLng => real().nullable()();
 
   /// Version-keyed backfill marker (Phase 26, D-03): tracks "backfill done

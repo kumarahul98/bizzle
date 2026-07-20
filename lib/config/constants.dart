@@ -902,6 +902,14 @@ const String kRestoreTripsPath = '/trips/restore';
 /// `'$kDeleteTripPathPrefix$tripId'`.
 const String kDeleteTripPathPrefix = '/trips/';
 
+/// Path for `POST /preferences/sync` — upsert the caller's saved Home/Office
+/// locations (Phase 29, LOC-03).
+const String kSyncPreferencesPath = '/preferences/sync';
+
+/// Path for `GET /preferences/restore` — download the caller's saved
+/// Home/Office locations (Phase 29, LOC-03).
+const String kRestorePreferencesPath = '/preferences/restore';
+
 /// Base delay for exponential sync-retry backoff (D-06). The engine schedules
 /// the next retry at `base × 2^retryCount`, capped at [kSyncRetryMaxDelay].
 const Duration kSyncRetryBaseDelay = Duration(seconds: 2);

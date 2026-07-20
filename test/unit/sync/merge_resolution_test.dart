@@ -146,7 +146,10 @@ void main() {
         selections: {},
       );
 
-      expect(resultExplicit.trip.direction.value, resultAbsent.trip.direction.value);
+      expect(
+        resultExplicit.trip.direction.value,
+        resultAbsent.trip.direction.value,
+      );
       expect(resultExplicit.trip.direction.value, local.direction);
     });
   });
@@ -192,7 +195,10 @@ void main() {
 
         expect(result.breaks, hasLength(1));
         expect(result.breaks.single.tripId.value, 'trip1');
-        expect(result.breaks.single.startTime.value, localBreaks.single.startTime);
+        expect(
+          result.breaks.single.startTime.value,
+          localBreaks.single.startTime,
+        );
         expect(result.breaks.single.endTime.value, localBreaks.single.endTime);
         // Fresh UUID, never the original local break id reused blindly is
         // fine either way, but tripId must NEVER be the cloud original id.
@@ -220,8 +226,14 @@ void main() {
           expect(b.tripId.value, 'trip1');
           expect(b.tripId.value, isNot('cloud-original-id'));
         }
-        expect(result.breaks[0].startTime.value, cloudBreaks[0].startTime.value);
-        expect(result.breaks[1].startTime.value, cloudBreaks[1].startTime.value);
+        expect(
+          result.breaks[0].startTime.value,
+          cloudBreaks[0].startTime.value,
+        );
+        expect(
+          result.breaks[1].startTime.value,
+          cloudBreaks[1].startTime.value,
+        );
       },
     );
 
@@ -266,25 +278,32 @@ void main() {
       expect(cloudWins.trip.directionSource.value, 'geofence');
     });
 
-    test('isEdited is ALWAYS true in merge output, regardless of selections', () {
-      final local = _local(isEdited: false);
-      final cloud = _cloud(isEdited: false);
+    test(
+      'isEdited is ALWAYS true in merge output, regardless of selections',
+      () {
+        final local = _local(isEdited: false);
+        final cloud = _cloud(isEdited: false);
 
-      final allLocal = resolveMerge(local: local, cloud: cloud, selections: {});
-      expect(allLocal.trip.isEdited.value, isTrue);
+        final allLocal = resolveMerge(
+          local: local,
+          cloud: cloud,
+          selections: {},
+        );
+        expect(allLocal.trip.isEdited.value, isTrue);
 
-      final allCloud = resolveMerge(
-        local: local,
-        cloud: cloud,
-        selections: {
-          'startTime': 'cloud',
-          'endTime': 'cloud',
-          'durationSeconds': 'cloud',
-          'distanceMeters': 'cloud',
-          'direction': 'cloud',
-        },
-      );
-      expect(allCloud.trip.isEdited.value, isTrue);
-    });
+        final allCloud = resolveMerge(
+          local: local,
+          cloud: cloud,
+          selections: {
+            'startTime': 'cloud',
+            'endTime': 'cloud',
+            'durationSeconds': 'cloud',
+            'distanceMeters': 'cloud',
+            'direction': 'cloud',
+          },
+        );
+        expect(allCloud.trip.isEdited.value, isTrue);
+      },
+    );
   });
 }

@@ -100,8 +100,7 @@ class _PageTourHostState extends ConsumerState<PageTourHost> {
 
     // The target widgets must be laid out before the spotlight can measure
     // them. If the first target is not yet in the tree, retry a few frames.
-    final firstReady =
-        widget.tour.steps.first.targetKey.currentContext != null;
+    final firstReady = widget.tour.steps.first.targetKey.currentContext != null;
     if (!firstReady) {
       if (_layoutRetries++ >= _kMaxLayoutRetries) return;
       WidgetsBinding.instance.addPostFrameCallback((_) => _showOverlay());

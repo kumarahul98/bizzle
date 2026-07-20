@@ -5,6 +5,8 @@ import express from 'express';
 import { syncTripsHandler } from './handlers/sync-trips';
 import { deleteTripHandler } from './handlers/delete-trip';
 import { restoreTripsHandler } from './handlers/restore-trips';
+import { syncPreferencesHandler } from './handlers/sync-preferences';
+import { restorePreferencesHandler } from './handlers/restore-preferences';
 
 // Guard initialization so importing the exported `app` in-process (supertest /
 // the integration suite, which already initialized the Admin app against the
@@ -39,6 +41,12 @@ app.get('/health', (_req, res) => {
 app.post('/trips/sync', syncTripsHandler);
 app.get('/trips/restore', restoreTripsHandler);
 app.delete('/trips/:tripId', deleteTripHandler);
+
+// Phase 29 (LOC-03): saved Home/Office locations. Separate routes rather than
+// fields on the trip endpoints — different entity, different lifecycle, and
+// sync-trips.ts is already the most-churned file in this directory.
+app.post('/preferences/sync', syncPreferencesHandler);
+app.get('/preferences/restore', restorePreferencesHandler);
 
 /** The single HTTPS Cloud Function wrapping the Express app (D-02/D-04). */
 export const api = onRequest(app);

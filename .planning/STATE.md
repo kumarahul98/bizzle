@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: App Improvements
 status: executing
-stopped_at: Phases 29 + 30 planned (plans only, no code). Phase 28 still in progress.
+stopped_at: Phase 29 backend DEPLOYED + verified live; client branch unmerged pending Play Data Safety declaration. Phase 30 blocked on device spike.
 last_updated: "2026-07-20T00:00:00.000Z"
 last_activity: 2026-07-20
 progress:
   total_phases: 18
   completed_phases: 13
-  total_plans: 44
-  completed_plans: 40
-  percent: 72
+  total_plans: 47
+  completed_plans: 43
+  percent: 76
 ---
 
 # Project State
@@ -21,26 +21,38 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-06)
 
 **Core value:** Show people the reality of their commute -- time wasted in traffic and how it changes over time.
-**Current focus:** Phase 28 (in progress) — then Phase 29, which is planned and ready to execute
+**Current focus:** Phase 29 waves are built; two human gates (backend deploy, Play Data Safety) stand between it and release
 
 ## Current Position
 
-Phase: 29 planned (28 still in progress)
-Plan: 29-01 (backend) not started
-Status: Ready to execute
+Phase: 29 code-complete (branch `phase-29-sync-home-office`, unmerged)
+Plan: all 3 waves done
+Status: Blocked on two human gates — see below
 Last activity: 2026-07-20
 
 **Session 2026-07-19/20 (manual GSD — tooling uninstalled, process honoured by hand):**
 
-Two fixes shipped, each on its own branch, neither merged:
-- `chore/android-target-sdk-35` (`a5fffce`) — targetSdk 34 → 35 for Play compliance. Verified in the built APK via aapt2 (`minSdkVersion:'34' targetSdkVersion:'35'`), not just source. minSdk unchanged, so Phase 1 D-08's device-coverage decision stands. **On-device edge-to-edge rendering NOT verified** — Android 15 forces edge-to-edge and no test in this repo can exercise it; bottom nav in main_shell, the flutter_map screens, and bottom sheets need eyes on a device.
-- `fix/wr05-pending-trip-recovery` (`ef4d03e`) — WR-05 had **never once executed**. `tracking_service.dart` called a MethodChannel with no registered native handler, throwing MissingPluginException into a swallowing catch on every stop. Since `finalize()` clears `active_trip.json` immediately before that call, both safety nets were down at once. Replaced with a file-based `PendingTripStore` (mirrors `TripStatePersister`, proven to write from the fbs isolate). Note for future work: a `MainActivity.configureFlutterEngine` handler would NOT have fixed this — the call originates in the background service isolate, which has its own FlutterEngine. 677 tests green (+9).
+**Merged to main this session:**
+- `a5fffce` — targetSdk 34 → 35 for Play compliance. Verified in the built APK via aapt2 (`minSdkVersion:'34' targetSdkVersion:'35'`), not just source. minSdk unchanged, so Phase 1 D-08 stands. **On-device edge-to-edge NOT verified** (Phase 23 queue).
+- `ef4d03e` — WR-05 had **never once executed**. `tracking_service.dart` called a MethodChannel with no registered native handler, throwing MissingPluginException into a swallowing catch on every stop. Since `finalize()` clears `active_trip.json` immediately before that call, both safety nets were down at once. Replaced with a file-based `PendingTripStore`. **A `MainActivity.configureFlutterEngine` handler would NOT have fixed it** — the call originates in the background service isolate, which has its own FlutterEngine. Device repro still outstanding (Phase 23 queue).
+- `548b82a` — retired the dead MethodChannel from BACKLOG 999.2 + ARCHITECTURE.md, which still documented it as the design.
+- `5844864` — Phase 28 status corrected to code_complete (its code had been on main since 07-18); Phase 23 gained SC#5 + the device-only queue table.
 
-Branch hygiene: `fix/logo-crispness` deleted after archiving to tag `archive/logo-crispness` (it held an unmerged SVG logo-mark implementation not on main; recover with `git switch -c fix/logo-crispness archive/logo-crispness`).
+**Phase 29 — code-complete, UNMERGED, branch `phase-29-sync-home-office`:**
+- `5733236` Wave 1 backend — `POST /preferences/sync`, `GET /preferences/restore`, zod schema with lat/lng range + `.finite()` + pair-consistency rules, typed converter, `users/*` deny-all proven. Backend suite 89 → 103.
+- `9843204` Wave 2 client — `SavedLocations`, two `ApiClient` methods, `PreferencesSyncService` with the D-03 null-only merge, and the D-01 dartdoc rewrite on the four coord columns (they said "no sync field carries it", which this phase makes false).
+- `bf96bbb` Wave 3 triggers — push on picker-confirm (unawaited), restore-THEN-push on sign-in. That order is load-bearing: push-first would upload a fresh install's empty state and null out the user's real cloud pins before restore ever read them.
+- Flutter 677 → 709 green, analyze 0/0, debug APK builds.
 
-Two phases planned, no code written:
-- **Phase 29** (sync Home/Office) — ready to execute. Deliberately reverses Phase 21's T-21-02 privacy mitigation; the reversal and its mandatory costs are recorded as D-01 in `29-PLAN.md`. Play Data Safety declaration must change before release.
-- **Phase 30** (geofence departure detection) — BLOCKED on the 30-00 latency spike, which needs a real drive with logcat attached. Kill criteria fixed in advance so the phase can be cancelled on data rather than argued about.
+**✅ Backend DEPLOYED 2026-07-20** to `travey-298a7`; `api(us-central1)` updated. Verified live: `/health` 200, `/preferences/{sync,restore}` 401 unauthenticated (route registered + auth-first), and critically **`/trips/{sync,restore}` still 401** — all five routes share ONE `onRequest(app)` function, so the deploy replaced the one already serving trip sync. It came through clean. Also confirmed the live 401 does not echo submitted coordinates (T-29-02).
+
+**⛔ ONE GATE REMAINS — do not merge the client branch until it clears:**
+- **Update the Play Data Safety declaration** from *no location data collected* to *precise location collected and stored, linked to the account* (D-01). User-visible on the store page.
+- Note the distinction that made the deploy safe to do first: the declaration blocks shipping the CLIENT, not the backend. Endpoints no released app calls collect nothing.
+
+**Two pre-existing infra items surfaced by the deploy (neither introduced by Phase 29):** Artifact Registry in `us-central1` has no cleanup policy, so images from every deploy since Phase 10 accumulate and bill slowly (`firebase functions:artifacts:setpolicy`); and Node.js 20 is deprecated, decommissioning **2026-10-30** — the runtime needs bumping before then.
+
+**Phase 30** — still BLOCKED on the 30-00 latency spike, which needs a real drive with logcat attached. Not started, deliberately: kill criteria are fixed in advance so the phase gets cancelled on numbers rather than argued about. Building its permission flow or settings toggle first would be trim on a car whose engine may not start.
 
 **v0.3 progress:** 9/11 phases complete (17,18,19,20,21,22,24,25 done and merged to main 2026-07-06 in PR #2; 25.1 completed 2026-07-12 on main). Phase 23 rescoped 2026-07-11 (UAT audit found it never really executed — stalled at 1 thin plan; now Android-only, its one iOS criterion removed). Phase 25.1 (inserted 2026-07-11) fixed the broken auto-retry throttle and fake Merge conflict resolution; one visual UAT item remains tracked in 25.1-HUMAN-UAT.md (Merge sheet "Local" pre-selected on device).
 

@@ -57,4 +57,23 @@ describe('Firestore Security Rules — deny-all (criterion 5)', () => {
     await assertFails(getDoc(ref));
     await assertFails(setDoc(ref, { userId: 'userA' }));
   });
+
+  // Phase 29 (D-04): saved Home/Office coordinates are PII. The catch-all
+  // `match /{document=**}` already covers `users/*`, but the guarantee that
+  // ONLY the Admin SDK touches this collection must be proven, not assumed —
+  // especially since a signed-in user reading their OWN uid-keyed document is
+  // exactly the kind of rule someone might later "helpfully" open up.
+  it('denies an unauthenticated client read AND write of users/*', async () => {
+    const ctx = testEnv.unauthenticatedContext();
+    const ref = doc(ctx.firestore(), 'users', 'anon');
+    await assertFails(getDoc(ref));
+    await assertFails(setDoc(ref, { userId: 'anon' }));
+  });
+
+  it("denies a signed-in client read AND write of their OWN users/{uid} doc", async () => {
+    const ctx = testEnv.authenticatedContext('userA');
+    const ref = doc(ctx.firestore(), 'users', 'userA');
+    await assertFails(getDoc(ref));
+    await assertFails(setDoc(ref, { savedLocations: { homeLat: 1, homeLng: 1 } }));
+  });
 });

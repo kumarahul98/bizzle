@@ -226,9 +226,12 @@ class NotificationService {
       return;
     }
     try {
-      final ios = iosPlugin ??
-          _plugin.resolvePlatformSpecificImplementation<
-              IOSFlutterLocalNotificationsPlugin>();
+      final ios =
+          iosPlugin ??
+          _plugin
+              .resolvePlatformSpecificImplementation<
+                IOSFlutterLocalNotificationsPlugin
+              >();
       await ios?.requestPermissions(
         alert: true,
         badge: true,
