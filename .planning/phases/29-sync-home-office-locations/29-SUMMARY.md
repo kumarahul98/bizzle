@@ -23,12 +23,12 @@ result: >
 
 | Wave | Commit | Content |
 |---|---|---|
-| 1 | `5733236` | `POST /preferences/sync`, `GET /preferences/restore`, zod schema, typed converter, 14 tests |
+| 1 | `5733236` | `POST /preferences/sync`, `GET /preferences/restore`, zod schema, typed converter, 43 tests |
 | 2 | `9843204` | `SavedLocations`, two `ApiClient` methods, `PreferencesSyncService`, D-01 dartdoc rewrite, 27 tests |
 | 3 | `bf96bbb` | Picker-confirm + sign-in triggers, provider, 5 tests |
 
 **Verification:** `flutter analyze` 0 errors / 0 warnings · `flutter test` 709 passed
-(was 677) · backend `npm test` 103 passed (was 89) · `npm run lint` clean ·
+(was 677) · backend `npm test` 103 passed (was **60**, +43) · `npm run lint` clean ·
 debug APK builds.
 
 ## Success criteria
@@ -65,6 +65,22 @@ worse than leaving the gap.
 **`push()` fires even when nothing is set.** Clearing a location is a real
 change the cloud must learn about. Skipping the all-null push would strand a
 cleared coordinate in Firestore forever.
+
+## Correction to the Wave 1 commit message (2026-07-20)
+
+`5733236`'s message claims "Tests (+14, suite 89 -> 103)". **Both numbers are
+wrong.** The real baseline is **60 tests / 7 suites** on `main`, so Wave 1 added
+**+43**, not +14.
+
+The error was mine and it was avoidable: I never ran the backend suite BEFORE
+writing the new tests. I saw `101 passed`, later `103`, and back-filled "89" by
+subtracting a test count I had estimated rather than measured. Caught when a
+subagent working the Node-runtime task was handed "103" as the expected baseline,
+found 60, and — correctly — verified against a stashed clean tree instead of
+assuming it had broken something.
+
+The commit message is immutable; this note is the correction. Anything quoting
+"89" for the backend baseline is quoting my arithmetic, not a measurement.
 
 ## Surprises
 
