@@ -1,7 +1,7 @@
 ---
 phase: 29-sync-home-office-locations
 completed: 2026-07-20
-status: code_complete_blocked_on_release_gate
+status: code_complete_backend_deployed_blocked_on_data_safety
 mode: manual-gsd
 requirements: [LOC-03]
 branch: phase-29-sync-home-office
@@ -10,8 +10,10 @@ commits:
   - 9843204 (Wave 2 client wire)
   - bf96bbb (Wave 3 triggers)
 result: >
-  All 3 waves built and tested. NOT merged to main and NOT deployed —
-  two human gates remain (Play Data Safety declaration, backend deploy).
+  All 3 waves built and tested. BACKEND DEPLOYED to travey-298a7
+  2026-07-20 and verified live. Branch still unmerged — the remaining
+  gate is the Play Data Safety declaration, which blocks shipping the
+  CLIENT (deploying endpoints nothing calls collects no data).
   Flutter 709 tests green, backend 103 green, analyze 0/0, APK builds.
 ---
 
@@ -34,7 +36,7 @@ debug APK builds.
 | # | Criterion | Status |
 |---|---|---|
 | 1 | Setting Home/Office pushes to Firestore | ✅ code + tests |
-| 2 | Backend deployed BEFORE any client emits | ⛔ **not deployed** — human gate |
+| 2 | Backend deployed BEFORE any client emits | ✅ **deployed + verified live 2026-07-20** |
 | 3 | Fresh install restores pins, labeling works first trip | ✅ code + tests; device-unverified |
 | 4 | Local value never overwritten by cloud (D-03) | ✅ full merge matrix pinned |
 | 5 | Never-set user syncs/restores cleanly | ✅ 200-not-404, all-null valid |
@@ -84,14 +86,33 @@ leaking into trip sync fails it automatically. Added two explicit
 
 ## What is NOT done
 
-**Deploy.** `firebase deploy --only functions` has not been run. Per SC#2 the
-backend must be live before any client carrying Wave 2/3 ships, or the
-non-strict zod schema would silently strip unknown keys — the Phase 26 lesson.
+**~~Deploy~~ — DONE 2026-07-20.** `firebase deploy --only functions` against
+`travey-298a7`; `api(us-central1)` updated successfully. Verified live against
+`https://us-central1-travey-298a7.cloudfunctions.net/api`:
 
-**Play Data Safety declaration.** Per D-01 this phase moves the listing from
-*no location data collected* to *precise location collected and stored, linked
-to the account*. That is user-visible on the store page and must be updated
-before release. **Code-complete ≠ shippable here.**
+| Endpoint | Unauthenticated | Meaning |
+|---|---|---|
+| `/health` | 200 `{"status":"ok"}` | function alive |
+| `/trips/restore` | 401 | **pre-existing route intact** |
+| `/trips/sync` | 401 | **pre-existing route intact** |
+| `/preferences/restore` | 401 | new route registered (404 would mean it wasn't) |
+| `/preferences/sync` | 401 | auth runs before validation (T-29-03) |
+
+Also confirmed T-29-02 on the live endpoint: POSTing real coordinates
+unauthenticated returns the fixed `{"error":"Unauthorized"}` with no echo of
+the submitted values.
+
+The blast-radius risk was that all five routes share ONE Cloud Function
+(`onRequest(app)`), so the deploy replaced the function already serving trip
+sync. The trip 401s above are the evidence it came through clean.
+
+**Play Data Safety declaration — STILL OUTSTANDING, and it is now the only
+gate.** Per D-01 this phase moves the listing from *no location data collected*
+to *precise location collected and stored, linked to the account*.
+
+Clarification worth keeping: this blocks shipping the CLIENT, not the deploy.
+Endpoints that no released app calls collect nothing. That is why the deploy
+above was safe to do first — and it is the order SC#2 demanded anyway.
 
 **Device verification.** No real sign-in against the live backend has been run.
 Added to the Phase 23 device-only queue.
@@ -102,7 +123,14 @@ preference payloads on the main line before the endpoint answering them exists.
 
 ## Follow-ups
 
-1. Deploy backend (`cd backend/functions && npm run build && firebase deploy --only functions`), confirm `/preferences/restore` returns 401 unauthenticated.
-2. Update the Play Data Safety form.
-3. Merge `phase-29-sync-home-office` to `main`.
+1. ~~Deploy backend~~ — done and verified 2026-07-20.
+2. **Update the Play Data Safety form** — the one remaining gate before the client can ship.
+3. Merge `phase-29-sync-home-office` to `main` (safe once 2 is done; the backend it depends on is already live).
 4. Device-verify: sign in on a fresh install, confirm pins restore and the first trip labels by geofence.
+
+**Housekeeping noticed during deploy (pre-existing, not introduced here):** the
+Artifact Registry repo in `us-central1` has no cleanup policy, so container
+images from every deploy since Phase 10 accumulate and bill slowly. Fix with
+`firebase functions:artifacts:setpolicy` when convenient. Also flagged: Node.js
+20 is deprecated and decommissions 2026-10-30 — the runtime will need bumping
+before then, worth its own small phase.

@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: App Improvements
 status: executing
-stopped_at: Phase 29 code-complete on branch phase-29-sync-home-office (3 waves), blocked on deploy + Play Data Safety gates. Phase 30 blocked on device spike.
+stopped_at: Phase 29 backend DEPLOYED + verified live; client branch unmerged pending Play Data Safety declaration. Phase 30 blocked on device spike.
 last_updated: "2026-07-20T00:00:00.000Z"
 last_activity: 2026-07-20
 progress:
@@ -44,9 +44,13 @@ Last activity: 2026-07-20
 - `bf96bbb` Wave 3 triggers — push on picker-confirm (unawaited), restore-THEN-push on sign-in. That order is load-bearing: push-first would upload a fresh install's empty state and null out the user's real cloud pins before restore ever read them.
 - Flutter 677 → 709 green, analyze 0/0, debug APK builds.
 
-**⛔ TWO HUMAN GATES before Phase 29 can ship — do not merge the branch until both clear:**
-1. **Deploy the backend** (`cd backend/functions && npm run build && firebase deploy --only functions`). SC#2: a client emitting payloads the endpoint cannot answer loses data silently — the non-strict zod schema strips unknown keys. This is the Phase 26 lesson.
-2. **Update the Play Data Safety declaration** from *no location data collected* to *precise location collected and stored, linked to the account* (D-01). User-visible on the store page.
+**✅ Backend DEPLOYED 2026-07-20** to `travey-298a7`; `api(us-central1)` updated. Verified live: `/health` 200, `/preferences/{sync,restore}` 401 unauthenticated (route registered + auth-first), and critically **`/trips/{sync,restore}` still 401** — all five routes share ONE `onRequest(app)` function, so the deploy replaced the one already serving trip sync. It came through clean. Also confirmed the live 401 does not echo submitted coordinates (T-29-02).
+
+**⛔ ONE GATE REMAINS — do not merge the client branch until it clears:**
+- **Update the Play Data Safety declaration** from *no location data collected* to *precise location collected and stored, linked to the account* (D-01). User-visible on the store page.
+- Note the distinction that made the deploy safe to do first: the declaration blocks shipping the CLIENT, not the backend. Endpoints no released app calls collect nothing.
+
+**Two pre-existing infra items surfaced by the deploy (neither introduced by Phase 29):** Artifact Registry in `us-central1` has no cleanup policy, so images from every deploy since Phase 10 accumulate and bill slowly (`firebase functions:artifacts:setpolicy`); and Node.js 20 is deprecated, decommissioning **2026-10-30** — the runtime needs bumping before then.
 
 **Phase 30** — still BLOCKED on the 30-00 latency spike, which needs a real drive with logcat attached. Not started, deliberately: kill criteria are fixed in advance so the phase gets cancelled on numbers rather than argued about. Building its permission flow or settings toggle first would be trim on a car whose engine may not start.
 
