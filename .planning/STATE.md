@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: App Improvements
 status: executing
-stopped_at: Phase 29 backend DEPLOYED + verified live; client branch unmerged pending Play Data Safety declaration. Phase 30 blocked on device spike.
+stopped_at: Phase 29 + nodejs24 runtime bump BOTH MERGED to main and pushed. Backend deployed and live. Release blocked on the Play Data Safety declaration (see RELEASE-GATES.md). Phase 30 blocked on device spike.
 last_updated: "2026-07-20T00:00:00.000Z"
 last_activity: 2026-07-20
 progress:
@@ -15,6 +15,16 @@ progress:
 ---
 
 # Project State
+
+> ## 🔴 BEFORE ANY RELEASE BUILD — read `.planning/RELEASE-GATES.md`
+>
+> `main` now uploads the user's Home/Office coordinates to Firestore (Phase 29,
+> merged 2026-07-20). The **Play Data Safety declaration has NOT been updated**
+> and must change from *no location collected* to *precise location collected,
+> linked to the account* before shipping. Until 2026-07-20 the unmerged branch
+> was the guard; it is merged now, so this note and RELEASE-GATES.md are the
+> guard. Merging was not shipping — this gate is about shipping.
+
 
 ## Project Reference
 
