@@ -1,4 +1,6 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:traevy/database/daos/user_preferences_dao.dart';
+import 'package:traevy/database/providers.dart';
 import 'package:traevy/sync/api_client.dart';
 import 'package:traevy/sync/saved_locations.dart';
 
@@ -111,3 +113,16 @@ class PreferencesSyncService {
     }
   }
 }
+
+/// keepAlive provider for the production [PreferencesSyncService].
+///
+/// Tests construct the service directly with a `MockClient`-backed
+/// [ApiClient] and an in-memory DAO rather than overriding this.
+final Provider<PreferencesSyncService> preferencesSyncServiceProvider =
+    Provider<PreferencesSyncService>(
+      (ref) => PreferencesSyncService(
+        apiClient: ref.watch(apiClientProvider),
+        userPreferencesDao: ref.watch(userPreferencesDaoProvider),
+      ),
+      name: 'preferencesSyncServiceProvider',
+    );

@@ -24,6 +24,7 @@ import 'package:traevy/features/trips/screens/history_screen.dart';
 import 'package:traevy/features/auth/models/auth_state.dart';
 import 'package:traevy/features/auth/providers/auth_providers.dart';
 import 'package:traevy/features/settings/widgets/conflict_resolution_sheet.dart';
+import 'package:traevy/sync/preferences_sync_service.dart';
 import 'package:traevy/sync/restore_controller.dart';
 import 'package:traevy/sync/sync_engine.dart';
 
@@ -201,6 +202,30 @@ class _MainShellState extends ConsumerState<MainShell>
         const SnackBar(content: Text(kAutoRestoreError)),
       );
     }
+
+    await _syncSavedLocations();
+  }
+
+  /// Reconcile saved Home/Office locations with the cloud on sign-in
+  /// (Phase 29, LOC-03).
+  ///
+  /// Order matters: restore FIRST, then push.
+  ///
+  ///   * restore fills only local gaps (D-03), so a fresh install gets its
+  ///     pins back and geofence labeling works on the first trip;
+  ///   * the follow-up push then uploads whatever is now locally true. That
+  ///     covers the user who set pins while signed out — their locations exist
+  ///     only on-device, and without this push they would never reach the
+  ///     cloud until the next time they happened to edit one.
+  ///
+  /// Deliberately silent: unlike trip auto-restore there is no count worth
+  /// reporting, and a snackbar about coordinates the user did not ask about
+  /// would be noise. Both calls swallow their own failures, so this cannot
+  /// break sign-in.
+  Future<void> _syncSavedLocations() async {
+    final service = ref.read(preferencesSyncServiceProvider);
+    await service.restore();
+    await service.push();
   }
 
   /// One-time backfill of trips with non-default v0.3 metadata (Phase 26,

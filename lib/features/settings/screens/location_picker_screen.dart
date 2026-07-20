@@ -11,6 +11,7 @@ import 'package:traevy/features/settings/widgets/location_picker_confirm_bar.dar
 import 'package:traevy/features/settings/widgets/location_picker_crosshair.dart';
 import 'package:traevy/features/trips/providers/geofence_backfill_provider.dart';
 import 'package:traevy/shared/utils/formatters.dart';
+import 'package:traevy/sync/preferences_sync_service.dart';
 
 /// Resolves the device's current location for the picker, or null if it is
 /// unavailable (permission not already granted, services off, or timeout).
@@ -123,6 +124,13 @@ class _LocationPickerScreenState extends ConsumerState<LocationPickerScreen> {
     // bounded local Drift read, so briefly awaiting it on confirm is fine.
     ref.invalidate(geofenceBackfillProvider);
     await ref.read(geofenceBackfillProvider.future);
+    // LOC-03: push the new anchor to the cloud so a reinstall restores it.
+    // Deliberately NOT awaited — CLAUDE.md forbids blocking the UI on the
+    // network, and the push is best-effort by design: it returns false rather
+    // than throwing, and the next change or sign-in re-sends the full current
+    // value (D-02). Awaiting it would make confirming a pin as slow as the
+    // user's connection for no benefit.
+    unawaited(ref.read(preferencesSyncServiceProvider).push());
     if (!mounted) return;
     navigator.pop();
     messenger.showSnackBar(
