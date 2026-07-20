@@ -3,7 +3,7 @@
   "description": "Commute Tracker backend — Cloud Functions (trips sync/delete/restore)",
   "private": true,
   "engines": {
-    "node": "20"
+    "node": "24"
   },
   "main": "lib/index.js",
   "scripts": {
@@ -24,7 +24,7 @@
     "@firebase/rules-unit-testing": "^5.0.1",
     "@types/express": "^5.0.6",
     "@types/jest": "^30.0.0",
-    "@types/node": "^20",
+    "@types/node": "^24",
     "@types/supertest": "^7.2.0",
     "jest": "^30.4.2",
     "supertest": "^7.2.2",
