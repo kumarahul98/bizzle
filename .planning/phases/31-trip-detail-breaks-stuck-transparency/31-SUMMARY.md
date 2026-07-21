@@ -41,7 +41,7 @@ result: >
 |---|---|---|
 | 1 | Direction not changeable from trip detail; only in `EditTripSheet` | ✅ toggle + handler deleted; widget test asserts `DirectionSegmentedToggle` is absent and the title still shows direction |
 | 2 | A trip recorded after this phase shows red stretches where the user was actually <10 km/h for ≥60s | ⛔ **NOT verified** — device-only, no real drive recorded. Code + unit tests only |
-| 3 | Sum of painted segment durations never exceeds `timeStuckSeconds` | ⚠️ **holds for recorded trips**, proven two ways; **can be violated by a Phase 19 edit** — see *Surprises* |
+| 3 | Sum of painted segment durations never exceeds `timeStuckSeconds` | ✅ holds for recorded trips, proven two ways; the Phase 19 edit hole was closed in follow-up `93c57f7` — see *Surprises* |
 | 4 | A gap > `kTrackingMaxAttributableGapSeconds` never appears as a painted stretch | ✅ `unattributed` breaks runs; asserted at both the collapser and accumulator level |
 | 5 | A pre-phase trip opens without error, plain single polyline, no stuck rows | ✅ widget tests: 1 polyline, only the two anchors, no empty state |
 | 6 | Timeline shows real breaks + real stuck stretches in time order; the 40% marker is gone | ✅ `buildTimelineEntries` ordering tests + a test asserting no row lands at the old 40% instant; `grep` confirms the ratio exists nowhere |
@@ -91,10 +91,19 @@ edit (`markEdited: true`) and replaces the trip's breaks wholesale — but
 nothing touches `trip_stuck_segments`. So a user who edits a trip down can end
 up with painted stretches summing to more than the trip's new stuck figure.
 The plan does not mention trip editing at all, and adding recompute-or-delete
-would have been unplanned scope, so it is **left as a follow-up rather than
+would have been unplanned scope, so it was **left as a follow-up rather than
 silently patched**. It is not a regression (the rows did not exist before) but
 it is a real way to reach a state the success criterion forbids, and calling
-SC#3 a flat ✅ would be false.
+SC#3 a flat ✅ would have been false.
+
+**Resolved in follow-up commit `93c57f7`** (orchestrator, same day). A full
+edit (`markEdited: true`) now calls `deleteSegmentsForTrip` inside the same
+transaction, degrading the trip to the D-06 no-segments path — a plain route,
+which is honest about the fact that the recomputed figure no longer has a
+matching measurement behind it. The direction-only path leaves
+`timeStuckSeconds` absent, so its segments remain valid and are deliberately
+kept. Two regression tests in `trip_management_edit_full_test.dart` cover both
+branches. Suite went 774 → 776.
 
 **`StreamProviderFamily` is not a nameable type in this Riverpod.** The repo's
 house style annotates every top-level provider with its explicit type, but
@@ -147,11 +156,9 @@ zero segments, permanently. The source speeds were never persisted.
 1. **Device-verify SC#2** — record a real drive with genuine stop-and-go
    traffic; confirm red stretches land where you were actually stuck and not
    on free-flowing sections. Add to the Phase 23 device-only queue.
-2. **Decide what a trip edit does to stuck segments.** Options: delete them on
-   `markEdited` (honest — the recomputed figure no longer has a matching map),
-   or leave them and accept SC#3 drift on edited trips. Deleting is the
-   smaller lie. Worth folding into Phase 35 if that phase is already touching
-   edit/delete paths.
+2. ~~**Decide what a trip edit does to stuck segments.**~~ — DONE 2026-07-22 in
+   `93c57f7`. Delete-on-`markEdited` was chosen, for the reason given above:
+   it is the smaller lie.
 3. **Device-verify the break bridge is unpainted** — the artifact line across
    a pause must not read as a road the user sat on.
 4. Phases 32 and 33 consume `showInfoSheet` / `InfoIconButton`; their copy
