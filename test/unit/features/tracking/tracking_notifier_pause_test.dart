@@ -76,6 +76,7 @@ class _RecordingController extends TrackingServiceController {
     required super.notifications,
     required super.userPreferencesDao,
     required super.tripBreaksDao,
+    required super.tripStuckSegmentsDao,
   });
 
   int pauseCalls = 0;
@@ -144,6 +145,7 @@ void main() {
         notifications: _NoopNotifications(),
         userPreferencesDao: db.userPreferencesDao,
         tripBreaksDao: db.tripBreaksDao,
+        tripStuckSegmentsDao: db.tripStuckSegmentsDao,
       );
       container = ProviderContainer(
         overrides: [

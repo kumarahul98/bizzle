@@ -140,6 +140,7 @@ void main() {
         notifications: notifications,
         userPreferencesDao: db.userPreferencesDao,
         tripBreaksDao: db.tripBreaksDao,
+        tripStuckSegmentsDao: db.tripStuckSegmentsDao,
       );
     });
 
@@ -236,6 +237,7 @@ void main() {
           notifications: notifications,
           userPreferencesDao: db.userPreferencesDao,
           tripBreaksDao: db.tripBreaksDao,
+          tripStuckSegmentsDao: db.tripStuckSegmentsDao,
         );
         final start = DateTime.utc(2026, 4, 12, 8);
         final trip = _buildTrip(

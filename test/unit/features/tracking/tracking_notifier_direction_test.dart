@@ -161,6 +161,7 @@ void main() {
         notifications: _NoopNotifications(),
         userPreferencesDao: db.userPreferencesDao,
         tripBreaksDao: db.tripBreaksDao,
+        tripStuckSegmentsDao: db.tripStuckSegmentsDao,
       );
     });
 

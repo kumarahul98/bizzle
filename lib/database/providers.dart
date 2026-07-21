@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:traevy/database/daos/sync_queue_dao.dart';
 import 'package:traevy/database/daos/trip_breaks_dao.dart';
+import 'package:traevy/database/daos/trip_stuck_segments_dao.dart';
 import 'package:traevy/database/daos/trips_dao.dart';
 import 'package:traevy/database/daos/user_preferences_dao.dart';
 import 'package:traevy/database/database.dart';
@@ -69,3 +70,11 @@ final Provider<TripBreaksDao> tripBreaksDaoProvider = Provider<TripBreaksDao>(
   (ref) => ref.watch(appDatabaseProvider).tripBreaksDao,
   name: 'tripBreaksDaoProvider',
 );
+
+/// `TripStuckSegmentsDao` sourced from the keepAlive'd `appDatabaseProvider`
+/// (Phase 31, D-02).
+final Provider<TripStuckSegmentsDao> tripStuckSegmentsDaoProvider =
+    Provider<TripStuckSegmentsDao>(
+      (ref) => ref.watch(appDatabaseProvider).tripStuckSegmentsDao,
+      name: 'tripStuckSegmentsDaoProvider',
+    );

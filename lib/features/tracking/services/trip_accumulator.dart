@@ -3,8 +3,9 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:traevy/config/constants.dart';
-import 'package:traevy/features/tracking/state/finalized_trip.dart';
+import 'package:traevy/features/tracking/services/stuck_run_collapser.dart';
 import 'package:traevy/features/tracking/services/trip_state_persister.dart';
+import 'package:traevy/features/tracking/state/finalized_trip.dart';
 import 'package:traevy/shared/utils/polyline_codec.dart';
 import 'package:uuid/uuid.dart';
 
@@ -180,6 +181,29 @@ class TripAccumulator {
       samples.map((s) => Position.fromMap(Map<String, dynamic>.from(s as Map))),
     );
 
+    // Phase 31 (D-02): the interval classes are index-parallel to _samples and
+    // MUST be restored to exactly the same length, or every stuck segment
+    // written at finalize would address the wrong polyline points. A snapshot
+    // written before Phase 31 has no '_intervalClasses' key at all; rather
+    // than guess, every restored interval is marked `unattributed` up to the
+    // sample count, which yields no segments for the pre-Phase-31 prefix and
+    // correct segments for everything recorded after the restore. Fabricating
+    // classes for samples whose speed is no longer known is exactly the
+    // failure mode D-06 forbids.
+    final rawClasses = state['_intervalClasses'];
+    if (rawClasses is List) {
+      acc._intervalClasses.addAll(
+        rawClasses.map((c) {
+          final map = c as Map;
+          return (
+            cls: StuckIntervalClass.values.byName(map['cls'] as String),
+            seconds: map['seconds'] as int,
+          );
+        }),
+      );
+    }
+    acc._padIntervalClasses();
+
     acc._finalized = state['_finalized'] as bool;
     acc._isPaused = state['_isPaused'] as bool;
     if (state['_currentPauseStartUs'] != null) {
@@ -218,6 +242,11 @@ class TripAccumulator {
       '_timeMovingSeconds': _timeMovingSeconds,
       '_timeStuckSeconds': _timeStuckSeconds,
       '_samples': _samples.map((p) => p.toJson()).toList(),
+      // Phase 31 (D-02): persisted alongside _samples so a recovered trip
+      // keeps the two lists index-aligned.
+      '_intervalClasses': _intervalClasses
+          .map((c) => {'cls': c.cls.name, 'seconds': c.seconds})
+          .toList(),
       '_finalized': _finalized,
       '_isPaused': _isPaused,
       '_currentPauseStartUs': _currentPauseStart
@@ -276,7 +305,32 @@ class TripAccumulator {
   int _timeMovingSeconds = 0;
   int _timeStuckSeconds = 0;
   final List<Position> _samples = <Position>[];
+  // Phase 31 (D-02): index-parallel to _samples. Entry `i` classifies the
+  // interval from point `i-1` to point `i`, so the two lists MUST be appended
+  // to together at EVERY site — a single missed append desynchronises the
+  // stuck segments from the polyline they index into. Written only via
+  // [_addSample].
+  final List<StuckInterval> _intervalClasses = <StuckInterval>[];
   bool _finalized = false;
+
+  /// Append [p] to the polyline sample list together with its interval
+  /// classification. The ONLY place `_samples` is grown, so the two lists
+  /// cannot drift apart (Phase 31, D-02).
+  void _addSampleWithClass(Position p, StuckInterval interval) {
+    _samples.add(p);
+    _intervalClasses.add(interval);
+  }
+
+  /// Force `_intervalClasses` to exactly `_samples.length` entries after a
+  /// restore, padding with `unattributed` and truncating any excess.
+  void _padIntervalClasses() {
+    if (_intervalClasses.length > _samples.length) {
+      _intervalClasses.removeRange(_samples.length, _intervalClasses.length);
+    }
+    while (_intervalClasses.length < _samples.length) {
+      _intervalClasses.add(_unattributedInterval);
+    }
+  }
 
   // Phase 18 pause model (D-05/D-06/D-07).
   bool _isPaused = false;
@@ -311,7 +365,8 @@ class TripAccumulator {
     if (prev == null) {
       _lastAccepted = p;
       _lastAcceptedAt = p.timestamp;
-      _samples.add(p);
+      // Phase 31: there is no interval before the first sample.
+      _addSampleWithClass(p, _unattributedInterval);
       _persistState();
       return null;
     }
@@ -320,8 +375,9 @@ class TripAccumulator {
     if (deltaMillis <= 0) {
       // Clock skew or duplicate: keep the sample in the polyline (so the
       // path is visually complete) but do not move distance or time
-      // counters — T-02-05 tampering guard.
-      _samples.add(p);
+      // counters — T-02-05 tampering guard. Phase 31: no time was attributed,
+      // so the interval is `unattributed` and breaks any open stuck run.
+      _addSampleWithClass(p, _unattributedInterval);
       _lastAccepted = p;
       _lastAcceptedAt = p.timestamp;
       _persistState();
@@ -336,7 +392,10 @@ class TripAccumulator {
     // to _distanceMeters/_timeMovingSeconds/_timeStuckSeconds (T-18-04: paused
     // time must never leak into the stuck/moving metric or distance).
     if (_isPaused) {
-      _samples.add(p);
+      // Phase 31 (D-07): the bridge line across a break is an artifact, not a
+      // road the user sat on. Marking it `unattributed` keeps it out of every
+      // painted segment and stops a break from bridging two stuck runs.
+      _addSampleWithClass(p, _unattributedInterval);
       _lastAccepted = p;
       _lastAcceptedAt = p.timestamp;
       _persistState();
@@ -385,7 +444,21 @@ class TripAccumulator {
 
     _lastAccepted = p;
     _lastAcceptedAt = p.timestamp;
-    _samples.add(p);
+    // Phase 31 (D-02): reuse the classification computed above verbatim —
+    // never a second speed comparison. A null `interval` means the gap
+    // exceeded kTrackingMaxAttributableGapSeconds, which is `unattributed`
+    // and must break the run (D-03, SC#4).
+    _addSampleWithClass(
+      p,
+      interval == null
+          ? _unattributedInterval
+          : (
+              cls: interval.stuck
+                  ? StuckIntervalClass.stuck
+                  : StuckIntervalClass.moving,
+              seconds: interval.seconds,
+            ),
+    );
     _persistState();
     return interval;
   }
@@ -497,6 +570,18 @@ class TripAccumulator {
         )
         .toList(growable: false);
 
+    // Phase 31 (D-03): collapse the per-interval classification into the
+    // contiguous stuck runs worth painting, then serialize each as a primitive
+    // map for the same reason the breaks are (T-18-05). Point indices address
+    // the polyline encoded immediately above: `_samples` order IS polyline
+    // point order, and `_intervalClasses` is index-parallel to `_samples`.
+    final stuckSegmentMaps = collapseStuckRuns(
+      intervals: _intervalClasses,
+      sampleTimes: _samples
+          .map((p) => p.timestamp.toUtc())
+          .toList(growable: false),
+    ).map(_stuckRunToMap).toList(growable: false);
+
     _persister?.clear();
 
     return FinalizedTrip(
@@ -511,8 +596,20 @@ class TripAccumulator {
       encodedPolyline: encoded,
       totalPausedSeconds: totalPaused,
       breaks: breakMaps,
+      stuckSegments: stuckSegmentMaps,
     );
   }
+
+  /// For testing: the interval classification list, index-parallel to the
+  /// polyline points. Exposed so the index-correlation test can assert
+  /// alignment directly rather than inferring it from finalize output.
+  @visibleForTesting
+  List<StuckInterval> get intervalClassesForTest =>
+      List<StuckInterval>.unmodifiable(_intervalClasses);
+
+  /// For testing: the number of samples retained for the polyline.
+  @visibleForTesting
+  int get sampleCountForTest => _samples.length;
 
   /// Whether a break is currently open (Phase 18). Public so the service
   /// isolate can gate the auto-pause prompt on `!isPaused` — a prompt must
@@ -539,6 +636,24 @@ class TripAccumulator {
   @visibleForTesting
   int get accumulatedPausedSecondsForTest => _accumulatedPausedSeconds;
 }
+
+/// The interval every non-attributing sample site records (Phase 31, D-02):
+/// the first sample, a zero/negative timestamp delta, a paused sample, or a
+/// gap longer than [kTrackingMaxAttributableGapSeconds].
+const StuckInterval _unattributedInterval = (
+  cls: StuckIntervalClass.unattributed,
+  seconds: 0,
+);
+
+/// Serialize one [StuckRun] as a primitive map so the segment list crosses the
+/// service → UI isolate boundary with no object payload, mirroring the break
+/// list's `microsecondsSinceEpoch` convention (Phase 18, D-07).
+Map<String, Object?> _stuckRunToMap(StuckRun run) => <String, Object?>{
+  'startIndex': run.startPointIndex,
+  'endIndex': run.endPointIndex,
+  'startUs': run.startTime.toUtc().microsecondsSinceEpoch,
+  'endUs': run.endTime.toUtc().microsecondsSinceEpoch,
+};
 
 /// Typed required-key lookup helper used by [TripSnapshot.fromMap] to
 /// keep `strict-casts: true` happy.

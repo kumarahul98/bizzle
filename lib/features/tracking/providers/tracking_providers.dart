@@ -115,6 +115,7 @@ final Provider<TrackingServiceController> trackingServiceControllerProvider =
         notifications: ref.watch(trackingNotificationServiceProvider),
         userPreferencesDao: ref.watch(userPreferencesDaoProvider),
         tripBreaksDao: ref.watch(tripBreaksDaoProvider),
+        tripStuckSegmentsDao: ref.watch(tripStuckSegmentsDaoProvider),
       ),
       name: 'trackingServiceControllerProvider',
     );

@@ -4,6 +4,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/daos/sync_queue_dao.dart';
 import 'package:traevy/database/daos/trip_breaks_dao.dart';
+import 'package:traevy/database/daos/trip_stuck_segments_dao.dart';
 import 'package:traevy/database/daos/trips_dao.dart';
 import 'package:traevy/database/daos/user_preferences_dao.dart';
 import 'package:traevy/database/database.dart';
@@ -58,6 +59,7 @@ class TrackingServiceController {
     required TrackingNotificationService notifications,
     required UserPreferencesDao userPreferencesDao,
     required TripBreaksDao tripBreaksDao,
+    required TripStuckSegmentsDao tripStuckSegmentsDao,
     LocationAccuracyGate? accuracyGate,
     PendingTripStore? pendingTripStore,
   }) : _source = source,
@@ -67,6 +69,7 @@ class TrackingServiceController {
        _notifications = notifications,
        _userPreferencesDao = userPreferencesDao,
        _tripBreaksDao = tripBreaksDao,
+       _tripStuckSegmentsDao = tripStuckSegmentsDao,
        _accuracyGate = accuracyGate ?? LocationAccuracyGate(),
        _pendingTripStore = pendingTripStore ?? PendingTripStore();
 
@@ -77,6 +80,7 @@ class TrackingServiceController {
   final TrackingNotificationService _notifications;
   final UserPreferencesDao _userPreferencesDao;
   final TripBreaksDao _tripBreaksDao;
+  final TripStuckSegmentsDao _tripStuckSegmentsDao;
   final LocationAccuracyGate _accuracyGate;
   final PendingTripStore _pendingTripStore;
 
@@ -289,6 +293,14 @@ class TrackingServiceController {
         if (breakRows.isNotEmpty) {
           await _tripBreaksDao.insertBreaks(breakRows);
         }
+        // Phase 31 (D-02): stuck segments land in the SAME transaction as the
+        // trip, for the same atomicity reason as the breaks above. LOCAL-ONLY
+        // (D-04) — nothing here touches the sync payload, so the enqueued row
+        // below carries exactly the fields it did before this phase.
+        final segmentRows = _stuckSegmentRowsFor(trip);
+        if (segmentRows.isNotEmpty) {
+          await _tripStuckSegmentsDao.insertSegments(segmentRows);
+        }
         await _syncQueueDao.enqueueCreate(trip.id);
       });
       await _notifications.dismiss();
@@ -338,6 +350,34 @@ class TrackingServiceController {
                 b['endUs']! as int,
                 isUtc: true,
               ),
+            ),
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  /// Build the `trip_stuck_segments` companions for [trip]'s primitive segment
+  /// list (Phase 31, D-02). Each map carries the inclusive polyline index
+  /// range plus UTC-microsecond `startUs` / `endUs` ints; we decode them back
+  /// to UTC `DateTime`s and stamp a fresh UUID per row. The list is empty for
+  /// a manual entry, a trip with no run over the floor, and every trip
+  /// finalized before Phase 31.
+  List<TripStuckSegmentsCompanion> _stuckSegmentRowsFor(FinalizedTrip trip) {
+    const uuid = Uuid();
+    return trip.stuckSegments
+        .map(
+          (s) => TripStuckSegmentsCompanion.insert(
+            id: uuid.v4(),
+            tripId: trip.id,
+            startPointIndex: s['startIndex']! as int,
+            endPointIndex: s['endIndex']! as int,
+            startTime: DateTime.fromMicrosecondsSinceEpoch(
+              s['startUs']! as int,
+              isUtc: true,
+            ),
+            endTime: DateTime.fromMicrosecondsSinceEpoch(
+              s['endUs']! as int,
+              isUtc: true,
             ),
           ),
         )

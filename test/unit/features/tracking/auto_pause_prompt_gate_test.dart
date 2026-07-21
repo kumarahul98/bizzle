@@ -125,6 +125,7 @@ ProviderContainer _container({
     notifications: notifications,
     userPreferencesDao: db.userPreferencesDao,
     tripBreaksDao: db.tripBreaksDao,
+    tripStuckSegmentsDao: db.tripStuckSegmentsDao,
   );
   final prefs = autoPauseEnabled
       ? const UserPreferencesValue(

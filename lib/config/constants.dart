@@ -1460,3 +1460,79 @@ const String kTourSettingsLocationsTitle = 'Set home & office';
 const String kTourSettingsLocationsBody =
     'Save your home and office and Traevy labels each trip by direction '
     'automatically — to office or to home.';
+
+// ---------------------------------------------------------------------------
+// Phase 31 — Trip Detail: Breaks, Stuck Transparency, Edit Gating
+// ---------------------------------------------------------------------------
+
+/// Minimum duration (seconds) a contiguous run of stuck intervals must reach
+/// before it is persisted as a `trip_stuck_segments` row and painted on the
+/// trip map (Phase 31, D-03).
+///
+/// Without a floor every red light produces a ~15-second speck and the map
+/// becomes stippled noise. 60s also matches the user-facing framing: a normal
+/// signal wait is not what anyone means by "stuck".
+///
+/// Consequence, stated openly in [kStuckInfoBody]: the summed duration of the
+/// painted segments is `<=` the trip's `timeStuckSeconds` — the discarded
+/// short runs still count toward the printed figure.
+const int kStuckSegmentMinSeconds = 60;
+
+/// Stroke width (logical px) of a stuck-segment polyline on the trip map.
+/// One px wider than the base route so the highlight reads as an overlay on
+/// top of the route rather than a gap in it (Phase 31, D-05).
+const double kStuckPolylineStrokeWidth = 6;
+
+// --- Shared InfoSheet (Phase 31, D-08; consumed by Phases 32 and 33) -------
+
+/// Semantics label for the small tappable info icon that opens an
+/// [InfoSheet]. Screen readers announce this in place of the bare icon.
+const String kInfoIconSemanticLabel = 'What does this mean?';
+
+/// Label on the [InfoSheet]'s dismiss button.
+const String kInfoSheetDismissLabel = 'Got it';
+
+// --- Stuck-time explainer copy (Phase 31, D-08) ---------------------------
+
+/// Title of the stuck-time explainer sheet opened from the trip detail
+/// screen's stuck figure.
+const String kStuckInfoTitle = 'How stuck time is measured';
+
+/// Body of the stuck-time explainer sheet.
+///
+/// Deliberately jargon-free per SC#7 — no "m/s", no "sample", no
+/// "threshold". The final sentence is the honest statement of D-03's floor:
+/// the map shows only the longer stretches, so it accounts for less time
+/// than the stuck figure above it.
+const String kStuckInfoBody =
+    'Any time you are crawling along slower than 10 km/h counts as stuck. '
+    'Traevy checks your speed continuously while it records, so a slow crawl '
+    'counts just as much as sitting still.\n\n'
+    'Breaks are left out — time is never counted as stuck while your trip is '
+    'paused.\n\n'
+    'On the map, Traevy highlights only the longer stretches where you were '
+    'stuck for a minute or more, so brief halts do not clutter your route. '
+    'That means the highlighted stretches add up to less than the total above.';
+
+// --- Trip timeline copy (Phase 31, D-07) ----------------------------------
+
+/// Section heading above the trip detail timeline.
+const String kTimelineSectionLabel = 'Timeline';
+
+/// Timeline row label for the trip's start anchor.
+const String kTimelineStartedLabel = 'Started recording';
+
+/// Timeline row label for a `to_home` trip's end anchor.
+const String kTimelineArrivedHomeLabel = 'Arrived home';
+
+/// Timeline row label for a `to_office` trip's end anchor.
+const String kTimelineArrivedOfficeLabel = 'Arrived at office';
+
+/// Timeline row label for one real break segment from `trip_breaks`.
+const String kTimelineBreakLabel = 'Break';
+
+/// Timeline row label for one real stuck stretch from `trip_stuck_segments`.
+const String kTimelineStuckLabel = 'Stuck in traffic';
+
+/// Suffix appended to a timeline row's minute count (e.g. `12 min`).
+const String kTimelineMinutesSuffix = 'min';

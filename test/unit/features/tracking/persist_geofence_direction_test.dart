@@ -133,6 +133,7 @@ void main() {
         notifications: _NoopNotifications(),
         userPreferencesDao: db.userPreferencesDao,
         tripBreaksDao: db.tripBreaksDao,
+        tripStuckSegmentsDao: db.tripStuckSegmentsDao,
       );
       // Seed Home + Office coords so the geofence path is active.
       await db.userPreferencesDao.upsert(

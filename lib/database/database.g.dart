@@ -2032,21 +2032,37 @@ class UserPreferencesRow extends DataClass
 
   /// Saved Home latitude (Phase 21, D-01). Null = not set; single-row table.
   ///
-  /// PII-adjacent — this coordinate reveals where the user lives. NEVER log it
-  /// (T-21-03). Stored locally in Drift only; no sync field carries it.
+  /// PII — this coordinate reveals where the user lives. **NEVER log it**
+  /// (T-21-03, still in force).
+  ///
+  /// **These coordinates DO leave the device as of Phase 29 (LOC-03).** Until
+  /// then this dartdoc read "Stored locally in Drift only; no sync field
+  /// carries it", per Phase 21's T-21-02. Phase 29 reversed that decision
+  /// deliberately so a reinstall restores Home/Office instead of silently
+  /// degrading geofence labeling — see D-01 in
+  /// `.planning/phases/29-sync-home-office-locations/29-PLAN.md`, and the Play
+  /// Data Safety declaration that reversal requires.
+  ///
+  /// What did NOT change: T-21-03. Transporting a coordinate over TLS to our
+  /// own Firestore is a different act from writing it to a log sink. The sync
+  /// path (`PreferencesSyncService`, `ApiClient.syncPreferences`) logs nothing.
+  ///
   /// Added by schema migration v5 → v6 (additive); existing rows read null.
   final double? homeLat;
 
-  /// Saved Home longitude (Phase 21, D-01). Null = not set. PII-adjacent —
-  /// NEVER log (T-21-03). Added by schema migration v5 → v6 (additive).
+  /// Saved Home longitude (Phase 21, D-01). Null = not set. PII — NEVER log
+  /// (T-21-03). Syncs to the cloud as of Phase 29; see [homeLat] for the full
+  /// posture. Added by schema migration v5 → v6 (additive).
   final double? homeLng;
 
-  /// Saved Office latitude (Phase 21, D-01). Null = not set. PII-adjacent —
-  /// NEVER log (T-21-03). Added by schema migration v5 → v6 (additive).
+  /// Saved Office latitude (Phase 21, D-01). Null = not set. PII — NEVER log
+  /// (T-21-03). Syncs to the cloud as of Phase 29; see [homeLat] for the full
+  /// posture. Added by schema migration v5 → v6 (additive).
   final double? officeLat;
 
-  /// Saved Office longitude (Phase 21, D-01). Null = not set. PII-adjacent —
-  /// NEVER log (T-21-03). Added by schema migration v5 → v6 (additive).
+  /// Saved Office longitude (Phase 21, D-01). Null = not set. PII — NEVER log
+  /// (T-21-03). Syncs to the cloud as of Phase 29; see [homeLat] for the full
+  /// posture. Added by schema migration v5 → v6 (additive).
   final double? officeLng;
 
   /// Version-keyed backfill marker (Phase 26, D-03): tracks "backfill done
@@ -2901,6 +2917,445 @@ class TripBreaksCompanion extends UpdateCompanion<TripBreakRow> {
   }
 }
 
+class $TripStuckSegmentsTable extends TripStuckSegments
+    with TableInfo<$TripStuckSegmentsTable, TripStuckSegmentRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $TripStuckSegmentsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _tripIdMeta = const VerificationMeta('tripId');
+  @override
+  late final GeneratedColumn<String> tripId = GeneratedColumn<String>(
+    'trip_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES trips (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _startPointIndexMeta = const VerificationMeta(
+    'startPointIndex',
+  );
+  @override
+  late final GeneratedColumn<int> startPointIndex = GeneratedColumn<int>(
+    'start_point_index',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _endPointIndexMeta = const VerificationMeta(
+    'endPointIndex',
+  );
+  @override
+  late final GeneratedColumn<int> endPointIndex = GeneratedColumn<int>(
+    'end_point_index',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _startTimeMeta = const VerificationMeta(
+    'startTime',
+  );
+  @override
+  late final GeneratedColumn<DateTime> startTime = GeneratedColumn<DateTime>(
+    'start_time',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _endTimeMeta = const VerificationMeta(
+    'endTime',
+  );
+  @override
+  late final GeneratedColumn<DateTime> endTime = GeneratedColumn<DateTime>(
+    'end_time',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    tripId,
+    startPointIndex,
+    endPointIndex,
+    startTime,
+    endTime,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'trip_stuck_segments';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<TripStuckSegmentRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('trip_id')) {
+      context.handle(
+        _tripIdMeta,
+        tripId.isAcceptableOrUnknown(data['trip_id']!, _tripIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_tripIdMeta);
+    }
+    if (data.containsKey('start_point_index')) {
+      context.handle(
+        _startPointIndexMeta,
+        startPointIndex.isAcceptableOrUnknown(
+          data['start_point_index']!,
+          _startPointIndexMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_startPointIndexMeta);
+    }
+    if (data.containsKey('end_point_index')) {
+      context.handle(
+        _endPointIndexMeta,
+        endPointIndex.isAcceptableOrUnknown(
+          data['end_point_index']!,
+          _endPointIndexMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_endPointIndexMeta);
+    }
+    if (data.containsKey('start_time')) {
+      context.handle(
+        _startTimeMeta,
+        startTime.isAcceptableOrUnknown(data['start_time']!, _startTimeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_startTimeMeta);
+    }
+    if (data.containsKey('end_time')) {
+      context.handle(
+        _endTimeMeta,
+        endTime.isAcceptableOrUnknown(data['end_time']!, _endTimeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_endTimeMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  TripStuckSegmentRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return TripStuckSegmentRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      tripId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}trip_id'],
+      )!,
+      startPointIndex: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}start_point_index'],
+      )!,
+      endPointIndex: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}end_point_index'],
+      )!,
+      startTime: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}start_time'],
+      )!,
+      endTime: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}end_time'],
+      )!,
+    );
+  }
+
+  @override
+  $TripStuckSegmentsTable createAlias(String alias) {
+    return $TripStuckSegmentsTable(attachedDatabase, alias);
+  }
+}
+
+class TripStuckSegmentRow extends DataClass
+    implements Insertable<TripStuckSegmentRow> {
+  /// Client-generated UUID v4 primary key. Never null.
+  final String id;
+
+  /// Owning trip. Hard FK to `trips.id`, cascading on delete (T-31-04).
+  final String tripId;
+
+  /// Index of the first decoded-polyline point in the stuck stretch.
+  final int startPointIndex;
+
+  /// Index of the last decoded-polyline point in the stretch, INCLUSIVE.
+  final int endPointIndex;
+
+  /// Timestamp (UTC) of the sample at [startPointIndex].
+  final DateTime startTime;
+
+  /// Timestamp (UTC) of the sample at [endPointIndex].
+  final DateTime endTime;
+  const TripStuckSegmentRow({
+    required this.id,
+    required this.tripId,
+    required this.startPointIndex,
+    required this.endPointIndex,
+    required this.startTime,
+    required this.endTime,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['trip_id'] = Variable<String>(tripId);
+    map['start_point_index'] = Variable<int>(startPointIndex);
+    map['end_point_index'] = Variable<int>(endPointIndex);
+    map['start_time'] = Variable<DateTime>(startTime);
+    map['end_time'] = Variable<DateTime>(endTime);
+    return map;
+  }
+
+  TripStuckSegmentsCompanion toCompanion(bool nullToAbsent) {
+    return TripStuckSegmentsCompanion(
+      id: Value(id),
+      tripId: Value(tripId),
+      startPointIndex: Value(startPointIndex),
+      endPointIndex: Value(endPointIndex),
+      startTime: Value(startTime),
+      endTime: Value(endTime),
+    );
+  }
+
+  factory TripStuckSegmentRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return TripStuckSegmentRow(
+      id: serializer.fromJson<String>(json['id']),
+      tripId: serializer.fromJson<String>(json['tripId']),
+      startPointIndex: serializer.fromJson<int>(json['startPointIndex']),
+      endPointIndex: serializer.fromJson<int>(json['endPointIndex']),
+      startTime: serializer.fromJson<DateTime>(json['startTime']),
+      endTime: serializer.fromJson<DateTime>(json['endTime']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'tripId': serializer.toJson<String>(tripId),
+      'startPointIndex': serializer.toJson<int>(startPointIndex),
+      'endPointIndex': serializer.toJson<int>(endPointIndex),
+      'startTime': serializer.toJson<DateTime>(startTime),
+      'endTime': serializer.toJson<DateTime>(endTime),
+    };
+  }
+
+  TripStuckSegmentRow copyWith({
+    String? id,
+    String? tripId,
+    int? startPointIndex,
+    int? endPointIndex,
+    DateTime? startTime,
+    DateTime? endTime,
+  }) => TripStuckSegmentRow(
+    id: id ?? this.id,
+    tripId: tripId ?? this.tripId,
+    startPointIndex: startPointIndex ?? this.startPointIndex,
+    endPointIndex: endPointIndex ?? this.endPointIndex,
+    startTime: startTime ?? this.startTime,
+    endTime: endTime ?? this.endTime,
+  );
+  TripStuckSegmentRow copyWithCompanion(TripStuckSegmentsCompanion data) {
+    return TripStuckSegmentRow(
+      id: data.id.present ? data.id.value : this.id,
+      tripId: data.tripId.present ? data.tripId.value : this.tripId,
+      startPointIndex: data.startPointIndex.present
+          ? data.startPointIndex.value
+          : this.startPointIndex,
+      endPointIndex: data.endPointIndex.present
+          ? data.endPointIndex.value
+          : this.endPointIndex,
+      startTime: data.startTime.present ? data.startTime.value : this.startTime,
+      endTime: data.endTime.present ? data.endTime.value : this.endTime,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TripStuckSegmentRow(')
+          ..write('id: $id, ')
+          ..write('tripId: $tripId, ')
+          ..write('startPointIndex: $startPointIndex, ')
+          ..write('endPointIndex: $endPointIndex, ')
+          ..write('startTime: $startTime, ')
+          ..write('endTime: $endTime')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    tripId,
+    startPointIndex,
+    endPointIndex,
+    startTime,
+    endTime,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is TripStuckSegmentRow &&
+          other.id == this.id &&
+          other.tripId == this.tripId &&
+          other.startPointIndex == this.startPointIndex &&
+          other.endPointIndex == this.endPointIndex &&
+          other.startTime == this.startTime &&
+          other.endTime == this.endTime);
+}
+
+class TripStuckSegmentsCompanion extends UpdateCompanion<TripStuckSegmentRow> {
+  final Value<String> id;
+  final Value<String> tripId;
+  final Value<int> startPointIndex;
+  final Value<int> endPointIndex;
+  final Value<DateTime> startTime;
+  final Value<DateTime> endTime;
+  final Value<int> rowid;
+  const TripStuckSegmentsCompanion({
+    this.id = const Value.absent(),
+    this.tripId = const Value.absent(),
+    this.startPointIndex = const Value.absent(),
+    this.endPointIndex = const Value.absent(),
+    this.startTime = const Value.absent(),
+    this.endTime = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  TripStuckSegmentsCompanion.insert({
+    required String id,
+    required String tripId,
+    required int startPointIndex,
+    required int endPointIndex,
+    required DateTime startTime,
+    required DateTime endTime,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       tripId = Value(tripId),
+       startPointIndex = Value(startPointIndex),
+       endPointIndex = Value(endPointIndex),
+       startTime = Value(startTime),
+       endTime = Value(endTime);
+  static Insertable<TripStuckSegmentRow> custom({
+    Expression<String>? id,
+    Expression<String>? tripId,
+    Expression<int>? startPointIndex,
+    Expression<int>? endPointIndex,
+    Expression<DateTime>? startTime,
+    Expression<DateTime>? endTime,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (tripId != null) 'trip_id': tripId,
+      if (startPointIndex != null) 'start_point_index': startPointIndex,
+      if (endPointIndex != null) 'end_point_index': endPointIndex,
+      if (startTime != null) 'start_time': startTime,
+      if (endTime != null) 'end_time': endTime,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  TripStuckSegmentsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? tripId,
+    Value<int>? startPointIndex,
+    Value<int>? endPointIndex,
+    Value<DateTime>? startTime,
+    Value<DateTime>? endTime,
+    Value<int>? rowid,
+  }) {
+    return TripStuckSegmentsCompanion(
+      id: id ?? this.id,
+      tripId: tripId ?? this.tripId,
+      startPointIndex: startPointIndex ?? this.startPointIndex,
+      endPointIndex: endPointIndex ?? this.endPointIndex,
+      startTime: startTime ?? this.startTime,
+      endTime: endTime ?? this.endTime,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (tripId.present) {
+      map['trip_id'] = Variable<String>(tripId.value);
+    }
+    if (startPointIndex.present) {
+      map['start_point_index'] = Variable<int>(startPointIndex.value);
+    }
+    if (endPointIndex.present) {
+      map['end_point_index'] = Variable<int>(endPointIndex.value);
+    }
+    if (startTime.present) {
+      map['start_time'] = Variable<DateTime>(startTime.value);
+    }
+    if (endTime.present) {
+      map['end_time'] = Variable<DateTime>(endTime.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TripStuckSegmentsCompanion(')
+          ..write('id: $id, ')
+          ..write('tripId: $tripId, ')
+          ..write('startPointIndex: $startPointIndex, ')
+          ..write('endPointIndex: $endPointIndex, ')
+          ..write('startTime: $startTime, ')
+          ..write('endTime: $endTime, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -2910,6 +3365,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this,
   );
   late final $TripBreaksTable tripBreaks = $TripBreaksTable(this);
+  late final $TripStuckSegmentsTable tripStuckSegments =
+      $TripStuckSegmentsTable(this);
   late final Index idxTripsStartTime = Index(
     'idx_trips_start_time',
     'CREATE INDEX idx_trips_start_time ON trips (start_time)',
@@ -2924,6 +3381,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this as AppDatabase,
   );
   late final TripBreaksDao tripBreaksDao = TripBreaksDao(this as AppDatabase);
+  late final TripStuckSegmentsDao tripStuckSegmentsDao = TripStuckSegmentsDao(
+    this as AppDatabase,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2933,9 +3393,20 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     syncQueue,
     userPreferences,
     tripBreaks,
+    tripStuckSegments,
     idxTripsStartTime,
     idxTripsDirectionStart,
   ];
+  @override
+  StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'trips',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('trip_stuck_segments', kind: UpdateKind.delete)],
+    ),
+  ]);
 }
 
 typedef $$TripsTableCreateCompanionBuilder =
@@ -2996,6 +3467,30 @@ final class $$TripsTableReferences
     ).filter((f) => f.tripId.id.sqlEquals($_itemColumn<String>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_tripBreaksRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$TripStuckSegmentsTable, List<TripStuckSegmentRow>>
+  _tripStuckSegmentsRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.tripStuckSegments,
+        aliasName: $_aliasNameGenerator(
+          db.trips.id,
+          db.tripStuckSegments.tripId,
+        ),
+      );
+
+  $$TripStuckSegmentsTableProcessedTableManager get tripStuckSegmentsRefs {
+    final manager = $$TripStuckSegmentsTableTableManager(
+      $_db,
+      $_db.tripStuckSegments,
+    ).filter((f) => f.tripId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _tripStuckSegmentsRefsTable($_db),
+    );
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
@@ -3106,6 +3601,31 @@ class $$TripsTableFilterComposer extends Composer<_$AppDatabase, $TripsTable> {
           }) => $$TripBreaksTableFilterComposer(
             $db: $db,
             $table: $db.tripBreaks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> tripStuckSegmentsRefs(
+    Expression<bool> Function($$TripStuckSegmentsTableFilterComposer f) f,
+  ) {
+    final $$TripStuckSegmentsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.tripStuckSegments,
+      getReferencedColumn: (t) => t.tripId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TripStuckSegmentsTableFilterComposer(
+            $db: $db,
+            $table: $db.tripStuckSegments,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -3303,6 +3823,32 @@ class $$TripsTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> tripStuckSegmentsRefs<T extends Object>(
+    Expression<T> Function($$TripStuckSegmentsTableAnnotationComposer a) f,
+  ) {
+    final $$TripStuckSegmentsTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.tripStuckSegments,
+          getReferencedColumn: (t) => t.tripId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$TripStuckSegmentsTableAnnotationComposer(
+                $db: $db,
+                $table: $db.tripStuckSegments,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 }
 
 class $$TripsTableTableManager
@@ -3318,7 +3864,10 @@ class $$TripsTableTableManager
           $$TripsTableUpdateCompanionBuilder,
           (TripRow, $$TripsTableReferences),
           TripRow,
-          PrefetchHooks Function({bool tripBreaksRefs})
+          PrefetchHooks Function({
+            bool tripBreaksRefs,
+            bool tripStuckSegmentsRefs,
+          })
         > {
   $$TripsTableTableManager(_$AppDatabase db, $TripsTable table)
     : super(
@@ -3413,32 +3962,63 @@ class $$TripsTableTableManager
                     (e.readTable(table), $$TripsTableReferences(db, table, e)),
               )
               .toList(),
-          prefetchHooksCallback: ({tripBreaksRefs = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [if (tripBreaksRefs) db.tripBreaks],
-              addJoins: null,
-              getPrefetchedDataCallback: (items) async {
-                return [
-                  if (tripBreaksRefs)
-                    await $_getPrefetchedData<
-                      TripRow,
-                      $TripsTable,
-                      TripBreakRow
-                    >(
-                      currentTable: table,
-                      referencedTable: $$TripsTableReferences
-                          ._tripBreaksRefsTable(db),
-                      managerFromTypedResult: (p0) =>
-                          $$TripsTableReferences(db, table, p0).tripBreaksRefs,
-                      referencedItemsForCurrentItem: (item, referencedItems) =>
-                          referencedItems.where((e) => e.tripId == item.id),
-                      typedResults: items,
-                    ),
-                ];
+          prefetchHooksCallback:
+              ({tripBreaksRefs = false, tripStuckSegmentsRefs = false}) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (tripBreaksRefs) db.tripBreaks,
+                    if (tripStuckSegmentsRefs) db.tripStuckSegments,
+                  ],
+                  addJoins: null,
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (tripBreaksRefs)
+                        await $_getPrefetchedData<
+                          TripRow,
+                          $TripsTable,
+                          TripBreakRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$TripsTableReferences
+                              ._tripBreaksRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$TripsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).tripBreaksRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.tripId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (tripStuckSegmentsRefs)
+                        await $_getPrefetchedData<
+                          TripRow,
+                          $TripsTable,
+                          TripStuckSegmentRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$TripsTableReferences
+                              ._tripStuckSegmentsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$TripsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).tripStuckSegmentsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.tripId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
               },
-            );
-          },
         ),
       );
 }
@@ -3455,7 +4035,7 @@ typedef $$TripsTableProcessedTableManager =
       $$TripsTableUpdateCompanionBuilder,
       (TripRow, $$TripsTableReferences),
       TripRow,
-      PrefetchHooks Function({bool tripBreaksRefs})
+      PrefetchHooks Function({bool tripBreaksRefs, bool tripStuckSegmentsRefs})
     >;
 typedef $$SyncQueueTableCreateCompanionBuilder =
     SyncQueueCompanion Function({
@@ -4459,6 +5039,363 @@ typedef $$TripBreaksTableProcessedTableManager =
       TripBreakRow,
       PrefetchHooks Function({bool tripId})
     >;
+typedef $$TripStuckSegmentsTableCreateCompanionBuilder =
+    TripStuckSegmentsCompanion Function({
+      required String id,
+      required String tripId,
+      required int startPointIndex,
+      required int endPointIndex,
+      required DateTime startTime,
+      required DateTime endTime,
+      Value<int> rowid,
+    });
+typedef $$TripStuckSegmentsTableUpdateCompanionBuilder =
+    TripStuckSegmentsCompanion Function({
+      Value<String> id,
+      Value<String> tripId,
+      Value<int> startPointIndex,
+      Value<int> endPointIndex,
+      Value<DateTime> startTime,
+      Value<DateTime> endTime,
+      Value<int> rowid,
+    });
+
+final class $$TripStuckSegmentsTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $TripStuckSegmentsTable,
+          TripStuckSegmentRow
+        > {
+  $$TripStuckSegmentsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $TripsTable _tripIdTable(_$AppDatabase db) => db.trips.createAlias(
+    $_aliasNameGenerator(db.tripStuckSegments.tripId, db.trips.id),
+  );
+
+  $$TripsTableProcessedTableManager get tripId {
+    final $_column = $_itemColumn<String>('trip_id')!;
+
+    final manager = $$TripsTableTableManager(
+      $_db,
+      $_db.trips,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_tripIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$TripStuckSegmentsTableFilterComposer
+    extends Composer<_$AppDatabase, $TripStuckSegmentsTable> {
+  $$TripStuckSegmentsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get startPointIndex => $composableBuilder(
+    column: $table.startPointIndex,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get endPointIndex => $composableBuilder(
+    column: $table.endPointIndex,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get startTime => $composableBuilder(
+    column: $table.startTime,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get endTime => $composableBuilder(
+    column: $table.endTime,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$TripsTableFilterComposer get tripId {
+    final $$TripsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.tripId,
+      referencedTable: $db.trips,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TripsTableFilterComposer(
+            $db: $db,
+            $table: $db.trips,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$TripStuckSegmentsTableOrderingComposer
+    extends Composer<_$AppDatabase, $TripStuckSegmentsTable> {
+  $$TripStuckSegmentsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get startPointIndex => $composableBuilder(
+    column: $table.startPointIndex,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get endPointIndex => $composableBuilder(
+    column: $table.endPointIndex,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get startTime => $composableBuilder(
+    column: $table.startTime,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get endTime => $composableBuilder(
+    column: $table.endTime,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$TripsTableOrderingComposer get tripId {
+    final $$TripsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.tripId,
+      referencedTable: $db.trips,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TripsTableOrderingComposer(
+            $db: $db,
+            $table: $db.trips,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$TripStuckSegmentsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $TripStuckSegmentsTable> {
+  $$TripStuckSegmentsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get startPointIndex => $composableBuilder(
+    column: $table.startPointIndex,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get endPointIndex => $composableBuilder(
+    column: $table.endPointIndex,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get startTime =>
+      $composableBuilder(column: $table.startTime, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get endTime =>
+      $composableBuilder(column: $table.endTime, builder: (column) => column);
+
+  $$TripsTableAnnotationComposer get tripId {
+    final $$TripsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.tripId,
+      referencedTable: $db.trips,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TripsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.trips,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$TripStuckSegmentsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $TripStuckSegmentsTable,
+          TripStuckSegmentRow,
+          $$TripStuckSegmentsTableFilterComposer,
+          $$TripStuckSegmentsTableOrderingComposer,
+          $$TripStuckSegmentsTableAnnotationComposer,
+          $$TripStuckSegmentsTableCreateCompanionBuilder,
+          $$TripStuckSegmentsTableUpdateCompanionBuilder,
+          (TripStuckSegmentRow, $$TripStuckSegmentsTableReferences),
+          TripStuckSegmentRow,
+          PrefetchHooks Function({bool tripId})
+        > {
+  $$TripStuckSegmentsTableTableManager(
+    _$AppDatabase db,
+    $TripStuckSegmentsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$TripStuckSegmentsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$TripStuckSegmentsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$TripStuckSegmentsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> tripId = const Value.absent(),
+                Value<int> startPointIndex = const Value.absent(),
+                Value<int> endPointIndex = const Value.absent(),
+                Value<DateTime> startTime = const Value.absent(),
+                Value<DateTime> endTime = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => TripStuckSegmentsCompanion(
+                id: id,
+                tripId: tripId,
+                startPointIndex: startPointIndex,
+                endPointIndex: endPointIndex,
+                startTime: startTime,
+                endTime: endTime,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String tripId,
+                required int startPointIndex,
+                required int endPointIndex,
+                required DateTime startTime,
+                required DateTime endTime,
+                Value<int> rowid = const Value.absent(),
+              }) => TripStuckSegmentsCompanion.insert(
+                id: id,
+                tripId: tripId,
+                startPointIndex: startPointIndex,
+                endPointIndex: endPointIndex,
+                startTime: startTime,
+                endTime: endTime,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$TripStuckSegmentsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({tripId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (tripId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.tripId,
+                                referencedTable:
+                                    $$TripStuckSegmentsTableReferences
+                                        ._tripIdTable(db),
+                                referencedColumn:
+                                    $$TripStuckSegmentsTableReferences
+                                        ._tripIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$TripStuckSegmentsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $TripStuckSegmentsTable,
+      TripStuckSegmentRow,
+      $$TripStuckSegmentsTableFilterComposer,
+      $$TripStuckSegmentsTableOrderingComposer,
+      $$TripStuckSegmentsTableAnnotationComposer,
+      $$TripStuckSegmentsTableCreateCompanionBuilder,
+      $$TripStuckSegmentsTableUpdateCompanionBuilder,
+      (TripStuckSegmentRow, $$TripStuckSegmentsTableReferences),
+      TripStuckSegmentRow,
+      PrefetchHooks Function({bool tripId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -4471,4 +5408,6 @@ class $AppDatabaseManager {
       $$UserPreferencesTableTableManager(_db, _db.userPreferences);
   $$TripBreaksTableTableManager get tripBreaks =>
       $$TripBreaksTableTableManager(_db, _db.tripBreaks);
+  $$TripStuckSegmentsTableTableManager get tripStuckSegments =>
+      $$TripStuckSegmentsTableTableManager(_db, _db.tripStuckSegments);
 }

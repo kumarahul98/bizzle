@@ -4,10 +4,12 @@ import 'package:path_provider/path_provider.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/daos/sync_queue_dao.dart';
 import 'package:traevy/database/daos/trip_breaks_dao.dart';
+import 'package:traevy/database/daos/trip_stuck_segments_dao.dart';
 import 'package:traevy/database/daos/trips_dao.dart';
 import 'package:traevy/database/daos/user_preferences_dao.dart';
 import 'package:traevy/database/tables/sync_queue_table.dart';
 import 'package:traevy/database/tables/trip_breaks_table.dart';
+import 'package:traevy/database/tables/trip_stuck_segments_table.dart';
 import 'package:traevy/database/tables/trips_table.dart';
 import 'package:traevy/database/tables/user_preferences_table.dart';
 
@@ -25,8 +27,14 @@ part 'database.g.dart';
 /// connection rooted in the app's support directory (NOT the documents
 /// directory — see the anti-patterns note in 01-RESEARCH.md).
 @DriftDatabase(
-  tables: [Trips, SyncQueue, UserPreferences, TripBreaks],
-  daos: [TripsDao, SyncQueueDao, UserPreferencesDao, TripBreaksDao],
+  tables: [Trips, SyncQueue, UserPreferences, TripBreaks, TripStuckSegments],
+  daos: [
+    TripsDao,
+    SyncQueueDao,
+    UserPreferencesDao,
+    TripBreaksDao,
+    TripStuckSegmentsDao,
+  ],
 )
 class AppDatabase extends _$AppDatabase {
   /// Construct an `AppDatabase`.
@@ -37,7 +45,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -177,6 +185,20 @@ class AppDatabase extends _$AppDatabase {
             },
           ),
         );
+      }
+      if (from < 9 && to >= 9) {
+        // Phase 31 (D-02): additive-only v8 → v9 migration. Creates the
+        // trip_stuck_segments table. No existing table is altered and no row
+        // is rewritten, so every historical trip survives untouched and simply
+        // has zero segments — which renders exactly as it did before this
+        // phase (D-06, SC#5/SC#9). The FK carries onDelete: cascade from the
+        // outset so a deleted trip can never strand segment rows (T-31-04).
+        //
+        // No backfill is possible or attempted: the per-sample speeds these
+        // segments derive from were never persisted, so any "backfill" would
+        // be fabrication (D-06). Ordered AFTER the from<8 branch so a v1..v8
+        // install runs every branch in sequence.
+        await m.createTable(tripStuckSegments);
       }
     },
     beforeOpen: (details) async {

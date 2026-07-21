@@ -27,6 +27,7 @@ class FinalizedTrip {
     required this.encodedPolyline,
     this.totalPausedSeconds = 0,
     this.breaks = const <Map<String, Object?>>[],
+    this.stuckSegments = const <Map<String, Object?>>[],
   });
 
   /// Reconstruct a [FinalizedTrip] from its [toMap] form.
@@ -50,7 +51,11 @@ class FinalizedTrip {
       // backward-tolerant — a pre-Phase-18 map omits both keys, decoding to
       // the safe defaults (no breaks, zero paused).
       totalPausedSeconds: map['totalPausedSeconds'] as int? ?? 0,
-      breaks: _decodeBreaks(map['breaks']),
+      breaks: _decodePrimitiveMaps(map['breaks']),
+      // Phase 31 (D-02): also backward-tolerant — a pre-Phase-31 map omits
+      // the key and decodes to no segments, which renders exactly as today
+      // (D-06).
+      stuckSegments: _decodePrimitiveMaps(map['stuckSegments']),
     );
   }
 
@@ -94,6 +99,18 @@ class FinalizedTrip {
   /// trip that never paused.
   final List<Map<String, Object?>> breaks;
 
+  /// Contiguous stuck stretches that survived the `kStuckSegmentMinSeconds`
+  /// floor, each a primitive map
+  /// (`{'startIndex': int, 'endIndex': int, 'startUs': int, 'endUs': int}`)
+  /// so the list crosses the service → UI isolate boundary as primitives only
+  /// (Phase 31, D-02/D-03). The indices address the decoded
+  /// [encodedPolyline]'s points inclusively. The persist path decodes these
+  /// into `trip_stuck_segments` rows. Empty for a manual entry, for a trip
+  /// with no run over the floor, and for every trip recorded before Phase 31.
+  ///
+  /// LOCAL-ONLY (D-04): never serialized into a sync payload.
+  final List<Map<String, Object?>> stuckSegments;
+
   /// Serialize to a primitive-only map safe to send across the service →
   /// UI isolate boundary via `flutter_background_service.invoke`.
   Map<String, Object?> toMap() {
@@ -118,6 +135,17 @@ class FinalizedTrip {
             },
           )
           .toList(growable: false),
+      // Same re-wrap discipline as `breaks` — plain primitive maps only.
+      'stuckSegments': stuckSegments
+          .map(
+            (s) => <String, Object?>{
+              'startIndex': s['startIndex'],
+              'endIndex': s['endIndex'],
+              'startUs': s['startUs'],
+              'endUs': s['endUs'],
+            },
+          )
+          .toList(growable: false),
     };
   }
 
@@ -135,6 +163,7 @@ class FinalizedTrip {
     String? encodedPolyline,
     int? totalPausedSeconds,
     List<Map<String, Object?>>? breaks,
+    List<Map<String, Object?>>? stuckSegments,
   }) {
     return FinalizedTrip(
       id: id ?? this.id,
@@ -147,6 +176,7 @@ class FinalizedTrip {
       encodedPolyline: encodedPolyline ?? this.encodedPolyline,
       totalPausedSeconds: totalPausedSeconds ?? this.totalPausedSeconds,
       breaks: breaks ?? this.breaks,
+      stuckSegments: stuckSegments ?? this.stuckSegments,
     );
   }
 
@@ -162,7 +192,8 @@ class FinalizedTrip {
         other.timeStuckSeconds == timeStuckSeconds &&
         other.encodedPolyline == encodedPolyline &&
         other.totalPausedSeconds == totalPausedSeconds &&
-        _breaksEqual(other.breaks, breaks);
+        _primitiveMapsEqual(other.breaks, breaks) &&
+        _primitiveMapsEqual(other.stuckSegments, stuckSegments);
   }
 
   @override
@@ -179,13 +210,16 @@ class FinalizedTrip {
     Object.hashAll(
       breaks.map((b) => Object.hash(b['startUs'], b['endUs'])),
     ),
+    Object.hashAll(
+      stuckSegments.map((s) => Object.hash(s['startIndex'], s['endIndex'])),
+    ),
   );
 }
 
-/// Deep value-equality for the primitive break list: each element is a
-/// `{'startUs': int, 'endUs': int}` map, so a per-element [mapEquals] gives
-/// the value semantics the default `List.==` (identity) would not.
-bool _breaksEqual(
+/// Deep value-equality for a primitive map list (breaks, stuck segments): a
+/// per-element [mapEquals] gives the value semantics the default `List.==`
+/// (identity) would not.
+bool _primitiveMapsEqual(
   List<Map<String, Object?>> a,
   List<Map<String, Object?>> b,
 ) {
@@ -196,10 +230,11 @@ bool _breaksEqual(
   return true;
 }
 
-/// Decode the primitive `breaks` payload from a [FinalizedTrip.toMap] /
-/// isolate-channel map into a typed `List<Map<String, Object?>>`. A missing
-/// or null value (legacy pre-Phase-18 map) decodes to an empty list.
-List<Map<String, Object?>> _decodeBreaks(Object? raw) {
+/// Decode a primitive map list (`breaks`, `stuckSegments`) from a
+/// [FinalizedTrip.toMap] / isolate-channel map into a typed
+/// `List<Map<String, Object?>>`. A missing or null value (a legacy map from
+/// before the field existed) decodes to an empty list.
+List<Map<String, Object?>> _decodePrimitiveMaps(Object? raw) {
   if (raw is! List) {
     return const <Map<String, Object?>>[];
   }
