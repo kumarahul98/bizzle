@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: App Improvements
 status: executing
-stopped_at: UAT session 2026-07-21 — 48 of 60 scenarios PASSED on device. 3 open (N05 GPS drift, N08+N15 widget), 8 deferred (backend/sync), 1 N-A. Release still blocked on the Play Data Safety declaration.
+stopped_at: Phase 23 CLOSED EARLY (48/60 passed, remainder skipped by priority). UAT session 2026-07-21 — 48 of 60 scenarios PASSED on device. 3 open (N05 GPS drift, N08+N15 widget), 8 deferred (backend/sync), 1 N-A. Release still blocked on the Play Data Safety declaration.
 last_updated: "2026-07-20T00:00:00.000Z"
 last_activity: 2026-07-21
 progress:

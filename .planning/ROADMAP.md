@@ -631,6 +631,27 @@ Plans:
 
 ### Phase 23: Resolve Deferred UAT Items (Android)
 
+> ## ⏭️ CLOSED EARLY — 2026-07-21
+> **Not executed as a formal GSD phase.** No PLAN.md was ever written for the
+> rescoped version; the work happened as an ad-hoc device session instead.
+>
+> **48 of 60 scenarios PASSED** and are recorded in
+> `TRAEVY-DEVICE-CHECKS.xlsx` + back-ported into `v0.1-DEVICE-CHECKLIST.md`.
+> That includes the entire v0.1 backlog (40/45) and the WR-05 force-stop repro
+> — the single check that could prove the PendingTripStore fix works.
+>
+> **Remainder SKIPPED by priority decision, not by failure:**
+> * 3 open — N05 (GPS drift), N08 + N15 (widget, one session closes both)
+> * 8 deferred — N09-N11, N13, V42-V45, all needing the live backend
+> * 1 N-A — V15
+>
+> Deliberately recorded as "closed early with results" rather than a bare
+> "skipped": this phase was itself rescoped on 2026-07-11 after an audit found
+> STATE.md claiming it complete when it never ran. Writing "skipped" over 48
+> real passes would recreate that same phantom-status bug in the opposite
+> direction. Nothing here is blocked or broken — it is deprioritised.
+
+
 **Goal**: Close out the backlog of deferred human/device verification on Android — triaging what's stale, running what's still relevant, and completing the UAT sessions that were started and abandoned mid-run — so no Android phase is left with a phantom "pending" verification status
 **Depends on**: Phase 22
 **Requirements**: UAT-01
@@ -824,7 +845,7 @@ Note: Phase 17 is a small, independent UI fix + quick-label and is the safe firs
 | 20. First-Run Login with Skip | v0.3 | 1/1 | Complete | 2026-06-06 |
 | 21. Home & Office Locations + Geofence Auto-Label | v0.3 | 3/3 | Complete | 2026-06-06 |
 | 22. Home-Screen Widget | v0.3 | 1/1 | Complete | 2026-06-09 |
-| 23. Resolve Deferred UAT Items (Android) | v0.3 | 48/60 | Mostly done 2026-07-21 — 3 open, 8 deferred (backend), 1 N-A | - |
+| 23. Resolve Deferred UAT Items (Android) | v0.3 | 48/60 | CLOSED EARLY 2026-07-21 — 48 passed ad-hoc; remainder SKIPPED by priority | 2026-07-21 |
 | 24. Automatic Cloud Sync & Restore | v0.3 | 3/3 | Complete | 2026-06-16 |
 | 25. Interrupted-Trip Recovery | v0.3 | 3/3 | Complete | 2026-06-28 |
 | 25.1. Fix Sync Conflict & Auto-Retry Bugs (INSERTED) | v0.3 | 2/2 | Complete | 2026-07-12 |
