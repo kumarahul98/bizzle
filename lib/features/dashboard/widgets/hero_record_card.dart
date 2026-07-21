@@ -1,6 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/config/theme.dart';
 import 'package:traevy/features/tracking/providers/tracking_providers.dart';
@@ -123,7 +124,14 @@ class HeroRecordCard extends ConsumerWidget {
           TrackingError(:final message) => TrackingErrorLayout(
             message: message,
             onRetry: () => ref.read(trackingStateProvider.notifier).start(),
-            onOpenSettings: Geolocator.openLocationSettings,
+            // Phase 36 (D-03): the app's own permission list, not
+            // `Geolocator.openLocationSettings` — that opened the DEVICE-WIDE
+            // location screen, a different destination from the one the other
+            // two denial paths used, and one that says nothing about whether
+            // Traevy in particular is allowed to use location.
+            onOpenSettings: () => unawaited(
+              ref.read(trackingPermissionServiceProvider).openSystemSettings(),
+            ),
           ),
         },
       ),

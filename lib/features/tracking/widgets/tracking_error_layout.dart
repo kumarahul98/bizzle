@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:traevy/config/constants.dart';
 
 /// Error-state body for the tracking screen.
 ///
 /// Shows the user-facing [message] above a Retry button. When
 /// [onOpenSettings] is provided (location-unavailable errors), an additional
-/// "Open Location Settings" button is shown so the user can enable
-/// high-accuracy mode without hunting through Android settings manually.
+/// [kOpenPermissionSettingsLabel] button is shown so the user can fix the
+/// permission without hunting through Android settings manually.
+///
+/// Phase 36 (D-03): the button was labelled "Open Location Settings" and led
+/// to the device-wide location screen. It now leads to the app's own
+/// permission list, like every other denial path, and takes its label from the
+/// shared constant so the three cannot drift apart in wording again.
 class TrackingErrorLayout extends StatelessWidget {
   const TrackingErrorLayout({
     required this.message,
@@ -17,7 +23,8 @@ class TrackingErrorLayout extends StatelessWidget {
   final String message;
   final VoidCallback onRetry;
 
-  /// When non-null, renders an "Open Location Settings" button below Retry.
+  /// When non-null, renders an [kOpenPermissionSettingsLabel] button below
+  /// Retry.
   final VoidCallback? onOpenSettings;
 
   @override
@@ -35,7 +42,7 @@ class TrackingErrorLayout extends StatelessWidget {
               const SizedBox(height: 8),
               OutlinedButton(
                 onPressed: onOpenSettings,
-                child: const Text('Open Location Settings'),
+                child: const Text(kOpenPermissionSettingsLabel),
               ),
             ],
           ],

@@ -1536,3 +1536,62 @@ const String kTimelineStuckLabel = 'Stuck in traffic';
 
 /// Suffix appended to a timeline row's minute count (e.g. `12 min`).
 const String kTimelineMinutesSuffix = 'min';
+
+// =========================================================================
+// Phase 36 — Widget & platform fixes
+// =========================================================================
+
+// --- App permission deep-link (Phase 36, D-03) ----------------------------
+
+/// Name of the app's platform MethodChannel.
+///
+/// One channel for the handful of things that genuinely need the Android
+/// Activity. Handled in `MainActivity.kt`; unimplemented on every other
+/// platform, where callers fall back rather than fail.
+const String kPlatformChannelName = 'traevy/platform';
+
+/// Method on [kPlatformChannelName] that opens THIS app's permission list.
+///
+/// Fires `Settings.ACTION_APP_PERMISSIONS`, which lands on the page the
+/// "Open settings" CTA has always claimed to open. The previous route —
+/// `openAppSettings()` from permission_handler — lands on **App Info**, one
+/// level short, leaving the user to find "Permissions" themselves.
+///
+/// Returns `true` if a settings screen was shown. The Android side falls back
+/// to `ACTION_APPLICATION_DETAILS_SETTINGS` when `ACTION_APP_PERMISSIONS` does
+/// not resolve; that fallback is mandatory, not defensive padding (T-36-01).
+const String kOpenAppPermissionsMethod = 'openAppPermissions';
+
+// --- Permission-denied call-to-action copy (Phase 36, D-03) ---------------
+
+/// Label on every "take me to the permission page" control.
+///
+/// Single constant on purpose: all three denial paths — the error layout, the
+/// shell's start-blocked snackbar, and the permanent-deny CTA — used to lead to
+/// three different destinations, and shared wording is what keeps them from
+/// drifting apart again.
+const String kOpenPermissionSettingsLabel = 'Open settings';
+
+/// Message shown when Start is blocked because a required permission is
+/// missing. Paired with a [kOpenPermissionSettingsLabel] action, so the user
+/// can act on it — it was previously a bare snackbar with no way forward.
+const String kPermissionsRequiredMessage =
+    'Traevy needs location and notification permissions to record a commute.';
+
+// --- Notification stop-confirm copy (Phase 36, D-04) ----------------------
+
+/// Title of the "really stop?" dialog. Shared by the notification's Stop
+/// action and the home-screen widget's Stop button so the two entry points
+/// cannot drift apart in wording (SC#9).
+const String kStopConfirmTitle = 'Stop Commute';
+
+/// Body of the stop-confirmation dialog.
+const String kStopConfirmBody =
+    'Are you sure you want to stop and save this trip?';
+
+/// Dismiss label on the stop-confirmation dialog. Names the safe,
+/// trip-preserving outcome rather than reading as a bare "Cancel".
+const String kStopConfirmDismissLabel = 'Keep recording';
+
+/// Confirm label on the stop-confirmation dialog.
+const String kStopConfirmAcceptLabel = 'Stop & save';

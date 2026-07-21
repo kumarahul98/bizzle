@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:traevy/config/constants.dart';
 
 /// Five-way classification of the device's tracking permission state as
 /// it relates to Phase 2 tracking requirements.
@@ -69,11 +71,50 @@ typedef PermissionRequester =
       Permission permission,
     );
 
-/// Opens the system's app-settings page. Injection seam so unit tests can
-/// observe [TrackingPermissionService.openSystemSettings] without touching
-/// the platform channel. Production default is the top-level
-/// [openAppSettings] from `permission_handler`.
+/// Opens the system settings page where this app's permissions live.
+/// Injection seam so unit tests can observe
+/// [TrackingPermissionService.openSystemSettings] without touching the
+/// platform channel. Production default is [openAppPermissionSettings].
 typedef SettingsOpener = Future<bool> Function();
+
+/// The platform channel used to reach [kOpenAppPermissionsMethod].
+///
+/// Package-visible so tests can install a mock handler on the same channel
+/// the production opener talks to.
+@visibleForTesting
+const MethodChannel platformChannel = MethodChannel(kPlatformChannelName);
+
+/// Open this app's PERMISSION LIST in system settings (Phase 36, D-03).
+///
+/// Routes through [platformChannel] to `MainActivity.openAppPermissions()`,
+/// which fires `Settings.ACTION_APP_PERMISSIONS` and — mandatorily (T-36-01) —
+/// falls back to `ACTION_APPLICATION_DETAILS_SETTINGS` if that does not resolve
+/// on the device's OEM skin.
+///
+/// This replaces a direct call to `openAppSettings()` from
+/// `permission_handler`, which lands on **App Info**: one level short of the
+/// page the "Open settings" CTA claims to open, leaving the user to hunt for
+/// "Permissions" themselves.
+///
+/// `openAppSettings()` survives as the fallback for the two cases where the
+/// channel cannot answer — iOS (no `MainActivity`) and any test host without a
+/// registered handler, both of which raise [MissingPluginException]. On iOS
+/// that call opens the app's settings page, where permissions live anyway, so
+/// the fallback is the correct destination there rather than a degraded one.
+///
+/// Returns `true` if a settings screen was shown.
+Future<bool> openAppPermissionSettings() async {
+  try {
+    final shown = await platformChannel.invokeMethod<bool>(
+      kOpenAppPermissionsMethod,
+    );
+    return shown ?? false;
+  } on MissingPluginException {
+    return openAppSettings();
+  } on PlatformException {
+    return openAppSettings();
+  }
+}
 
 /// Wraps `permission_handler` for Phase 2's strict four-step tracking
 /// permission dance (D-07 / RESEARCH Pitfall 5 + UX-03 gap-closure).
@@ -115,7 +156,7 @@ class TrackingPermissionService {
   const TrackingPermissionService()
     : _probe = _defaultProbe,
       _request = _defaultRequest,
-      _openSettings = openAppSettings;
+      _openSettings = openAppPermissionSettings;
 
   /// Test-only constructor. Accepts closures so unit tests can inject
   /// deterministic permission states without implementing an interface.
@@ -126,7 +167,7 @@ class TrackingPermissionService {
     SettingsOpener? opener,
   }) : _probe = probe,
        _request = requester,
-       _openSettings = opener ?? openAppSettings;
+       _openSettings = opener ?? openAppPermissionSettings;
 
   final PermissionStatusProbe _probe;
   final PermissionRequester _request;
@@ -257,11 +298,19 @@ class TrackingPermissionService {
     return locationStatus;
   }
 
-  /// Deep-links into the system app-settings page for this app (D-09).
+  /// Deep-links into this app's PERMISSION LIST in system settings (D-09,
+  /// and Phase 36 D-03).
   ///
-  /// Returns `true` if the settings screen was shown, `false` otherwise
-  /// (e.g. the OS denied the launch). Wraps `openAppSettings()` from
-  /// `permission_handler` in production; test instances can inject a
+  /// The single destination for every permission-denied path in the app. Before
+  /// Phase 36 there were three, all reachable from the same "permission
+  /// denied" situation and all landing somewhere different: this method went
+  /// to App Info, the tracking-error layout went to the **device-wide**
+  /// location screen via `Geolocator.openLocationSettings`, and the shell's
+  /// start-blocked message went nowhere at all. They now all call this.
+  ///
+  /// Returns `true` if a settings screen was shown, `false` otherwise (e.g. no
+  /// activity on the device resolved either intent). Wraps
+  /// [openAppPermissionSettings] in production; test instances can inject a
   /// [SettingsOpener] fake.
   Future<bool> openSystemSettings() => _openSettings();
 

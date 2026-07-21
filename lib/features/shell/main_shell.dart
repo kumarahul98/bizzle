@@ -185,11 +185,18 @@ class _MainShellState extends ConsumerState<MainShell>
 
     if (status == TrackingPermissionStatus.permanentlyDenied ||
         status == TrackingPermissionStatus.notificationDenied) {
-      // Permissions are denied, standard logic will handle prompts if user clicks normally.
-      // But we can just surface a quick snackbar here.
+      // Phase 36 (D-03): this was a bare snackbar stating the problem with no
+      // way to act on it — the user is told a permission is missing and left to
+      // find the settings page themselves. It now carries the same "Open
+      // settings" action, to the same destination, as the other two denial
+      // paths.
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Permissions required to start tracking.'),
+        SnackBar(
+          content: const Text(kPermissionsRequiredMessage),
+          action: SnackBarAction(
+            label: kOpenPermissionSettingsLabel,
+            onPressed: () => unawaited(service.openSystemSettings()),
+          ),
         ),
       );
       return;
