@@ -42,7 +42,26 @@ Requirements covered: TRACK-01, TRACK-02, TRACK-04, TRACK-05, UX-03.
 
 ### Foreground Notification (UX-03)
 - **D-14:** Notification content is **static text** "Recording commute" + a **Stop action button**. Tapping the body opens the tracking screen. Tapping Stop finalizes the trip the same way the in-app Stop button does. Static text means the notification doesn't refresh per sample — cheaper on battery and avoids notification flicker.
-- **D-15:** Use `flutter_local_notifications ^18` — already listed in the stack research. Android notification channel named "Active commute" with importance LOW (non-intrusive, non-dismissible while service is running).
+- **D-15:** Use `flutter_local_notifications ^18` — already listed in the stack research. Android notification channel named "Active commute" with importance LOW (non-intrusive, ~~non-dismissible while service is running~~).
+
+  > **CORRECTION 2026-07-21 — "non-dismissible" is FALSE on our minSdk.**
+  > Android 14 changed `FLAG_ONGOING_EVENT` / `setOngoing(true)` so users CAN
+  > swipe foreground-service notifications away. `minSdk = 34`, so this applies
+  > to every device we ship to. `ongoing: true` + `autoCancel: false` are set in
+  > `showRecording()` and are the correct settings — the OS overrides them, and
+  > there is no flag, permission or foregroundServiceType that opts out. The
+  > documented exceptions (CallStyle, media, device-policy-controller, default
+  > Search Selector) do not cover a commute tracker.
+  >
+  > What IS still guaranteed, per the same docs: the notification is
+  > non-dismissible **while the phone is locked**, and **"Clear all" does not
+  > remove it**. Those cover the two scenarios that matter for a commute
+  > (phone pocketed/mounted, and accidental bulk clear). The residual gap is a
+  > deliberate swipe while unlocked, which `_maybeRefreshNotification` should
+  > heal within `kTrackingNotificationRefreshInterval` (5 s) by re-posting.
+  >
+  > Source: developer.android.com/about/versions/14/behavior-changes-all
+  > — "Users can dismiss non-dismissable foreground notifications".
 
 ### Claude's Discretion
 - Tracelet verification details (exact pub.dev / repo checks)

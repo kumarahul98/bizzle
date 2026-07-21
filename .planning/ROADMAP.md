@@ -789,7 +789,7 @@ Plans:
 
 **⚠ This phase deliberately reverses a mitigated threat decision.** Phase 21's T-21-02 / T-21-02-01 recorded that Home/Office coords "live only in local Drift […] not sent to any backend", and the constraint is written into the column dartdocs themselves. Phase 29 overturns that on purpose — see D-01 in `29-PLAN.md` for the rationale and the mandatory costs. The Play listing changes from *no location collected* to *precise location collected*. `T-21-03` ("NEVER log") is upheld, not reversed.
 
-**Plans**: 3 waves — ALL CODE COMPLETE 2026-07-20 on branch `phase-29-sync-home-office`, NOT merged, NOT deployed
+**Plans**: 3 waves — ALL CODE COMPLETE 2026-07-20; branch `phase-29-sync-home-office` **merged to `main` at `13ffec9`** (2026-07-20) and the backend is **deployed and live**. The Data Safety gate below is now enforced by `.planning/RELEASE-GATES.md` rather than by the branch staying off `main`.
 
 Plans:
 **Wave 1**
@@ -801,7 +801,7 @@ Plans:
 **Wave 3**
 - [x] Triggers: push on picker-confirm, restore-then-push on sign-in, D-03 null-only merge (`bf96bbb`)
 
-**Backend is deployed and live** (2026-07-20) — SC#2 satisfied; all five routes verified, including that the pre-existing trip routes survived the shared-function replacement. **ONE gate remains:** the Play Data Safety declaration must change from *no location collected* to *precise location collected* (D-01) before the CLIENT ships. Deploying endpoints nothing calls collects no data, which is why the deploy went first. The branch stays off `main` until the declaration is updated.
+**Backend is deployed and live** (2026-07-20) — SC#2 satisfied; all five routes verified, including that the pre-existing trip routes survived the shared-function replacement. **ONE gate remains:** the Play Data Safety declaration must change from *no location collected* to *precise location collected* (D-01) before the CLIENT ships. Deploying endpoints nothing calls collects no data, which is why the deploy went first. The branch merged to `main` at `13ffec9` on 2026-07-20; the declaration gate is now tracked in `.planning/RELEASE-GATES.md` as a 🔴 BLOCKING release item, since the structural guard of an unmerged branch no longer exists.
 
 **UI hint**: no
 
@@ -830,10 +830,200 @@ Plans:
 
 **UI hint**: yes (settings toggle + permission rationale screen)
 
+### Phase 31: Trip Detail — Breaks, Stuck Transparency, Edit Gating
+
+**Goal**: Opening a trip shows what actually happened on that drive — real breaks, real stuck locations on the map, an honest explanation of the stuck metric — while direction edits move behind the Edit button
+**Depends on**: Phase 18 (the `trip_breaks` table this surfaces), Phase 19 (`EditTripSheet`, the sole direction write path), Phase 27 (the accuracy work in `TripAccumulator` this extends)
+**Requirements**: UX-09, TRACK-15
+
+**Head of the post-UAT batch.** Introduces schema **v9** and the shared `InfoSheet` widget that Phases 32 and 33 both consume, so it blocks both. Also removes a fabrication: `TripTimeline` currently places a "Stuck in traffic" marker at a hardcoded 40% of trip duration (`trip_timeline.dart:44-46`), derived from nothing.
+
+**Success Criteria** (what must be TRUE):
+
+  1. Direction cannot be changed from the trip detail view — only inside `EditTripSheet`
+  2. A trip recorded after this phase paints red stuck stretches where the user was actually below 10 km/h for ≥60 continuous seconds
+  3. Painted segment durations never sum to more than the trip's `timeStuckSeconds`
+  4. A GPS gap longer than `kTrackingMaxAttributableGapSeconds` never appears as a painted stuck stretch
+  5. A trip recorded *before* this phase renders a plain polyline with no error and no empty state
+  6. The timeline shows real breaks and real stuck stretches in time order; the 40% marker exists nowhere in the codebase
+  7. An info icon beside the stuck figure explains it in plain language (no m/s, no "sample", no "threshold")
+  8. The Phase 26 trip-payload key-set test passes unchanged — trip sync gained no field
+  9. `schemaVersion` is 9 and v8 → v9 preserves every existing trip
+
+**Plans**: 3 plans across 2 waves
+
+Plans:
+**Wave 1**
+- [ ] 31-01 — interval classification + `trip_stuck_segments` table + migration v9 (SC2, SC3, SC4, SC9) — owns all Drift work
+- [ ] 31-02 — shared `InfoSheet` widget + constants (SC7) — independent, parallel with 31-01
+
+**Wave 2** *(blocked on Wave 1)*
+- [ ] 31-03 — remove direction toggle, extract map section + paint segments, rewrite timeline (SC1, SC5, SC6)
+
+**UI hint**: yes (trip detail map, timeline, info sheet)
+
+### Phase 32: Identity & Dashboard Personalization
+
+**Goal**: The app greets the user by their actual name, the avatar is theirs, and account controls live behind it instead of buried at the top of Settings
+**Depends on**: Phase 20 (first-run login with skip — the guest state), Phase 24 (auto-restore, surfaced by `CloudSyncRow`/`RestoreRow`), Phase 31 (`InfoSheet`)
+**Requirements**: UX-10
+
+**Must land before Phase 33** — this phase deletes `_AccountSection` from `settings_screen.dart` while Phase 33 restructures the remaining sections of the same file. No schema change.
+
+**Success Criteria** (what must be TRUE):
+
+  1. A signed-in user sees "Hi, {first name}" and their initial in the avatar
+  2. A guest — and a user whose account has no display name, or a whitespace-only one — sees "Hi, Traveller" / "T", with no blank avatar and no crash
+  3. Tapping the avatar opens an account sheet matching what Settings showed before, for both signed-in and guest states
+  4. Settings contains no Account section and no second sign-out or restore control
+  5. Signing in or out while the dashboard is visible updates greeting and avatar without a manual refresh
+  6. An info icon beside the weekly summary explains the Mon–Sun window, what "lost to traffic" measures, and that breaks are excluded
+  7. The avatar's touch target is ≥48×48 while its painted size is unchanged
+
+**Plans**: 2 plans, 1 wave (parallel)
+
+Plans:
+**Wave 1**
+- [ ] 32-01 — header identity wiring + account sheet + remove `_AccountSection` (SC1–SC5, SC7) — owns the settings file
+- [ ] 32-02 — weekly summary info icon (SC6)
+
+**UI hint**: yes (dashboard header, account sheet)
+
+### Phase 33: Settings & Smart Reminders
+
+**Goal**: Reminders work the moment the app is installed, adapt to when the user actually commutes, run only on the days they choose, and Settings stops showing a control that does nothing
+**Depends on**: Phase 7 (the reminder scheduling this rewrites), Phase 31 (`InfoSheet`), Phase 32 (which removes `_AccountSection` from the same file)
+**Requirements**: NOTIF-04, UX-11
+
+**Schema v10** — after Phase 31 (v9), before Phase 35 (v11). The highest-risk item in the batch is the migration itself: changing the `reminderEnabled` default must **not** re-enable notifications for users who deliberately turned them off (T-33-02).
+
+**Success Criteria** (what must be TRUE):
+
+  1. A fresh install has the daily reminder enabled at 07:00 on weekdays with no visit to Settings
+  2. An existing user who had explicitly disabled the reminder still has it disabled after upgrade
+  3. An existing user with `weekendReminder = true` has all seven days selected after upgrade
+  4. An arbitrary day subset schedules reminders on exactly those days — including stopping Saturday and Sunday when deselected
+  5. Selecting zero days means no reminders, and does not silently revert to weekdays
+  6. After 5+ `to_office` GPS trips in 28 days, Settings shows a suggested time from the median start, 15 min earlier, rounded down to 5 min
+  7. Dismissing the suggestion prevents it reappearing until the computed value moves by >20 minutes
+  8. Manual entries do not influence the suggestion
+  9. The cutoff row no longer exists; direction labelling behaviour is unchanged
+  10. An info icon beside auto-pause explains that the app *asks* rather than pauses
+  11. `schemaVersion` is 10 and v9 → v10 preserves all existing preferences
+
+**Plans**: 3 plans across 3 waves
+
+Plans:
+**Wave 1**
+- [ ] 33-01 — schema v10 + prefs DAO 6 touch points + `scheduleReminder` rewrite incl. widened 20–26 cancel sweep (SC1–SC5, SC11) — owns all Drift and notification work
+
+**Wave 2** *(blocked on Wave 1)*
+- [ ] 33-02 — `ReminderSuggestionService`: median, 5-trip/28-day gate, 15-min offset, >20-min re-offer rule (SC6, SC7, SC8)
+
+**Wave 3** *(blocked on Waves 1 and 2)*
+- [ ] 33-03 — day-of-week picker, remove cutoff row, auto-pause info sheet, suggestion card (SC9, SC10)
+
+**UI hint**: yes (settings restructure, day picker, suggestion card)
+
+### Phase 34: Multi-Period Stats (RnD First)
+
+**Goal**: Stats answer "how is my commute trending?" across weeks, months and years, with a daily average comparable between periods of different length
+**Depends on**: Phase 5 (the stats feature and `computeStatsSummary` this extends), Phase 31 (`InfoSheet`, if the RnD recommends explainers)
+**Requirements**: STATS-03
+
+**⚠ Wave 1 is a review gate.** The RnD document must be read and accepted before any code. The daily-average denominator is the decisive question: dividing by calendar days makes a commute look like it improved when the user merely took leave — a metric that attacks the app's stated core value. No schema change.
+
+**Success Criteria** (what must be TRUE):
+
+  1. `34-RESEARCH.md` exists, answers all six questions with a recommendation each, and is accepted before any code
+  2. The stats screen offers weekly, monthly and yearly periods
+  3. Each period shows a daily average whose label states its denominator unambiguously
+  4. The RnD's worked examples are encoded as unit tests and pass
+  5. Dashboard and stats agree on "this week", and match their pre-phase values for the same trips
+  6. `monthTotalSeconds` is either rendered or removed along with its unused constants
+  7. Switching periods is not perceived as a stall on a database holding a year of trips
+
+**Plans**: 3 plans across 3 waves (spike first)
+
+Plans:
+**Wave 1** *(review gate — stop here)*
+- [ ] 34-01 — write `34-RESEARCH.md`: period semantics, daily-average denominator, metric set, partial periods, aggregation strategy with a measured row count, UI shape (SC1). No code.
+
+**Wave 2** *(blocked on Wave 1 acceptance)*
+- [ ] 34-02 — aggregation layer + tests encoding the worked examples (SC3, SC4, SC5)
+
+**Wave 3** *(blocked on Wave 2)*
+- [ ] 34-03 — period selector + card updates + `monthTotalSeconds` resolution (SC2, SC6, SC7)
+
+**UI hint**: yes (period selector, period-aware cards)
+
+### Phase 35: Deleted Trips (Trash)
+
+**Goal**: Deleting a trip is recoverable for 30 days instead of instantly permanent, and deleting a trip that has breaks stops being a coin flip
+**Depends on**: Phase 24 (restore, whose conflict detection must keep seeing deleted rows), Phase 26 (the sync wire contract this leaves untouched), Phase 31 (stuck segments that must cascade), Phase 33 (schema ordering)
+**Requirements**: TRIP-07
+
+**Schema v11** — last migration of the batch. **Fixes a pre-existing bug not raised in the original request**: `TripBreaks.tripId` has no `onDelete` action while `PRAGMA foreign_keys = ON`, so deleting a trip with breaks may currently fail and surface as a generic snackbar. Also corrects a documented-but-false claim — CLAUDE.md says "soft deletes everywhere" while `trips_dao.dart:199` issues a real `DELETE`.
+
+**Success Criteria** (what must be TRUE):
+
+  1. Deleting a trip removes it from history, dashboard and stats simultaneously, and it appears under Settings → Deleted trips
+  2. Restoring returns it to all three surfaces with breaks and metadata intact
+  3. Deleting a trip *that has breaks* succeeds — the pre-existing FK path is fixed
+  4. A soft-deleted trip is NOT resurrected by a cloud restore
+  5. Trips soft-deleted >30 days ago are purged on app start with their breaks and segments; the purge enqueues nothing
+  6. Each Trash row shows how long ago it was deleted and how long remains
+  7. "Delete permanently" confirms first, and is thereafter unrecoverable locally
+  8. The sync wire format is unchanged — the Phase 26 payload key-set test passes untouched
+  9. `schemaVersion` is 11 and v10 → v11 preserves every existing trip and break
+
+**Plans**: 2 plans across 2 waves
+
+Plans:
+**Wave 1**
+- [ ] 35-01 — schema v11 (`trips.deletedAt`, `trip_breaks` FK cascade rebuild), DAO filter + the three reader decisions, soft delete/restore, startup purge (SC1–SC5, SC8, SC9) — owns all Drift work
+
+**Wave 2** *(blocked on Wave 1)*
+- [ ] 35-02 — Trash screen, Settings entry, restore + permanent delete, retention countdown (SC6, SC7)
+
+**UI hint**: yes (Trash screen under Settings)
+
+### Phase 36: Widget & Platform Fixes
+
+**Goal**: The home-screen widget fits where it should and its stop button reads as stop; "Open settings" lands on the location permission itself; the notification's Stop button visibly stops the trip instead of appearing to merely open the app
+**Depends on**: Phase 22 (the widget), Phase 27 (the auto-pause confirm pattern this mirrors), Phase 28 (the responsive two-layout sizing this adjusts)
+**Requirements**: WIDGET-03, UX-12, TRACK-16
+
+No schema change; independent of Phases 31–35 and may run in parallel with any of them. Two root causes are already identified: the widget stop button uses `@android:drawable/ic_media_ff` — the platform *fast-forward* glyph, which is exactly why it reads as play — and the notification Stop action carries `showsUserInterface: true`, bringing the app forward with no confirmation, giving the impression it only opened the app. The auto-pause action was already fixed the same way on 2026-07-21 (`tracking_notification_service.dart:433`).
+
+**Success Criteria** (what must be TRUE):
+
+  1. The widget can be placed and resized to a single cell tall on a real launcher without clipped text or unreachable buttons
+  2. The stop button is unmistakably a stop control on its own background, not the fast-forward icon
+  3. `ic_media_ff` appears nowhere in the project
+  4. Denying location on a fresh install and tapping "Open settings" lands on the app's permission list, not App Info
+  5. Where `ACTION_APP_PERMISSIONS` does not resolve, the fallback opens App Info and the app does not crash
+  6. All three permission-denial paths lead to the same destination; `permission_gate.dart` is deleted
+  7. Tapping Stop on the notification brings the app forward AND shows a "Stop this trip?" confirmation; cancelling leaves the trip recording
+  8. The notification stop path works in a **release** build with the app backgrounded
+  9. Notification and widget stop confirmations use the same dialog and wording
+
+**Plans**: 3 plans, 1 wave (parallel — disjoint file sets)
+
+Plans:
+**Wave 1**
+- [ ] 36-01 — Android resources: `widget_info.xml`, both layouts, two new drawables (SC1, SC2, SC3). No Dart.
+- [ ] 36-02 — permission deep-link channel + unify the three denial paths + delete `permission_gate.dart` (SC4, SC5, SC6)
+- [ ] 36-03 — stop-confirm relay mirroring the auto-pause pattern (SC7, SC8, SC9) — merges after 36-02, both touch `main_shell.dart` in distinct regions
+
+**UI hint**: yes (widget layout, confirm dialog)
+
 ## v0.3 Progress
 
 **Execution Order:**
-v0.3 phases execute in numeric order after the (paused) v0.2 phases: 17 -> 18 -> 19 -> 20 -> 21 -> 22 -> 23 -> 24 -> 25 -> 25.1 -> 26 -> 27 -> 28 -> 29 -> 30
+v0.3 phases execute in numeric order after the (paused) v0.2 phases: 17 -> 18 -> 19 -> 20 -> 21 -> 22 -> 23 -> 24 -> 25 -> 25.1 -> 26 -> 27 -> 28 -> 29 -> 30 -> 31 -> 32 -> 33 -> 34 -> 35 -> 36
+
+Phases 31-36 are the post-UAT bug/feature batch (17 reported items), split so that no two phases contend for the same files. Their ordering is load-bearing for two reasons. **Migrations must land in sequence** — 31 (v9) -> 33 (v10) -> 35 (v11) — because each branch is guarded `if (from < N && to >= N)`. And **Phase 31 must precede 32 and 33**, which both consume the shared `InfoSheet` it introduces, while **Phase 32 must precede 33**, because 32 deletes `_AccountSection` from `settings_screen.dart` and 33 restructures the rest of that same file. Phases 34 and 36 are independent of the others and may run any time after 31.
 
 Note: Phase 17 is a small, independent UI fix + quick-label and is the safe first phase. Phase 18 introduces the break/pause data model (schema migration) that Phase 19 (full editing) depends on. Phases 20 and 21 are largely independent of the tracking-data work and build on existing auth/onboarding and settings/preferences. Phase 22 (home-screen widget) has the highest platform-integration risk and lands last, after the pause/resume state model exists so the widget can reflect accurate state.
 
@@ -854,3 +1044,9 @@ Note: Phase 17 is a small, independent UI fix + quick-label and is the safe firs
 | 28. Widget Content + Responsive Sizing | v0.3 | 3/3 | Code complete (on-device UAT pending) | 2026-07-18 |
 | 29. Sync Home & Office Locations to Cloud | v0.3 | 3/3 | Backend LIVE; client blocked on Data Safety declaration | 2026-07-20 |
 | 30. Geofence Departure Detection | v0.3 | 0/TBD | Blocked on 30-00 spike (needs real drive) | - |
+| 31. Trip Detail — Breaks, Stuck Transparency, Edit Gating | v0.3 | 0/3 | Not started (schema v9; head of the 31-36 batch) | - |
+| 32. Identity & Dashboard Personalization | v0.3 | 0/2 | Not started (must precede 33) | - |
+| 33. Settings & Smart Reminders | v0.3 | 0/3 | Not started (schema v10) | - |
+| 34. Multi-Period Stats (RnD First) | v0.3 | 0/3 | Not started (Wave 1 is a review gate) | - |
+| 35. Deleted Trips (Trash) | v0.3 | 0/2 | Not started (schema v11; fixes pre-existing FK cascade bug) | - |
+| 36. Widget & Platform Fixes | v0.3 | 0/3 | Not started (independent; parallelisable) | - |
