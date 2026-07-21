@@ -6,14 +6,8 @@ import 'package:intl/intl.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/daos/user_preferences_dao.dart';
 import 'package:traevy/database/providers.dart';
-import 'package:traevy/features/auth/models/auth_state.dart';
-import 'package:traevy/features/auth/providers/auth_providers.dart';
-import 'package:traevy/features/auth/widgets/sign_in_sheet.dart';
 import 'package:traevy/features/settings/providers/settings_providers.dart';
 import 'package:traevy/features/settings/screens/location_picker_screen.dart';
-import 'package:traevy/features/settings/widgets/account_row.dart';
-import 'package:traevy/features/settings/widgets/cloud_sync_row.dart';
-import 'package:traevy/features/settings/widgets/restore_row.dart';
 import 'package:traevy/features/settings/widgets/saved_location_tile.dart';
 import 'package:traevy/features/settings/widgets/settings_row.dart';
 import 'package:traevy/features/settings/widgets/settings_section.dart';
@@ -23,7 +17,11 @@ import 'package:traevy/shared/widgets/traevy_toggle.dart';
 /// The Traevy-restyled Settings screen — four grouped sections inside
 /// `MainShell`.
 ///
-/// Sections (top → bottom): Account, Recording, Notifications, Appearance.
+/// Sections (top → bottom): Commute, Recording, Notifications, Appearance.
+/// The Account section moved out in Phase 32 (D-02) — those controls now live
+/// behind the dashboard avatar in `showAccountSheet`, and deliberately have no
+/// copy here: two Sign-out buttons or two Restore rows reading the same state
+/// is a correctness hazard, not a convenience.
 /// UX-02 (theme), UX-04 (weekly summary), UX-05 (daily reminder) wiring is
 /// preserved end-to-end through the existing
 /// `UserPreferencesDao.upsert` + `NotificationService` flows.
@@ -49,7 +47,6 @@ class SettingsScreen extends ConsumerWidget {
                   style: textTheme.titleLarge,
                 ),
               ),
-              const _AccountSection(),
               KeyedSubtree(
                 key: TourKeys.settingsLocations,
                 child: const _LocationsSection(),
@@ -75,61 +72,6 @@ class SettingsScreen extends ConsumerWidget {
 // ---------------------------------------------------------------------------
 // Sections
 // ---------------------------------------------------------------------------
-
-/// State-aware Account section for the Settings screen (D-07, AUTH-01).
-///
-/// Watches [authStateProvider] and switches on the sealed [AuthState]:
-///   - [AuthSignedIn]: populated [AccountRow] + a functional "Sign out" row.
-///   - [AuthGuest] / [AuthLoading]: a single tappable "Sign in to back up"
-///     row that opens the sign-in bottom sheet.
-///
-/// Phase 11 (SYNC-03, D-09): the signed-in branch now also renders a live
-/// cloud-sync status row ([CloudSyncRow]) and a Restore-from-cloud row
-/// ([RestoreRow]) between the account header and Sign out. The guest branch is
-/// unchanged — those rows require an account (and the Phase 11 sync endpoints).
-class _AccountSection extends ConsumerWidget {
-  const _AccountSection();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final auth = ref.watch(authStateProvider);
-
-    final rows = switch (auth) {
-      AuthSignedIn(:final name, :final email) => <Widget>[
-        AccountRow(
-          name: name,
-          email: email,
-          initial: name.isNotEmpty
-              ? name[0].toUpperCase()
-              : kPlaceholderUserInitial,
-        ),
-        const CloudSyncRow(),
-        const RestoreRow(),
-        SettingsRow(
-          label: kCopySettingsSignOut,
-          dangerous: true,
-          // FirebaseAuth.signOut() → authStateChanges emits null → the
-          // section rebuilds into the guest path above.
-          onTap: () => unawaited(ref.read(authServiceProvider).signOut()),
-        ),
-      ],
-      // Guest or still loading — single CTA opens the sign-in sheet. No
-      // cloud/sign-out rows: they require an account (and Phase 11 sync).
-      _ => <Widget>[
-        SettingsRow(
-          label: kCopySettingsGuestSignIn,
-          // showSignInSheet handles its own async lifecycle.
-          onTap: () => showSignInSheet(context),
-        ),
-      ],
-    };
-
-    return SettingsSection(
-      title: kSettingsAccountSectionTitle,
-      children: rows,
-    );
-  }
-}
 
 /// Commute-anchor section (Phase 21, LOC-01): the Home and Office location
 /// rows. Each [SavedLocationTile] reflects the saved coord (or "Not set") and

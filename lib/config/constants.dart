@@ -790,14 +790,25 @@ const String kFontUI = 'Inter';
 /// `.planning/phases/08-ui-overhaul/08-CONTEXT.md`.
 const String kFontMono = 'JetBrainsMono';
 
-/// Placeholder display name shown in the header before the user signs in
-/// (Phase 9 populates this from Cognito profile).
+/// Display name used when there is no signed-in user to name.
+///
+/// NOT dead placeholder scaffolding — as of Phase 32 (D-01) this is the
+/// documented **guest fallback**. The dashboard header greets a signed-in user
+/// by their real first name and falls back to this for the guest and loading
+/// auth states, and for a signed-in account whose `displayName` is null,
+/// empty, or whitespace-only. `AuthStateNotifier` also substitutes it when
+/// Firebase hands back a null `displayName` (AUTH-02).
 ///
 /// Design token source: Specifics block in
 /// `.planning/phases/08-ui-overhaul/08-CONTEXT.md`.
 const String kPlaceholderUserName = 'Traveller';
 
-/// Single-character placeholder initial for the user avatar before sign-in.
+/// Single-character avatar initial used when there is no signed-in user.
+///
+/// NOT dead placeholder scaffolding — as of Phase 32 (D-01) this is the
+/// documented **guest fallback** for the avatar circle, matching the first
+/// letter of [kPlaceholderUserName]. A signed-in user sees their own initial;
+/// this shows only when no usable name exists.
 ///
 /// Design token source: Specifics block in
 /// `.planning/phases/08-ui-overhaul/08-CONTEXT.md`.
@@ -1610,3 +1621,30 @@ const String kStopConfirmAcceptLabel = 'Stop & save';
 /// listener, and short enough that a user who gets no dialog is not left
 /// wondering whether the tap registered.
 const int kStopConfirmAckTimeoutSeconds = 5;
+
+// =========================================================================
+// Phase 32 — Identity & dashboard personalization
+// =========================================================================
+
+// --- Dashboard header identity (Phase 32, D-01) ---------------------------
+
+/// Greeting prefix on the dashboard header, completed by the user's first
+/// name (or [kPlaceholderUserName] when nobody is signed in).
+const String kGreetingPrefix = 'Hi, ';
+
+// --- Account sheet (Phase 32, D-02) ---------------------------------------
+
+/// Semantics / tooltip label for the dashboard avatar button that opens the
+/// account sheet. The avatar renders a bare letter, which a screen reader
+/// would otherwise announce as a meaningless single character.
+const String kAccountAvatarLabel = 'Account';
+
+/// Minimum touch target (logical px) for the dashboard avatar button.
+///
+/// Material's minimum interactive size. The painted circle stays
+/// [kAccountAvatarPaintedSize]; only the tappable area grows (D-02).
+const double kAccountAvatarTouchTarget = 48;
+
+/// Painted diameter (logical px) of the dashboard avatar circle. Unchanged
+/// from its Phase 8 value — Phase 32 grows the touch target, not the visual.
+const double kAccountAvatarPaintedSize = 36;
