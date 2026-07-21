@@ -26,6 +26,21 @@ class TripStuckSegmentsDao extends DatabaseAccessor<AppDatabase>
     return batch((b) => b.insertAll(tripStuckSegments, rows));
   }
 
+  /// Delete every stuck segment for [tripId].
+  ///
+  /// Called when a full edit rewrites `timeStuckSeconds` (Phase 31, D-03
+  /// invariant). The stored index ranges were derived from the ORIGINAL
+  /// recording's speed classification; once the user overwrites the stuck
+  /// total by hand there is nothing left to re-derive them from, so keeping
+  /// them would let the map paint more stuck time than the trip claims to
+  /// measure. Dropping them degrades the trip to the D-06 no-segments path,
+  /// which renders a plain route — honest about what is no longer known.
+  Future<void> deleteSegmentsForTrip(String tripId) {
+    return (delete(
+      tripStuckSegments,
+    )..where((s) => s.tripId.equals(tripId))).go();
+  }
+
   /// Reactive stream of stuck segments for [tripId], ordered by
   /// `startPointIndex` ascending — which is also chronological order, because
   /// polyline point order is sample order.

@@ -193,5 +193,75 @@ void main() {
       // Rollback: no break rows for the missing trip.
       expect(await db.tripBreaksDao.breaksForTrip(missingTripId), isEmpty);
     });
+
+    /// Phase 31 (D-03 invariant): the map must never paint more stuck time
+    /// than the trip claims to measure. A full edit overwrites
+    /// `timeStuckSeconds` by hand, which strands the segments recorded from
+    /// the original speed classification — so they are dropped.
+    Future<void> insertStuckSegment(String tripId) {
+      return db.tripStuckSegmentsDao.insertSegments([
+        TripStuckSegmentsCompanion.insert(
+          id: uuid.v4(),
+          tripId: tripId,
+          startPointIndex: 0,
+          endPointIndex: 40,
+          startTime: start,
+          endTime: start.add(const Duration(minutes: 10)),
+        ),
+      ]);
+    }
+
+    test(
+      'full edit drops stuck segments stranded by the new stuck total',
+      () async {
+        final id = await insertTrip();
+        await insertStuckSegment(id);
+        expect(await db.tripStuckSegmentsDao.watch(id).first, hasLength(1));
+
+        final notifier = container.read(tripManagementProvider.notifier);
+        // New stuck total of 60s is far below the 600s segment already stored.
+        await notifier.editTrip(
+          tripId: id,
+          direction: kDirectionToOffice,
+          startTimeUtc: start,
+          endTimeUtc: end,
+          totalPausedSeconds: 0,
+          timeMovingSeconds: 3540,
+          timeStuckSeconds: 60,
+          durationSecondsOverride: 3600,
+          markEdited: true,
+        );
+
+        expect(
+          container.read(tripManagementProvider),
+          isA<TripManagementSaved>(),
+        );
+        expect(await db.tripStuckSegmentsDao.watch(id).first, isEmpty);
+      },
+    );
+
+    test(
+      'direction-only edit keeps stuck segments, which stay valid',
+      () async {
+        final id = await insertTrip();
+        await insertStuckSegment(id);
+
+        final notifier = container.read(tripManagementProvider.notifier);
+        // No markEdited: timeStuckSeconds is left absent, so the recorded
+        // segments still describe the same measurement.
+        await notifier.editTrip(
+          tripId: id,
+          direction: kDirectionToHome,
+          startTimeUtc: start,
+          endTimeUtc: end,
+        );
+
+        expect(
+          container.read(tripManagementProvider),
+          isA<TripManagementSaved>(),
+        );
+        expect(await db.tripStuckSegmentsDao.watch(id).first, hasLength(1));
+      },
+    );
   });
 }

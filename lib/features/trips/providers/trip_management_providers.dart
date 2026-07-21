@@ -97,6 +97,7 @@ class TripManagementNotifier extends Notifier<TripManagementState> {
       final db = ref.read(appDatabaseProvider);
       final tripsDao = ref.read(tripsDaoProvider);
       final breaksDao = ref.read(tripBreaksDaoProvider);
+      final stuckSegmentsDao = ref.read(tripStuckSegmentsDaoProvider);
       final syncDao = ref.read(syncQueueDaoProvider);
       await db.transaction(() async {
         await tripsDao.updateTrip(
@@ -145,6 +146,17 @@ class TripManagementNotifier extends Notifier<TripManagementState> {
                 ),
             ]);
           }
+        }
+        // Phase 31 (D-03 invariant): a full edit overwrites timeStuckSeconds
+        // with the user's recomputed value, but the stored stuck segments were
+        // derived from the original recording's per-interval speed
+        // classification. Nothing survives to re-derive them from, so keeping
+        // them would let the map paint more stuck time than the trip measures.
+        // Drop them and let the trip render as a plain route (D-06). The
+        // direction-only path leaves timeStuckSeconds untouched, so its
+        // segments stay valid and are deliberately NOT cleared.
+        if (markEdited) {
+          await stuckSegmentsDao.deleteSegmentsForTrip(tripId);
         }
         await syncDao.enqueueUpdate(tripId);
       });
