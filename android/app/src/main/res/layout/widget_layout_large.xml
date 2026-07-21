@@ -300,8 +300,8 @@
 
             <LinearLayout
                 android:id="@+id/btn_pause_commute"
-                android:layout_width="46dp"
-                android:layout_height="46dp"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
                 android:orientation="vertical"
                 android:gravity="center"
                 android:background="@drawable/widget_btn_pause"
@@ -314,18 +314,25 @@
                     android:tint="#FFFFFF" />
             </LinearLayout>
 
+            <!--
+              Phase 36 (D-02): a real stop glyph on its own oval. This was
+              `@android:drawable/ic_media_ff` — the platform FAST-FORWARD icon —
+              drawn on `widget_btn_record`, the START button's crimson chip.
+              Kept identical to the compact layout so the control reads the same
+              in both variants.
+            -->
             <LinearLayout
                 android:id="@+id/btn_stop_commute"
-                android:layout_width="46dp"
-                android:layout_height="46dp"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
                 android:orientation="vertical"
                 android:gravity="center"
-                android:background="@drawable/widget_btn_record"
+                android:background="@drawable/widget_btn_stop"
                 android:elevation="2dp">
                 <ImageView
                     android:layout_width="18dp"
                     android:layout_height="18dp"
-                    android:src="@android:drawable/ic_media_ff"
+                    android:src="@drawable/ic_widget_stop"
                     android:tint="#FFFFFF" />
             </LinearLayout>
         </LinearLayout>

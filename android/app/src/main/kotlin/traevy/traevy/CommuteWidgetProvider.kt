@@ -49,9 +49,23 @@ class CommuteWidgetProvider : HomeWidgetProvider() {
     ) {
         appWidgetIds.forEach { widgetId ->
             // Android selects the largest variant that fits the current size.
+            //
+            // Phase 36 (D-01): the COMPACT entry's height dropped from 110f to
+            // 50f alongside the halved `minResizeHeight`. Both entries used to
+            // declare a 110dp height, so at a one-cell-tall widget NEITHER fit
+            // and the choice fell through to whatever Android considers
+            // smallest — a selection nothing in this file was actually
+            // expressing.
+            //
+            // The large entry deliberately keeps its 110f height. Selection is
+            // on BOTH dimensions, not width alone: `widget_layout_large` is
+            // built around a two-cell height (60dp START button, a stats block
+            // stacked under the header), so a wide-but-short widget must get
+            // the compact layout. Gating it on width alone would hand a 4x1
+            // placement a layout that cannot render in the space.
             val views = RemoteViews(
                 mapOf(
-                    SizeF(110f, 110f) to buildViews(context, widgetData, large = false),
+                    SizeF(110f, 50f) to buildViews(context, widgetData, large = false),
                     SizeF(250f, 110f) to buildViews(context, widgetData, large = true),
                 )
             )

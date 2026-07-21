@@ -1,12 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Phase 36 (D-01): halved the widget's vertical footprint. It previously
+  demanded two cells of height for a control strip that only ever needed one.
+
+  `targetCellHeight` is the operative dimension here — minSdk is 34, and on
+  API 31+ launchers targetCellWidth/Height take precedence over
+  minWidth/minHeight (which remain as the pre-31 fallback). `minResizeHeight`
+  is the real floor: it is the smallest height the user can drag the widget to,
+  and `widget_layout.xml` is laid out to render its full 48dp touch targets
+  within exactly that 50dp.
+
+  `initialLayout`/`previewLayout` point at the COMPACT layout as of Phase 36.
+  They previously pointed at `widget_layout_large`, which is built around a
+  two-cell height — at the 4x1 target above it would have been placed and
+  previewed clipped.
+
+  `updatePeriodMillis="0"` stays: the widget is push-updated from Dart and must
+  never self-refresh.
+-->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:minWidth="110dp"
-    android:minHeight="110dp"
+    android:minHeight="55dp"
     android:targetCellWidth="4"
-    android:targetCellHeight="2"
+    android:targetCellHeight="1"
     android:minResizeWidth="100dp"
-    android:minResizeHeight="100dp"
+    android:minResizeHeight="50dp"
     android:updatePeriodMillis="0"
-    android:initialLayout="@layout/widget_layout_large"
-    android:previewLayout="@layout/widget_layout_large"
+    android:initialLayout="@layout/widget_layout"
+    android:previewLayout="@layout/widget_layout"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen" />

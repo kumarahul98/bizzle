@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Phase 36 (D-02) — background oval for the widget's STOP button.
+
+  Its OWN shape rather than a second use of `widget_btn_record`. Stop was
+  previously drawn on the record button's crimson oval, borrowing the identity
+  of the control that STARTS a commute to express the one that ends it. They are
+  never on screen at the same time (idle vs active state), so the reuse was
+  invisible in review and misleading in use.
+
+  Colour is a deeper, desaturated red — still reading as terminal/destructive,
+  but plainly not the same chip as `widget_btn_record`'s #C0392B, and it holds
+  contrast against `widget_bg` (#1A1C1E).
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
+    <solid android:color="#8E2A20" />
+</shape>

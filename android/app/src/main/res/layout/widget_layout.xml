@@ -1,9 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Compact 2x2 commute widget. Both states are sized to fit under the ~110dp
-  interior of the default 2x2 cell so the circular buttons render fully instead
-  of being clipped into half-circles (WIDGET-01 device-UAT fix). IDs are read by
-  CommuteWidgetProvider.onUpdate — do not rename them.
+  COMPACT commute widget. IDs are read by CommuteWidgetProvider.onUpdate — do
+  not rename them.
+
+  Phase 36 (D-01/D-02) reworked this layout to fit ONE cell of height. Two
+  changes carry that:
+
+  1. The active state is now a single HORIZONTAL row — stats beside the
+     buttons, not stacked above them. Stacking is what made two cells
+     mandatory; nothing else about the content did.
+  2. Vertical padding is 1dp and the circular buttons are 48dp, so the whole
+     widget renders in exactly 50dp — the `minResizeHeight` declared in
+     `res/xml/widget_info.xml`. That 48dp is the Material minimum touch target
+     and is the reason the padding is as thin as it is: the button size is the
+     floor, and the padding absorbs what is left.
+
+  The START button came down from 64dp to 48dp for the same reason, with its
+  icon and caption scaled to match the pause/stop buttons.
+
+  D-02: `btn_stop_commute` now uses `@drawable/ic_widget_stop` (a square) on
+  `@drawable/widget_btn_stop`. It previously drew `@android:drawable/ic_media_ff`
+  — the platform FAST-FORWARD glyph — on the record button's oval, which read
+  as play.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
@@ -12,21 +30,24 @@
     android:orientation="vertical"
     android:background="@drawable/widget_bg"
     android:gravity="center"
-    android:padding="8dp">
+    android:paddingStart="8dp"
+    android:paddingEnd="8dp"
+    android:paddingTop="1dp"
+    android:paddingBottom="1dp">
 
     <!-- IDLE STATE -->
     <LinearLayout
         android:id="@+id/widget_idle_state"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
+        android:orientation="horizontal"
         android:gravity="center">
 
         <!-- Circular crimson START button (tap target = whole circle) -->
         <FrameLayout
             android:id="@+id/btn_start_commute"
-            android:layout_width="64dp"
-            android:layout_height="64dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:background="@drawable/widget_btn_record"
             android:elevation="2dp">
 
@@ -37,8 +58,8 @@
                 android:gravity="center">
 
                 <ImageView
-                    android:layout_width="22dp"
-                    android:layout_height="22dp"
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
                     android:src="@android:drawable/ic_media_play"
                     android:tint="#FFFFFF" />
 
@@ -47,30 +68,30 @@
                     android:layout_height="wrap_content"
                     android:text="START"
                     android:textColor="#FFFFFF"
-                    android:textSize="9sp"
+                    android:textSize="8sp"
                     android:textStyle="bold"
-                    android:letterSpacing="0.1"
+                    android:letterSpacing="0.08"
                     android:layout_marginTop="1dp" />
             </LinearLayout>
         </FrameLayout>
     </LinearLayout>
 
-    <!-- ACTIVE STATE -->
+    <!-- ACTIVE STATE — one row: stats, then pause + stop -->
     <LinearLayout
         android:id="@+id/widget_active_state"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:gravity="center"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
         android:visibility="gone">
 
-        <!-- STATS ROW -->
+        <!-- STATS -->
         <LinearLayout
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_weight="1"
             android:orientation="horizontal"
-            android:gravity="center"
-            android:layout_marginBottom="8dp">
+            android:gravity="center">
 
             <LinearLayout
                 android:layout_width="0dp"
@@ -85,6 +106,7 @@
                     android:textColor="#9A9AAA"
                     android:textSize="8sp"
                     android:textStyle="bold"
+                    android:maxLines="1"
                     android:letterSpacing="0.08" />
                 <TextView
                     android:id="@+id/widget_distance"
@@ -92,7 +114,8 @@
                     android:layout_height="wrap_content"
                     android:text="--"
                     android:textColor="#5EED9E"
-                    android:textSize="15sp"
+                    android:textSize="14sp"
+                    android:maxLines="1"
                     android:textStyle="bold" />
             </LinearLayout>
 
@@ -109,6 +132,7 @@
                     android:textColor="#9A9AAA"
                     android:textSize="8sp"
                     android:textStyle="bold"
+                    android:maxLines="1"
                     android:letterSpacing="0.08" />
                 <TextView
                     android:id="@+id/widget_duration"
@@ -116,51 +140,45 @@
                     android:layout_height="wrap_content"
                     android:text="--"
                     android:textColor="#8AABCF"
-                    android:textSize="15sp"
+                    android:textSize="14sp"
+                    android:maxLines="1"
                     android:textStyle="bold" />
             </LinearLayout>
         </LinearLayout>
 
-        <!-- PAUSE + STOP buttons row (icon-only to stay within 2x2) -->
+        <!-- PAUSE + STOP (icon-only; 48dp touch targets) -->
         <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center">
+            android:id="@+id/btn_pause_commute"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:background="@drawable/widget_btn_pause"
+            android:layout_marginStart="6dp"
+            android:elevation="2dp">
 
-            <LinearLayout
-                android:id="@+id/btn_pause_commute"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:orientation="vertical"
-                android:gravity="center"
-                android:background="@drawable/widget_btn_pause"
-                android:layout_marginEnd="12dp"
-                android:elevation="2dp">
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:src="@android:drawable/ic_media_pause"
+                android:tint="#FFFFFF" />
+        </LinearLayout>
 
-                <ImageView
-                    android:layout_width="18dp"
-                    android:layout_height="18dp"
-                    android:src="@android:drawable/ic_media_pause"
-                    android:tint="#FFFFFF" />
-            </LinearLayout>
+        <LinearLayout
+            android:id="@+id/btn_stop_commute"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:background="@drawable/widget_btn_stop"
+            android:layout_marginStart="6dp"
+            android:elevation="2dp">
 
-            <LinearLayout
-                android:id="@+id/btn_stop_commute"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:orientation="vertical"
-                android:gravity="center"
-                android:background="@drawable/widget_btn_record"
-                android:elevation="2dp">
-
-                <ImageView
-                    android:layout_width="18dp"
-                    android:layout_height="18dp"
-                    android:src="@android:drawable/ic_media_ff"
-                    android:tint="#FFFFFF" />
-            </LinearLayout>
-
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:src="@drawable/ic_widget_stop"
+                android:tint="#FFFFFF" />
         </LinearLayout>
     </LinearLayout>
 </LinearLayout>

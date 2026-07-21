@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Phase 36 (D-02) — the STOP glyph for the home-screen widget.
+
+  A filled, slightly-rounded SQUARE: the universal stop control. This replaces
+  `@android:drawable/ic_media_ff`, the platform FAST-FORWARD glyph (a double
+  triangle), which both widget layouts used for `btn_stop_commute` and which
+  reads as "play" at the 18dp icon size the buttons render it at. That misread
+  was the entire reported bug.
+
+  Deliberately a project vector rather than another `@android:drawable`: the
+  platform drawable set contains no stop icon, which is exactly why the
+  fast-forward one was reached for in the first place.
+
+  Path is drawn on the standard 24dp Material canvas and tinted white by the
+  layouts (`android:tint`), matching the sibling media icons.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="#FFFFFF">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M7,7 L17,7 A1.5,1.5 0 0,1 18.5,8.5 L18.5,15.5 A1.5,1.5 0 0,1 17,17 L7,17 A1.5,1.5 0 0,1 5.5,15.5 L5.5,8.5 A1.5,1.5 0 0,1 7,7 Z" />
+</vector>
