@@ -103,13 +103,7 @@ class _MainShellState extends ConsumerState<MainShell>
           },
         );
       } else if (action == 'stop') {
-        _showConfirmationDialog(
-          'Stop Commute',
-          'Are you sure you want to stop and save this trip?',
-          () {
-            ref.read(trackingStateProvider.notifier).stop();
-          },
-        );
+        _showStopConfirm();
       }
     }
   }
@@ -137,6 +131,46 @@ class _MainShellState extends ConsumerState<MainShell>
             child: const Text('Confirm'),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Ask whether to stop the trip (Phase 36, D-04).
+  ///
+  /// The SINGLE stop-confirmation in the app. Both entry points that can ask
+  /// this question — the home-screen widget's Stop button and the recording
+  /// notification's Stop action — call this method, so the two cannot drift
+  /// apart in wording or behaviour (SC#9). Cancelling leaves the trip
+  /// recording and the notification intact.
+  ///
+  /// Unlike [_showAutoPauseConfirm] this does NOT gate on [TrackingActive].
+  /// The dialog is harmless once the trip has already ended (`stop()` on a
+  /// finished trip is a no-op), and the notification path can legitimately
+  /// arrive while the state stream is still catching up on a cold resume —
+  /// suppressing the dialog there would reproduce the exact "Stop did nothing
+  /// visible" complaint this change exists to fix.
+  void _showStopConfirm() {
+    if (!mounted) return;
+    unawaited(
+      showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text(kStopConfirmTitle),
+          content: const Text(kStopConfirmBody),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text(kStopConfirmDismissLabel),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                ref.read(trackingStateProvider.notifier).stop();
+              },
+              child: const Text(kStopConfirmAcceptLabel),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -342,10 +376,24 @@ class _MainShellState extends ConsumerState<MainShell>
     // app and asks here, instead of pausing silently from the notification.
     // Mirrors the home-screen widget's Pause button so both entry points
     // behave identically.
-    ref.listen<AsyncValue<void>>(autoPauseConfirmRequestProvider, (_, next) {
-      if (next is! AsyncData) return;
-      _showAutoPauseConfirm();
-    });
+    ref
+      ..listen<AsyncValue<void>>(autoPauseConfirmRequestProvider, (_, next) {
+        if (next is! AsyncData) return;
+        _showAutoPauseConfirm();
+      })
+      // Phase 36 (D-04): the recording notification's Stop action opens the
+      // app and asks here, instead of ending the trip with no visible
+      // confirmation. Reuses the widget's dialog so both stop entry points are
+      // literally the same code (SC#9).
+      ..listen<AsyncValue<void>>(stopConfirmRequestProvider, (_, next) {
+        if (next is! AsyncData) return;
+        // Ack FIRST, before anything that could throw or be skipped. This is
+        // the T-36-06 signal that a live UI isolate got the relay; withholding
+        // it would have the service stop the trip out from under a dialog that
+        // is about to appear.
+        ref.read(trackingEventSourceProvider).acknowledgeStopConfirm();
+        _showStopConfirm();
+      });
 
     ref.listen<RestoreState>(restoreControllerProvider, (previous, next) {
       if (next is RestoreConflictState) {

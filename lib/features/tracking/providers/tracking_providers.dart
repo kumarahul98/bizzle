@@ -136,6 +136,20 @@ final StreamProvider<void> autoPauseConfirmRequestProvider =
       name: 'autoPauseConfirmRequestProvider',
     );
 
+/// Fires when the user taps Stop on the recording notification (Phase 36,
+/// D-04).
+///
+/// The UI listens and shows a confirmation dialog — NOTHING is stopped until
+/// the user confirms. Previously the notification action stopped the trip
+/// immediately; it also brought the app to the foreground, so the only thing
+/// the user actually saw was the app opening, with no dialog and no visible
+/// state change.
+final StreamProvider<void> stopConfirmRequestProvider = StreamProvider<void>(
+  (ref) =>
+      ref.watch(trackingEventSourceProvider).onStopConfirmRequest.map((_) {}),
+  name: 'stopConfirmRequestProvider',
+);
+
 /// Live tracking state driven by events from the platform-selected
 /// [TrackingEventSource]. Plan 02-04 binds the tracking screen tiles to
 /// this provider.

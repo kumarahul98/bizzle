@@ -273,7 +273,11 @@ Future<void> trackingServiceOnStart(ServiceInstance service) async {
     accumulator.resume(DateTime.now().toUtc());
   });
 
-  service.on(kStopTrackingEvent).listen((_) async {
+  // Phase 36 (D-04/T-36-06): the ONE stop path. Extracted from the
+  // kStopTrackingEvent listener so the T-36-06 timeout below can reach it —
+  // a second copy of finalize-and-persist would be a second chance to get
+  // trip persistence subtly wrong.
+  Future<void> performStop() async {
     // Order matters: set the flag BEFORE cancelling the subscription so
     // any in-flight listener callback early-returns instead of touching
     // a disposed accumulator (02-RESEARCH §8).
@@ -313,6 +317,50 @@ Future<void> trackingServiceOnStart(ServiceInstance service) async {
     // is a separate plugin instance from the UI isolate's, and
     // dismiss() must target the plugin that showed the notification.
     await service.stopSelf();
+  }
+
+  service.on(kStopTrackingEvent).listen((_) async {
+    if (stopping) return;
+    await performStop();
+  });
+
+  // Phase 36 (D-04): pure relay, mirroring kAutoPauseConfirmCommand above. The
+  // notification's Stop action cannot reach the UI isolate from the background
+  // response handler, so it invokes here and we bounce it straight back out.
+  // The service deliberately does NOT stop on this — nothing stops until the
+  // user confirms in the dialog.
+  //
+  // ...with one exception, and it is the whole of T-36-06. If NO UI isolate
+  // acknowledges the relay, the confirmation never reached anyone and the Stop
+  // button has silently become a no-op — leaving the user with a trip they
+  // cannot end and a GPS session they cannot close. In that case we stop
+  // directly rather than do nothing: an unconfirmed stop is recoverable from
+  // Trash (Phase 35); a trip that cannot be stopped is not.
+  //
+  // The ack says only "a live UI isolate received this", never what the user
+  // chose — which is exactly the property being tested. A user sitting on the
+  // open dialog has already acked, so deliberating past the timeout can never
+  // stop their trip out from under them.
+  Timer? stopConfirmAckTimer;
+
+  service.on(kStopConfirmAckCommand).listen((_) {
+    stopConfirmAckTimer?.cancel();
+    stopConfirmAckTimer = null;
+  });
+
+  service.on(kStopConfirmCommand).listen((_) {
+    if (stopping) return;
+    service.invoke(kStopConfirmEvent);
+    stopConfirmAckTimer?.cancel();
+    stopConfirmAckTimer = Timer(
+      const Duration(seconds: kStopConfirmAckTimeoutSeconds),
+      () async {
+        stopConfirmAckTimer = null;
+        // Re-check: the trip may have ended by any other route while we waited.
+        if (stopping) return;
+        await performStop();
+      },
+    );
   });
 }
 

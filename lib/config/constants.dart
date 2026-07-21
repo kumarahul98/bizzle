@@ -1595,3 +1595,18 @@ const String kStopConfirmDismissLabel = 'Keep recording';
 
 /// Confirm label on the stop-confirmation dialog.
 const String kStopConfirmAcceptLabel = 'Stop & save';
+
+/// How long the service waits for a UI isolate to acknowledge
+/// `kStopConfirmEvent` before stopping the trip itself (Phase 36, T-36-06).
+///
+/// The failure this guards is total: if no isolate answers, the notification's
+/// Stop button does nothing at all and the user has no way to end a trip that
+/// is still burning GPS. Stopping without the confirmation is the strictly
+/// better outcome — an unwanted stop is recoverable from Trash (Phase 35), a
+/// trip that cannot be stopped is not.
+///
+/// Five seconds is long enough for the Activity that the Stop action brings
+/// forward (`showsUserInterface: true`) to finish starting and register its
+/// listener, and short enough that a user who gets no dialog is not left
+/// wondering whether the tap registered.
+const int kStopConfirmAckTimeoutSeconds = 5;

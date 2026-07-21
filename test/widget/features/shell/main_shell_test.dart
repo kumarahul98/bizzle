@@ -4,6 +4,8 @@
 // ConsumerWidget and lib/features/shell/providers/main_shell_provider.dart
 // with mainShellIndexProvider.
 
+import 'dart:async';
+
 import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
@@ -25,6 +27,7 @@ import 'package:traevy/features/stats/screens/stats_screen.dart';
 import 'package:traevy/features/stats/services/stats_service.dart';
 import 'package:traevy/features/tour/tour_config.dart';
 import 'package:traevy/features/tracking/providers/tracking_providers.dart';
+import 'package:traevy/features/tracking/services/tracking_event_source.dart';
 import 'package:traevy/features/tracking/state/tracking_state.dart';
 import 'package:traevy/features/trips/providers/history_providers.dart';
 import 'package:traevy/features/trips/screens/history_screen.dart';
@@ -62,6 +65,47 @@ UserPreferencesValue _allToursSeenPrefs() => UserPreferencesValue(
 class _IdleTrackingNotifier extends TrackingNotifier {
   @override
   TrackingState build() => const TrackingIdle();
+}
+
+/// Tracking notifier that reports a live trip and counts `stop()` calls
+/// WITHOUT ending it (Phase 36, D-04).
+///
+/// Leaving the state on [TrackingActive] after `stop()` is what lets the
+/// cancel-path test assert the interesting property: that tracking is still
+/// active because nothing stopped it, not merely because the fake never
+/// changes state.
+class _ActiveTrackingNotifier extends TrackingNotifier {
+  int stopCalls = 0;
+
+  @override
+  TrackingState build() => TrackingActive(
+    startedAt: DateTime.utc(2026, 7, 21, 8),
+    elapsedSeconds: 600,
+    distanceMeters: 4200,
+    currentSpeedKmh: 25,
+    timeMovingSeconds: 480,
+    timeStuckSeconds: 120,
+  );
+
+  @override
+  Future<void> stop() async {
+    stopCalls += 1;
+  }
+}
+
+/// [TrackingEventSource] that records [acknowledgeStopConfirm] calls.
+///
+/// The ack is the T-36-06 signal: without it the service assumes no UI isolate
+/// is reachable and stops the trip itself. Counting it here is the only way a
+/// test can see that the UI holds up its end of that contract.
+class _AckRecordingEventSource implements TrackingEventSource {
+  int ackCalls = 0;
+
+  @override
+  void acknowledgeStopConfirm() => ackCalls += 1;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 /// Minimal [StatsSummary] with no trips for a clean test baseline.
@@ -394,5 +438,114 @@ void main() {
         );
       },
     );
+  });
+
+  group('MainShell stop confirmation (Phase 36, D-04)', () {
+    late StreamController<void> stopConfirmRequests;
+    late _ActiveTrackingNotifier notifier;
+    late _AckRecordingEventSource eventSource;
+
+    setUp(() {
+      stopConfirmRequests = StreamController<void>.broadcast();
+      notifier = _ActiveTrackingNotifier();
+      eventSource = _AckRecordingEventSource();
+    });
+
+    tearDown(() async {
+      await stopConfirmRequests.close();
+    });
+
+    /// Pump the shell with a live trip and a controllable stop-confirm relay.
+    Future<void> pumpActiveShell(WidgetTester tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            trackingStateProvider.overrideWith(() => notifier),
+            trackingEventSourceProvider.overrideWithValue(eventSource),
+            stopConfirmRequestProvider.overrideWith(
+              (ref) => stopConfirmRequests.stream,
+            ),
+            allTripSummariesProvider.overrideWith(
+              (ref) => Stream<List<TripSummary>>.value(const <TripSummary>[]),
+            ),
+            statsSummaryProvider.overrideWith(
+              (ref) => AsyncValue<StatsSummary>.data(_emptyStats()),
+            ),
+            userPreferenceProvider.overrideWith(
+              (ref) => Stream.value(_allToursSeenPrefs()),
+            ),
+          ],
+          child: MaterialApp(
+            theme: buildLightTheme(),
+            home: const MainShell(),
+          ),
+        ),
+      );
+      await tester.pump();
+    }
+
+    /// Fire the relay the notification's Stop action produces.
+    Future<void> fireStopConfirmRequest(WidgetTester tester) async {
+      stopConfirmRequests.add(null);
+      await tester.pump();
+      await tester.pump();
+    }
+
+    testWidgets('the relay opens the stop-confirmation dialog', (tester) async {
+      await pumpActiveShell(tester);
+      expect(find.text(kStopConfirmTitle), findsNothing);
+
+      await fireStopConfirmRequest(tester);
+
+      expect(find.text(kStopConfirmTitle), findsOneWidget);
+      expect(find.text(kStopConfirmBody), findsOneWidget);
+      expect(find.text(kStopConfirmDismissLabel), findsOneWidget);
+      expect(find.text(kStopConfirmAcceptLabel), findsOneWidget);
+    });
+
+    testWidgets('receiving the relay acknowledges it (T-36-06)', (
+      tester,
+    ) async {
+      await pumpActiveShell(tester);
+      expect(eventSource.ackCalls, 0);
+
+      await fireStopConfirmRequest(tester);
+
+      // Without this ack the service's timeout fires and stops the trip out
+      // from under the dialog that just opened.
+      expect(eventSource.ackCalls, 1);
+    });
+
+    testWidgets('cancelling leaves the trip recording', (tester) async {
+      await pumpActiveShell(tester);
+      await fireStopConfirmRequest(tester);
+
+      await tester.tap(find.text(kStopConfirmDismissLabel));
+      // Fixed pumps, not pumpAndSettle: the active-recording hero animates
+      // continuously, so nothing on this screen ever settles (same reason as
+      // the back-button test above).
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(find.text(kStopConfirmTitle), findsNothing);
+      expect(notifier.stopCalls, 0);
+      expect(
+        notifier.state,
+        isA<TrackingActive>(),
+        reason: 'cancelling must leave the trip untouched (T-36-02)',
+      );
+    });
+
+    testWidgets('confirming stops the trip', (tester) async {
+      await pumpActiveShell(tester);
+      await fireStopConfirmRequest(tester);
+
+      await tester.tap(find.text(kStopConfirmAcceptLabel));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(find.text(kStopConfirmTitle), findsNothing);
+      expect(notifier.stopCalls, 1);
+    });
   });
 }

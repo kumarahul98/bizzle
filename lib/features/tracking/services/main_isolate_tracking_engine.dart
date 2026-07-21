@@ -120,6 +120,24 @@ final class MainIsolateTrackingEngine implements TrackingEventSource {
   Stream<Map<String, dynamic>?> get onAutoPauseConfirmRequest =>
       const Stream<Map<String, dynamic>?>.empty();
 
+  /// Phase 36 (D-04): iOS relays nothing here either, for the same reason as
+  /// [onAutoPauseConfirmRequest] above.
+  ///
+  /// This engine runs IN the UI isolate — the Darwin notification action is
+  /// delivered straight to `_onForegroundResponse`, so there is no isolate
+  /// boundary to cross and nothing to relay. An empty stream is the honest
+  /// implementation, not a stub: wiring a controller nothing ever adds to
+  /// would imply a path that does not exist.
+  @override
+  Stream<Map<String, dynamic>?> get onStopConfirmRequest =>
+      const Stream<Map<String, dynamic>?>.empty();
+
+  /// No-op: [onStopConfirmRequest] never emits here, so there is nothing to
+  /// acknowledge. The T-36-06 timeout it feeds lives in the fbs service
+  /// isolate, which this engine replaces rather than runs alongside.
+  @override
+  void acknowledgeStopConfirm() {}
+
   // Internal state — accessed only on the main isolate.
   bool _stopping = false;
   StreamSubscription<Position>? _positionSub;

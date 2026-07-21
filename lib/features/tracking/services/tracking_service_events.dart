@@ -110,3 +110,37 @@ const String kAutoPauseConfirmCommand = 'auto_pause_confirm';
 /// confirmation dialog (2026-07-21, D-02). The service's only job here is to
 /// bounce [kAutoPauseConfirmCommand] back out to whichever isolate owns the UI.
 const String kAutoPauseConfirmEvent = 'auto_pause_confirm_request';
+
+/// Command (notification handler → service) meaning "the user tapped Stop on
+/// the recording notification; ask the UI to confirm" (Phase 36, D-04).
+///
+/// Deliberately NOT [kStopTrackingEvent]: that ends the trip immediately. What
+/// the user saw when Stop did that was the app coming to the foreground
+/// (`showsUserInterface: true`) with no dialog, no confirmation and no visible
+/// state change at the moment of tapping — an experience indistinguishable
+/// from "the Stop button just opened the app".
+///
+/// Routed through the service rather than an in-app stream for the same reason
+/// [kAutoPauseConfirmCommand] is: the tap can arrive on EITHER response
+/// handler — `_onForegroundResponse` (UI isolate) or
+/// `trackingNotificationBackgroundHandler` (its own background isolate, which
+/// cannot reach the UI). Both can reach the service, and the service is
+/// guaranteed alive because the recording notification only exists during an
+/// active trip.
+const String kStopConfirmCommand = 'stop_confirm';
+
+/// Event (service → UI isolate) telling the UI to show the stop-confirmation
+/// dialog (Phase 36, D-04). The service bounces [kStopConfirmCommand] back out
+/// to whichever isolate owns the UI.
+const String kStopConfirmEvent = 'stop_confirm_request';
+
+/// Acknowledgement (UI isolate → service) meaning "a live UI isolate received
+/// [kStopConfirmEvent]" (Phase 36, T-36-06).
+///
+/// It says nothing about what the user decided — only that the relay landed
+/// somewhere that can ask them. That is precisely the property the T-36-06
+/// timeout needs: without an ack the service must assume no UI isolate is
+/// reachable and stop the trip directly, because a stop the user did not
+/// confirm is recoverable from Trash, while a trip that cannot be stopped at
+/// all is not.
+const String kStopConfirmAckCommand = 'stop_confirm_ack';

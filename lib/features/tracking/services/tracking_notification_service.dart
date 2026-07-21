@@ -466,7 +466,17 @@ class TrackingNotificationService {
   /// PendingIntent before this handler fires.
   void _onForegroundResponse(NotificationResponse response) {
     if (response.actionId == kTrackingStopActionId) {
-      FlutterBackgroundService().invoke(kStopTrackingEvent);
+      // Phase 36 (D-04): does NOT stop. Relays to the service, which bounces
+      // kStopConfirmEvent back to whichever isolate owns the UI so the user
+      // gets a confirmation dialog. Stopping here directly — the previous
+      // behaviour — did end the trip, but the only thing the user saw was the
+      // app coming to the foreground (showsUserInterface: true), with no
+      // dialog and no visible state change at the moment of tapping. That is
+      // indistinguishable from "the Stop button just opened the app", which is
+      // exactly what was reported.
+      //
+      // Mirrors the kAutoPauseConfirmCommand relay directly below.
+      FlutterBackgroundService().invoke(kStopConfirmCommand);
     }
     // Phase 18 (Plan 04, D-12 / T-18-12): the auto-pause prompt's Pause action
     // routes to the SAME pause command path the active-hero Pause button uses.
@@ -501,8 +511,12 @@ class TrackingNotificationService {
 void trackingNotificationBackgroundHandler(
   NotificationResponse response,
 ) {
+  // Phase 36 (D-04): identical to the foreground handler — relay, never stop.
+  // This isolate cannot reach the UI, which is exactly why the relay goes
+  // through the service instead of an in-app stream. Exact action-id match so
+  // a spoofed/stale id cannot end a trip.
   if (response.actionId == kTrackingStopActionId) {
-    FlutterBackgroundService().invoke(kStopTrackingEvent);
+    FlutterBackgroundService().invoke(kStopConfirmCommand);
   }
   // 2026-07-21 (D-02): identical to the foreground handler — relay, never
   // pause. This isolate cannot reach the UI, which is exactly why the relay

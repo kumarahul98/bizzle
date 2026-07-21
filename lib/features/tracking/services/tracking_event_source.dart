@@ -63,6 +63,20 @@ abstract interface class TrackingEventSource {
   /// until the user confirms.
   Stream<Map<String, dynamic>?> get onAutoPauseConfirmRequest;
 
+  /// Fires when the user taps Stop on the recording notification (Phase 36,
+  /// D-04). The UI shows a confirmation dialog; NOTHING is stopped until the
+  /// user confirms.
+  Stream<Map<String, dynamic>?> get onStopConfirmRequest;
+
+  /// Tell the service that a live UI isolate received [onStopConfirmRequest]
+  /// (Phase 36, T-36-06).
+  ///
+  /// Must be called on RECEIPT, not on the user's answer. Its only claim is
+  /// that the relay landed somewhere capable of asking them — an unacked relay
+  /// means the Stop button has silently become a no-op, and the service stops
+  /// the trip itself rather than stranding the user with one they cannot end.
+  void acknowledgeStopConfirm();
+
   /// Start tracking. Returns `true` if the underlying service/engine started
   /// successfully, `false` if a pre-flight check blocked the start.
   Future<bool> start({Map<String, dynamic>? initialAccumulatorState});
@@ -117,12 +131,23 @@ final class FbsTrackingEventSource implements TrackingEventSource {
   Stream<Map<String, dynamic>?> get onReady => _service.on(kServiceReadyEvent);
 
   @override
-  @override
   Stream<Map<String, dynamic>?> get onAutoPauseConfirmRequest =>
       _service.on(kAutoPauseConfirmEvent);
 
+  // The duplicated `@override` that used to sit above this getter (and left
+  // this one without any) was a copy-paste slip in 318b005. Harmless — it
+  // analyzed clean either way — but corrected here rather than left to be
+  // pattern-matched by the next person adding a member.
+  @override
   Stream<Map<String, dynamic>?> get onAutoPausePrompt =>
       _service.on(kAutoPausePromptEvent);
+
+  @override
+  Stream<Map<String, dynamic>?> get onStopConfirmRequest =>
+      _service.on(kStopConfirmEvent);
+
+  @override
+  void acknowledgeStopConfirm() => _service.invoke(kStopConfirmAckCommand);
 
   @override
   Future<bool> start({Map<String, dynamic>? initialAccumulatorState}) async {
