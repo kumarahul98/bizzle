@@ -45,7 +45,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -176,10 +176,30 @@ class AppDatabase extends _$AppDatabase {
         //      historical trip or preferences data is touched. Ordered
         //      AFTER the from<7 branch so a v1..v7 install runs every
         //      branch in sequence.
+        //   4. Phase 33 addendum: a `TableMigration` is always written
+        //      against the CURRENT table definition, so its copy statement
+        //      names every column this table has TODAY. Any column added by
+        //      a LATER schema version therefore has to be declared here as
+        //      well — otherwise an install upgrading v7 → v10 crashes with
+        //      "no such column: reminder_days" while running THIS step,
+        //      because the column does not exist on disk yet and is not
+        //      excluded from the copy. Declaring them makes them appear
+        //      early, at their table defaults; the v10 branch below rebuilds
+        //      the table again and applies its own backfill afterwards, so
+        //      nothing is lost. This is the price of hand-written
+        //      migrations: a rebuild step is not frozen in time, and every
+        //      future column added to user_preferences must be appended to
+        //      this list too.
         await m.alterTable(
           TableMigration(
             userPreferences,
-            newColumns: [userPreferences.seenTours],
+            newColumns: [
+              userPreferences.seenTours,
+              // Added at v10 (Phase 33) — see note 4 above.
+              userPreferences.reminderDays,
+              userPreferences.reminderSuggestionState,
+              userPreferences.reminderSuggestionValue,
+            ],
             columnTransformer: {
               userPreferences.autoPauseEnabled: const Constant(true),
             },
@@ -199,6 +219,57 @@ class AppDatabase extends _$AppDatabase {
         // be fabrication (D-06). Ordered AFTER the from<8 branch so a v1..v8
         // install runs every branch in sequence.
         await m.createTable(tripStuckSegments);
+      }
+      if (from < 10 && to >= 10) {
+        // Phase 33 (D-02/D-03): v9 → v10 rebuilds user_preferences to add
+        // three columns AND to change two DEFAULT constraints that were baked
+        // into the table's DDL at v1 (`reminder_enabled DEFAULT 0`,
+        // `reminder_time` with no default at all). `addColumn` cannot change
+        // an existing column's default — only a rebuild can — and the rebuild
+        // is what keeps an upgraded install's on-disk DDL byte-for-byte
+        // identical to a fresh install's, which is exactly what
+        // `SchemaVerifier.migrateAndValidate` asserts. Same reasoning as the
+        // v7 → v8 branch above.
+        //
+        // The three entries in `newColumns` do not exist on disk yet, so
+        // every existing row takes their table defaults: reminder_days =
+        // '1,2,3,4,5', reminder_suggestion_state = 'none',
+        // reminder_suggestion_value = NULL.
+        //
+        // **There is deliberately NO `columnTransformer` for
+        // `reminder_enabled` (T-33-02).** The plan called for backfilling
+        // existing rows to `true` on the theory that a `false` row could be
+        // told apart from a deliberate opt-out. It cannot: `false` is both
+        // the old table default AND the value written by a user who turned
+        // the reminder off, and SQLite retains no third state to distinguish
+        // them. A blanket `Constant(true)` would therefore silently
+        // re-enable notifications for everyone who switched them off — the
+        // one outcome this phase must not produce — so existing values are
+        // copied across untouched and only the DEFAULT for future inserts
+        // changes. The same holds for `reminder_time`: a NULL stays NULL.
+        // Fresh installs (which have no row at all per D-04, and read
+        // `UserPreferencesValue.defaults()`) still get the reminder on at
+        // 07:00, which is what D-03 was actually for.
+        await m.alterTable(
+          TableMigration(
+            userPreferences,
+            newColumns: [
+              userPreferences.reminderDays,
+              userPreferences.reminderSuggestionState,
+              userPreferences.reminderSuggestionValue,
+            ],
+          ),
+        );
+        // D-02 backfill: the superseded `weekend_reminder` boolean is read
+        // one final time to seed the new day selection. A row that opted into
+        // weekend reminders gets all seven days; every other row keeps the
+        // weekday default written by the rebuild above. Data-only, so it does
+        // not perturb the DDL the verifier compares.
+        await customStatement(
+          'UPDATE user_preferences SET reminder_days = ? '
+          'WHERE weekend_reminder = 1',
+          <Object?>[kAllReminderDays],
+        );
       }
     },
     beforeOpen: (details) async {

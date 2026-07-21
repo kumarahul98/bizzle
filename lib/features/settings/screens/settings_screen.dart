@@ -12,6 +12,8 @@ import 'package:traevy/features/settings/widgets/saved_location_tile.dart';
 import 'package:traevy/features/settings/widgets/settings_row.dart';
 import 'package:traevy/features/settings/widgets/settings_section.dart';
 import 'package:traevy/features/tour/tour_config.dart';
+import 'package:traevy/shared/models/reminder_suggestion_state.dart';
+import 'package:traevy/shared/utils/reminder_days.dart';
 import 'package:traevy/shared/widgets/traevy_toggle.dart';
 
 /// The Traevy-restyled Settings screen — four grouped sections inside
@@ -178,8 +180,19 @@ class _NotificationsSection extends StatelessWidget {
         SettingsRow(
           label: kSettingsWeekendReminderLabel,
           trailing: TraevyToggle(
-            value: prefs.weekendReminder,
-            onChanged: (v) => unawaited(_toggleWeekend(ref, prefs, v)),
+            value: setEqualsInts(
+              prefs.reminderDayNumbers,
+              parseReminderDays(kAllReminderDays),
+            ),
+            onChanged: (v) => unawaited(
+              _setReminderDays(
+                ref,
+                prefs,
+                parseReminderDays(
+                  v ? kAllReminderDays : kDefaultReminderDays,
+                ),
+              ),
+            ),
           ),
         ),
         SettingsRow(
@@ -295,7 +308,7 @@ Future<void> _pickReminderTime(
   if (prefs.reminderEnabled) {
     await ref
         .read(notificationServiceProvider)
-        .scheduleReminder(hhMm: hhMm, includeWeekends: prefs.weekendReminder);
+        .scheduleReminder(hhMm: hhMm, days: prefs.reminderDayNumbers);
   }
 }
 
@@ -345,6 +358,9 @@ UserPreferencesValue _copyPrefs(
   bool? weekendReminder,
   bool? weeklyNotificationEnabled,
   bool? autoPauseEnabled,
+  String? reminderDays,
+  ReminderSuggestionState? reminderSuggestionState,
+  Object? reminderSuggestionValue = const _UnsetSentinel(),
 }) => UserPreferencesValue(
   userId: prefs.userId,
   darkMode: darkMode ?? prefs.darkMode,
@@ -372,6 +388,16 @@ UserPreferencesValue _copyPrefs(
   // never reset it, or the one-time re-sync would appear to "never have
   // run" and retrigger unnecessarily.
   backfillMarkerVersion: prefs.backfillMarkerVersion,
+  // Phase 33 (T-33-04): the three new reminder columns must be carried by
+  // this helper from the commit that adds them, or the next unrelated
+  // settings write silently resets the user's chosen days and re-offers a
+  // suggestion they already dismissed.
+  reminderDays: reminderDays ?? prefs.reminderDays,
+  reminderSuggestionState:
+      reminderSuggestionState ?? prefs.reminderSuggestionState,
+  reminderSuggestionValue: reminderSuggestionValue is _UnsetSentinel
+      ? prefs.reminderSuggestionValue
+      : reminderSuggestionValue as String?,
 );
 
 class _UnsetSentinel {
@@ -423,7 +449,7 @@ Future<void> _toggleReminder(
     if (prefs.reminderTime != null) {
       await service.scheduleReminder(
         hhMm: prefs.reminderTime!,
-        includeWeekends: prefs.weekendReminder,
+        days: prefs.reminderDayNumbers,
       );
     }
   } else {
@@ -445,19 +471,23 @@ Future<void> _toggleAutoPause(
       .upsert(_copyPrefs(prefs, autoPauseEnabled: value));
 }
 
-Future<void> _toggleWeekend(
+/// Persist a new day selection and reschedule the reminder onto exactly
+/// those days (Phase 33, D-02).
+///
+/// An empty [days] is a valid selection meaning "no reminders": it is written
+/// through unchanged and `scheduleReminder` cancels every slot without
+/// scheduling anything. It is deliberately NOT treated as "unset" and NOT
+/// conflated with `reminderEnabled = false`.
+Future<void> _setReminderDays(
   WidgetRef ref,
   UserPreferencesValue prefs,
-  bool value,
+  Set<int> days,
 ) async {
   await ref
       .read(userPreferencesDaoProvider)
-      .upsert(_copyPrefs(prefs, weekendReminder: value));
+      .upsert(_copyPrefs(prefs, reminderDays: encodeReminderDays(days)));
   if (!prefs.reminderEnabled || prefs.reminderTime == null) return;
   await ref
       .read(notificationServiceProvider)
-      .scheduleReminder(
-        hhMm: prefs.reminderTime!,
-        includeWeekends: value,
-      );
+      .scheduleReminder(hhMm: prefs.reminderTime!, days: days);
 }

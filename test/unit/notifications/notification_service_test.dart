@@ -105,12 +105,14 @@ void main() {
       });
 
       test(
-        'weekday reminder ID range is 20-24 (5 alarms for Mon–Fri)',
+        'reminder ID range is 20-26 — one slot per weekday (Phase 33, D-02)',
         () {
-          // scheduleReminder(includeWeekends: false) schedules IDs
-          // kReminderNotificationId + 0 through + 4.
-          final ids = List.generate(5, (i) => kReminderNotificationId + i);
-          expect(ids, equals([20, 21, 22, 23, 24]));
+          // Slot = kReminderNotificationId + (weekday - 1), Mon(1)…Sun(7).
+          final ids = List.generate(
+            kReminderNotificationSlotCount,
+            (i) => kReminderNotificationId + i,
+          );
+          expect(ids, equals([20, 21, 22, 23, 24, 25, 26]));
         },
       );
 
@@ -118,32 +120,10 @@ void main() {
         'reminder ID range does not overlap weekly summary ID',
         () {
           final reminderRange = List.generate(
-            5,
+            kReminderNotificationSlotCount,
             (i) => kReminderNotificationId + i,
           );
           expect(reminderRange, isNot(contains(kWeeklySummaryNotificationId)));
-        },
-      );
-
-      test(
-        'daily reminder mode uses only kReminderNotificationId (ID 20)',
-        () {
-          // scheduleReminder(includeWeekends: true) schedules exactly 1 alarm
-          // at kReminderNotificationId — not the 5-slot range.
-          expect(kReminderNotificationId, equals(20));
-        },
-      );
-
-      test(
-        'cancelReminder range is 5 slots: IDs 20-24',
-        () {
-          // cancelReminder() iterates i = 0..4, cancelling
-          // kReminderNotificationId + i for each.
-          final cancelRange = List.generate(
-            5,
-            (i) => kReminderNotificationId + i,
-          );
-          expect(cancelRange, equals([20, 21, 22, 23, 24]));
         },
       );
     });

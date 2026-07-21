@@ -102,8 +102,11 @@ class _FakeNotificationService implements NotificationService {
   @override
   Future<void> scheduleReminder({
     required String hhMm,
-    required bool includeWeekends,
-  }) async => calls.add('scheduleReminder($hhMm,$includeWeekends)');
+    required Set<int> days,
+  }) async {
+    final sorted = days.toList()..sort();
+    calls.add('scheduleReminder($hhMm,${sorted.join('-')})');
+  }
 
   @override
   Future<void> cancelReminder() async => calls.add('cancelReminder');
@@ -121,6 +124,29 @@ class _FakeNotificationService implements NotificationService {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/// Preferences with the daily reminder explicitly OFF and no time set.
+///
+/// Phase 33 (D-03) flipped `UserPreferencesValue.defaults()` to reminder-ON at
+/// 07:00, so tests that exercise the enable path or the "no time set" subtitle
+/// must start from this explicit off-state rather than the defaults.
+const UserPreferencesValue _remindersOff = UserPreferencesValue(
+  userId: kDefaultUserId,
+  darkMode: kDarkModeSystem,
+  morningCutoffHour: 12,
+  eveningCutoffHour: 12,
+  reminderEnabled: false,
+  reminderTime: null,
+  weekendReminder: false,
+  weeklyNotificationEnabled: false,
+  autoPauseEnabled: true,
+  hasSeenOnboarding: false,
+  homeLat: null,
+  homeLng: null,
+  officeLat: null,
+  officeLng: null,
+  backfillMarkerVersion: 0,
+);
 
 /// Pump a [SettingsScreen] with [prefs] as the Riverpod override and a
 /// [_FakeUserPreferencesDao] capturing writes.
@@ -237,7 +263,9 @@ void main() {
       'UX-05: tapping the daily reminder toggle calls upsert with '
       'reminderEnabled=true',
       (tester) async {
-        final dao = await _pumpSettingsScreen(tester);
+        // Phase 33 (D-03) flipped the default reminder ON, so this toggle
+        // test starts from an explicitly-OFF row to exercise the enable path.
+        final dao = await _pumpSettingsScreen(tester, prefs: _remindersOff);
         // Scroll the Notifications section into view (it sits below the
         // 600-pixel test viewport).
         await _scrollTo(tester, find.text('Daily reminder'));
@@ -455,7 +483,7 @@ void main() {
     testWidgets(
       'Reminder time row subtitle shows "—" when reminderTime is null',
       (tester) async {
-        await _pumpSettingsScreen(tester);
+        await _pumpSettingsScreen(tester, prefs: _remindersOff);
         await _scrollTo(tester, find.text(kSettingsReminderTimeLabel));
         // When no time is set, _formatReminderTime(null) == '—'.
         final timeRow = find.ancestor(
@@ -594,7 +622,7 @@ void main() {
         );
         expect(
           fakeNotif.calls,
-          contains('scheduleReminder(07:45,false)'),
+          contains('scheduleReminder(07:45,1-2-3-4-5)'),
         );
       },
     );

@@ -1585,7 +1585,7 @@ class $UserPreferencesTable extends UserPreferences
     defaultConstraints: GeneratedColumn.constraintIsAlways(
       'CHECK ("reminder_enabled" IN (0, 1))',
     ),
-    defaultValue: const Constant(false),
+    defaultValue: const Constant(true),
   );
   static const VerificationMeta _reminderTimeMeta = const VerificationMeta(
     'reminderTime',
@@ -1597,6 +1597,7 @@ class $UserPreferencesTable extends UserPreferences
     true,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
+    defaultValue: const Constant(kDefaultReminderTime),
   );
   static const VerificationMeta _weekendReminderMeta = const VerificationMeta(
     'weekendReminder',
@@ -1613,6 +1614,41 @@ class $UserPreferencesTable extends UserPreferences
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _reminderDaysMeta = const VerificationMeta(
+    'reminderDays',
+  );
+  @override
+  late final GeneratedColumn<String> reminderDays = GeneratedColumn<String>(
+    'reminder_days',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(kDefaultReminderDays),
+  );
+  static const VerificationMeta _reminderSuggestionStateMeta =
+      const VerificationMeta('reminderSuggestionState');
+  @override
+  late final GeneratedColumn<String> reminderSuggestionState =
+      GeneratedColumn<String>(
+        'reminder_suggestion_state',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(kReminderSuggestionStateNone),
+      );
+  static const VerificationMeta _reminderSuggestionValueMeta =
+      const VerificationMeta('reminderSuggestionValue');
+  @override
+  late final GeneratedColumn<String> reminderSuggestionValue =
+      GeneratedColumn<String>(
+        'reminder_suggestion_value',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _weeklyNotificationEnabledMeta =
       const VerificationMeta('weeklyNotificationEnabled');
   @override
@@ -1735,6 +1771,9 @@ class $UserPreferencesTable extends UserPreferences
     reminderEnabled,
     reminderTime,
     weekendReminder,
+    reminderDays,
+    reminderSuggestionState,
+    reminderSuggestionValue,
     weeklyNotificationEnabled,
     autoPauseEnabled,
     hasSeenOnboarding,
@@ -1814,6 +1853,33 @@ class $UserPreferencesTable extends UserPreferences
         weekendReminder.isAcceptableOrUnknown(
           data['weekend_reminder']!,
           _weekendReminderMeta,
+        ),
+      );
+    }
+    if (data.containsKey('reminder_days')) {
+      context.handle(
+        _reminderDaysMeta,
+        reminderDays.isAcceptableOrUnknown(
+          data['reminder_days']!,
+          _reminderDaysMeta,
+        ),
+      );
+    }
+    if (data.containsKey('reminder_suggestion_state')) {
+      context.handle(
+        _reminderSuggestionStateMeta,
+        reminderSuggestionState.isAcceptableOrUnknown(
+          data['reminder_suggestion_state']!,
+          _reminderSuggestionStateMeta,
+        ),
+      );
+    }
+    if (data.containsKey('reminder_suggestion_value')) {
+      context.handle(
+        _reminderSuggestionValueMeta,
+        reminderSuggestionValue.isAcceptableOrUnknown(
+          data['reminder_suggestion_value']!,
+          _reminderSuggestionValueMeta,
         ),
       );
     }
@@ -1924,6 +1990,18 @@ class $UserPreferencesTable extends UserPreferences
         DriftSqlType.bool,
         data['${effectivePrefix}weekend_reminder'],
       )!,
+      reminderDays: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reminder_days'],
+      )!,
+      reminderSuggestionState: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reminder_suggestion_state'],
+      )!,
+      reminderSuggestionValue: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reminder_suggestion_value'],
+      ),
       weeklyNotificationEnabled: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}weekly_notification_enabled'],
@@ -1991,13 +2069,53 @@ class UserPreferencesRow extends DataClass
   final int eveningCutoffHour;
 
   /// True if the user has opted into the daily tracking reminder.
+  ///
+  /// Default flipped from `false` to `true` in Phase 33 (D-03): a fresh
+  /// install reminds at [kDefaultReminderTime] on weekdays without the user
+  /// ever opening Settings. The v9 → v10 migration rebuilds the table so an
+  /// upgraded install's DDL carries the same `DEFAULT 1`, but deliberately
+  /// does NOT rewrite existing row values — see the v10 branch in
+  /// `database.dart` for why (T-33-02).
   final bool reminderEnabled;
 
-  /// `HH:mm` formatted local time. Null when no reminder is scheduled.
+  /// `HH:mm` formatted local time. Defaults to [kDefaultReminderTime] as of
+  /// Phase 33 (D-03); still nullable because pre-v10 rows may hold null and
+  /// the migration preserves them.
   final String? reminderTime;
 
   /// True if the reminder should also fire on Saturday and Sunday.
+  ///
+  /// **Superseded by [reminderDays] in Phase 33 (D-02) and no longer read by
+  /// any scheduling code.** Kept in the table rather than dropped: removing a
+  /// column in SQLite means a full table rebuild, which is real migration
+  /// risk for zero user benefit. Its final value is consumed exactly once, by
+  /// the v9 → v10 backfill that seeds [reminderDays].
   final bool weekendReminder;
+
+  /// CSV of ISO-8601 weekday numbers the reminder fires on (Monday = 1 …
+  /// Sunday = 7), matching `DateTime.weekday` so no conversion table is
+  /// needed anywhere (Phase 33, D-02). Default [kDefaultReminderDays].
+  ///
+  /// An EMPTY string is a valid, meaningful value: no reminders. It is not
+  /// the same as `reminder_enabled = false`, and it must never be treated as
+  /// "unset" and silently reset to weekdays. Parsed by `parseReminderDays`.
+  /// Added by schema migration v9 → v10; existing rows are backfilled from
+  /// [weekendReminder].
+  final String reminderDays;
+
+  /// Lifecycle of the recalibration suggestion (Phase 33, D-04): one of
+  /// `none`, `offered`, `accepted`, `dismissed`. Mapped to the
+  /// `ReminderSuggestionState` enum at the DAO boundary. Added by schema
+  /// migration v9 → v10; existing rows read `none`.
+  final String reminderSuggestionState;
+
+  /// The `HH:mm` value last offered as a suggestion, or null if none has ever
+  /// been offered (Phase 33, D-04). Together with [reminderSuggestionState]
+  /// this powers the anti-nag rule: a dismissal is remembered indefinitely
+  /// for that value, and only a suggestion more than
+  /// [kReminderSuggestionReofferDeltaMinutes] away may re-prompt (T-33-05).
+  /// Added by schema migration v9 → v10; existing rows read null.
+  final String? reminderSuggestionValue;
 
   /// True if the user has opted into the weekly commute summary notification.
   ///
@@ -2092,6 +2210,9 @@ class UserPreferencesRow extends DataClass
     required this.reminderEnabled,
     this.reminderTime,
     required this.weekendReminder,
+    required this.reminderDays,
+    required this.reminderSuggestionState,
+    this.reminderSuggestionValue,
     required this.weeklyNotificationEnabled,
     required this.autoPauseEnabled,
     required this.hasSeenOnboarding,
@@ -2115,6 +2236,15 @@ class UserPreferencesRow extends DataClass
       map['reminder_time'] = Variable<String>(reminderTime);
     }
     map['weekend_reminder'] = Variable<bool>(weekendReminder);
+    map['reminder_days'] = Variable<String>(reminderDays);
+    map['reminder_suggestion_state'] = Variable<String>(
+      reminderSuggestionState,
+    );
+    if (!nullToAbsent || reminderSuggestionValue != null) {
+      map['reminder_suggestion_value'] = Variable<String>(
+        reminderSuggestionValue,
+      );
+    }
     map['weekly_notification_enabled'] = Variable<bool>(
       weeklyNotificationEnabled,
     );
@@ -2149,6 +2279,11 @@ class UserPreferencesRow extends DataClass
           ? const Value.absent()
           : Value(reminderTime),
       weekendReminder: Value(weekendReminder),
+      reminderDays: Value(reminderDays),
+      reminderSuggestionState: Value(reminderSuggestionState),
+      reminderSuggestionValue: reminderSuggestionValue == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reminderSuggestionValue),
       weeklyNotificationEnabled: Value(weeklyNotificationEnabled),
       autoPauseEnabled: Value(autoPauseEnabled),
       hasSeenOnboarding: Value(hasSeenOnboarding),
@@ -2183,6 +2318,13 @@ class UserPreferencesRow extends DataClass
       reminderEnabled: serializer.fromJson<bool>(json['reminderEnabled']),
       reminderTime: serializer.fromJson<String?>(json['reminderTime']),
       weekendReminder: serializer.fromJson<bool>(json['weekendReminder']),
+      reminderDays: serializer.fromJson<String>(json['reminderDays']),
+      reminderSuggestionState: serializer.fromJson<String>(
+        json['reminderSuggestionState'],
+      ),
+      reminderSuggestionValue: serializer.fromJson<String?>(
+        json['reminderSuggestionValue'],
+      ),
       weeklyNotificationEnabled: serializer.fromJson<bool>(
         json['weeklyNotificationEnabled'],
       ),
@@ -2210,6 +2352,13 @@ class UserPreferencesRow extends DataClass
       'reminderEnabled': serializer.toJson<bool>(reminderEnabled),
       'reminderTime': serializer.toJson<String?>(reminderTime),
       'weekendReminder': serializer.toJson<bool>(weekendReminder),
+      'reminderDays': serializer.toJson<String>(reminderDays),
+      'reminderSuggestionState': serializer.toJson<String>(
+        reminderSuggestionState,
+      ),
+      'reminderSuggestionValue': serializer.toJson<String?>(
+        reminderSuggestionValue,
+      ),
       'weeklyNotificationEnabled': serializer.toJson<bool>(
         weeklyNotificationEnabled,
       ),
@@ -2233,6 +2382,9 @@ class UserPreferencesRow extends DataClass
     bool? reminderEnabled,
     Value<String?> reminderTime = const Value.absent(),
     bool? weekendReminder,
+    String? reminderDays,
+    String? reminderSuggestionState,
+    Value<String?> reminderSuggestionValue = const Value.absent(),
     bool? weeklyNotificationEnabled,
     bool? autoPauseEnabled,
     bool? hasSeenOnboarding,
@@ -2251,6 +2403,12 @@ class UserPreferencesRow extends DataClass
     reminderEnabled: reminderEnabled ?? this.reminderEnabled,
     reminderTime: reminderTime.present ? reminderTime.value : this.reminderTime,
     weekendReminder: weekendReminder ?? this.weekendReminder,
+    reminderDays: reminderDays ?? this.reminderDays,
+    reminderSuggestionState:
+        reminderSuggestionState ?? this.reminderSuggestionState,
+    reminderSuggestionValue: reminderSuggestionValue.present
+        ? reminderSuggestionValue.value
+        : this.reminderSuggestionValue,
     weeklyNotificationEnabled:
         weeklyNotificationEnabled ?? this.weeklyNotificationEnabled,
     autoPauseEnabled: autoPauseEnabled ?? this.autoPauseEnabled,
@@ -2282,6 +2440,15 @@ class UserPreferencesRow extends DataClass
       weekendReminder: data.weekendReminder.present
           ? data.weekendReminder.value
           : this.weekendReminder,
+      reminderDays: data.reminderDays.present
+          ? data.reminderDays.value
+          : this.reminderDays,
+      reminderSuggestionState: data.reminderSuggestionState.present
+          ? data.reminderSuggestionState.value
+          : this.reminderSuggestionState,
+      reminderSuggestionValue: data.reminderSuggestionValue.present
+          ? data.reminderSuggestionValue.value
+          : this.reminderSuggestionValue,
       weeklyNotificationEnabled: data.weeklyNotificationEnabled.present
           ? data.weeklyNotificationEnabled.value
           : this.weeklyNotificationEnabled,
@@ -2313,6 +2480,9 @@ class UserPreferencesRow extends DataClass
           ..write('reminderEnabled: $reminderEnabled, ')
           ..write('reminderTime: $reminderTime, ')
           ..write('weekendReminder: $weekendReminder, ')
+          ..write('reminderDays: $reminderDays, ')
+          ..write('reminderSuggestionState: $reminderSuggestionState, ')
+          ..write('reminderSuggestionValue: $reminderSuggestionValue, ')
           ..write('weeklyNotificationEnabled: $weeklyNotificationEnabled, ')
           ..write('autoPauseEnabled: $autoPauseEnabled, ')
           ..write('hasSeenOnboarding: $hasSeenOnboarding, ')
@@ -2336,6 +2506,9 @@ class UserPreferencesRow extends DataClass
     reminderEnabled,
     reminderTime,
     weekendReminder,
+    reminderDays,
+    reminderSuggestionState,
+    reminderSuggestionValue,
     weeklyNotificationEnabled,
     autoPauseEnabled,
     hasSeenOnboarding,
@@ -2358,6 +2531,9 @@ class UserPreferencesRow extends DataClass
           other.reminderEnabled == this.reminderEnabled &&
           other.reminderTime == this.reminderTime &&
           other.weekendReminder == this.weekendReminder &&
+          other.reminderDays == this.reminderDays &&
+          other.reminderSuggestionState == this.reminderSuggestionState &&
+          other.reminderSuggestionValue == this.reminderSuggestionValue &&
           other.weeklyNotificationEnabled == this.weeklyNotificationEnabled &&
           other.autoPauseEnabled == this.autoPauseEnabled &&
           other.hasSeenOnboarding == this.hasSeenOnboarding &&
@@ -2378,6 +2554,9 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
   final Value<bool> reminderEnabled;
   final Value<String?> reminderTime;
   final Value<bool> weekendReminder;
+  final Value<String> reminderDays;
+  final Value<String> reminderSuggestionState;
+  final Value<String?> reminderSuggestionValue;
   final Value<bool> weeklyNotificationEnabled;
   final Value<bool> autoPauseEnabled;
   final Value<bool> hasSeenOnboarding;
@@ -2396,6 +2575,9 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
     this.reminderEnabled = const Value.absent(),
     this.reminderTime = const Value.absent(),
     this.weekendReminder = const Value.absent(),
+    this.reminderDays = const Value.absent(),
+    this.reminderSuggestionState = const Value.absent(),
+    this.reminderSuggestionValue = const Value.absent(),
     this.weeklyNotificationEnabled = const Value.absent(),
     this.autoPauseEnabled = const Value.absent(),
     this.hasSeenOnboarding = const Value.absent(),
@@ -2415,6 +2597,9 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
     this.reminderEnabled = const Value.absent(),
     this.reminderTime = const Value.absent(),
     this.weekendReminder = const Value.absent(),
+    this.reminderDays = const Value.absent(),
+    this.reminderSuggestionState = const Value.absent(),
+    this.reminderSuggestionValue = const Value.absent(),
     this.weeklyNotificationEnabled = const Value.absent(),
     this.autoPauseEnabled = const Value.absent(),
     this.hasSeenOnboarding = const Value.absent(),
@@ -2434,6 +2619,9 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
     Expression<bool>? reminderEnabled,
     Expression<String>? reminderTime,
     Expression<bool>? weekendReminder,
+    Expression<String>? reminderDays,
+    Expression<String>? reminderSuggestionState,
+    Expression<String>? reminderSuggestionValue,
     Expression<bool>? weeklyNotificationEnabled,
     Expression<bool>? autoPauseEnabled,
     Expression<bool>? hasSeenOnboarding,
@@ -2453,6 +2641,11 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
       if (reminderEnabled != null) 'reminder_enabled': reminderEnabled,
       if (reminderTime != null) 'reminder_time': reminderTime,
       if (weekendReminder != null) 'weekend_reminder': weekendReminder,
+      if (reminderDays != null) 'reminder_days': reminderDays,
+      if (reminderSuggestionState != null)
+        'reminder_suggestion_state': reminderSuggestionState,
+      if (reminderSuggestionValue != null)
+        'reminder_suggestion_value': reminderSuggestionValue,
       if (weeklyNotificationEnabled != null)
         'weekly_notification_enabled': weeklyNotificationEnabled,
       if (autoPauseEnabled != null) 'auto_pause_enabled': autoPauseEnabled,
@@ -2476,6 +2669,9 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
     Value<bool>? reminderEnabled,
     Value<String?>? reminderTime,
     Value<bool>? weekendReminder,
+    Value<String>? reminderDays,
+    Value<String>? reminderSuggestionState,
+    Value<String?>? reminderSuggestionValue,
     Value<bool>? weeklyNotificationEnabled,
     Value<bool>? autoPauseEnabled,
     Value<bool>? hasSeenOnboarding,
@@ -2495,6 +2691,11 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
       reminderEnabled: reminderEnabled ?? this.reminderEnabled,
       reminderTime: reminderTime ?? this.reminderTime,
       weekendReminder: weekendReminder ?? this.weekendReminder,
+      reminderDays: reminderDays ?? this.reminderDays,
+      reminderSuggestionState:
+          reminderSuggestionState ?? this.reminderSuggestionState,
+      reminderSuggestionValue:
+          reminderSuggestionValue ?? this.reminderSuggestionValue,
       weeklyNotificationEnabled:
           weeklyNotificationEnabled ?? this.weeklyNotificationEnabled,
       autoPauseEnabled: autoPauseEnabled ?? this.autoPauseEnabled,
@@ -2535,6 +2736,19 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
     }
     if (weekendReminder.present) {
       map['weekend_reminder'] = Variable<bool>(weekendReminder.value);
+    }
+    if (reminderDays.present) {
+      map['reminder_days'] = Variable<String>(reminderDays.value);
+    }
+    if (reminderSuggestionState.present) {
+      map['reminder_suggestion_state'] = Variable<String>(
+        reminderSuggestionState.value,
+      );
+    }
+    if (reminderSuggestionValue.present) {
+      map['reminder_suggestion_value'] = Variable<String>(
+        reminderSuggestionValue.value,
+      );
     }
     if (weeklyNotificationEnabled.present) {
       map['weekly_notification_enabled'] = Variable<bool>(
@@ -2581,6 +2795,9 @@ class UserPreferencesCompanion extends UpdateCompanion<UserPreferencesRow> {
           ..write('reminderEnabled: $reminderEnabled, ')
           ..write('reminderTime: $reminderTime, ')
           ..write('weekendReminder: $weekendReminder, ')
+          ..write('reminderDays: $reminderDays, ')
+          ..write('reminderSuggestionState: $reminderSuggestionState, ')
+          ..write('reminderSuggestionValue: $reminderSuggestionValue, ')
           ..write('weeklyNotificationEnabled: $weeklyNotificationEnabled, ')
           ..write('autoPauseEnabled: $autoPauseEnabled, ')
           ..write('hasSeenOnboarding: $hasSeenOnboarding, ')
@@ -4300,6 +4517,9 @@ typedef $$UserPreferencesTableCreateCompanionBuilder =
       Value<bool> reminderEnabled,
       Value<String?> reminderTime,
       Value<bool> weekendReminder,
+      Value<String> reminderDays,
+      Value<String> reminderSuggestionState,
+      Value<String?> reminderSuggestionValue,
       Value<bool> weeklyNotificationEnabled,
       Value<bool> autoPauseEnabled,
       Value<bool> hasSeenOnboarding,
@@ -4320,6 +4540,9 @@ typedef $$UserPreferencesTableUpdateCompanionBuilder =
       Value<bool> reminderEnabled,
       Value<String?> reminderTime,
       Value<bool> weekendReminder,
+      Value<String> reminderDays,
+      Value<String> reminderSuggestionState,
+      Value<String?> reminderSuggestionValue,
       Value<bool> weeklyNotificationEnabled,
       Value<bool> autoPauseEnabled,
       Value<bool> hasSeenOnboarding,
@@ -4377,6 +4600,21 @@ class $$UserPreferencesTableFilterComposer
 
   ColumnFilters<bool> get weekendReminder => $composableBuilder(
     column: $table.weekendReminder,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get reminderDays => $composableBuilder(
+    column: $table.reminderDays,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get reminderSuggestionState => $composableBuilder(
+    column: $table.reminderSuggestionState,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get reminderSuggestionValue => $composableBuilder(
+    column: $table.reminderSuggestionValue,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4475,6 +4713,21 @@ class $$UserPreferencesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get reminderDays => $composableBuilder(
+    column: $table.reminderDays,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get reminderSuggestionState => $composableBuilder(
+    column: $table.reminderSuggestionState,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get reminderSuggestionValue => $composableBuilder(
+    column: $table.reminderSuggestionValue,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get weeklyNotificationEnabled => $composableBuilder(
     column: $table.weeklyNotificationEnabled,
     builder: (column) => ColumnOrderings(column),
@@ -4564,6 +4817,21 @@ class $$UserPreferencesTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get reminderDays => $composableBuilder(
+    column: $table.reminderDays,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get reminderSuggestionState => $composableBuilder(
+    column: $table.reminderSuggestionState,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get reminderSuggestionValue => $composableBuilder(
+    column: $table.reminderSuggestionValue,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<bool> get weeklyNotificationEnabled => $composableBuilder(
     column: $table.weeklyNotificationEnabled,
     builder: (column) => column,
@@ -4645,6 +4913,9 @@ class $$UserPreferencesTableTableManager
                 Value<bool> reminderEnabled = const Value.absent(),
                 Value<String?> reminderTime = const Value.absent(),
                 Value<bool> weekendReminder = const Value.absent(),
+                Value<String> reminderDays = const Value.absent(),
+                Value<String> reminderSuggestionState = const Value.absent(),
+                Value<String?> reminderSuggestionValue = const Value.absent(),
                 Value<bool> weeklyNotificationEnabled = const Value.absent(),
                 Value<bool> autoPauseEnabled = const Value.absent(),
                 Value<bool> hasSeenOnboarding = const Value.absent(),
@@ -4663,6 +4934,9 @@ class $$UserPreferencesTableTableManager
                 reminderEnabled: reminderEnabled,
                 reminderTime: reminderTime,
                 weekendReminder: weekendReminder,
+                reminderDays: reminderDays,
+                reminderSuggestionState: reminderSuggestionState,
+                reminderSuggestionValue: reminderSuggestionValue,
                 weeklyNotificationEnabled: weeklyNotificationEnabled,
                 autoPauseEnabled: autoPauseEnabled,
                 hasSeenOnboarding: hasSeenOnboarding,
@@ -4683,6 +4957,9 @@ class $$UserPreferencesTableTableManager
                 Value<bool> reminderEnabled = const Value.absent(),
                 Value<String?> reminderTime = const Value.absent(),
                 Value<bool> weekendReminder = const Value.absent(),
+                Value<String> reminderDays = const Value.absent(),
+                Value<String> reminderSuggestionState = const Value.absent(),
+                Value<String?> reminderSuggestionValue = const Value.absent(),
                 Value<bool> weeklyNotificationEnabled = const Value.absent(),
                 Value<bool> autoPauseEnabled = const Value.absent(),
                 Value<bool> hasSeenOnboarding = const Value.absent(),
@@ -4701,6 +4978,9 @@ class $$UserPreferencesTableTableManager
                 reminderEnabled: reminderEnabled,
                 reminderTime: reminderTime,
                 weekendReminder: weekendReminder,
+                reminderDays: reminderDays,
+                reminderSuggestionState: reminderSuggestionState,
+                reminderSuggestionValue: reminderSuggestionValue,
                 weeklyNotificationEnabled: weeklyNotificationEnabled,
                 autoPauseEnabled: autoPauseEnabled,
                 hasSeenOnboarding: hasSeenOnboarding,

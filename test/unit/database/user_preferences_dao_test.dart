@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/daos/user_preferences_dao.dart';
 import 'package:traevy/database/database.dart';
+import 'package:traevy/shared/models/reminder_suggestion_state.dart';
 
 void main() {
   group('UserPreferencesDao', () {
@@ -31,8 +32,14 @@ void main() {
         expect(value.darkMode, kDarkModeSystem);
         expect(value.morningCutoffHour, kDefaultDirectionCutoffHour);
         expect(value.eveningCutoffHour, kDefaultDirectionCutoffHour);
-        expect(value.reminderEnabled, isFalse);
-        expect(value.reminderTime, isNull);
+        // Phase 33 (D-03): the reminder is ON at 07:00 on a fresh install,
+        // and the day selection defaults to weekdays.
+        expect(value.reminderEnabled, isTrue);
+        expect(value.reminderTime, kDefaultReminderTime);
+        expect(value.reminderDays, kDefaultReminderDays);
+        expect(value.reminderDayNumbers, <int>{1, 2, 3, 4, 5});
+        expect(value.reminderSuggestionState, ReminderSuggestionState.none);
+        expect(value.reminderSuggestionValue, isNull);
         expect(value.weekendReminder, isFalse);
       },
     );
@@ -123,8 +130,10 @@ void main() {
       expect(value.darkMode, kDarkModeSystem);
       expect(value.morningCutoffHour, kDefaultDirectionCutoffHour);
       expect(value.eveningCutoffHour, kDefaultDirectionCutoffHour);
-      expect(value.reminderEnabled, isFalse);
-      expect(value.reminderTime, isNull);
+      // Phase 33 (D-03): reminder ON at 07:00 on weekdays by default.
+      expect(value.reminderEnabled, isTrue);
+      expect(value.reminderTime, kDefaultReminderTime);
+      expect(value.reminderDays, kDefaultReminderDays);
       expect(value.weekendReminder, isFalse);
       expect(value.weeklyNotificationEnabled, isFalse);
       // Phase 27 (UX-08): auto-pause default flipped ON for fresh installs.
@@ -189,7 +198,10 @@ void main() {
         expect(value.userId, kDefaultUserId);
         expect(value.darkMode, kDarkModeSystem);
         expect(value.morningCutoffHour, kDefaultDirectionCutoffHour);
-        expect(value.reminderEnabled, isFalse);
+        // Phase 33 (D-03): the newly-created row takes the flipped table
+        // default — reminder ON at 07:00.
+        expect(value.reminderEnabled, isTrue);
+        expect(value.reminderTime, kDefaultReminderTime);
         // Phase 27 (UX-08): auto-pause default flipped ON for fresh installs
         // (this row was just CREATED by the single-column upsert, so every
         // other column — including auto_pause_enabled — takes its table

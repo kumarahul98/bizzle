@@ -67,7 +67,7 @@ class NotificationService {
       if (prefs.reminderEnabled && prefs.reminderTime != null) {
         await scheduleReminder(
           hhMm: prefs.reminderTime!,
-          includeWeekends: prefs.weekendReminder,
+          days: prefs.reminderDayNumbers,
         );
       }
     } on Exception catch (e, s) {
@@ -125,27 +125,31 @@ class NotificationService {
   // Reminder
   // ---------------------------------------------------------------------------
 
-  /// Schedule the daily tracking reminder notification.
+  /// Schedule the daily tracking reminder on exactly the [days] given, as
+  /// ISO-8601 weekday numbers (Monday = 1 … Sunday = 7).
   ///
-  /// When [includeWeekends] is false, schedules 5 separate alarms (Mon–Fri)
-  /// using `DateTimeComponents.dayOfWeekAndTime` at IDs
-  /// [kReminderNotificationId] through [kReminderNotificationId] + 4.
+  /// One `DateTimeComponents.dayOfWeekAndTime` alarm per selected day at ID
+  /// `kReminderNotificationId + (weekday - 1)` — the range 20–26. This is a
+  /// single uniform path (Phase 33, D-02): the previous two-branch version
+  /// (five weekday alarms, or one `DateTimeComponents.time` daily alarm)
+  /// is what allowed its cancel sweep and its schedule range to disagree.
   ///
-  /// When [includeWeekends] is true, schedules a single daily alarm using
-  /// `DateTimeComponents.time` at ID [kReminderNotificationId].
+  /// Every slot in 20–26 is cancelled FIRST, before any scheduling and before
+  /// the input is even validated. Sweeping the full range is the whole point:
+  /// a narrower sweep leaves a Saturday or Sunday alarm firing forever after
+  /// the user deselects the weekend (T-33-03).
   ///
-  /// Cancels all reminder slots (IDs 20–24) before rescheduling to avoid
-  /// stale alarms (Pitfall 3 mitigation from RESEARCH.md).
+  /// An empty [days] therefore cancels everything and schedules nothing —
+  /// a valid state meaning "no reminders" (D-02).
   ///
-  /// See D-12 in `.planning/phases/07-polish-notifications/07-CONTEXT.md`.
+  /// See D-12 in `.planning/phases/07-polish-notifications/07-CONTEXT.md`
+  /// for the original design this replaces.
   Future<void> scheduleReminder({
     required String hhMm,
-    required bool includeWeekends,
+    required Set<int> days,
   }) async {
-    // Cancel all reminder slots first (Pitfall 6 from RESEARCH.md).
-    for (var i = 0; i <= 4; i++) {
-      await _plugin.cancel(id: kReminderNotificationId + i);
-    }
+    // Cancel every reminder slot first (Pitfall 6 from RESEARCH.md, T-33-03).
+    await cancelReminder();
 
     final parts = hhMm.split(':');
     if (parts.length != 2) return; // guard malformed input
@@ -160,45 +164,30 @@ class NotificationService {
       return; // silently skip rather than crash
     }
 
-    if (includeWeekends) {
-      // Single daily reminder — fires every day at the given time.
+    // One alarm per selected day, at a slot derived from the weekday number
+    // itself — Monday (1) → 20, …, Sunday (7) → 26. Deriving the ID from the
+    // day rather than from a loop index is what makes the cancel sweep and
+    // the schedule range provably the same set.
+    final sortedDays = days.toList()..sort();
+    for (final weekday in sortedDays) {
+      if (weekday < kMinReminderWeekday || weekday > kMaxReminderWeekday) {
+        continue; // defensive: a malformed stored value must not crash
+      }
       await _plugin.zonedSchedule(
-        id: kReminderNotificationId,
+        id: kReminderNotificationId + (weekday - 1),
         title: kReminderNotificationTitle,
         body: kReminderNotificationBody,
-        scheduledDate: _nextDailyTime(hour, minute),
+        scheduledDate: _nextWeekday(weekday, hour, minute),
         notificationDetails: _reminderDetails(),
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        matchDateTimeComponents: DateTimeComponents.time,
+        matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
       );
-    } else {
-      // Mon–Fri only: 5 separate alarms, one per weekday.
-      // kReminderNotificationId + 0 = Monday (DateTime.monday = 1)
-      // kReminderNotificationId + 1 = Tuesday, ..., + 4 = Friday
-      const weekdays = <int>[
-        DateTime.monday,
-        DateTime.tuesday,
-        DateTime.wednesday,
-        DateTime.thursday,
-        DateTime.friday,
-      ];
-      for (var i = 0; i < weekdays.length; i++) {
-        await _plugin.zonedSchedule(
-          id: kReminderNotificationId + i,
-          title: kReminderNotificationTitle,
-          body: kReminderNotificationBody,
-          scheduledDate: _nextWeekday(weekdays[i], hour, minute),
-          notificationDetails: _reminderDetails(),
-          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-          matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
-        );
-      }
     }
   }
 
-  /// Cancel all reminder notification slots (IDs 20–24).
+  /// Cancel all reminder notification slots (IDs 20–26).
   Future<void> cancelReminder() async {
-    for (var i = 0; i <= 4; i++) {
+    for (var i = 0; i < kReminderNotificationSlotCount; i++) {
       await _plugin.cancel(id: kReminderNotificationId + i);
     }
   }
@@ -367,25 +356,7 @@ class NotificationService {
     return candidate;
   }
 
-  /// Compute the next occurrence of [hour]:[minute] local time today or
-  /// tomorrow (for daily reminders).
-  tz.TZDateTime _nextDailyTime(int hour, int minute) {
-    final now = tz.TZDateTime.now(tz.local);
-    var candidate = tz.TZDateTime(
-      tz.local,
-      now.year,
-      now.month,
-      now.day,
-      hour,
-      minute,
-    );
-    if (candidate.isBefore(now)) {
-      candidate = candidate.add(const Duration(days: 1));
-    }
-    return candidate;
-  }
-
-  /// Compute the next occurrence of [weekday] (DateTime.monday..friday) at
+  /// Compute the next occurrence of [weekday] (DateTime.monday..sunday) at
   /// [hour]:[minute] local time.
   tz.TZDateTime _nextWeekday(int weekday, int hour, int minute) {
     final now = tz.TZDateTime.now(tz.local);

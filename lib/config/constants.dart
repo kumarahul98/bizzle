@@ -734,9 +734,10 @@ const int kWeeklySummaryNotificationId = 10;
 
 /// Base flutter_local_notifications ID for the daily reminder.
 ///
-/// Weekday-only mode uses IDs [kReminderNotificationId] through
-/// [kReminderNotificationId] + 4 (Mon=20, Tue=21, Wed=22, Thu=23, Fri=24).
-/// Cancel the full range 20–24 before rescheduling.
+/// Since Phase 33 (D-02) there is one alarm per SELECTED day at
+/// [kReminderNotificationId] + (weekday - 1) — Mon=20 … Sun=26, i.e.
+/// [kReminderNotificationSlotCount] slots. Cancel the full range 20–26
+/// before rescheduling; a narrower sweep strands weekend alarms.
 ///
 /// See D-12 in `.planning/phases/07-polish-notifications/07-CONTEXT.md`.
 const int kReminderNotificationId = 20;
@@ -1668,3 +1669,162 @@ const String kWeekLossInfoBody =
     'than 10 km/h. The rest counts as moving.\n\n'
     'If you paused a commute for a break, that time counts towards neither '
     'figure — it is left out of both.';
+
+// =========================================================================
+// Phase 33 — Settings & smart reminders
+// =========================================================================
+
+// --- Reminder day selection (Phase 33, D-02) ------------------------------
+
+/// Default `reminderDays` CSV: Monday through Friday.
+///
+/// Values are ISO-8601 weekday numbers (Monday = 1 … Sunday = 7), which is
+/// exactly what `DateTime.weekday` returns — so no conversion table exists
+/// anywhere in the codebase, and none should be introduced.
+const String kDefaultReminderDays = '1,2,3,4,5';
+
+/// Every day of the week, used to backfill rows whose legacy
+/// `weekend_reminder` boolean was true during the v9 → v10 migration.
+const String kAllReminderDays = '1,2,3,4,5,6,7';
+
+/// Lowest valid ISO-8601 weekday number (Monday).
+const int kMinReminderWeekday = 1;
+
+/// Highest valid ISO-8601 weekday number (Sunday).
+const int kMaxReminderWeekday = 7;
+
+/// Single-letter labels for the Mon–Sun day picker, index 0 = Monday.
+const List<String> kReminderDayShortLabels = <String>[
+  'M',
+  'T',
+  'W',
+  'T',
+  'F',
+  'S',
+  'S',
+];
+
+/// Full day names for the day-selection subtitle, index 0 = Monday.
+const List<String> kReminderDayNames = <String>[
+  'Mon',
+  'Tue',
+  'Wed',
+  'Thu',
+  'Fri',
+  'Sat',
+  'Sun',
+];
+
+/// Subtitle shown when every day is selected.
+const String kReminderDaysEveryDayLabel = 'Every day';
+
+/// Subtitle shown when exactly Monday–Friday are selected.
+const String kReminderDaysWeekdaysLabel = 'Weekdays';
+
+/// Subtitle shown when exactly Saturday and Sunday are selected.
+const String kReminderDaysWeekendsLabel = 'Weekends';
+
+/// Subtitle shown when the user has deselected every day. An empty selection
+/// is a valid state meaning "no reminders" — it must never silently revert to
+/// weekdays, and it is NOT the same thing as turning the reminder off.
+const String kReminderDaysNoneLabel = 'No days selected';
+
+/// Label of the day-selection row that replaced "Include weekends".
+const String kSettingsReminderDaysLabel = 'Reminder days';
+
+/// Semantics prefix for a day toggle in the picker, completed by the day name.
+const String kReminderDaySemanticPrefix = 'Remind me on ';
+
+// --- Reminder defaults (Phase 33, D-03) -----------------------------------
+
+/// Default reminder time for a fresh install (`HH:mm`, local).
+///
+/// Paired with the `reminder_enabled` default flip to `true`: a fresh install
+/// reminds at 07:00 on weekdays without the user ever opening Settings.
+const String kDefaultReminderTime = '07:00';
+
+/// Highest reminder alarm slot offset. Reminder alarms occupy
+/// [kReminderNotificationId] + 0 … + 6 (Monday … Sunday) — IDs 20–26.
+const int kReminderNotificationSlotCount = 7;
+
+// --- Reminder suggestion (Phase 33, D-04) ---------------------------------
+
+/// Minimum number of qualifying `to_office` GPS trips before a reminder time
+/// is suggested. Two commutes is not a pattern.
+const int kReminderSuggestionMinTrips = 5;
+
+/// Look-back window (days) for the trips that feed the suggestion.
+const int kReminderSuggestionWindowDays = 28;
+
+/// How many minutes before the median start time the suggestion lands.
+const int kReminderSuggestionLeadMinutes = 15;
+
+/// The suggestion is rounded DOWN to a multiple of this many minutes.
+const int kReminderSuggestionRoundingMinutes = 5;
+
+/// A freshly computed suggestion is only re-offered when it differs from the
+/// last offered value by strictly more than this many minutes. Drifting three
+/// minutes later over a month must never re-prompt (T-33-05).
+const int kReminderSuggestionReofferDeltaMinutes = 20;
+
+/// Minutes in a day, used for the wrap-around arithmetic in the suggestion
+/// offset and delta comparisons.
+const int kMinutesPerDay = 24 * 60;
+
+/// Wire values for `user_preferences.reminder_suggestion_state`.
+const String kReminderSuggestionStateNone = 'none';
+
+/// See [kReminderSuggestionStateNone].
+const String kReminderSuggestionStateOffered = 'offered';
+
+/// See [kReminderSuggestionStateNone].
+const String kReminderSuggestionStateAccepted = 'accepted';
+
+/// See [kReminderSuggestionStateNone].
+const String kReminderSuggestionStateDismissed = 'dismissed';
+
+/// Heading of the dismissible suggestion card in Settings.
+const String kReminderSuggestionCardTitle = 'A better reminder time';
+
+/// Body of the suggestion card, completed by the suggested time.
+const String kReminderSuggestionCardBodyPrefix =
+    'You usually leave for work around ';
+
+/// Second half of the suggestion card body, completed by the suggested time.
+const String kReminderSuggestionCardBodyMiddle = '. Want the reminder at ';
+
+/// Trailing punctuation of the suggestion card body.
+const String kReminderSuggestionCardBodySuffix = ' instead?';
+
+/// Accept action on the suggestion card.
+const String kReminderSuggestionAcceptLabel = 'Use this time';
+
+/// Dismiss action on the suggestion card.
+const String kReminderSuggestionDismissLabel = 'No thanks';
+
+/// Prefix of the permanent reminder-time subtitle, completed by the
+/// suggested time. Always available even after the card is dismissed.
+const String kReminderSuggestionSubtitlePrefix = 'Suggested from your trips: ';
+
+// --- Auto-pause explainer (Phase 33, D-05) --------------------------------
+
+/// Corrected auto-pause label. The old wording ("Auto-pause when stationary")
+/// promised something the app has never done: nothing is ever paused without
+/// a tap. See [kAutoPauseInfoBody].
+const String kSettingsAutoPauseLabelV2 = 'Ask to pause when stopped';
+
+/// Title of the auto-pause explainer sheet.
+const String kAutoPauseInfoTitle = 'What this does';
+
+/// Body of the auto-pause explainer sheet.
+///
+/// States plainly that the app asks rather than pauses — the setting's old
+/// label implied automatic pausing, so a user whose trip kept recording had
+/// every reason to think the feature was broken. No jargon, and no radius:
+/// there is no radius involved.
+const String kAutoPauseInfoBody =
+    'If you stay under 10 km/h for 15 minutes, we send you a notification '
+    'asking whether to pause the commute.\n\n'
+    'Nothing is ever paused unless you tap to confirm it. If you start '
+    'moving again first, the question is dropped and the timer starts over.\n\n'
+    'Paused time is left out of your commute totals.';

@@ -37,15 +37,59 @@ class UserPreferences extends Table {
       integer().withDefault(const Constant(kDefaultDirectionCutoffHour))();
 
   /// True if the user has opted into the daily tracking reminder.
+  ///
+  /// Default flipped from `false` to `true` in Phase 33 (D-03): a fresh
+  /// install reminds at [kDefaultReminderTime] on weekdays without the user
+  /// ever opening Settings. The v9 → v10 migration rebuilds the table so an
+  /// upgraded install's DDL carries the same `DEFAULT 1`, but deliberately
+  /// does NOT rewrite existing row values — see the v10 branch in
+  /// `database.dart` for why (T-33-02).
   BoolColumn get reminderEnabled =>
-      boolean().withDefault(const Constant(false))();
+      boolean().withDefault(const Constant(true))();
 
-  /// `HH:mm` formatted local time. Null when no reminder is scheduled.
-  TextColumn get reminderTime => text().nullable()();
+  /// `HH:mm` formatted local time. Defaults to [kDefaultReminderTime] as of
+  /// Phase 33 (D-03); still nullable because pre-v10 rows may hold null and
+  /// the migration preserves them.
+  TextColumn get reminderTime =>
+      text().nullable().withDefault(const Constant(kDefaultReminderTime))();
 
   /// True if the reminder should also fire on Saturday and Sunday.
+  ///
+  /// **Superseded by [reminderDays] in Phase 33 (D-02) and no longer read by
+  /// any scheduling code.** Kept in the table rather than dropped: removing a
+  /// column in SQLite means a full table rebuild, which is real migration
+  /// risk for zero user benefit. Its final value is consumed exactly once, by
+  /// the v9 → v10 backfill that seeds [reminderDays].
   BoolColumn get weekendReminder =>
       boolean().withDefault(const Constant(false))();
+
+  /// CSV of ISO-8601 weekday numbers the reminder fires on (Monday = 1 …
+  /// Sunday = 7), matching `DateTime.weekday` so no conversion table is
+  /// needed anywhere (Phase 33, D-02). Default [kDefaultReminderDays].
+  ///
+  /// An EMPTY string is a valid, meaningful value: no reminders. It is not
+  /// the same as `reminder_enabled = false`, and it must never be treated as
+  /// "unset" and silently reset to weekdays. Parsed by `parseReminderDays`.
+  /// Added by schema migration v9 → v10; existing rows are backfilled from
+  /// [weekendReminder].
+  TextColumn get reminderDays =>
+      text().withDefault(const Constant(kDefaultReminderDays))();
+
+  /// Lifecycle of the recalibration suggestion (Phase 33, D-04): one of
+  /// `none`, `offered`, `accepted`, `dismissed`. Mapped to the
+  /// `ReminderSuggestionState` enum at the DAO boundary. Added by schema
+  /// migration v9 → v10; existing rows read `none`.
+  TextColumn get reminderSuggestionState => text().withDefault(
+    const Constant(kReminderSuggestionStateNone),
+  )();
+
+  /// The `HH:mm` value last offered as a suggestion, or null if none has ever
+  /// been offered (Phase 33, D-04). Together with [reminderSuggestionState]
+  /// this powers the anti-nag rule: a dismissal is remembered indefinitely
+  /// for that value, and only a suggestion more than
+  /// [kReminderSuggestionReofferDeltaMinutes] away may re-prompt (T-33-05).
+  /// Added by schema migration v9 → v10; existing rows read null.
+  TextColumn get reminderSuggestionValue => text().nullable()();
 
   /// True if the user has opted into the weekly commute summary notification.
   ///

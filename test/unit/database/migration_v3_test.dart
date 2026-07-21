@@ -73,7 +73,7 @@ void main() {
         //    v7; the Phase 27 seen_tours at v8).
         final migratedDb = AppDatabase(schema.newConnection());
         addTearDown(migratedDb.close);
-        await verifier.migrateAndValidate(migratedDb, 8);
+        await verifier.migrateAndValidate(migratedDb, 10);
 
         // 3a. The previously-inserted trip still exists after migration.
         final tripRow = await migratedDb.tripsDao.findById(tripId);

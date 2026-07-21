@@ -2,6 +2,8 @@ import 'package:drift/drift.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/database.dart';
 import 'package:traevy/database/tables/user_preferences_table.dart';
+import 'package:traevy/shared/models/reminder_suggestion_state.dart';
+import 'package:traevy/shared/utils/reminder_days.dart';
 
 part 'user_preferences_dao.g.dart';
 
@@ -38,6 +40,9 @@ class UserPreferencesValue {
     required this.officeLng,
     required this.backfillMarkerVersion,
     this.seenTours = '',
+    this.reminderDays = kDefaultReminderDays,
+    this.reminderSuggestionState = ReminderSuggestionState.none,
+    this.reminderSuggestionValue,
   });
 
   /// The defaults used the first time the user launches the app —
@@ -47,9 +52,12 @@ class UserPreferencesValue {
       darkMode = kDarkModeSystem,
       morningCutoffHour = kDefaultDirectionCutoffHour,
       eveningCutoffHour = kDefaultDirectionCutoffHour,
-      reminderEnabled = false,
-      reminderTime = null,
+      reminderEnabled = true,
+      reminderTime = kDefaultReminderTime,
       weekendReminder = false,
+      reminderDays = kDefaultReminderDays,
+      reminderSuggestionState = ReminderSuggestionState.none,
+      reminderSuggestionValue = null,
       weeklyNotificationEnabled = false,
       autoPauseEnabled = true,
       hasSeenOnboarding = false,
@@ -79,7 +87,25 @@ class UserPreferencesValue {
   final String? reminderTime;
 
   /// True if the reminder should also fire on Saturday and Sunday.
+  ///
+  /// Superseded by [reminderDays] in Phase 33 (D-02) and read by nothing —
+  /// see the column dartdoc in `user_preferences_table.dart`.
   final bool weekendReminder;
+
+  /// CSV of ISO-8601 weekday numbers the reminder fires on (Monday = 1 …
+  /// Sunday = 7), Phase 33 D-02. Prefer [reminderDayNumbers] over parsing
+  /// this raw CSV at call sites. An empty string means no reminders.
+  final String reminderDays;
+
+  /// Lifecycle of the recalibration suggestion (Phase 33, D-04).
+  final ReminderSuggestionState reminderSuggestionState;
+
+  /// The `HH:mm` value last offered as a suggestion; null if none ever was.
+  final String? reminderSuggestionValue;
+
+  /// Parsed view of [reminderDays]. Empty when no day is selected — which
+  /// means no reminders, NOT "fall back to weekdays" (T-33-06).
+  Set<int> get reminderDayNumbers => parseReminderDays(reminderDays);
 
   /// True if weekly summary notification is enabled (D-07, D-13).
   final bool weeklyNotificationEnabled;
@@ -169,6 +195,11 @@ class UserPreferencesDao extends DatabaseAccessor<AppDatabase>
       officeLng: row.officeLng,
       backfillMarkerVersion: row.backfillMarkerVersion,
       seenTours: row.seenTours,
+      reminderDays: row.reminderDays,
+      reminderSuggestionState: ReminderSuggestionState.fromWire(
+        row.reminderSuggestionState,
+      ),
+      reminderSuggestionValue: row.reminderSuggestionValue,
     );
   }
 
@@ -204,6 +235,11 @@ class UserPreferencesDao extends DatabaseAccessor<AppDatabase>
               officeLng: row.officeLng,
               backfillMarkerVersion: row.backfillMarkerVersion,
               seenTours: row.seenTours,
+              reminderDays: row.reminderDays,
+              reminderSuggestionState: ReminderSuggestionState.fromWire(
+                row.reminderSuggestionState,
+              ),
+              reminderSuggestionValue: row.reminderSuggestionValue,
             ),
     );
   }
@@ -255,6 +291,11 @@ class UserPreferencesDao extends DatabaseAccessor<AppDatabase>
         officeLng: Value<double?>(value.officeLng),
         backfillMarkerVersion: Value<int>(value.backfillMarkerVersion),
         seenTours: Value<String>(value.seenTours),
+        reminderDays: Value<String>(value.reminderDays),
+        reminderSuggestionState: Value<String>(
+          value.reminderSuggestionState.wireValue,
+        ),
+        reminderSuggestionValue: Value<String?>(value.reminderSuggestionValue),
       ),
     );
   }

@@ -15,6 +15,17 @@ import '../../generated_migrations/schema_v7.dart' as v7;
 /// false under the v3 opt-in default) and gains a `seen_tours` column that
 /// defaults to `''`, while every existing trip and preferences row
 /// survives unchanged.
+///
+/// Phase 33 note: this test used to validate the intermediate schema at
+/// exactly v8. It can no longer do so, and no equivalent test can. The v8
+/// step rebuilds `user_preferences` with a `TableMigration`, which drift
+/// writes against the CURRENT table definition — so once v10 added three
+/// more columns to that table, the v8 step necessarily produces a v10-shaped
+/// table and the exact v8 DDL became unreproducible from this code. The
+/// assertion was therefore retargeted to v10, which is the only migration
+/// endpoint production ever reaches from v7 anyway; everything the test
+/// actually guards (the auto-pause backfill, the seen_tours default, trip
+/// survival) is asserted unchanged.
 void main() {
   group('Drift v7 → v8 migration (Phase 27, UX-07/UX-08)', () {
     late SchemaVerifier verifier;
@@ -33,7 +44,7 @@ void main() {
     });
 
     test(
-      'v7 → v8 migration applies, preserves existing rows, backfills '
+      'v7 → v10 migration applies, preserves existing rows, backfills '
       "auto_pause_enabled=1, and adds seen_tours defaulting to ''",
       () async {
         // 1. Open at v7 and seed one user_preferences row (explicitly
@@ -77,7 +88,7 @@ void main() {
         //    against the generated v8 snapshot (proves no schema drift).
         final migratedDb = AppDatabase(schema.newConnection());
         addTearDown(migratedDb.close);
-        await verifier.migrateAndValidate(migratedDb, 8);
+        await verifier.migrateAndValidate(migratedDb, 10);
 
         // 3a. The trip survives unchanged (additive migration).
         final tripRow = await migratedDb.tripsDao.findById(tripId);
