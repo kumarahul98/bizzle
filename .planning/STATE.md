@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: App Improvements
 status: executing
-stopped_at: Phase 29 + nodejs24 runtime bump BOTH MERGED to main and pushed. Backend deployed and live. Release blocked on the Play Data Safety declaration (see RELEASE-GATES.md). Phase 30 blocked on device spike.
+stopped_at: UAT session 2026-07-21 — 48 of 60 scenarios PASSED on device. 3 open (N05 GPS drift, N08+N15 widget), 8 deferred (backend/sync), 1 N-A. Release still blocked on the Play Data Safety declaration.
 last_updated: "2026-07-20T00:00:00.000Z"
-last_activity: 2026-07-20
+last_activity: 2026-07-21
 progress:
   total_phases: 18
   completed_phases: 13
@@ -39,6 +39,39 @@ Phase: 29 code-complete (branch `phase-29-sync-home-office`, unmerged)
 Plan: all 3 waves done
 Status: Blocked on two human gates — see below
 Last activity: 2026-07-20
+
+**UAT session 2026-07-21 — first real device pass in this project's history.**
+
+48 of 60 UAT scenarios PASSED, including the entire v0.1 backlog that had sat
+untouched since 2026-06-01 (40/45) and most of the post-v0.1 work. Recorded in
+`.planning/TRAEVY-DEVICE-CHECKS.xlsx` and back-ported into
+`v0.1-DEVICE-CHECKLIST.md`.
+
+Notably passed: **N04, the WR-05 force-stop repro** — the one check that could
+turn "WR-05 is fixed" from an informed expectation into a verified fact. It is
+now verified. Also passed: Android 15 edge-to-edge across nav/maps/sheets
+(N01-N03), auto-pause default + migration backfill (N06), per-page tour (N07),
+and the conflict sheet (N12).
+
+STILL OPEN (3):
+- **N05** GPS stationary drift. Must run OUTDOORS or at a window for 15 min —
+  indoors the 30 m accuracy gate rejects samples, so a 0 m reading would be a
+  FALSE PASS. Read the LIVE distance tile: a stationary trip is under the 100 m
+  floor, so it is discarded on Stop and never reaches history.
+- **N08 + N15** widget. Overlapping; one session closes both (add widget →
+  idle stats match Stats screen → START from widget → resize 4x2 → shrink 2x2 →
+  pause chip → STOP).
+
+DEFERRED by the user, to revisit last (8): N09-N11, N13, V42-V45 — every one
+needs the live backend and/or a signed-in Google account.
+
+N-A (1): V15 — no pre-Phase-3 `direction='unknown'` rows exist on a fresh
+install, so the backfill has nothing to act on. Not a gap.
+
+Correction made this session: I had warned that Group E (V24-V29) might be
+stale because Phase 8 superseded the dashboard model. Wrong — the checklist had
+already REWRITTEN E2/E3/E4 to describe current Phase 8 behaviour, and says so in
+its own section header. They were valid tests as written.
 
 **Session 2026-07-19/20 (manual GSD — tooling uninstalled, process honoured by hand):**
 

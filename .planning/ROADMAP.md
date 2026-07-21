@@ -824,7 +824,7 @@ Note: Phase 17 is a small, independent UI fix + quick-label and is the safe firs
 | 20. First-Run Login with Skip | v0.3 | 1/1 | Complete | 2026-06-06 |
 | 21. Home & Office Locations + Geofence Auto-Label | v0.3 | 3/3 | Complete | 2026-06-06 |
 | 22. Home-Screen Widget | v0.3 | 1/1 | Complete | 2026-06-09 |
-| 23. Resolve Deferred UAT Items (Android) | v0.3 | 0/TBD | Not started (rescoped 2026-07-11) | - |
+| 23. Resolve Deferred UAT Items (Android) | v0.3 | 48/60 | Mostly done 2026-07-21 — 3 open, 8 deferred (backend), 1 N-A | - |
 | 24. Automatic Cloud Sync & Restore | v0.3 | 3/3 | Complete | 2026-06-16 |
 | 25. Interrupted-Trip Recovery | v0.3 | 3/3 | Complete | 2026-06-28 |
 | 25.1. Fix Sync Conflict & Auto-Retry Bugs (INSERTED) | v0.3 | 2/2 | Complete | 2026-07-12 |
