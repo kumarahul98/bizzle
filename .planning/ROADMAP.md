@@ -8,7 +8,7 @@ Deliver an offline-first Android commute tracker that records GPS trips, compute
 
 - ✅ **v0.1 Android MVP** - Phases 1-11 (formally open — 13 device-UAT items deferred, resumable)
 - ⏸️ **v0.2 iOS Support** - Phases 12-16 (PAUSED as of 2026-07-11 — see summary in the v0.2 section; 12/13 complete, 14 code-complete/device-unverified, 15 trimmed & merged (Live Activity dropped), 16 not started)
-- 🚧 **v0.3 App Improvements** - Phases 17-26 (9/11 complete; remaining Phases 23, 26 are Android-only)
+- 🚧 **v0.3 App Improvements** - Phases 17-36 (17-29 done or code-complete; 30 blocked on a device spike; 31-36 are the post-UAT bug/feature batch. Phase 36 is last and carries the deferred UAT batch.)
 
 ## Phases
 
@@ -1016,6 +1016,39 @@ Plans:
 - [ ] 36-02 — permission deep-link channel + unify the three denial paths + delete `permission_gate.dart` (SC4, SC5, SC6)
 - [ ] 36-03 — stop-confirm relay mirroring the auto-pause pattern (SC7, SC8, SC9) — merges after 36-02, both touch `main_shell.dart` in distinct regions
 
+---
+
+### Deferred UAT — run at Phase 36 close (added 2026-07-22)
+
+All outstanding device verification is batched here rather than run piecemeal.
+**Phase 36 rewrites the widget layout/icons AND the notification Stop action**,
+so verifying either beforehand would only need redoing afterwards. Run this as
+one session once 36-01…36-03 have landed.
+
+Owner of record: `.planning/TRAEVY-DEVICE-CHECKS.xlsx`.
+
+**A — Notification channels & ranking** *(from `318b005`, `f5dfe7a`; no test in the repo can observe any of this)*
+
+- [ ] **A1.** Recording notification sits at the TOP of the shade, not in the "Silent" section
+- [ ] **A2.** It heads-up ONCE when a trip starts, then updates silently for the rest of the trip (`onlyAlertOnce`) — no repeated banners at the ~5 s refresh
+- [ ] **A3.** It survives the lock screen — Android guarantees non-dismissible while locked
+- [ ] **A4.** It survives "Clear all"
+- [ ] **A5.** Deliberate swipe while UNLOCKED dismisses it, but it returns within ~5 s via the refresh re-post. *This is the one genuinely unproven claim from 2026-07-21 — it follows from the code but has never been observed. If it does NOT return, that is a real bug.*
+- [ ] **A6.** After upgrading over an older install, system settings shows exactly ONE "Active commute" channel — the legacy `traevy_active_commute` must be gone (channel id moved to `_v2`; importance is immutable, hence the bump)
+
+**B — Auto-pause prompt** *(from `318b005`; interacts with 36-03's stop-confirm, so verify together)*
+
+- [ ] **B1.** After 15 min stationary, the prompt appears as a heads-up ABOVE the recording notification
+- [ ] **B2.** Tapping Pause opens the app and shows the "Still stopped?" dialog — it must NOT pause silently
+- [ ] **B3.** Confirming in the dialog pauses the trip
+- [ ] **B4.** **Negative case, do not skip:** swiping the prompt away leaves the trip recording untouched (Phase 18 D-12)
+- [ ] **B5.** The prompt and 36-03's Stop confirmation use the same dialog shape and wording (SC9)
+
+**C — Carried over from the 2026-07-21 UAT session** *(3 of 60 left unrun)*
+
+- [ ] **C1.** (was N05) GPS stationary drift — 15 min stationary, distance stays ~0. **Run OUTDOORS or at a window:** indoors the 30 m accuracy gate rejects samples, so 0 m would be a FALSE pass. Read the LIVE tile — a stationary trip is under the 100 m floor and gets discarded on Stop. *Independent of Phase 36; can be done any time.*
+- [ ] **C2.** (was N08 + N15) Full widget session — add widget → idle stats match the Stats screen → START from widget → resize 4×2 → shrink 2×2 → PAUSED chip → STOP. **Deliberately deferred to here** because 36-01 replaces the stop icon and resizing behaviour; testing before would be thrown away.
+
 **UI hint**: yes (widget layout, confirm dialog)
 
 ## v0.3 Progress
@@ -1049,4 +1082,4 @@ Note: Phase 17 is a small, independent UI fix + quick-label and is the safe firs
 | 33. Settings & Smart Reminders | v0.3 | 0/3 | Not started (schema v10) | - |
 | 34. Multi-Period Stats (RnD First) | v0.3 | 0/3 | Not started (Wave 1 is a review gate) | - |
 | 35. Deleted Trips (Trash) | v0.3 | 0/2 | Not started (schema v11; fixes pre-existing FK cascade bug) | - |
-| 36. Widget & Platform Fixes | v0.3 | 0/3 | Not started (independent; parallelisable) | - |
+| 36. Widget & Platform Fixes | v0.3 | 0/3 | Not started — **carries the deferred UAT batch** (13 device checks, run at phase close) | - |
