@@ -107,14 +107,48 @@ void main() {
       },
     );
 
+    // 2026-07-21: this used to pin the literal 'traevy_active_commute'. That
+    // over-specified the contract and blocked a legitimate change.
+    //
+    // D-14's actual invariant is that the fbs foreground service and our
+    // `show()` call use the SAME channel — if they diverge the user sees two
+    // shade entries. It is not that the id equals one particular string. Both
+    // sites read `kTrackingNotificationChannelId`, so sameness holds by
+    // construction whatever the value is.
+    //
+    // The value had to move to `_v2` because channel importance is IMMUTABLE
+    // on Android once a channel exists: the original channel shipped at
+    // `Importance.low`, and raising the recording notification's rank was
+    // impossible without publishing a new id.
+    //
+    // What follows pins the properties that can still actually break.
     test(
-      'kTrackingNotificationChannelId is traevy_active_commute '
-      '(D-14 contract must not change)',
+      'kTrackingNotificationChannelId is set and not the retired legacy id',
       () {
+        expect(kTrackingNotificationChannelId, isNotEmpty);
         expect(
           kTrackingNotificationChannelId,
-          equals('traevy_active_commute'),
-          reason: 'D-14: channel ID must remain traevy_active_commute',
+          isNot(equals(kLegacyTrackingNotificationChannelId)),
+          reason:
+              'reverting to the legacy id silently restores the low-importance '
+              'channel for every existing install, while a fresh install still '
+              'looks correct',
+        );
+      },
+    );
+
+    test(
+      'the tracking channel never collides with the auto-pause channel',
+      () {
+        // A collision would make the legacy-channel delete in _createChannels()
+        // tear down a live channel.
+        expect(
+          kTrackingNotificationChannelId,
+          isNot(equals(kAutoPauseChannelId)),
+        );
+        expect(
+          kLegacyTrackingNotificationChannelId,
+          isNot(equals(kAutoPauseChannelId)),
         );
       },
     );

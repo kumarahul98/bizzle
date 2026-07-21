@@ -131,8 +131,30 @@ const double kStuckSpeedThresholdMs = kStuckSpeedThresholdKmh / 3.6;
 /// Android notification channel id for the active-commute foreground
 /// notification shown while Traevy is recording a commute.
 ///
+/// **`_v2` suffix (2026-07-21) is deliberate — do not "clean it up".** The
+/// original `traevy_active_commute` channel was created at `Importance.low`,
+/// which parks the recording notification in the shade's silent section at the
+/// bottom. Channel importance is IMMUTABLE on Android once the channel exists,
+/// so the only way to raise an already-shipped channel is to publish a new id.
+/// Reverting this string would silently restore the low-importance channel for
+/// every existing install while looking correct on a fresh one.
+///
+/// Referenced in TWO places that must never diverge (the D-14 dedup contract):
+/// `AndroidConfiguration.notificationChannelId` in `tracking_service.dart`, and
+/// the `show()` call in `tracking_notification_service.dart`. Both read THIS
+/// constant, so changing the value here updates them together — never hardcode
+/// the string in either site.
+///
 /// See D-14, D-15 in `.planning/phases/02-core-tracking/02-CONTEXT.md`.
-const String kTrackingNotificationChannelId = 'traevy_active_commute';
+const String kTrackingNotificationChannelId = 'traevy_active_commute_v2';
+
+/// The pre-2026-07-21 channel id, kept ONLY so it can be deleted.
+///
+/// Without an explicit delete, existing installs keep a dead "Active commute"
+/// entry in Android's per-app notification settings alongside the new one —
+/// two identically named channels, one of which does nothing. Removed in
+/// `TrackingNotificationService._createChannels()`.
+const String kLegacyTrackingNotificationChannelId = 'traevy_active_commute';
 
 /// User-facing notification channel name shown in Android system settings.
 ///

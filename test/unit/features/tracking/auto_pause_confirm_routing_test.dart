@@ -98,4 +98,42 @@ void main() {
       expect(kAutoPauseConfirmBody, contains('$minutes minutes'));
     });
   });
+
+  group('2026-07-21 — recording notification ranking', () {
+    test('the tracking channel id was bumped away from the legacy id', () {
+      // Channel importance is immutable on Android once created. The legacy
+      // channel shipped at Importance.low, so raising the recording
+      // notification's rank REQUIRED a new id. If these ever become equal
+      // again, every existing install silently reverts to the low-importance
+      // channel while a fresh install still looks correct — the exact failure
+      // mode that motivated the bump.
+      expect(
+        kTrackingNotificationChannelId,
+        isNot(equals(kLegacyTrackingNotificationChannelId)),
+      );
+    });
+
+    test('the legacy id is retained so it can be deleted', () {
+      // Kept ONLY for deleteNotificationChannel. Without the delete, upgrading
+      // users see two identically named "Active commute" entries in system
+      // settings, one of them dead.
+      expect(kLegacyTrackingNotificationChannelId, isNotEmpty);
+      expect(kLegacyTrackingNotificationChannelId, 'traevy_active_commute');
+    });
+
+    test('all three channel ids are mutually distinct', () {
+      final ids = <String>[
+        kTrackingNotificationChannelId,
+        kAutoPauseChannelId,
+        kLegacyTrackingNotificationChannelId,
+      ];
+      expect(
+        ids.toSet().length,
+        ids.length,
+        reason:
+            'a collision would make the delete of the legacy channel tear '
+            'down a live one',
+      );
+    });
+  });
 }

@@ -210,8 +210,19 @@ class TrackingNotificationService {
       kTrackingNotificationChannelId,
       kTrackingNotificationChannelName,
       channelDescription: kTrackingNotificationChannelDescription,
-      importance: Importance.low,
-      priority: Priority.low,
+      // 2026-07-21: raised from low so the recording notification ranks at the
+      // top of the shade instead of sitting in the silent section. Safe to
+      // refresh every ~5 s at this importance because `onlyAlertOnce: true`
+      // (below) suppresses re-alerting — the heads-up fires once when the trip
+      // starts, then updates land silently.
+      importance: Importance.high,
+      priority: Priority.high,
+      // Still set, still correct, and no longer sufficient on its own: Android
+      // 14 changed FLAG_ONGOING_EVENT so users CAN swipe foreground-service
+      // notifications away (see the D-15 correction in 02-CONTEXT.md). It stays
+      // non-dismissible while the phone is LOCKED and survives "Clear all",
+      // which covers the commute cases; a deliberate swipe while unlocked is
+      // healed by the next refresh re-posting.
       ongoing: true,
       autoCancel: false,
       category: AndroidNotificationCategory.service,
@@ -347,23 +358,38 @@ class TrackingNotificationService {
   ///
   /// TWO channels, deliberately (2026-07-21, D-01):
   ///
-  ///   * the tracking channel stays `Importance.low` — its ongoing
-  ///     notification refreshes every ~5 s and would buzz constantly at any
-  ///     higher importance;
+  ///   * the tracking channel is `Importance.high` (raised 2026-07-21) so the
+  ///     recording notification ranks at the top of the shade rather than in
+  ///     the silent section. Safe despite its ~5 s refresh because
+  ///     `onlyAlertOnce: true` suppresses re-alerting on updates;
   ///   * the auto-pause prompt gets `Importance.high` so it surfaces as a
   ///     heads-up banner above that ongoing notification.
   ///
-  /// They cannot be one channel. Importance is a CHANNEL property on Android
-  /// 8+ and is immutable after creation, so a single channel can only ever have
-  /// one of those two behaviours. Splitting them also gives the user
-  /// independent control: silencing the prompt in system settings leaves the
-  /// recording notification intact.
+  /// They still stay separate now that both sit at the same importance, for a
+  /// different reason than the one that originally split them: **independent
+  /// user control**. The two serve different purposes — one reports that
+  /// recording is in progress, the other asks a question — and a user who finds
+  /// the auto-pause prompt annoying must be able to silence it in system
+  /// settings without also silencing the recording notification. Merging them
+  /// would take that away.
+  ///
+  /// (The original 2026-07-21 split was forced: the tracking channel was
+  /// `Importance.low` and could not be raised in place, so the prompt could
+  /// never have been a heads-up while sharing it. That constraint no longer
+  /// applies — the reason above is why they remain apart.)
+  ///
+  /// A third channel id, [kLegacyTrackingNotificationChannelId], is DELETED
+  /// here rather than created — see below.
   Future<void> _createChannels() async {
+    // 2026-07-21: Importance.high so the recording notification ranks at the
+    // top of the shade. Sound and vibration stay OFF — importance alone drives
+    // ranking and the heads-up; the notification refreshes every ~5 s during a
+    // trip and must never become audible chatter.
     const trackingChannel = AndroidNotificationChannel(
       kTrackingNotificationChannelId,
       kTrackingNotificationChannelName,
       description: kTrackingNotificationChannelDescription,
-      importance: Importance.low,
+      importance: Importance.high,
       playSound: false,
       enableVibration: false,
       showBadge: false,
@@ -386,6 +412,14 @@ class TrackingNotificationService {
         >();
     await android?.createNotificationChannel(trackingChannel);
     await android?.createNotificationChannel(autoPauseChannel);
+    // Retire the pre-2026-07-21 low-importance channel. Its importance could
+    // not be raised in place (immutable once created), so the id was bumped to
+    // _v2 — without this delete, upgrading users would see TWO identically
+    // named "Active commute" entries in system settings, one of them dead.
+    // No-op on a fresh install where the legacy channel never existed.
+    await android?.deleteNotificationChannel(
+      channelId: kLegacyTrackingNotificationChannelId,
+    );
   }
 
   /// Render the title with the resolved direction substituted.

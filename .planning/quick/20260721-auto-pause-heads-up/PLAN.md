@@ -7,6 +7,7 @@ requirements: [UX-08 follow-up]
 ---
 
 # Quick task — auto-pause prompt: heads-up + confirm-in-app
+#      + recording notification raised to high importance
 
 User request (2026-07-21), two parts:
 
@@ -106,6 +107,48 @@ Note for that test: existing installs already have the old low-importance
 channel. The new channel is created on next launch, so the heads-up will work —
 but if you had previously silenced "Active commute" in system settings, that
 setting does NOT carry over to the new channel.
+
+## Follow-up 2026-07-21 (same session) — recording notification ranking
+
+User asked for the RECORDING notification to also be high priority and stick to
+the top, and to be non-dismissible.
+
+**Non-dismissible is impossible and was NOT built.** Verified against the
+official Android 14 behaviour-changes doc: `FLAG_ONGOING_EVENT` /
+`setOngoing(true)` no longer prevents dismissal, and the exception list
+(CallStyle, media, device-policy-controller, default Search Selector) does not
+cover a commute tracker. `ongoing: true` + `autoCancel: false` stay set — they
+are still correct, the OS simply overrides them.
+
+What IS still guaranteed and largely satisfies the intent: the notification is
+non-dismissible **while the phone is locked**, and **survives "Clear all"**.
+The residual gap is a deliberate swipe while unlocked, which
+`_maybeRefreshNotification` should heal within 5 s by re-posting. That healing
+is UNVERIFIED on device — worth 30 seconds to confirm.
+
+The stale `02-CONTEXT.md` D-15 claim of "non-dismissible while service is
+running" was corrected in `b0245db`; it is what set the wrong expectation.
+
+**High importance WAS built.** `kTrackingNotificationChannelId` bumped to
+`traevy_active_commute_v2` at `Importance.high`, because channel importance is
+immutable once created and the original channel shipped at `low`. Sound and
+vibration stay off — importance alone drives ranking and the heads-up, and
+`onlyAlertOnce: true` means the ~5 s refreshes never re-alert. The legacy
+channel is explicitly deleted so upgrading users do not end up with two
+identically named "Active commute" entries in system settings.
+
+A pre-existing D-14 guard test pinned the literal channel string and failed.
+It was over-specified: D-14's real invariant is that the fbs service and our
+`show()` call use the SAME channel, not that it equals one particular value —
+and both read the same constant, so sameness holds by construction. Rewritten
+to pin what can actually break (non-empty, not the retired legacy id, no
+collision with the auto-pause channel).
+
+Both channels now sit at `Importance.high`, which retires the original reason
+for splitting them. They stay separate for a different and still-valid reason:
+independent user control, so silencing the prompt does not silence recording.
+
+Suite 717 -> 721. Release APK builds.
 
 ## Files
 
