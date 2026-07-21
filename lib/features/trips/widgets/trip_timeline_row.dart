@@ -14,6 +14,7 @@ class TripTimelineRow extends StatelessWidget {
     required this.iconColor,
     required this.label,
     this.duration,
+    this.durationColor,
     super.key,
   });
 
@@ -34,6 +35,11 @@ class TripTimelineRow extends StatelessWidget {
 
   /// Optional duration string shown right-aligned (e.g. '18 min').
   final String? duration;
+
+  /// Colour of the [duration] text. Defaults to the stuck token, which is
+  /// correct for a stuck row but not for a break — Phase 31 (D-07) added
+  /// break rows to this timeline, so the caller now chooses.
+  final Color? durationColor;
 
   @override
   Widget build(BuildContext context) {
@@ -64,7 +70,7 @@ class TripTimelineRow extends StatelessWidget {
             style: TraevyFonts.mono(
               size: 12,
               weight: FontWeight.w600,
-              color: tokens.stuck,
+              color: durationColor ?? tokens.stuck,
             ),
           ),
       ],

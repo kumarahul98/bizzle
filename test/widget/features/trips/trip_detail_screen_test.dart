@@ -19,9 +19,11 @@ import 'package:traevy/config/constants.dart';
 import 'package:traevy/config/theme.dart';
 import 'package:traevy/database/database.dart';
 import 'package:traevy/database/providers.dart';
+import 'package:traevy/features/tracking/widgets/direction_segmented_toggle.dart';
 import 'package:traevy/features/trips/screens/trip_detail_screen.dart';
 import 'package:traevy/features/trips/widgets/traffic_insight_card.dart';
 import 'package:traevy/features/trips/widgets/trip_timeline.dart';
+import 'package:traevy/shared/widgets/info_sheet.dart';
 import 'package:traevy/shared/widgets/stuck_bar.dart';
 import 'package:uuid/uuid.dart';
 
@@ -188,6 +190,82 @@ void main() {
         findsAtLeastNWidgets(1),
       );
     });
+
+    testWidgets(
+      'direction CANNOT be changed from the detail view (Phase 31, D-01/SC#1)',
+      (tester) async {
+        final id = await insertGpsTrip();
+        await tester.pumpWidget(buildScreen(id));
+        await tester.pumpAndSettle();
+        // The live toggle that used to write on tap is gone; EditTripSheet is
+        // now the single direction write path.
+        expect(find.byType(DirectionSegmentedToggle), findsNothing);
+        // Direction stays VISIBLE as the title.
+        expect(find.text(kDirectionToOfficeLabel), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'an info icon beside the stuck figure opens the explainer (SC#7)',
+      (tester) async {
+        final id = await insertGpsTrip();
+        await tester.pumpWidget(buildScreen(id));
+        await tester.pumpAndSettle();
+        expect(find.byType(InfoIconButton), findsOneWidget);
+
+        await tester.tap(find.byType(InfoIconButton));
+        await tester.pumpAndSettle();
+        expect(find.text(kStuckInfoTitle), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'a pre-Phase-31 trip with no segments and no breaks opens cleanly and '
+      'shows only the two timeline anchors (SC#5/SC#6)',
+      (tester) async {
+        final id = await insertGpsTrip();
+        await tester.pumpWidget(buildScreen(id));
+        await tester.pumpAndSettle();
+        expect(find.byType(TripTimeline), findsOneWidget);
+        expect(find.text(kTimelineStartedLabel), findsOneWidget);
+        expect(find.text(kTimelineArrivedOfficeLabel), findsOneWidget);
+        // The fabricated 40%-of-duration marker is gone.
+        expect(find.text(kTimelineStuckLabel), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'real breaks and stuck stretches appear in the timeline (SC#6)',
+      (tester) async {
+        final id = await insertGpsTrip();
+        final start = DateTime.utc(2026, 1, 1, 8);
+        await db.tripBreaksDao.insertBreaks([
+          TripBreaksCompanion.insert(
+            id: 'break-1',
+            tripId: id,
+            startTime: start.add(const Duration(minutes: 5)),
+            endTime: Value(start.add(const Duration(minutes: 9))),
+          ),
+        ]);
+        await db.tripStuckSegmentsDao.insertSegments([
+          TripStuckSegmentsCompanion.insert(
+            id: 'seg-1',
+            tripId: id,
+            startPointIndex: 2,
+            endPointIndex: 8,
+            startTime: start.add(const Duration(minutes: 20)),
+            endTime: start.add(const Duration(minutes: 23)),
+          ),
+        ]);
+
+        await tester.pumpWidget(buildScreen(id));
+        await tester.pumpAndSettle();
+        expect(find.text(kTimelineBreakLabel), findsOneWidget);
+        expect(find.text(kTimelineStuckLabel), findsOneWidget);
+        expect(find.text('4 $kTimelineMinutesSuffix'), findsOneWidget);
+        expect(find.text('3 $kTimelineMinutesSuffix'), findsOneWidget);
+      },
+    );
 
     testWidgets(
       'manual trip hides map area and shows manual entry context',

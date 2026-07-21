@@ -1,16 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/config/theme.dart';
 import 'package:traevy/database/daos/trips_dao.dart';
 import 'package:traevy/database/database.dart';
 import 'package:traevy/database/providers.dart';
-import 'package:traevy/features/tracking/widgets/direction_segmented_toggle.dart';
 import 'package:traevy/features/trips/providers/trip_management_providers.dart';
 import 'package:traevy/features/trips/services/trip_actions.dart'
     as trip_actions;
@@ -18,17 +15,15 @@ import 'package:traevy/features/trips/services/trip_edit_recompute.dart';
 import 'package:traevy/features/trips/widgets/edit_trip_sheet.dart';
 import 'package:traevy/features/trips/widgets/estimated_hint.dart';
 import 'package:traevy/features/trips/widgets/traffic_insight_card.dart';
+import 'package:traevy/features/trips/widgets/trip_map_section.dart';
 import 'package:traevy/features/trips/widgets/trip_timeline.dart';
 import 'package:traevy/shared/utils/formatters.dart';
+import 'package:traevy/shared/widgets/info_sheet.dart';
 import 'package:traevy/shared/widgets/section_label.dart';
 import 'package:traevy/shared/widgets/stuck_bar.dart';
 
 const double _kHorizontalPadding = 20;
-const double _kMapHeight = 210;
-const double _kMapBorderRadius = 16;
 const double _kCardBorderRadius = 16;
-const double _kMapCameraPadding = 32;
-const double _kPolylineStrokeWidth = 4;
 const double _kHeaderIconSize = 36;
 const double _kLegendDotSize = 8;
 
@@ -108,40 +103,6 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
     );
     if (!context.mounted) return;
     await _loadTrip();
-  }
-
-  /// Quick direction change from the trip detail toggle (TRACK-12, D-07).
-  ///
-  /// Reuses the existing `tripManagementProvider.editTrip` DAO path — the
-  /// same atomic updateTrip + enqueueUpdate the edit sheet uses — passing the
-  /// trip's existing UTC start/end and the newly-selected direction, then
-  /// reloads so the title + toggle reflect the change. No new persistence
-  /// path is introduced.
-  Future<void> _handleDirectionChanged(
-    TripRow trip,
-    String newDirection,
-  ) async {
-    if (newDirection == trip.direction) return;
-    final messenger = ScaffoldMessenger.of(context);
-    await ref
-        .read(tripManagementProvider.notifier)
-        .editTrip(
-          tripId: trip.id,
-          direction: newDirection,
-          startTimeUtc: trip.startTime,
-          endTimeUtc: trip.endTime,
-        );
-    if (!mounted) return;
-    final state = ref.read(tripManagementProvider);
-    if (state is TripManagementSaved) {
-      ref.read(tripManagementProvider.notifier).reset();
-      await _loadTrip();
-    } else if (state is TripManagementError) {
-      ref.read(tripManagementProvider.notifier).reset();
-      messenger.showSnackBar(
-        const SnackBar(content: Text("Couldn't save the trip. Try again.")),
-      );
-    }
   }
 
   Future<void> _handleDelete() async {
@@ -228,8 +189,6 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
           onOptions: _showOptionsMenu,
           onEdit: () => _handleEdit(trip),
           onDelete: _handleDelete,
-          onDirectionChanged: (direction) =>
-              _handleDirectionChanged(trip, direction),
         ),
       ),
     );
@@ -243,7 +202,6 @@ class _TripDetailBody extends StatelessWidget {
     required this.onOptions,
     required this.onEdit,
     required this.onDelete,
-    required this.onDirectionChanged,
   });
 
   final TripRow trip;
@@ -251,7 +209,6 @@ class _TripDetailBody extends StatelessWidget {
   final VoidCallback onOptions;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
-  final ValueChanged<String> onDirectionChanged;
 
   String _commutePartOfDay(DateTime startTime) {
     final local = startTime.toLocal();
@@ -265,12 +222,6 @@ class _TripDetailBody extends StatelessWidget {
     if (direction == kDirectionToHome) return kDirectionToHomeLabel;
     return 'Trip';
   }
-
-  /// Map the stored direction to a value the [DirectionSegmentedToggle] can
-  /// select. Any legacy / unknown value falls back to to-office so the toggle
-  /// always renders a valid selection; the user can then pick the correct one.
-  String _toggleSelected(String direction) =>
-      direction == kDirectionToHome ? kDirectionToHome : kDirectionToOffice;
 
   @override
   Widget build(BuildContext context) {
@@ -341,7 +292,11 @@ class _TripDetailBody extends StatelessWidget {
               padding: const EdgeInsets.symmetric(
                 horizontal: _kHorizontalPadding,
               ),
-              child: _MapSection(latLngPoints: latLngPoints, tokens: tokens),
+              child: TripMapSection(
+                tripId: trip.id,
+                latLngPoints: latLngPoints,
+                tokens: tokens,
+              ),
             ),
 
           if (isGps) const SizedBox(height: 20),
@@ -370,14 +325,13 @@ class _TripDetailBody extends StatelessWidget {
                     color: onSurface,
                   ),
                 ),
-                const SizedBox(height: 12),
-                // Quick 1-tap direction toggle (TRACK-12, D-07). Writes via
-                // the existing editTrip DAO path; the screen reloads on save
-                // so this selection reflects the persisted value.
-                DirectionSegmentedToggle(
-                  selected: _toggleSelected(trip.direction),
-                  onSelected: onDirectionChanged,
-                ),
+                // D-01: direction is READ-ONLY here. The live toggle that used
+                // to sit under this title wrote immediately on tap, so a
+                // mis-tap while scrolling silently rewrote a trip's
+                // classification — and with it that trip's contribution to the
+                // to-office / to-home averages. EditTripSheet's _DirectionField
+                // is now the single write path, where every other trip edit
+                // already lives.
                 const SizedBox(height: 16),
 
                 // Duration + Distance stat card
@@ -418,6 +372,13 @@ class _TripDetailBody extends StatelessWidget {
                           color: tokens.stuck,
                         ),
                       ),
+                      // D-08: an honest explanation of how "stuck" is
+                      // measured, including the fact that the map highlights
+                      // only the longer stretches.
+                      const InfoIconButton(
+                        title: kStuckInfoTitle,
+                        body: kStuckInfoBody,
+                      ),
                       if (trip.isEdited) ...<Widget>[
                         const SizedBox(width: 8),
                         const EstimatedHint(size: 12),
@@ -435,9 +396,9 @@ class _TripDetailBody extends StatelessWidget {
 
                   const SizedBox(height: 24),
                   TripTimeline(
+                    tripId: trip.id,
                     startTime: trip.startTime,
                     endTime: trip.endTime,
-                    stuckMinutes: stuckMinutes,
                     direction: trip.direction,
                   ),
                 ],
@@ -605,78 +566,6 @@ class _LegendDot extends StatelessWidget {
       width: _kLegendDotSize,
       height: _kLegendDotSize,
       decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-    );
-  }
-}
-
-/// Map section: real flutter_map TileLayer at 210dp wrapped in RepaintBoundary.
-///
-/// Review LOW #5 — RepaintBoundary isolates heavy tile rasterization from
-/// adjacent state changes in StuckBar / TripTimeline rebuilds.
-class _MapSection extends StatelessWidget {
-  const _MapSection({required this.latLngPoints, required this.tokens});
-
-  final List<LatLng> latLngPoints;
-  final TraevyTokensExt tokens;
-
-  @override
-  Widget build(BuildContext context) {
-    // Pitfall 2 guard: CameraFit.coordinates asserts on an empty list.
-    // Render a placeholder when no decoded points exist (corrupt polyline).
-    if (latLngPoints.isEmpty) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(_kMapBorderRadius),
-        child: Container(
-          height: _kMapHeight,
-          color: tokens.mapBg,
-        ),
-      );
-    }
-
-    // Review LOW #5 — wrap FlutterMap in RepaintBoundary to isolate tile
-    // rasterization from adjacent state changes (StuckBar, TripTimeline).
-    return RepaintBoundary(
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(_kMapBorderRadius),
-        child: SizedBox(
-          height: _kMapHeight,
-          child: IgnorePointer(
-            child: FlutterMap(
-              options: MapOptions(
-                initialCameraFit: CameraFit.coordinates(
-                  coordinates: latLngPoints,
-                  padding: const EdgeInsets.all(_kMapCameraPadding),
-                ),
-              ),
-              children: <Widget>[
-                TileLayer(
-                  urlTemplate: Theme.of(context).brightness == Brightness.dark
-                      ? kMapTileUrlDark
-                      : kMapTileUrlLight,
-                  subdomains: kMapTileSubdomains,
-                  userAgentPackageName: kMapUserAgentPackageName,
-                ),
-                PolylineLayer(
-                  polylines: <Polyline>[
-                    Polyline(
-                      points: latLngPoints,
-                      color: Theme.of(context).colorScheme.primary,
-                      strokeWidth: _kPolylineStrokeWidth,
-                    ),
-                  ],
-                ),
-                const RichAttributionWidget(
-                  attributions: <SourceAttribution>[
-                    TextSourceAttribution(
-                      '© CARTO, © OpenStreetMap contributors',
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }
