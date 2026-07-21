@@ -32,9 +32,15 @@
 // id/channel when the foreground service starts. Result: a single shade
 // entry with the action buttons — never two.
 //
-// DO NOT change either constant, and DO NOT introduce a second channel
-// or second id, without updating both `tracking_service.dart` and this
-// file in the same commit.
+// DO NOT change either constant, and DO NOT route any OTHER notification
+// through this id/channel pair, without updating both
+// `tracking_service.dart` and this file in the same commit.
+//
+// Scope note (2026-07-21): this contract governs the FOREGROUND-SERVICE
+// notification only. The auto-pause prompt is a separate notification on
+// `kAutoPauseNotificationId` and, since 2026-07-21, its own
+// `kAutoPauseChannelId` at `Importance.high` (D-01) — it never touches the
+// pair above, so it is outside this rule rather than an exception to it.
 //
 // ## Live updates
 //
@@ -160,7 +166,7 @@ class TrackingNotificationService {
       onDidReceiveBackgroundNotificationResponse:
           trackingNotificationBackgroundHandler,
     );
-    await _createChannel();
+    await _createChannels();
   }
 
   /// Show / refresh the recording notification.
@@ -283,11 +289,16 @@ class TrackingNotificationService {
   /// (SC#5).
   Future<void> showAutoPausePrompt() async {
     const androidDetails = AndroidNotificationDetails(
-      kTrackingNotificationChannelId,
-      kTrackingNotificationChannelName,
-      channelDescription: kTrackingNotificationChannelDescription,
-      importance: Importance.low,
-      priority: Priority.low,
+      // 2026-07-21 (D-01): its OWN channel, not the tracking one. Importance
+      // lives on the channel on Android 8+ and is immutable once created, so
+      // while this shared kTrackingNotificationChannelId (Importance.low) the
+      // prompt could never surface as a heads-up — raising `importance:` here
+      // would have silently done nothing on every existing install.
+      kAutoPauseChannelId,
+      kAutoPauseChannelName,
+      channelDescription: kAutoPauseChannelDescription,
+      importance: Importance.high,
+      priority: Priority.high,
       // Non-ongoing (default) + autoCancel (default) so the user can trivially
       // dismiss the prompt; dismissing leaves recording untouched (D-12).
       playSound: false,
@@ -332,8 +343,23 @@ class TrackingNotificationService {
     await _plugin.cancel(id: kTrackingNotificationId);
   }
 
-  Future<void> _createChannel() async {
-    const channel = AndroidNotificationChannel(
+  /// Create both Android notification channels.
+  ///
+  /// TWO channels, deliberately (2026-07-21, D-01):
+  ///
+  ///   * the tracking channel stays `Importance.low` — its ongoing
+  ///     notification refreshes every ~5 s and would buzz constantly at any
+  ///     higher importance;
+  ///   * the auto-pause prompt gets `Importance.high` so it surfaces as a
+  ///     heads-up banner above that ongoing notification.
+  ///
+  /// They cannot be one channel. Importance is a CHANNEL property on Android
+  /// 8+ and is immutable after creation, so a single channel can only ever have
+  /// one of those two behaviours. Splitting them also gives the user
+  /// independent control: silencing the prompt in system settings leaves the
+  /// recording notification intact.
+  Future<void> _createChannels() async {
+    const trackingChannel = AndroidNotificationChannel(
       kTrackingNotificationChannelId,
       kTrackingNotificationChannelName,
       description: kTrackingNotificationChannelDescription,
@@ -342,11 +368,24 @@ class TrackingNotificationService {
       enableVibration: false,
       showBadge: false,
     );
+    // Sound and vibration stay OFF (D-04): Importance.high alone gives the
+    // heads-up banner, and this prompt can fire on every 15-minute stuck
+    // streak — in heavy traffic that could be several times per commute.
+    const autoPauseChannel = AndroidNotificationChannel(
+      kAutoPauseChannelId,
+      kAutoPauseChannelName,
+      description: kAutoPauseChannelDescription,
+      importance: Importance.high,
+      playSound: false,
+      enableVibration: false,
+      showBadge: false,
+    );
     final android = _plugin
         .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin
         >();
-    await android?.createNotificationChannel(channel);
+    await android?.createNotificationChannel(trackingChannel);
+    await android?.createNotificationChannel(autoPauseChannel);
   }
 
   /// Render the title with the resolved direction substituted.
@@ -399,7 +438,11 @@ class TrackingNotificationService {
     // routes to the SAME pause command path the active-hero Pause button uses.
     // Exact action-id match (V5 validation) so a spoofed/stale id is ignored.
     if (response.actionId == kTrackingAutoPauseActionId) {
-      FlutterBackgroundService().invoke(kTrackingPauseCommand);
+      // 2026-07-21 (D-02): does NOT pause. Relays to the service, which bounces
+      // kAutoPauseConfirmEvent back to whichever isolate owns the UI so the
+      // user gets a confirmation dialog. Pausing here directly — the previous
+      // behaviour — gave zero feedback that anything had happened.
+      FlutterBackgroundService().invoke(kAutoPauseConfirmCommand);
     }
     // OPEN: no Dart action needed — the showsUserInterface: true /
     // DarwinNotificationActionOption.foreground options route through
@@ -427,11 +470,12 @@ void trackingNotificationBackgroundHandler(
   if (response.actionId == kTrackingStopActionId) {
     FlutterBackgroundService().invoke(kStopTrackingEvent);
   }
-  // Phase 18 (Plan 04, D-12 / T-18-12): the auto-pause prompt's Pause action
-  // routes to kTrackingPauseCommand when the app is backgrounded. Exact
-  // action-id match so a spoofed/stale id cannot toggle pause.
+  // 2026-07-21 (D-02): identical to the foreground handler — relay, never
+  // pause. This isolate cannot reach the UI, which is exactly why the relay
+  // goes through the service instead of an in-app stream. Exact action-id
+  // match so a spoofed/stale id cannot trigger anything.
   if (response.actionId == kTrackingAutoPauseActionId) {
-    FlutterBackgroundService().invoke(kTrackingPauseCommand);
+    FlutterBackgroundService().invoke(kAutoPauseConfirmCommand);
   }
   // OPEN action: handled by the platform resume path; no Dart work needed.
 }

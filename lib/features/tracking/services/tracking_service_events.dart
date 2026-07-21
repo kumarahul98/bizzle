@@ -90,3 +90,23 @@ const String kServiceReadyEvent = 'service_ready';
 
 /// Event name for sending the initial accumulator state from UI → service isolate.
 const String kSetInitialStateCommand = 'set_initial_state';
+
+/// Command (notification handler → service) meaning "the user tapped Pause on
+/// the auto-pause prompt; ask the UI to confirm" (2026-07-21, D-02).
+///
+/// Deliberately NOT [kTrackingPauseCommand]: that would pause immediately and
+/// silently, which is the behaviour this replaces. Nothing pauses until the
+/// user confirms in the dialog.
+///
+/// Routed through the service rather than an in-app stream because the Pause
+/// tap can arrive on EITHER response handler — `_onForegroundResponse` (UI
+/// isolate) or `trackingNotificationBackgroundHandler` (its own background
+/// isolate, which cannot reach the UI). Both can reach the service, and the
+/// service is guaranteed alive because this prompt only fires during an active
+/// trip. One path beats two mechanisms that drift apart.
+const String kAutoPauseConfirmCommand = 'auto_pause_confirm';
+
+/// Event (service → UI isolate) telling the UI to show the auto-pause
+/// confirmation dialog (2026-07-21, D-02). The service's only job here is to
+/// bounce [kAutoPauseConfirmCommand] back out to whichever isolate owns the UI.
+const String kAutoPauseConfirmEvent = 'auto_pause_confirm_request';

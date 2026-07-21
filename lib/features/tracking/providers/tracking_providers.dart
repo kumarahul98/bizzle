@@ -119,6 +119,22 @@ final Provider<TrackingServiceController> trackingServiceControllerProvider =
       name: 'trackingServiceControllerProvider',
     );
 
+/// Fires when the user taps Pause on the auto-pause prompt notification
+/// (2026-07-21, D-02).
+///
+/// The UI listens and shows a confirmation dialog — NOTHING is paused until the
+/// user confirms, which preserves the Phase 18 D-12 "prompt only, never acts on
+/// its own" guarantee. Previously the notification action paused immediately
+/// and silently, giving the user no feedback that anything had happened.
+final StreamProvider<void> autoPauseConfirmRequestProvider =
+    StreamProvider<void>(
+      (ref) => ref
+          .watch(trackingEventSourceProvider)
+          .onAutoPauseConfirmRequest
+          .map((_) {}),
+      name: 'autoPauseConfirmRequestProvider',
+    );
+
 /// Live tracking state driven by events from the platform-selected
 /// [TrackingEventSource]. Plan 02-04 binds the tracking screen tiles to
 /// this provider.

@@ -107,6 +107,19 @@ final class MainIsolateTrackingEngine implements TrackingEventSource {
   Stream<Map<String, dynamic>?> get onAutoPausePrompt =>
       _autoPausePromptController.stream;
 
+  /// 2026-07-21 (D-02): iOS relays nothing here.
+  ///
+  /// On Android the notification's Pause action can fire from a background
+  /// isolate that cannot reach the UI, which is why that path bounces through
+  /// the fbs service. The iOS engine runs IN the UI isolate — the Darwin
+  /// notification action is delivered straight to `_onForegroundResponse`, so
+  /// there is no isolate boundary to cross and nothing to relay. An empty
+  /// stream is the honest implementation, not a stub: wiring a controller
+  /// nothing ever adds to would imply a path that does not exist.
+  @override
+  Stream<Map<String, dynamic>?> get onAutoPauseConfirmRequest =>
+      const Stream<Map<String, dynamic>?>.empty();
+
   // Internal state — accessed only on the main isolate.
   bool _stopping = false;
   StreamSubscription<Position>? _positionSub;

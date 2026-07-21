@@ -223,16 +223,55 @@ const int kAutoPauseStationaryThresholdSeconds = 15 * 60;
 /// never collides with or replaces the recording notification.
 const int kAutoPauseNotificationId = 1002;
 
+/// Notification channel for the auto-pause prompt (2026-07-21, D-01).
+///
+/// SEPARATE from [kTrackingNotificationChannelId] and this is load-bearing, not
+/// tidiness. On Android 8+ importance lives on the CHANNEL, and a channel's
+/// importance is IMMUTABLE once created. The tracking channel is deliberately
+/// `Importance.low` (its ongoing notification refreshes every ~5 s and would
+/// buzz constantly otherwise), so the prompt could never be raised to a
+/// heads-up while it shared that channel — setting `importance:` on the
+/// notification would silently do nothing on every existing install.
+const String kAutoPauseChannelId = 'traevy_auto_pause_prompt';
+
+/// User-visible channel name (2026-07-21). Appears in Android's per-app
+/// notification settings, so the user can independently silence the prompt
+/// without touching the ongoing recording notification.
+const String kAutoPauseChannelName = 'Auto-pause prompts';
+
+/// Channel description shown under [kAutoPauseChannelName] in system settings.
+const String kAutoPauseChannelDescription =
+    'Asks whether to pause when you have been stationary for a while during a '
+    'commute.';
+
 /// Action id for the Pause button on the auto-pause prompt (Phase 18, D-12).
 /// Both notification response handlers match this exact id (V5 validation,
-/// T-18-12) before routing to [kTrackingPauseCommand]; everything else is
+/// T-18-12) before routing to [kAutoPauseConfirmCommand]; everything else is
 /// ignored, so a spoofed/stale action id cannot toggle pause.
 const String kTrackingAutoPauseActionId = 'auto_pause';
 
 /// User-facing label for the Pause action button on the auto-pause prompt
-/// (Phase 18, D-12). Tapping it fires the same `kTrackingPauseCommand` path the
-/// active-hero Pause button uses — prompt only, never silent auto-pause.
+/// (Phase 18, D-12). As of 2026-07-21 (D-02) tapping it no longer pauses
+/// silently — it opens the app and asks for confirmation, matching the
+/// home-screen widget's Pause button.
 const String kTrackingAutoPauseActionLabel = 'Pause';
+
+/// Title of the in-app confirmation dialog opened by the prompt's Pause action
+/// (2026-07-21, D-03).
+const String kAutoPauseConfirmTitle = 'Still stopped?';
+
+/// Body of that dialog. Auto-pause specific rather than the widget's generic
+/// wording, because the user needs to know WHY the app is asking.
+const String kAutoPauseConfirmBody =
+    "You've been stationary for 15 minutes. Pause this trip? Time paused is "
+    'excluded from your stats.';
+
+/// Dismiss label — the safe, trip-preserving choice, so it reads as an action
+/// rather than "Cancel".
+const String kAutoPauseConfirmDismissLabel = 'Keep recording';
+
+/// Confirm label on the auto-pause confirmation dialog.
+const String kAutoPauseConfirmAcceptLabel = 'Pause';
 
 /// Title for the auto-pause prompt notification (Phase 18, D-12).
 const String kAutoPauseNotificationTitle = "You've been stopped a while";

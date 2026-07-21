@@ -89,6 +89,17 @@ Future<void> trackingServiceOnStart(ServiceInstance service) async {
   );
   var stopping = false;
 
+  // 2026-07-21 (D-02): pure relay. The notification's Pause action cannot
+  // reach the UI isolate directly from the background response handler, so it
+  // invokes here and we bounce it straight back out. The service deliberately
+  // does NOT pause on this — nothing pauses until the user confirms in the
+  // dialog, preserving the Phase 18 D-12 "prompt only, never acts on its own"
+  // guarantee.
+  service.on(kAutoPauseConfirmCommand).listen((event) {
+    if (stopping) return;
+    service.invoke(kAutoPauseConfirmEvent);
+  });
+
   service.on(kSetInitialStateCommand).listen((event) {
     if (stopping) return;
     if (event != null && event['initialState'] != null) {

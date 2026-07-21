@@ -36,6 +36,10 @@ class _PromptDrivingEventSource implements TrackingEventSource {
       promptController.stream;
 
   @override
+  Stream<Map<String, dynamic>?> get onAutoPauseConfirmRequest =>
+      const Stream<Map<String, dynamic>?>.empty();
+
+  @override
   Stream<Map<String, dynamic>?> get onState =>
       const Stream<Map<String, dynamic>?>.empty();
 

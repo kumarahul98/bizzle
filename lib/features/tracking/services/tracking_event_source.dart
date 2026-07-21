@@ -58,6 +58,11 @@ abstract interface class TrackingEventSource {
   /// ONLY when the user has opted into auto-pause (so OFF → no prompt, SC#5).
   Stream<Map<String, dynamic>?> get onAutoPausePrompt;
 
+  /// Fires when the user taps Pause on the auto-pause prompt notification
+  /// (2026-07-21, D-02). The UI shows a confirmation dialog; NOTHING is paused
+  /// until the user confirms.
+  Stream<Map<String, dynamic>?> get onAutoPauseConfirmRequest;
+
   /// Start tracking. Returns `true` if the underlying service/engine started
   /// successfully, `false` if a pre-flight check blocked the start.
   Future<bool> start({Map<String, dynamic>? initialAccumulatorState});
@@ -112,6 +117,10 @@ final class FbsTrackingEventSource implements TrackingEventSource {
   Stream<Map<String, dynamic>?> get onReady => _service.on(kServiceReadyEvent);
 
   @override
+  @override
+  Stream<Map<String, dynamic>?> get onAutoPauseConfirmRequest =>
+      _service.on(kAutoPauseConfirmEvent);
+
   Stream<Map<String, dynamic>?> get onAutoPausePrompt =>
       _service.on(kAutoPausePromptEvent);
 

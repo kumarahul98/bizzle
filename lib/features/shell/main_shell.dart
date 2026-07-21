@@ -141,6 +141,39 @@ class _MainShellState extends ConsumerState<MainShell>
     );
   }
 
+  /// Ask whether to pause after a stationary streak (2026-07-21, D-03).
+  ///
+  /// Only meaningful while a trip is actually recording: the prompt is fired by
+  /// the service mid-trip, but the user may tap Pause long after — by which
+  /// point the trip could already be stopped or paused. Guarding here keeps a
+  /// stale notification tap from opening a dialog that would do nothing.
+  void _showAutoPauseConfirm() {
+    if (!mounted) return;
+    final state = ref.read(trackingStateProvider);
+    if (state is! TrackingActive || state.isPaused) return;
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text(kAutoPauseConfirmTitle),
+        content: const Text(kAutoPauseConfirmBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text(kAutoPauseConfirmDismissLabel),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              ref.read(trackingStateProvider.notifier).pause();
+            },
+            child: const Text(kAutoPauseConfirmAcceptLabel),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _handleStart() async {
     // Switch to Dashboard tab
     ref.read(mainShellIndexProvider.notifier).setIndex(0);
@@ -296,6 +329,15 @@ class _MainShellState extends ConsumerState<MainShell>
         _hasRunAutoRestoreForCurrentSession = true;
         _runAutoRestoreThenBackfill();
       }
+    });
+
+    // 2026-07-21 (D-02/D-03): the auto-pause prompt's Pause action opens the
+    // app and asks here, instead of pausing silently from the notification.
+    // Mirrors the home-screen widget's Pause button so both entry points
+    // behave identically.
+    ref.listen<AsyncValue<void>>(autoPauseConfirmRequestProvider, (_, next) {
+      if (next is! AsyncData) return;
+      _showAutoPauseConfirm();
     });
 
     ref.listen<RestoreState>(restoreControllerProvider, (previous, next) {
