@@ -1078,7 +1078,7 @@ Note: Phase 17 is a small, independent UI fix + quick-label and is the safe firs
 | 29. Sync Home & Office Locations to Cloud | v0.3 | 3/3 | Backend LIVE; client blocked on Data Safety declaration | 2026-07-20 |
 | 30. Geofence Departure Detection | v0.3 | 0/TBD | Blocked on 30-00 spike (needs real drive) | - |
 | 31. Trip Detail — Breaks, Stuck Transparency, Edit Gating | v0.3 | 3/3 | Code complete (SC#2 pending real drive) | 2026-07-22 |
-| 32. Identity & Dashboard Personalization | v0.3 | 0/2 | Not started (must precede 33) | - |
+| 32. Identity & Dashboard Personalization | v0.3 | 2/2 | Code complete (sign-in round trip + restore pending device) | 2026-07-22 |
 | 33. Settings & Smart Reminders | v0.3 | 0/3 | Not started (schema v10) | - |
 | 34. Multi-Period Stats (RnD First) | v0.3 | 1/3 | RnD written — AWAITING REVIEW before Wave 2 | - |
 | 35. Deleted Trips (Trash) | v0.3 | 0/2 | Not started (schema v11; fixes pre-existing FK cascade bug) | - |
