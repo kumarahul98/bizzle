@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:traevy/config/constants.dart';
 import 'package:traevy/config/theme.dart';
 import 'package:traevy/features/shell/providers/main_shell_provider.dart';
 import 'package:traevy/features/stats/providers/stats_providers.dart';
+import 'package:traevy/shared/widgets/info_sheet.dart';
 import 'package:traevy/shared/widgets/section_label.dart';
 import 'package:traevy/shared/widgets/stuck_bar.dart';
 
@@ -53,6 +55,12 @@ class WeekLossCard extends ConsumerWidget {
                 Row(
                   children: [
                     const SectionLabel(text: 'This week'),
+                    // Phase 32, D-03: neither "this week" nor "lost" is
+                    // self-evident from the figures alone.
+                    const InfoIconButton(
+                      title: kWeekLossInfoTitle,
+                      body: kWeekLossInfoBody,
+                    ),
                     const Spacer(),
                     GestureDetector(
                       onTap: () =>

@@ -12,6 +12,29 @@ Widget host(Widget child) => MaterialApp(
   home: Scaffold(body: Center(child: child)),
 );
 
+/// Words that mean something to whoever wrote the tracking code and nothing
+/// to the person reading the sheet. Every explainer body is held to this.
+const List<String> _jargon = <String>[
+  'm/s',
+  'sample',
+  'threshold',
+  'polyline',
+  'gps',
+  'interval',
+  'segment',
+];
+
+void _expectNoJargon(String body, String label) {
+  final lowered = body.toLowerCase();
+  for (final jargon in _jargon) {
+    expect(
+      lowered.contains(jargon),
+      isFalse,
+      reason: '$label must not say "$jargon"',
+    );
+  }
+}
+
 void main() {
   group('InfoIconButton', () {
     testWidgets('renders an info icon and nothing else', (tester) async {
@@ -57,22 +80,7 @@ void main() {
 
   group('stuck-time explainer copy (SC#7)', () {
     test('contains no technical jargon', () {
-      final lowered = kStuckInfoBody.toLowerCase();
-      for (final jargon in <String>[
-        'm/s',
-        'sample',
-        'threshold',
-        'polyline',
-        'gps',
-        'interval',
-        'segment',
-      ]) {
-        expect(
-          lowered.contains(jargon),
-          isFalse,
-          reason: 'stuck explainer must not say "$jargon"',
-        );
-      }
+      _expectNoJargon(kStuckInfoBody, 'stuck explainer');
     });
 
     test('states the 10 km/h rule and the map floor honestly (D-03)', () {
@@ -82,6 +90,30 @@ void main() {
       expect(kStuckInfoBody, contains('less than the total'));
       // And it must say breaks are excluded.
       expect(kStuckInfoBody.toLowerCase(), contains('paused'));
+    });
+  });
+
+  group('weekly summary explainer copy (Phase 32, D-03, SC#6)', () {
+    test('contains no technical jargon', () {
+      _expectNoJargon(kWeekLossInfoBody, 'weekly summary explainer');
+    });
+
+    test('states the Mon-Sun window and that it is not a rolling 7 days', () {
+      expect(kWeekLossInfoBody, contains('Monday'));
+      expect(kWeekLossInfoBody, contains('Sunday'));
+      // The card shows the CURRENT, part-finished week — the distinction the
+      // stats service actually implements, and the one a reader assumes wrong.
+      expect(kWeekLossInfoBody.toLowerCase(), contains('includes today'));
+      expect(kWeekLossInfoBody.toLowerCase(), contains('last seven days'));
+    });
+
+    test('states what "lost to traffic" measures', () {
+      expect(kWeekLossInfoBody, contains('10 km/h'));
+    });
+
+    test('states that break time counts towards neither figure', () {
+      expect(kWeekLossInfoBody.toLowerCase(), contains('paused'));
+      expect(kWeekLossInfoBody.toLowerCase(), contains('neither'));
     });
   });
 }

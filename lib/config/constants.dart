@@ -1648,3 +1648,23 @@ const double kAccountAvatarTouchTarget = 48;
 /// Painted diameter (logical px) of the dashboard avatar circle. Unchanged
 /// from its Phase 8 value — Phase 32 grows the touch target, not the visual.
 const double kAccountAvatarPaintedSize = 36;
+
+// --- Weekly summary explainer copy (Phase 32, D-03) -----------------------
+
+/// Title of the explainer sheet opened from the dashboard "This week" card.
+const String kWeekLossInfoTitle = 'How this week is measured';
+
+/// Body of the weekly summary explainer.
+///
+/// Answers the three questions the card's own numbers cannot: which days it
+/// covers, what "lost to traffic" actually counts, and what happens to
+/// breaks. The window stated here is the one `stats_service.dart` computes —
+/// Monday through Sunday around today — so it is the current part-finished
+/// week, not a rolling seven days.
+const String kWeekLossInfoBody =
+    'This week means Monday to Sunday, and it includes today — so the '
+    'numbers grow as the week goes on. It is not the last seven days.\n\n'
+    'Time lost to traffic is any part of a commute you spent moving slower '
+    'than 10 km/h. The rest counts as moving.\n\n'
+    'If you paused a commute for a break, that time counts towards neither '
+    'figure — it is left out of both.';
