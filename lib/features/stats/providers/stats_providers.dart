@@ -21,9 +21,9 @@ class SelectedStatsPeriodNotifier extends Notifier<StatsPeriod> {
   @override
   StatsPeriod build() => const WeekPeriod();
 
-  /// Switch the stats screen to [period].
-  // ignore: use_setters_to_change_properties — a named action reads better at
-  // the call site than assigning a `period` setter on a notifier.
+  /// Switch the stats screen to [period]. A named action reads better at the
+  /// call site than assigning a `period` setter on a notifier.
+  // ignore: use_setters_to_change_properties
   void select(StatsPeriod period) {
     state = period;
   }

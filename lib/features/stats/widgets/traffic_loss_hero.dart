@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:traevy/config/constants.dart';
 import 'package:traevy/config/theme.dart';
 import 'package:traevy/features/stats/providers/stats_providers.dart';
+import 'package:traevy/features/stats/services/stats_period.dart';
+import 'package:traevy/features/stats/services/stats_service.dart';
 import 'package:traevy/features/stats/widgets/stats_card.dart';
 
-/// Hero card showing "You lost Xh Ym to traffic this week."
+/// Hero card showing "You lost Xh Ym to traffic {this week / in July / in
+/// 2026}." for the selected period (Phase 34).
 ///
-/// Data source: statsSummaryProvider — uses weekStuckSeconds divided by 60.
-/// The "vs last week" comparison row is omitted because StatsSummary does
-/// not expose a `previousWeekStuckMinutes` field (GRACEFUL-DEGRADE per
-/// 08-06-STATS-DATA-MAPPING.md).
-///
-/// See: `.planning/phases/08-ui-overhaul/08-UI-SPEC.md` §7 Stats Screen.
+/// Data source: statsSummaryProvider — `periodStuckSeconds` (the matched
+/// non-blank-manual population). The "vs last period" comparison row is not
+/// rendered — StatsSummary carries no prior-period figure.
 class TrafficLossHero extends ConsumerWidget {
   /// Creates a [TrafficLossHero].
   const TrafficLossHero({super.key});
@@ -24,8 +25,13 @@ class TrafficLossHero extends ConsumerWidget {
     final asyncStats = ref.watch(statsSummaryProvider);
     return asyncStats.when(
       data: (stats) {
-        final stuckMinutes = stats.weekStuckSeconds ~/ 60;
-        final label = _formatStuckHm(stuckMinutes);
+        final stuckMinutes = stats.periodStuckSeconds ~/ 60;
+        final label = formatDurationHm(stuckMinutes);
+        final suffix = switch (stats.period) {
+          WeekPeriod() => kStatsHeroTrafficThisWeek,
+          MonthPeriod() ||
+          YearPeriod() => '$kStatsHeroTrafficInPrefix${stats.periodLabel}.',
+        };
         return StatsCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -44,7 +50,7 @@ class TrafficLossHero extends ConsumerWidget {
                 ),
               ),
               Text(
-                'to traffic this week.',
+                suffix,
                 style: textTheme.bodyMedium?.copyWith(color: tokens.textDim),
               ),
             ],
@@ -54,13 +60,5 @@ class TrafficLossHero extends ConsumerWidget {
       loading: () => const StatsCard(child: SizedBox(height: 80)),
       error: (e, _) => const SizedBox.shrink(),
     );
-  }
-
-  String _formatStuckHm(int minutes) {
-    if (minutes == 0) return '0m';
-    if (minutes < 60) return '${minutes}m';
-    final h = minutes ~/ 60;
-    final m = minutes % 60;
-    return m == 0 ? '${h}h' : '${h}h ${m}m';
   }
 }

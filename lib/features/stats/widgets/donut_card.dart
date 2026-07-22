@@ -1,20 +1,22 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:traevy/config/constants.dart';
 import 'package:traevy/config/theme.dart';
 import 'package:traevy/features/stats/providers/stats_providers.dart';
+import 'package:traevy/features/stats/services/stats_service.dart';
 import 'package:traevy/features/stats/widgets/stats_card.dart';
 
 const double _kDonutSize = 110;
 const double _kDonutHole = 0.65;
 
-/// 110dp donut chart showing moving vs stuck split for the current week.
+/// 110dp donut card showing moving vs stuck split for the selected period,
+/// plus the per-commuting-day average and commuting-day count (Phase 34).
 ///
-/// Data source: statsSummaryProvider — uses weekTotalSeconds and
-/// weekStuckSeconds with TRIVIAL-LOCAL-COMPUTE to derive moving minutes
-/// (weekTotalSeconds - weekStuckSeconds) ~/ 60.
-///
-/// See: `.planning/phases/08-ui-overhaul/08-UI-SPEC.md` §7 Stats Screen.
+/// Data source: statsSummaryProvider. The centre total is `periodTotalSeconds`
+/// (all trips); the wedges and the stuck share are drawn from the matched
+/// non-blank-manual population (`periodMovingSeconds` / `periodStuckSeconds`).
+/// The title carries the '· so far' marker while the period is in progress.
 class DonutCard extends ConsumerWidget {
   /// Creates a [DonutCard].
   const DonutCard({super.key});
@@ -28,13 +30,22 @@ class DonutCard extends ConsumerWidget {
     final asyncStats = ref.watch(statsSummaryProvider);
     return asyncStats.when(
       data: (stats) {
-        final totalMins = stats.weekTotalSeconds ~/ 60;
-        final stuckMins = stats.weekStuckSeconds ~/ 60;
-        final movingMins = totalMins - stuckMins;
+        final totalMins = stats.periodTotalSeconds ~/ 60;
+        final stuckMins = stats.periodStuckSeconds ~/ 60;
+        final movingMins = stats.periodMovingSeconds ~/ 60;
+        final share = stats.periodStuckSharePercent;
+        final title = stats.isPeriodPartial
+            ? '${stats.periodLabel}$kStatsPeriodSeparator$kStatsSoFarLabel'
+            : stats.periodLabel;
+        final stuckLabel = share == null
+            ? '${formatDurationHm(stuckMins)} stuck'
+            : '${formatDurationHm(stuckMins)} stuck'
+                  '$kStatsPeriodSeparator$share$kStatsStuckSharePercent';
 
         return StatsCard(
-          title: 'This week',
+          title: title,
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               SizedBox(
                 width: _kDonutSize,
@@ -51,7 +62,7 @@ class DonutCard extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     Text(
-                      _formatHm(totalMins),
+                      formatDurationHm(totalMins),
                       style: TraevyFonts.mono(
                         size: 22,
                         weight: FontWeight.w600,
@@ -67,12 +78,26 @@ class DonutCard extends ConsumerWidget {
                     const SizedBox(height: 12),
                     _LegendRow(
                       color: tokens.moving,
-                      label: '${_formatHm(movingMins)} moving',
+                      label: '${formatDurationHm(movingMins)} moving',
                     ),
                     const SizedBox(height: 4),
-                    _LegendRow(
-                      color: tokens.stuck,
-                      label: '${_formatHm(stuckMins)} stuck',
+                    _LegendRow(color: tokens.stuck, label: stuckLabel),
+                    const SizedBox(height: 12),
+                    Text(
+                      formatPerCommutingDay(
+                        stats.periodAvgSecondsPerCommutingDay,
+                      ),
+                      style: TraevyFonts.mono(
+                        size: 13,
+                        weight: FontWeight.w600,
+                        color: onSurface,
+                      ),
+                    ),
+                    Text(
+                      formatCommutingDays(stats.periodCommutingDays),
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: tokens.textDim,
+                      ),
                     ),
                   ],
                 ),
@@ -81,18 +106,9 @@ class DonutCard extends ConsumerWidget {
           ),
         );
       },
-      loading: () =>
-          const StatsCard(title: 'This week', child: SizedBox(height: 110)),
+      loading: () => const StatsCard(child: SizedBox(height: 110)),
       error: (e, _) => const SizedBox.shrink(),
     );
-  }
-
-  String _formatHm(int minutes) {
-    if (minutes == 0) return '0m';
-    if (minutes < 60) return '${minutes}m';
-    final h = minutes ~/ 60;
-    final m = minutes % 60;
-    return m == 0 ? '${h}h' : '${h}h ${m}m';
   }
 }
 

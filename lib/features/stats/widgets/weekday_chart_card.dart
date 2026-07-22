@@ -1,6 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:traevy/config/constants.dart';
 import 'package:traevy/config/theme.dart';
 import 'package:traevy/features/stats/providers/stats_providers.dart';
 import 'package:traevy/features/stats/widgets/stats_card.dart';
@@ -99,7 +100,7 @@ class WeekdayChartCard extends ConsumerWidget {
         final worstAvg = worstIdx != null ? avgMins[worstIdx] : null;
 
         return StatsCard(
-          title: 'Weekday averages',
+          title: kStatsWeekdayCardTitle,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
@@ -174,7 +175,7 @@ class WeekdayChartCard extends ConsumerWidget {
         );
       },
       loading: () => const StatsCard(
-        title: 'Weekday averages',
+        title: kStatsWeekdayCardTitle,
         child: SizedBox(height: _kChartHeight),
       ),
       error: (e, _) => const SizedBox.shrink(),
