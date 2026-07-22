@@ -15,6 +15,7 @@ import 'package:traevy/features/settings/widgets/saved_location_tile.dart';
 import 'package:traevy/features/settings/widgets/settings_row.dart';
 import 'package:traevy/features/settings/widgets/settings_section.dart';
 import 'package:traevy/features/tour/tour_config.dart';
+import 'package:traevy/features/trips/screens/deleted_trips_screen.dart';
 import 'package:traevy/shared/models/reminder_suggestion_state.dart';
 import 'package:traevy/shared/utils/reminder_days.dart';
 import 'package:traevy/shared/widgets/info_sheet.dart';
@@ -60,6 +61,7 @@ class SettingsScreen extends ConsumerWidget {
               _RecordingSection(prefs: prefs, ref: ref),
               _NotificationsSection(prefs: prefs, ref: ref),
               _AppearanceSection(prefs: prefs, ref: ref),
+              const _DataSection(),
             ],
           ),
         ),
@@ -253,6 +255,32 @@ class _AppearanceSection extends StatelessWidget {
                 .read(userPreferencesDaoProvider)
                 .upsert(_copyPrefs(prefs, darkMode: picked));
           },
+        ),
+      ],
+    );
+  }
+}
+
+/// Data-management section (Phase 35, D-05): the Trash entry. A single row that
+/// pushes the full-screen [DeletedTripsScreen] where soft-deleted trips can be
+/// restored or permanently removed.
+class _DataSection extends StatelessWidget {
+  const _DataSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return SettingsSection(
+      title: kSettingsDataSectionTitle,
+      children: <Widget>[
+        SettingsRow(
+          label: kTrashSettingsRowLabel,
+          onTap: () => unawaited(
+            Navigator.of(context).push<void>(
+              MaterialPageRoute<void>(
+                builder: (_) => const DeletedTripsScreen(),
+              ),
+            ),
+          ),
         ),
       ],
     );

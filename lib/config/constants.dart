@@ -1842,3 +1842,84 @@ const String kAutoPauseInfoBody =
 /// Trash retention countdown both read this single value so the window can
 /// never disagree between the delete logic and the copy shown to the user.
 const int kTrashRetentionDays = 30;
+
+/// Section header for the Settings group holding the Deleted-trips entry.
+const String kSettingsDataSectionTitle = 'Data';
+
+/// Settings row label opening the Trash screen (D-05).
+const String kTrashSettingsRowLabel = 'Deleted trips';
+
+/// AppBar title for the Trash screen (D-05).
+const String kTrashScreenTitle = 'Deleted trips';
+
+/// Empty-state heading when the Trash holds no trips (D-05).
+const String kTrashEmptyHeading = 'Nothing in the trash';
+
+/// Empty-state body fragments — built at the call site around
+/// [kTrashRetentionDays] so the retention window is never hardcoded twice.
+/// Full copy: 'Trips you delete are kept here for 30 days, then removed.'
+const String kTrashEmptyBodyPrefix = 'Trips you delete are kept here for ';
+
+/// See [kTrashEmptyBodyPrefix].
+const String kTrashEmptyBodySuffix = ' days, then removed.';
+
+/// Error-state body when the deleted-trips stream is in an error state.
+const String kTrashLoadErrorMessage = 'Could not load deleted trips.';
+
+/// Restore action label on a Trash row (D-05).
+const String kTrashRestoreLabel = 'Restore';
+
+/// Permanent-delete action label on a Trash row (D-05).
+const String kTrashDeletePermanentlyLabel = 'Delete permanently';
+
+/// Snackbar shown after a trip is restored from the Trash.
+const String kTrashRestoredSnackbar = 'Trip restored';
+
+/// Snackbar shown after a trip is permanently deleted from the Trash.
+const String kTrashPermanentlyDeletedSnackbar = 'Trip permanently deleted';
+
+/// Snackbar shown when a Trash restore/permanent-delete action fails.
+const String kTrashActionErrorSnackbar = 'Something went wrong. Try again.';
+
+/// Permanent-delete confirmation dialog title (D-05) — this action really is
+/// irreversible, so it confirms first.
+const String kTrashPermanentDeleteDialogTitle = 'Delete permanently?';
+
+/// Permanent-delete confirmation dialog body (D-05).
+const String kTrashPermanentDeleteDialogBody =
+    'This trip will be permanently removed and cannot be recovered.';
+
+/// Destructive confirm label on the permanent-delete dialog (D-05).
+const String kTrashPermanentDeleteConfirm = 'Delete';
+
+// --- Retention countdown fragments (D-05) ---------------------------------
+//
+// The countdown ('Deleted 3 days ago · auto-removes in 27 days') is COMPUTED
+// from `deletedAt` on every render, never stored — a stored countdown would be
+// wrong the moment the app is closed for a day. These fragments are assembled
+// by `formatRetentionCountdown`.
+
+/// Shown as the "deleted" half when a trip was deleted earlier today.
+const String kTrashDeletedTodayLabel = 'Deleted today';
+
+/// Prefix of the "deleted N days ago" half of the countdown.
+const String kTrashDeletedPrefix = 'Deleted ';
+
+/// Suffix of the "deleted N days ago" half of the countdown.
+const String kTrashAgoSuffix = ' ago';
+
+/// Singular day noun used by both halves of the countdown.
+const String kTrashDayWord = 'day';
+
+/// Plural day noun used by both halves of the countdown.
+const String kTrashDaysWord = 'days';
+
+/// Separator between the two halves of the countdown.
+const String kTrashCountdownSeparator = ' · ';
+
+/// Prefix of the "auto-removes in M days" half of the countdown.
+const String kTrashAutoRemovesInPrefix = 'auto-removes in ';
+
+/// Shown as the "auto-removes" half when the trip is due to be purged on the
+/// next app start (nothing left of the retention window).
+const String kTrashAutoRemovesSoonLabel = 'auto-removes soon';

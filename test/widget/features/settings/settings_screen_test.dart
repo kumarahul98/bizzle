@@ -214,12 +214,13 @@ void main() {
     });
 
     testWidgets(
-      'renders 4 SettingsSection blocks',
+      'renders 5 SettingsSection blocks',
       (tester) async {
         await _pumpSettingsScreen(tester);
-        // Commute (Phase 21 LOC-01), Recording, Notifications, Appearance.
-        // Account left for the dashboard avatar sheet in Phase 32 (D-02).
-        expect(find.byType(SettingsSection), findsNWidgets(4));
+        // Commute (Phase 21 LOC-01), Recording, Notifications, Appearance, and
+        // Data (Phase 35 D-05 — the Deleted trips entry). Account left for the
+        // dashboard avatar sheet in Phase 32 (D-02).
+        expect(find.byType(SettingsSection), findsNWidgets(5));
       },
     );
 
