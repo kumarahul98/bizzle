@@ -24,6 +24,7 @@ import 'package:traevy/features/dashboard/widgets/today_section.dart';
 import 'package:traevy/features/dashboard/widgets/week_loss_card.dart';
 import 'package:traevy/features/settings/providers/settings_providers.dart';
 import 'package:traevy/features/stats/providers/stats_providers.dart';
+import 'package:traevy/features/stats/services/stats_period.dart';
 import 'package:traevy/features/stats/services/stats_service.dart';
 import 'package:traevy/features/tracking/providers/tracking_providers.dart';
 import 'package:traevy/features/tracking/services/tracking_permission_service.dart';
@@ -148,7 +149,16 @@ StatsSummary _makeStatsSummary() {
   return const StatsSummary(
     weekTotalSeconds: 7200,
     weekStuckSeconds: 1800,
-    monthTotalSeconds: 14400,
+    period: WeekPeriod(),
+    periodLabel: 'This week',
+    isPeriodPartial: true,
+    periodTotalSeconds: 7200,
+    periodStuckSeconds: 1800,
+    periodMovingSeconds: 5400,
+    periodStuckSharePercent: 25,
+    periodCommutingDays: 5,
+    periodAvgSecondsPerCommutingDay: 1440,
+    periodTrendBars: <StatsTrendBar>[],
     toOfficeAvgSeconds: 1800,
     toHomeAvgSeconds: 1900,
     weekdayAverages: <int?>[1800, 1800, 1800, 1800, 1800, null, null],

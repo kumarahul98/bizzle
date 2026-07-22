@@ -24,6 +24,7 @@ import 'package:traevy/features/settings/providers/settings_providers.dart';
 import 'package:traevy/features/shell/main_shell.dart';
 import 'package:traevy/features/stats/providers/stats_providers.dart';
 import 'package:traevy/features/stats/screens/stats_screen.dart';
+import 'package:traevy/features/stats/services/stats_period.dart';
 import 'package:traevy/features/stats/services/stats_service.dart';
 import 'package:traevy/features/tour/tour_config.dart';
 import 'package:traevy/features/tracking/providers/tracking_providers.dart';
@@ -112,7 +113,16 @@ class _AckRecordingEventSource implements TrackingEventSource {
 StatsSummary _emptyStats() => const StatsSummary(
   weekTotalSeconds: 0,
   weekStuckSeconds: 0,
-  monthTotalSeconds: 0,
+  period: WeekPeriod(),
+  periodLabel: 'This week',
+  isPeriodPartial: true,
+  periodTotalSeconds: 0,
+  periodStuckSeconds: 0,
+  periodMovingSeconds: 0,
+  periodStuckSharePercent: null,
+  periodCommutingDays: 0,
+  periodAvgSecondsPerCommutingDay: null,
+  periodTrendBars: <StatsTrendBar>[],
   toOfficeAvgSeconds: 0,
   toHomeAvgSeconds: 0,
   weekdayAverages: <int?>[null, null, null, null, null, null, null],

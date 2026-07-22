@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/daos/trips_dao.dart';
+import 'package:traevy/features/stats/services/stats_period.dart';
 import 'package:traevy/features/stats/services/stats_service.dart';
 import 'package:uuid/uuid.dart';
 
@@ -50,7 +51,7 @@ void main() {
       );
       expect(result.hasAnyTrips, isFalse);
       expect(result.weekTotalSeconds, 0);
-      expect(result.monthTotalSeconds, 0);
+      expect(result.periodTotalSeconds, 0);
       expect(result.toOfficeAvgSeconds, isNull);
       expect(result.toHomeAvgSeconds, isNull);
       expect(result.weekStuckSeconds, 0);
@@ -98,8 +99,9 @@ void main() {
       final result = computeStatsSummary(
         <TripSummary>[apr1, apr30, may1],
         DateTime(2026, 4, 30, 23), // April 30 local
+        period: const MonthPeriod(),
       );
-      expect(result.monthTotalSeconds, 1800);
+      expect(result.periodTotalSeconds, 1800);
     });
 
     test('manual entries are included in week + month totals (D-05)', () {
@@ -117,7 +119,12 @@ void main() {
         DateTime(2026, 4, 22, 20),
       );
       expect(result.weekTotalSeconds, 1800);
-      expect(result.monthTotalSeconds, 1800);
+      final monthResult = computeStatsSummary(
+        <TripSummary>[manual, gps],
+        DateTime(2026, 4, 22, 20),
+        period: const MonthPeriod(),
+      );
+      expect(monthResult.periodTotalSeconds, 1800);
     });
   });
 

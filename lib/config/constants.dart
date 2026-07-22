@@ -498,9 +498,6 @@ const String kMapUserAgentPackageName = 'traevy.traevy';
 /// Number of calendar days covered by the trend chart (D-07).
 const int kStatsTrendWindowDays = 28;
 
-/// Number of week labels shown on the trend chart x-axis (D-08).
-const int kStatsTrendWeekCount = 4;
-
 /// Height (logical pixels) of the trend chart plot area (UI-SPEC spacing
 /// exception). Multiple of 4.
 const double kStatsTrendChartHeight = 192;
@@ -510,9 +507,6 @@ const String kStatsAppBarTitle = 'Stats';
 
 /// Label for the weekly total row on the totals card (STAT-01).
 const String kStatsCardWeekLabel = 'This week';
-
-/// Label for the monthly total row on the totals card (STAT-01).
-const String kStatsCardMonthLabel = 'This month';
 
 /// Helper text under the weekly total clarifying D-03 week boundary.
 const String kStatsCardWeekHelper = 'Mon–Sun';
@@ -1923,3 +1917,76 @@ const String kTrashAutoRemovesInPrefix = 'auto-removes in ';
 /// Shown as the "auto-removes" half when the trip is due to be purged on the
 /// next app start (nothing left of the retention window).
 const String kTrashAutoRemovesSoonLabel = 'auto-removes soon';
+
+// ---------------------------------------------------------------------------
+// Phase 34: Multi-Period Stats
+// ---------------------------------------------------------------------------
+//
+// The Stats screen shows a selectable calendar period (week / month / year).
+// The per-commuting-day average and its count are labelled so the denominator
+// can never be misread as calendar days (D-01 Q2). Strings live here; the
+// sealed `StatsPeriod` type lives in
+// `features/stats/services/stats_period.dart`.
+
+/// Segmented-control label for the weekly period.
+const String kStatsPeriodWeekTab = 'Week';
+
+/// Segmented-control label for the monthly period.
+const String kStatsPeriodMonthTab = 'Month';
+
+/// Segmented-control label for the yearly period.
+const String kStatsPeriodYearTab = 'Year';
+
+/// `DateFormat` pattern for the month period label (e.g. 'July').
+const String kStatsPeriodMonthPattern = 'MMMM';
+
+/// Separator between a period label and its qualifier (subtitle, marker).
+const String kStatsPeriodSeparator = ' · ';
+
+/// Trailing marker appended to the period label while the current period is
+/// still in progress (D-01 Q4): '{label} · so far'.
+const String kStatsSoFarLabel = 'so far';
+
+/// Suffix for the per-commuting-day average line: '{h m} per commuting day'.
+/// The phrases 'per day' and 'daily average' are deliberately NOT used — both
+/// read as calendar days (D-01 Q2).
+const String kStatsPerCommutingDaySuffix = 'per commuting day';
+
+/// Singular commuting-day noun: '1 commuting day'.
+const String kStatsCommutingDayWord = 'commuting day';
+
+/// Plural commuting-day noun: 'N commuting days'.
+const String kStatsCommutingDaysWord = 'commuting days';
+
+/// Empty-period commuting-day count line (0 days).
+const String kStatsNoCommutingDays = 'No commuting days';
+
+/// Percent symbol appended to the stuck legend when a stuck share is
+/// available: '{h m} stuck · {n}%'. The share is computed over the
+/// non-blank-manual population on both sides (D-01 additional finding).
+const String kStatsStuckSharePercent = '%';
+
+/// Title of the period-aware trend card when bucketed by day (Week period).
+const String kStatsTrendDailyTitle = 'Daily trend';
+
+/// Title of the period-aware trend card when bucketed by week (Month period).
+const String kStatsTrendWeeklyTitle = 'Weekly trend';
+
+/// Title of the period-aware trend card when bucketed by month (Year period).
+const String kStatsTrendMonthlyTitle = 'Monthly trend';
+
+/// Prefix for a month's weekly trend bucket label: 'W1', 'W2', …
+const String kStatsTrendWeekBucketPrefix = 'W';
+
+/// Section heading above the fixed-window (all-time) cards.
+const String kStatsAllTimeSectionLabel = 'All time';
+
+/// Full title of the weekday-averages card, stating its fixed window.
+const String kStatsWeekdayCardTitle = 'Weekday averages · all time';
+
+/// Traffic-loss hero sentence tail for the weekly period.
+const String kStatsHeroTrafficThisWeek = 'to traffic this week.';
+
+/// Traffic-loss hero sentence tail prefix for month/year periods:
+/// 'to traffic in July.' / 'to traffic in 2026.'
+const String kStatsHeroTrafficInPrefix = 'to traffic in ';
