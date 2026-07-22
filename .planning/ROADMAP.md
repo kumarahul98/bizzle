@@ -1079,7 +1079,7 @@ Note: Phase 17 is a small, independent UI fix + quick-label and is the safe firs
 | 30. Geofence Departure Detection | v0.3 | 0/TBD | Blocked on 30-00 spike (needs real drive) | - |
 | 31. Trip Detail — Breaks, Stuck Transparency, Edit Gating | v0.3 | 3/3 | Code complete (SC#2 pending real drive) | 2026-07-22 |
 | 32. Identity & Dashboard Personalization | v0.3 | 2/2 | Code complete (sign-in round trip + restore pending device) | 2026-07-22 |
-| 33. Settings & Smart Reminders | v0.3 | 0/3 | Not started (schema v10) | - |
+| 33. Settings & Smart Reminders | v0.3 | 3/3 | Code complete (SC#1/#2/#4 pending device; D-03 backfill narrowed — see summary) | 2026-07-22 |
 | 34. Multi-Period Stats (RnD First) | v0.3 | 1/3 | RnD written — AWAITING REVIEW before Wave 2 | - |
 | 35. Deleted Trips (Trash) | v0.3 | 0/2 | Not started (schema v11; fixes pre-existing FK cascade bug) | - |
 | 36. Widget & Platform Fixes | v0.3 | 3/3 | Code complete — 4 of 9 SCs verified, 5 pending device; **carries the deferred UAT batch** (13 device checks, run at phase close) | 2026-07-22 |
