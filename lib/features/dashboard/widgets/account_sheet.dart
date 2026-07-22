@@ -45,6 +45,42 @@ Future<void> showAccountSheet(BuildContext context) async {
   await showSignInSheet(context);
 }
 
+/// Show a sign-out confirmation dialog and sign out only on confirm.
+///
+/// Two-step guard mirroring `handleDeleteTrip`: dialog dismissal counts as
+/// cancel via `confirmed ?? false`. Sign out is reversible — local Drift data
+/// survives — but it interrupts cloud sync and the signed-in session, and the
+/// row sits one tap behind the dashboard avatar, so it earns a confirm step.
+/// `context.mounted` is re-checked after the await before signing out.
+Future<void> _confirmSignOut(BuildContext context, WidgetRef ref) async {
+  final colorScheme = Theme.of(context).colorScheme;
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text(kSignOutDialogTitle),
+      content: const Text(kSignOutDialogBody),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(false),
+          child: const Text(kDialogCancel),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: colorScheme.error,
+            foregroundColor: colorScheme.onError,
+          ),
+          onPressed: () => Navigator.of(dialogContext).pop(true),
+          child: const Text(kSignOutConfirm),
+        ),
+      ],
+    ),
+  );
+  if (!context.mounted) return;
+  if (confirmed ?? false) {
+    await ref.read(authServiceProvider).signOut();
+  }
+}
+
 /// State-aware body of the account sheet.
 ///
 /// Watches [authStateProvider] and switches on the sealed [AuthState], so
@@ -71,9 +107,10 @@ class _AccountSheetContent extends ConsumerWidget {
         SettingsRow(
           label: kCopySettingsSignOut,
           dangerous: true,
-          // FirebaseAuth.signOut() → authStateChanges emits null → this sheet
-          // rebuilds into the guest path below.
-          onTap: () => unawaited(ref.read(authServiceProvider).signOut()),
+          // Confirm first (two-step guard, matching handleDeleteTrip): on
+          // confirm, FirebaseAuth.signOut() → authStateChanges emits null →
+          // this sheet rebuilds into the guest path below.
+          onTap: () => unawaited(_confirmSignOut(context, ref)),
         ),
       ],
       // Guest or still loading — single CTA. The sheet pops with the sign-in

@@ -1990,3 +1990,23 @@ const String kStatsHeroTrafficThisWeek = 'to traffic this week.';
 /// Traffic-loss hero sentence tail prefix for month/year periods:
 /// 'to traffic in July.' / 'to traffic in 2026.'
 const String kStatsHeroTrafficInPrefix = 'to traffic in ';
+
+// ---------------------------------------------------------------------------
+// Sign-out confirmation (post-Phase-32 follow-up)
+// ---------------------------------------------------------------------------
+// The account sheet's Sign out row fired signOut() directly. Sign out is
+// reversible (local Drift data survives) but interrupts sync and the signed-in
+// session, and the row now sits one tap behind the dashboard avatar, so it
+// gets the same two-step confirm guard as the destructive trip actions.
+
+/// Title of the sign-out confirmation dialog.
+const String kSignOutDialogTitle = 'Sign out?';
+
+/// Body of the sign-out confirmation dialog. States what is and is not lost so
+/// the user can decide without guessing.
+const String kSignOutDialogBody =
+    'Your trips stay on this device. Cloud backup and sync pause until you '
+    'sign in again.';
+
+/// Confirm-button label on the sign-out dialog.
+const String kSignOutConfirm = 'Sign out';

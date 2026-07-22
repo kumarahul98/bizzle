@@ -169,7 +169,33 @@ void main() {
       expect(find.text(kCopySettingsGuestSignIn), findsNothing);
     });
 
-    testWidgets('Sign out invokes AuthService.signOut() exactly once', (
+    testWidgets(
+      'Sign out confirms first, then invokes signOut() exactly once',
+      (tester) async {
+        final fakeAuth = _FakeAuthService();
+        await _openSheet(
+          tester,
+          authState: signedIn,
+          authService: fakeAuth,
+        );
+
+        // Tapping the row opens the confirmation dialog — it does NOT sign out.
+        await tester.tap(find.text(kCopySettingsSignOut));
+        await tester.pumpAndSettle();
+        expect(find.text(kSignOutDialogTitle), findsOneWidget);
+        expect(fakeAuth.signOutCallCount, equals(0));
+
+        // Confirming (the dialog's FilledButton, distinct from the row of the
+        // same label) signs out exactly once.
+        await tester.tap(
+          find.widgetWithText(FilledButton, kSignOutConfirm),
+        );
+        await tester.pumpAndSettle();
+        expect(fakeAuth.signOutCallCount, equals(1));
+      },
+    );
+
+    testWidgets('cancelling the sign-out dialog does not sign out', (
       tester,
     ) async {
       final fakeAuth = _FakeAuthService();
@@ -180,8 +206,12 @@ void main() {
       );
 
       await tester.tap(find.text(kCopySettingsSignOut));
-      await tester.pump();
-      expect(fakeAuth.signOutCallCount, equals(1));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, kDialogCancel));
+      await tester.pumpAndSettle();
+
+      expect(find.text(kSignOutDialogTitle), findsNothing);
+      expect(fakeAuth.signOutCallCount, equals(0));
     });
 
     testWidgets('synced status renders the "All synced" subtitle', (
