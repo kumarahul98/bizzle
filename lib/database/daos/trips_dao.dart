@@ -33,6 +33,7 @@ class TripSummary {
     required this.timeStuckSeconds,
     required this.isManualEntry,
     this.isEdited = false,
+    this.deletedAt,
   });
 
   /// UUID of the trip (matches `Trips.id`).
@@ -68,6 +69,14 @@ class TripSummary {
   /// not measured. Defaults to `false` so pre-Phase-19 call sites and
   /// tests that build a `TripSummary` without it stay unchanged.
   final bool isEdited;
+
+  /// Soft-delete tombstone (Phase 35, D-01). `null` for a live trip; a UTC
+  /// timestamp for a trip sitting in the Trash. `watchAllSummaries` only ever
+  /// returns live trips, so this is `null` there; `watchDeletedSummaries`
+  /// carries the real value so the Trash screen can compute its retention
+  /// countdown from it without a second query. Defaults to `null` so existing
+  /// call sites and tests that build a `TripSummary` without it are unchanged.
+  final DateTime? deletedAt;
 }
 
 /// Data-access object for the `trips` table.
@@ -81,15 +90,42 @@ class TripsDao extends DatabaseAccessor<AppDatabase> with _$TripsDaoMixin {
   /// Bind the DAO to its parent `AppDatabase`.
   TripsDao(super.attachedDatabase);
 
-  /// Reactive stream of every trip as a `TripSummary`, ordered newest
+  /// Reactive stream of every LIVE trip as a `TripSummary`, ordered newest
   /// first. The daily log and dashboard widgets bind to this stream
   /// via Riverpod. Polyline column is never materialized — see
   /// `TripSummary` doc for the Pitfall 7 context.
+  ///
+  /// Phase 35 (D-02): the `deletedAt IS NULL` filter is the SINGLE point that
+  /// hides soft-deleted trips. Because `statsSummaryProvider` derives from
+  /// `allTripSummariesProvider`, which wraps this exact stream, one filter
+  /// removes deleted trips from history, the dashboard AND stats together —
+  /// filtering at the call sites would leave the next consumer to rediscover
+  /// the requirement. Restore's conflict detection uses `getAllTrips()`, which
+  /// deliberately does NOT filter (T-35-01), so a deleted trip is still known
+  /// to it and never re-imported.
   Stream<List<TripSummary>> watchAllSummaries() {
     final query = select(trips)
+      ..where((t) => t.deletedAt.isNull())
       ..orderBy([
         (t) => OrderingTerm(
           expression: t.startTime,
+          mode: OrderingMode.desc,
+        ),
+      ]);
+    return query.map(_toSummary).watch();
+  }
+
+  /// Reactive stream of every SOFT-DELETED trip as a `TripSummary`, ordered by
+  /// `deletedAt` descending (most recently deleted first) for the Settings →
+  /// Deleted trips screen (Phase 35, D-05). `deletedAt` is carried on each
+  /// summary so the screen renders its retention countdown without a second
+  /// query. The polyline is never materialized here either.
+  Stream<List<TripSummary>> watchDeletedSummaries() {
+    final query = select(trips)
+      ..where((t) => t.deletedAt.isNotNull())
+      ..orderBy([
+        (t) => OrderingTerm(
+          expression: t.deletedAt,
           mode: OrderingMode.desc,
         ),
       ]);
@@ -106,6 +142,15 @@ class TripsDao extends DatabaseAccessor<AppDatabase> with _$TripsDaoMixin {
   }
 
   /// Fetch all trips for conflict detection during restore.
+  ///
+  /// Phase 35 (T-35-01, D-02): this deliberately does NOT filter out
+  /// soft-deleted rows, and that omission is load-bearing. Restore's
+  /// conflict detection matches cloud trips against local ids; if a
+  /// soft-deleted trip were hidden here it would look absent, get re-imported
+  /// from the cloud backup as a brand-new live trip, and the user's deletion
+  /// would silently undo itself on the next restore. Seeing the deleted row
+  /// lets restore recognise the id and skip it (enrichment never clears
+  /// `deletedAt`), so the trip stays in the Trash.
   Future<List<TripRow>> getAllTrips() {
     return select(trips).get();
   }
@@ -117,9 +162,14 @@ class TripsDao extends DatabaseAccessor<AppDatabase> with _$TripsDaoMixin {
   /// the row is guaranteed to carry a recorded route. Used only to seed the
   /// location-picker camera when no saved anchor and no device location are
   /// available — never on a hot path.
+  ///
+  /// Phase 35 (D-02): also excludes soft-deleted trips (`deletedAt IS NULL`) —
+  /// a trip the user has thrown away is a poor camera anchor.
   Future<TripRow?> mostRecentGpsTrip() {
     return (select(trips)
-          ..where((t) => t.isManualEntry.equals(false))
+          ..where(
+            (t) => t.isManualEntry.equals(false) & t.deletedAt.isNull(),
+          )
           ..orderBy([
             (t) => OrderingTerm(
               expression: t.startTime,
@@ -189,15 +239,65 @@ class TripsDao extends DatabaseAccessor<AppDatabase> with _$TripsDaoMixin {
     )..where((t) => t.id.equals(companion.id.value))).write(companion);
   }
 
-  /// Delete the trip with [id].
+  /// HARD-delete the trip with [id]. Cascade removes its breaks and stuck
+  /// segments in the same statement (both FKs are `onDelete: cascade` under
+  /// `PRAGMA foreign_keys = ON`).
   ///
-  /// D-08: this method MUST be called exclusively inside an
-  /// `appDatabase.transaction()` that also calls
-  /// `SyncQueueDao.enqueueDelete` — never as a standalone call.
-  /// The transaction ensures both the local delete and the sync-queue
-  /// tombstone are atomic.
+  /// Phase 35 (D-04/D-05): as of soft delete this is NO LONGER the everyday
+  /// delete path — user deletes call [softDeleteTrip] and enqueue a tombstone.
+  /// This method is the irreversible sink used only by the app-start purge
+  /// ([purgeTripsDeletedBefore]) and "delete permanently" from the Trash.
+  /// Both of those enqueue NOTHING: the server was already told at
+  /// soft-delete time and keeps its own soft-deleted copy, so a second delete
+  /// would be redundant noise (D-04).
   Future<void> deleteTrip(String id) {
     return (delete(trips)..where((t) => t.id.equals(id))).go();
+  }
+
+  /// SOFT-delete the trip with [id] by stamping [deletedAtUtc] (Phase 35,
+  /// D-01). The row stays in the table — no cascade fires — so its breaks and
+  /// stuck segments survive intact for a later restore. `updatedAt` is bumped
+  /// to the same instant to preserve the audit trail. Caller wraps this in the
+  /// same transaction that enqueues the delete tombstone (D-03).
+  Future<void> softDeleteTrip(String id, DateTime deletedAtUtc) {
+    return (update(trips)..where((t) => t.id.equals(id))).write(
+      TripsCompanion(
+        deletedAt: Value(deletedAtUtc),
+        updatedAt: Value(deletedAtUtc),
+      ),
+    );
+  }
+
+  /// Restore the soft-deleted trip with [id] by clearing `deletedAt` back to
+  /// NULL (Phase 35, D-03). The trip reappears in every live surface; its
+  /// breaks and stuck segments were never removed, so they return with it.
+  /// Caller wraps this in the same transaction that enqueues a create so the
+  /// server upsert clears its own `deleted: true`.
+  Future<void> restoreTrip(String id) {
+    return (update(trips)..where((t) => t.id.equals(id))).write(
+      TripsCompanion(
+        deletedAt: const Value<DateTime?>(null),
+        updatedAt: Value(DateTime.now().toUtc()),
+      ),
+    );
+  }
+
+  /// Hard-delete every trip soft-deleted STRICTLY BEFORE [cutoffUtc], returning
+  /// the number of rows removed (Phase 35, D-04 purge). Live rows
+  /// (`deletedAt IS NULL`) can never match — SQLite `<` against NULL is NULL,
+  /// never true — so a trip that was never deleted is safe. Cascade removes
+  /// each purged trip's breaks and stuck segments. Enqueues nothing.
+  ///
+  /// The caller computes [cutoffUtc] as `now - kTrashRetentionDays`; passing it
+  /// in (rather than reading the clock here) keeps this method pure and lets
+  /// the boundary tests pin an exact cutoff. A trip whose `deletedAt` is at or
+  /// after the cutoff (deleted recently, or a future-dated tombstone from a
+  /// clock moved backward) is never purged — the "negative age clamped to
+  /// zero" requirement expressed as a comparison.
+  Future<int> purgeTripsDeletedBefore(DateTime cutoffUtc) {
+    return (delete(
+      trips,
+    )..where((t) => t.deletedAt.isSmallerThanValue(cutoffUtc))).go();
   }
 
   /// Rewrite every trip whose `userId` equals [kDefaultUserId] to
@@ -269,14 +369,17 @@ class TripsDao extends DatabaseAccessor<AppDatabase> with _$TripsDaoMixin {
     final breaks = attachedDatabase.tripBreaks;
     final query = select(trips)
       ..where(
+        // Phase 35 (D-02): exclude soft-deleted trips — there is no reason to
+        // push metadata for a trip the user has deleted.
         (t) =>
-            t.isEdited.equals(true) |
-            t.directionSource.equals(kDirectionSourceTime).not() |
-            existsQuery(
-              attachedDatabase.selectOnly(breaks)
-                ..addColumns([breaks.id])
-                ..where(breaks.tripId.equalsExp(t.id)),
-            ),
+            t.deletedAt.isNull() &
+            (t.isEdited.equals(true) |
+                t.directionSource.equals(kDirectionSourceTime).not() |
+                existsQuery(
+                  attachedDatabase.selectOnly(breaks)
+                    ..addColumns([breaks.id])
+                    ..where(breaks.tripId.equalsExp(t.id)),
+                )),
       );
     return query.map((row) => row.id).get();
   }
@@ -312,5 +415,6 @@ class TripsDao extends DatabaseAccessor<AppDatabase> with _$TripsDaoMixin {
     timeStuckSeconds: r.timeStuckSeconds,
     isManualEntry: r.isManualEntry,
     isEdited: r.isEdited,
+    deletedAt: r.deletedAt,
   );
 }

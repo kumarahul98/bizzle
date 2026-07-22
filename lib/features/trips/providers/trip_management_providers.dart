@@ -166,11 +166,20 @@ class TripManagementNotifier extends Notifier<TripManagementState> {
     }
   }
 
-  /// Delete a trip and enqueue the tombstone.
+  /// SOFT-delete a trip and enqueue the delete tombstone (Phase 35, D-01/D-03).
   ///
-  /// D-08: both DAO calls are in a single transaction. Pitfall 3:
-  /// the delete payload JSON is built BEFORE `TripsDao.deleteTrip` is
-  /// called, because the row must still exist at payload-build time.
+  /// As of Phase 35 this no longer issues a hard `DELETE`: it stamps
+  /// `deletedAt` so the trip vanishes from history, the dashboard and stats
+  /// (all via the single `watchAllSummaries` filter) yet stays recoverable
+  /// from Settings → Deleted trips for [kTrashRetentionDays] days. The wire
+  /// contract is UNCHANGED — the existing delete action and its
+  /// `{id, userId}` payload are enqueued exactly as before, and the server
+  /// still soft-deletes (D-03).
+  ///
+  /// D-08: both writes run in a single transaction. Pitfall 3: the delete
+  /// payload JSON is still built BEFORE the row is modified. With soft delete
+  /// the row survives, so the constraint has relaxed — but building the
+  /// payload inside the same transaction keeps it consistent with the write.
   Future<void> deleteTrip(String tripId) async {
     state = const TripManagementSaving();
     try {
@@ -183,9 +192,53 @@ class TripManagementNotifier extends Notifier<TripManagementState> {
           'id': tripId,
           'userId': kDefaultUserId,
         });
-        await tripsDao.deleteTrip(tripId);
+        await tripsDao.softDeleteTrip(tripId, DateTime.now().toUtc());
         await syncDao.enqueueDelete(tripId: tripId, payload: payload);
       });
+      state = const TripManagementSaved();
+    } on Object catch (e) {
+      state = TripManagementError(e.toString());
+    }
+  }
+
+  /// Restore a soft-deleted trip and enqueue a create (Phase 35, D-03).
+  ///
+  /// Clears `deletedAt` so the trip returns to every live surface with its
+  /// breaks and stuck segments intact (they were never removed), then enqueues
+  /// a create. The create carries a NULL payload by the standard contract —
+  /// the sync engine re-reads the freshly un-deleted row at flush time — and
+  /// the server's upsert clears its own `deleted: true`. This is safe because
+  /// sync is one-way and client-authoritative: the client is the only writer,
+  /// so no remote state can disagree and no conflict resolution is needed.
+  Future<void> restoreTrip(String tripId) async {
+    state = const TripManagementSaving();
+    try {
+      final db = ref.read(appDatabaseProvider);
+      final tripsDao = ref.read(tripsDaoProvider);
+      final syncDao = ref.read(syncQueueDaoProvider);
+      await db.transaction(() async {
+        await tripsDao.restoreTrip(tripId);
+        await syncDao.enqueueCreate(tripId);
+      });
+      state = const TripManagementSaved();
+    } on Object catch (e) {
+      state = TripManagementError(e.toString());
+    }
+  }
+
+  /// PERMANENTLY (hard) delete a soft-deleted trip from the local database
+  /// (Phase 35, D-05). Cascade removes its breaks and stuck segments.
+  ///
+  /// Enqueues NOTHING: the delete tombstone was already pushed when the trip
+  /// was soft-deleted, and the server keeps its own soft-deleted copy per the
+  /// project-wide rule that Firestore never hard-deletes. A second delete would
+  /// be redundant. This is the irreversible action behind the Trash's "Delete
+  /// permanently" confirmation.
+  Future<void> deleteTripPermanently(String tripId) async {
+    state = const TripManagementSaving();
+    try {
+      final tripsDao = ref.read(tripsDaoProvider);
+      await tripsDao.deleteTrip(tripId);
       state = const TripManagementSaved();
     } on Object catch (e) {
       state = TripManagementError(e.toString());

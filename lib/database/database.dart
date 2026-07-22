@@ -45,7 +45,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -83,7 +83,23 @@ class AppDatabase extends _$AppDatabase {
         //     auto-pause is opt-in (D-10).
         // Ordered AFTER the from<2 branch so a v1 install runs both
         // branches in sequence.
-        await m.createTable(tripBreaks);
+        //
+        // Phase 35 (T-35-06): create trip_breaks at its HISTORICAL v3 shape
+        // via raw DDL, NOT `m.createTable(tripBreaks)`. `createTable` emits the
+        // LIVE definition, which now carries `ON DELETE CASCADE` (added to the
+        // Dart FK at v11); using it here would make a v2 → v3 upgrade produce a
+        // v11-shaped table and fail the frozen v3 schema snapshot. The cascade
+        // is installed for existing installs by the v11 branch below and for
+        // fresh installs via `createAll`, so an install passing through v3
+        // keeps the pre-cascade table exactly as before, rebuilt at v11.
+        await customStatement(
+          'CREATE TABLE IF NOT EXISTS "trip_breaks" '
+          '("id" TEXT NOT NULL, '
+          '"trip_id" TEXT NOT NULL REFERENCES trips (id), '
+          '"start_time" INTEGER NOT NULL, '
+          '"end_time" INTEGER NULL, '
+          'PRIMARY KEY ("id"));',
+        );
         await m.addColumn(trips, trips.totalPausedSeconds);
         await m.addColumn(
           userPreferences,
@@ -270,6 +286,33 @@ class AppDatabase extends _$AppDatabase {
           'WHERE weekend_reminder = 1',
           <Object?>[kAllReminderDays],
         );
+      }
+      if (from < 11 && to >= 11) {
+        // Phase 35 (D-01): v10 → v11 does two things.
+        //
+        //   1. Adds the nullable `trips.deleted_at` soft-delete tombstone.
+        //      Purely additive — no UPDATE/DROP touches existing trip rows, so
+        //      every historical commute survives and reads `deleted_at = NULL`
+        //      (live), exactly how it rendered before this phase (SC#9).
+        //
+        //   2. Rebuilds `trip_breaks` to add `onDelete: cascade` to its
+        //      `trip_id` foreign key (T-35-06). `addColumn` can only add a NEW
+        //      column; it cannot change the ON DELETE action baked into an
+        //      existing column's FK clause, so the table must be rebuilt via
+        //      the 12-step `TableMigration` procedure. `trip_breaks` gains no
+        //      new columns and loses none, so the migration declares no
+        //      `newColumns` and no `columnTransformer` — every existing break
+        //      row is copied across unchanged, and the rebuilt table's DDL now
+        //      carries the cascade. Foreign-key enforcement is off during
+        //      onUpgrade (beforeOpen sets the pragma only AFTER migrations
+        //      run), so the rebuild copies rows without tripping the very
+        //      constraint it is installing. Nothing references `trip_breaks`,
+        //      so no other table needs rebuilding alongside it.
+        //
+        // Ordered AFTER the from<10 branch so a v1..v10 install runs every
+        // branch in sequence.
+        await m.addColumn(trips, trips.deletedAt);
+        await m.alterTable(TableMigration(tripBreaks));
       }
     },
     beforeOpen: (details) async {

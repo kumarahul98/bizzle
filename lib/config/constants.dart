@@ -1828,3 +1828,17 @@ const String kAutoPauseInfoBody =
     'Nothing is ever paused unless you tap to confirm it. If you start '
     'moving again first, the question is dropped and the timer starts over.\n\n'
     'Paused time is left out of your commute totals.';
+
+// ---------------------------------------------------------------------------
+// Phase 35 — Deleted Trips (Trash)
+// ---------------------------------------------------------------------------
+
+/// Number of days a soft-deleted trip is retained in the Trash before the
+/// app-start purge hard-deletes it (Phase 35, D-04). A trip is purged only
+/// once it has been deleted for STRICTLY MORE than this many days — deleting
+/// a trip exactly this many days ago keeps it for the remainder of the day.
+///
+/// CLAUDE.md mandates every threshold live here; the purge provider and the
+/// Trash retention countdown both read this single value so the window can
+/// never disagree between the delete logic and the copy shown to the user.
+const int kTrashRetentionDays = 30;

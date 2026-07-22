@@ -13,6 +13,7 @@ import 'package:traevy/features/auth/screens/splash_screen.dart';
 import 'package:traevy/features/settings/providers/settings_providers.dart';
 import 'package:traevy/features/shell/main_shell.dart';
 import 'package:traevy/features/tracking/providers/backfill_provider.dart';
+import 'package:traevy/features/trips/providers/trip_purge_provider.dart';
 import 'package:traevy/sync/sync_engine.dart';
 
 /// Root widget for the Traevy app.
@@ -54,7 +55,10 @@ class TraevyApp extends ConsumerWidget {
       // engine.start() and makes the watchPending() subscription live before
       // the first trip save (M1). keepAlive provider — reading it does NOT
       // block the UI build; all processing is async / fire-and-forget.
-      ..watch(syncEngineProvider);
+      ..watch(syncEngineProvider)
+      // Phase 35 (D-04): one-shot Trash purge on app start. keepAlive means it
+      // fires exactly once per session; the UI never blocks on its result.
+      ..watch(tripPurgeProvider);
 
     // IOS-10 contextual notification permission hook (D-07).
     //

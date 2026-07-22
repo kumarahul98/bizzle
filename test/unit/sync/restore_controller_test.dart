@@ -612,6 +612,46 @@ void main() {
     );
   });
 
+  // -------------------------------------------------------------------------
+  // Phase 35 (T-35-01) — a soft-deleted trip is NOT resurrected by a cloud
+  // restore. This is the fake-backend substitute for a real network restore
+  // round-trip, which cannot be exercised in a unit test.
+  // -------------------------------------------------------------------------
+
+  group('T-35-01: soft-deleted trip survives a cloud restore', () {
+    test(
+      'a locally soft-deleted trip stays deleted when the cloud backup still '
+      'has it (same UUID recognised, never re-imported)',
+      () async {
+        // The trip exists locally and is then thrown in the Trash.
+        await db.tripsDao.insertTrip(_companion('sd1'));
+        await db.tripsDao.softDeleteTrip('sd1', DateTime.utc(2026, 5, 2));
+        expect(await db.tripsDao.watchAllSummaries().first, isEmpty);
+
+        // The cloud backup (taken before the delete, as it always would be)
+        // still carries the same trip.
+        final api = _FakeApiClient(<TripsCompanion>[_companion('sd1')]);
+        final container = phase26Container(api);
+
+        await container.read(restoreControllerProvider.notifier).restore();
+
+        // Recognised as a known id → nothing new inserted.
+        final state = container.read(restoreControllerProvider);
+        expect(state, isA<RestoreSuccess>());
+        expect((state as RestoreSuccess).count, 0);
+
+        // The deletion did NOT silently undo itself: still hidden from the
+        // live surface, still physically present as a soft-deleted row.
+        expect(await db.tripsDao.watchAllSummaries().first, isEmpty);
+        final row = await db.tripsDao.findById('sd1');
+        expect(row, isNotNull);
+        expect(row!.deletedAt, isNotNull);
+        // Exactly one trip row total — no duplicate live copy was created.
+        expect((await db.tripsDao.getAllTrips()).length, 1);
+      },
+    );
+  });
+
   group('SC3 restore-then-edit preserves breaks', () {
     test(
       "a restored trip's breaks and totalPausedSeconds survive a "

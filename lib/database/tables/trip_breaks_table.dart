@@ -8,10 +8,19 @@ import 'package:traevy/database/tables/trips_table.dart';
 /// `trips`. Phase 19 (full trip editing) edits individual segments, so
 /// breaks are a normalized table — not a JSON blob on `trips` (D-01).
 ///
-/// `tripId` is a hard foreign key to `trips.id` via `references(Trips, #id)`.
-/// The FK is enforced because `PRAGMA foreign_keys = ON` is set in
-/// `AppDatabase.migration.beforeOpen` — inserting a break for a missing
-/// trip id is rejected at the SQLite layer (T-18-02).
+/// `tripId` is a hard foreign key to `trips.id` with `onDelete:
+/// KeyAction.cascade`. The FK is enforced because `PRAGMA foreign_keys = ON`
+/// is set in `AppDatabase.migration.beforeOpen` — inserting a break for a
+/// missing trip id is rejected at the SQLite layer (T-18-02), and deleting a
+/// trip removes its breaks in the same statement rather than raising a
+/// constraint violation.
+///
+/// The cascade was added in Phase 35 (v11, D-01/T-35-06). Before it, this FK
+/// declared no `onDelete` action, so under `PRAGMA foreign_keys = ON` deleting
+/// a trip that had any break rows raised `SqliteException(787)` and left the
+/// trip undeletable. Soft delete made the everyday path stop issuing `DELETE`,
+/// but the trash purge and "delete permanently" still hard-delete, so the
+/// cascade is what actually clears the children there.
 ///
 /// `endTime` is nullable only transiently: while a break is open (the user
 /// has paused but not yet resumed) it is null. Trip finalize closes every
@@ -26,9 +35,11 @@ class TripBreaks extends Table {
   /// Client-generated UUID v4 primary key. Never null.
   TextColumn get id => text()();
 
-  /// Owning trip. Hard FK to `trips.id`, enforced by
-  /// `PRAGMA foreign_keys = ON` (D-01, T-18-02).
-  TextColumn get tripId => text().references(Trips, #id)();
+  /// Owning trip. Hard FK to `trips.id`, cascading on delete, enforced by
+  /// `PRAGMA foreign_keys = ON` (D-01, T-18-02; cascade added Phase 35,
+  /// T-35-06).
+  TextColumn get tripId =>
+      text().references(Trips, #id, onDelete: KeyAction.cascade)();
 
   /// Break start timestamp (pause), stored in UTC.
   DateTimeColumn get startTime => dateTime()();

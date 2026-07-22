@@ -168,6 +168,17 @@ class $TripsTable extends Trips with TableInfo<$TripsTable, TripRow> {
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -208,6 +219,7 @@ class $TripsTable extends Trips with TableInfo<$TripsTable, TripRow> {
     timeStuckSeconds,
     isManualEntry,
     isEdited,
+    deletedAt,
     createdAt,
     updatedAt,
   ];
@@ -344,6 +356,12 @@ class $TripsTable extends Trips with TableInfo<$TripsTable, TripRow> {
         isEdited.isAcceptableOrUnknown(data['is_edited']!, _isEditedMeta),
       );
     }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -421,6 +439,10 @@ class $TripsTable extends Trips with TableInfo<$TripsTable, TripRow> {
         DriftSqlType.bool,
         data['${effectivePrefix}is_edited'],
       )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -511,6 +533,19 @@ class TripRow extends DataClass implements Insertable<TripRow> {
   /// not measured from GPS.
   final bool isEdited;
 
+  /// Soft-delete tombstone (Phase 35, D-01). `null` means the trip is LIVE;
+  /// a non-null UTC timestamp records the moment the user deleted it.
+  ///
+  /// CLAUDE.md's "soft deletes everywhere" rule was true of Firestore but
+  /// false of the client until this column landed — the client used to issue a
+  /// real `DELETE`. Deleting now stamps this instead, so the trip disappears
+  /// from history/dashboard/stats (via the `deletedAt IS NULL` filter on
+  /// `watchAllSummaries`) yet remains recoverable from Settings → Deleted trips
+  /// for [kTrashRetentionDays] days, after which the app-start purge hard-deletes
+  /// it. Every historical row reads `null` (live) across the additive v11
+  /// migration — no existing trip is touched.
+  final DateTime? deletedAt;
+
   /// Insertion time. Defaults to `CURRENT_TIMESTAMP` so the DAO does
   /// not have to set it explicitly.
   final DateTime createdAt;
@@ -533,6 +568,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
     required this.timeStuckSeconds,
     required this.isManualEntry,
     required this.isEdited,
+    this.deletedAt,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -555,6 +591,9 @@ class TripRow extends DataClass implements Insertable<TripRow> {
     map['time_stuck_seconds'] = Variable<int>(timeStuckSeconds);
     map['is_manual_entry'] = Variable<bool>(isManualEntry);
     map['is_edited'] = Variable<bool>(isEdited);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
@@ -578,6 +617,9 @@ class TripRow extends DataClass implements Insertable<TripRow> {
       timeStuckSeconds: Value(timeStuckSeconds),
       isManualEntry: Value(isManualEntry),
       isEdited: Value(isEdited),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -603,6 +645,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
       timeStuckSeconds: serializer.fromJson<int>(json['timeStuckSeconds']),
       isManualEntry: serializer.fromJson<bool>(json['isManualEntry']),
       isEdited: serializer.fromJson<bool>(json['isEdited']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
@@ -625,6 +668,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
       'timeStuckSeconds': serializer.toJson<int>(timeStuckSeconds),
       'isManualEntry': serializer.toJson<bool>(isManualEntry),
       'isEdited': serializer.toJson<bool>(isEdited),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
@@ -645,6 +689,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
     int? timeStuckSeconds,
     bool? isManualEntry,
     bool? isEdited,
+    Value<DateTime?> deletedAt = const Value.absent(),
     DateTime? createdAt,
     DateTime? updatedAt,
   }) => TripRow(
@@ -664,6 +709,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
     timeStuckSeconds: timeStuckSeconds ?? this.timeStuckSeconds,
     isManualEntry: isManualEntry ?? this.isManualEntry,
     isEdited: isEdited ?? this.isEdited,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
   );
@@ -699,6 +745,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
           ? data.isManualEntry.value
           : this.isManualEntry,
       isEdited: data.isEdited.present ? data.isEdited.value : this.isEdited,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -721,6 +768,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
           ..write('timeStuckSeconds: $timeStuckSeconds, ')
           ..write('isManualEntry: $isManualEntry, ')
           ..write('isEdited: $isEdited, ')
+          ..write('deletedAt: $deletedAt, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -743,6 +791,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
     timeStuckSeconds,
     isManualEntry,
     isEdited,
+    deletedAt,
     createdAt,
     updatedAt,
   );
@@ -764,6 +813,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
           other.timeStuckSeconds == this.timeStuckSeconds &&
           other.isManualEntry == this.isManualEntry &&
           other.isEdited == this.isEdited &&
+          other.deletedAt == this.deletedAt &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
 }
@@ -783,6 +833,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
   final Value<int> timeStuckSeconds;
   final Value<bool> isManualEntry;
   final Value<bool> isEdited;
+  final Value<DateTime?> deletedAt;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<int> rowid;
@@ -801,6 +852,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
     this.timeStuckSeconds = const Value.absent(),
     this.isManualEntry = const Value.absent(),
     this.isEdited = const Value.absent(),
+    this.deletedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -820,6 +872,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
     required int timeStuckSeconds,
     this.isManualEntry = const Value.absent(),
     this.isEdited = const Value.absent(),
+    this.deletedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -846,6 +899,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
     Expression<int>? timeStuckSeconds,
     Expression<bool>? isManualEntry,
     Expression<bool>? isEdited,
+    Expression<DateTime>? deletedAt,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
@@ -866,6 +920,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
       if (timeStuckSeconds != null) 'time_stuck_seconds': timeStuckSeconds,
       if (isManualEntry != null) 'is_manual_entry': isManualEntry,
       if (isEdited != null) 'is_edited': isEdited,
+      if (deletedAt != null) 'deleted_at': deletedAt,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
@@ -887,6 +942,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
     Value<int>? timeStuckSeconds,
     Value<bool>? isManualEntry,
     Value<bool>? isEdited,
+    Value<DateTime?>? deletedAt,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
     Value<int>? rowid,
@@ -906,6 +962,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
       timeStuckSeconds: timeStuckSeconds ?? this.timeStuckSeconds,
       isManualEntry: isManualEntry ?? this.isManualEntry,
       isEdited: isEdited ?? this.isEdited,
+      deletedAt: deletedAt ?? this.deletedAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
@@ -957,6 +1014,9 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
     if (isEdited.present) {
       map['is_edited'] = Variable<bool>(isEdited.value);
     }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -986,6 +1046,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
           ..write('timeStuckSeconds: $timeStuckSeconds, ')
           ..write('isManualEntry: $isManualEntry, ')
           ..write('isEdited: $isEdited, ')
+          ..write('deletedAt: $deletedAt, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
@@ -2836,7 +2897,7 @@ class $TripBreaksTable extends TripBreaks
     type: DriftSqlType.string,
     requiredDuringInsert: true,
     defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'REFERENCES trips (id)',
+      'REFERENCES trips (id) ON DELETE CASCADE',
     ),
   );
   static const VerificationMeta _startTimeMeta = const VerificationMeta(
@@ -2940,8 +3001,9 @@ class TripBreakRow extends DataClass implements Insertable<TripBreakRow> {
   /// Client-generated UUID v4 primary key. Never null.
   final String id;
 
-  /// Owning trip. Hard FK to `trips.id`, enforced by
-  /// `PRAGMA foreign_keys = ON` (D-01, T-18-02).
+  /// Owning trip. Hard FK to `trips.id`, cascading on delete, enforced by
+  /// `PRAGMA foreign_keys = ON` (D-01, T-18-02; cascade added Phase 35,
+  /// T-35-06).
   final String tripId;
 
   /// Break start timestamp (pause), stored in UTC.
@@ -3621,6 +3683,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         'trips',
         limitUpdateKind: UpdateKind.delete,
       ),
+      result: [TableUpdate('trip_breaks', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'trips',
+        limitUpdateKind: UpdateKind.delete,
+      ),
       result: [TableUpdate('trip_stuck_segments', kind: UpdateKind.delete)],
     ),
   ]);
@@ -3642,6 +3711,7 @@ typedef $$TripsTableCreateCompanionBuilder =
       required int timeStuckSeconds,
       Value<bool> isManualEntry,
       Value<bool> isEdited,
+      Value<DateTime?> deletedAt,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<int> rowid,
@@ -3662,6 +3732,7 @@ typedef $$TripsTableUpdateCompanionBuilder =
       Value<int> timeStuckSeconds,
       Value<bool> isManualEntry,
       Value<bool> isEdited,
+      Value<DateTime?> deletedAt,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<int> rowid,
@@ -3789,6 +3860,11 @@ class $$TripsTableFilterComposer extends Composer<_$AppDatabase, $TripsTable> {
 
   ColumnFilters<bool> get isEdited => $composableBuilder(
     column: $table.isEdited,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3932,6 +4008,11 @@ class $$TripsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -4009,6 +4090,9 @@ class $$TripsTableAnnotationComposer
 
   GeneratedColumn<bool> get isEdited =>
       $composableBuilder(column: $table.isEdited, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -4113,6 +4197,7 @@ class $$TripsTableTableManager
                 Value<int> timeStuckSeconds = const Value.absent(),
                 Value<bool> isManualEntry = const Value.absent(),
                 Value<bool> isEdited = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -4131,6 +4216,7 @@ class $$TripsTableTableManager
                 timeStuckSeconds: timeStuckSeconds,
                 isManualEntry: isManualEntry,
                 isEdited: isEdited,
+                deletedAt: deletedAt,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
@@ -4151,6 +4237,7 @@ class $$TripsTableTableManager
                 required int timeStuckSeconds,
                 Value<bool> isManualEntry = const Value.absent(),
                 Value<bool> isEdited = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -4169,6 +4256,7 @@ class $$TripsTableTableManager
                 timeStuckSeconds: timeStuckSeconds,
                 isManualEntry: isManualEntry,
                 isEdited: isEdited,
+                deletedAt: deletedAt,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,

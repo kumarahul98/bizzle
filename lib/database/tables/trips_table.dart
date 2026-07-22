@@ -100,6 +100,19 @@ class Trips extends Table {
   /// not measured from GPS.
   BoolColumn get isEdited => boolean().withDefault(const Constant(false))();
 
+  /// Soft-delete tombstone (Phase 35, D-01). `null` means the trip is LIVE;
+  /// a non-null UTC timestamp records the moment the user deleted it.
+  ///
+  /// CLAUDE.md's "soft deletes everywhere" rule was true of Firestore but
+  /// false of the client until this column landed — the client used to issue a
+  /// real `DELETE`. Deleting now stamps this instead, so the trip disappears
+  /// from history/dashboard/stats (via the `deletedAt IS NULL` filter on
+  /// `watchAllSummaries`) yet remains recoverable from Settings → Deleted trips
+  /// for [kTrashRetentionDays] days, after which the app-start purge
+  /// hard-deletes it. Every historical row reads `null` (live) across the
+  /// additive v11 migration — no existing trip is touched.
+  DateTimeColumn get deletedAt => dateTime().nullable()();
+
   /// Insertion time. Defaults to `CURRENT_TIMESTAMP` so the DAO does
   /// not have to set it explicitly.
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();

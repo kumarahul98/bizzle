@@ -243,15 +243,8 @@ void main() {
       },
     );
 
-    test('schemaVersion is 10', () {
-      final db = AppDatabase(
-        DatabaseConnection(
-          NativeDatabase.memory(),
-          closeStreamsSynchronously: true,
-        ),
-      );
-      addTearDown(db.close);
-      expect(db.schemaVersion, 10);
-    });
+    // The current-schema-version assertion moved to migration_v11_test when
+    // Phase 35 bumped the head schema to 11; asserting 10 here would break on
+    // every future bump. This test intentionally no longer pins the version.
   });
 }
