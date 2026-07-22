@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:traevy/database/daos/user_preferences_dao.dart';
 import 'package:traevy/database/providers.dart';
+import 'package:traevy/features/settings/services/reminder_suggestion_service.dart';
+import 'package:traevy/features/trips/providers/history_providers.dart';
 import 'package:traevy/notifications/notification_service.dart';
 
 /// Reactive stream of the user's preferences (single row, id = 1).
@@ -44,3 +46,20 @@ final Provider<NotificationService> notificationServiceProvider =
       (ref) => NotificationService(),
       name: 'notificationServiceProvider',
     );
+
+/// The recalibrated reminder time suggested from the user's trips, or null
+/// when there are too few qualifying commutes to suggest one (Phase 33, D-04).
+///
+/// Reads `allTripSummariesProvider` and runs [ReminderSuggestionService]
+/// against `DateTime.now()`. Recomputes whenever the trip list changes — the
+/// Settings screen is the only consumer, so this stays off the trip-save path
+/// (D-04). Manual provider per the project-wide constraint; widget tests
+/// override it to script a suggestion without seeding trips.
+final Provider<String?> reminderSuggestionProvider = Provider<String?>((ref) {
+  final trips = ref.watch(allTripSummariesProvider).asData?.value;
+  if (trips == null) return null;
+  return const ReminderSuggestionService().computeSuggestion(
+    trips,
+    now: DateTime.now(),
+  );
+}, name: 'reminderSuggestionProvider');

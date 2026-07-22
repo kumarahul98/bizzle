@@ -8,12 +8,16 @@ import 'package:traevy/database/daos/user_preferences_dao.dart';
 import 'package:traevy/database/providers.dart';
 import 'package:traevy/features/settings/providers/settings_providers.dart';
 import 'package:traevy/features/settings/screens/location_picker_screen.dart';
+import 'package:traevy/features/settings/services/reminder_suggestion_service.dart';
+import 'package:traevy/features/settings/widgets/reminder_day_picker.dart';
+import 'package:traevy/features/settings/widgets/reminder_suggestion_card.dart';
 import 'package:traevy/features/settings/widgets/saved_location_tile.dart';
 import 'package:traevy/features/settings/widgets/settings_row.dart';
 import 'package:traevy/features/settings/widgets/settings_section.dart';
 import 'package:traevy/features/tour/tour_config.dart';
 import 'package:traevy/shared/models/reminder_suggestion_state.dart';
 import 'package:traevy/shared/utils/reminder_days.dart';
+import 'package:traevy/shared/widgets/info_sheet.dart';
 import 'package:traevy/shared/widgets/traevy_toggle.dart';
 
 /// The Traevy-restyled Settings screen — four grouped sections inside
@@ -120,28 +124,37 @@ class _RecordingSection extends StatelessWidget {
     return SettingsSection(
       title: 'Recording',
       children: <Widget>[
-        SettingsRow(
-          label: 'Cutoff "to office"',
-          subtitle:
-              'Before ${prefs.morningCutoffHour.toString().padLeft(2, '0')}:00',
-          // Wired in a future plan — the settings notifier does not yet
-          // expose cutoff updates. Rendered without onTap so no chevron
-          // is shown.
-        ),
+        // Phase 33 (D-01): the read-only cutoff row was deleted. Since
+        // Phase 21 direction comes primarily from Home/Office geofences and
+        // the trip detail screen lets the user fix a mislabel; a row that
+        // only explained an invisible fallback and could not be changed
+        // earned none of the space it took. morningCutoffHour still lives in
+        // the schema at its default and keeps working as the silent fallback.
+        //
         // Phase 18 (Plan 04, TRACK-10, D-10): real opt-in auto-pause toggle
-        // bound to user_preferences.auto_pause_enabled (default OFF). No
-        // notification side-effect — flipping it only upserts the preference;
-        // the service-side detector reads the gate live via the UI isolate.
+        // bound to user_preferences.auto_pause_enabled. Phase 33 (D-05)
+        // renames the label to match reality — the app never pauses on its
+        // own, it asks — and adds an InfoIconButton explaining exactly that.
         KeyedSubtree(
           key: TourKeys.settingsAutoPause,
           child: SettingsRow(
-            label: kSettingsAutoPauseLabel,
+            label: kSettingsAutoPauseLabelV2,
             subtitle: prefs.autoPauseEnabled
                 ? kSettingsAutoPauseOnSubtitle
                 : kSettingsAutoPauseOffSubtitle,
-            trailing: TraevyToggle(
-              value: prefs.autoPauseEnabled,
-              onChanged: (v) => unawaited(_toggleAutoPause(ref, prefs, v)),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                const InfoIconButton(
+                  title: kAutoPauseInfoTitle,
+                  body: kAutoPauseInfoBody,
+                ),
+                const SizedBox(width: 4),
+                TraevyToggle(
+                  value: prefs.autoPauseEnabled,
+                  onChanged: (v) => unawaited(_toggleAutoPause(ref, prefs, v)),
+                ),
+              ],
             ),
           ),
         ),
@@ -159,8 +172,23 @@ class _NotificationsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final reminderTimeLabel = _formatReminderTime(prefs.reminderTime);
     final reminderSubtitle = prefs.reminderEnabled
-        ? '$reminderTimeLabel · weekdays'
+        ? '$reminderTimeLabel · ${reminderDaysLabel(prefs.reminderDayNumbers)}'
         : 'OFF';
+
+    // Phase 33 (D-04): the recalibration suggestion, surfaced two ways —
+    // a dismissible card (below), and a permanent subtitle on the time row.
+    final suggestion = ref.watch(reminderSuggestionProvider);
+    final subtitle = suggestion == null
+        ? reminderTimeLabel
+        : '$kReminderSuggestionSubtitlePrefix${_formatReminderTime(suggestion)}';
+    final showCard =
+        suggestion != null &&
+        const ReminderSuggestionService().shouldOffer(
+          suggestion: suggestion,
+          state: prefs.reminderSuggestionState,
+          lastOfferedValue: prefs.reminderSuggestionValue,
+        );
+
     return SettingsSection(
       title: 'Notifications',
       children: <Widget>[
@@ -174,26 +202,22 @@ class _NotificationsSection extends StatelessWidget {
         ),
         SettingsRow(
           label: kSettingsReminderTimeLabel,
-          subtitle: reminderTimeLabel,
-          onTap: () => unawaited(_pickReminderTime(context, ref, prefs)),
-        ),
-        SettingsRow(
-          label: kSettingsWeekendReminderLabel,
-          trailing: TraevyToggle(
-            value: setEqualsInts(
-              prefs.reminderDayNumbers,
-              parseReminderDays(kAllReminderDays),
-            ),
-            onChanged: (v) => unawaited(
-              _setReminderDays(
-                ref,
-                prefs,
-                parseReminderDays(
-                  v ? kAllReminderDays : kDefaultReminderDays,
-                ),
-              ),
-            ),
+          subtitle: subtitle,
+          onTap: () => unawaited(
+            _pickReminderTime(context, ref, prefs, seed: suggestion),
           ),
+        ),
+        if (showCard)
+          ReminderSuggestionCard(
+            suggestion: suggestion,
+            onAccept: () =>
+                unawaited(_acceptSuggestion(ref, prefs, suggestion)),
+            onDismiss: () =>
+                unawaited(_dismissSuggestion(ref, prefs, suggestion)),
+          ),
+        ReminderDayPicker(
+          selectedDays: prefs.reminderDayNumbers,
+          onChanged: (days) => unawaited(_setReminderDays(ref, prefs, days)),
         ),
         SettingsRow(
           label: kSettingsWeeklySummaryLabel,
@@ -278,15 +302,22 @@ Future<String?> _openThemePicker(BuildContext context, String current) {
 /// the DB is unchanged. If a time is picked and the reminder is currently
 /// enabled, the reminder alarm is rescheduled immediately — no need for the
 /// user to re-toggle the switch.
+///
+/// When a recalibration suggestion is available it is passed as [seed]: the
+/// picker opens on the suggested time rather than the 08:00 hardcode, so an
+/// "Edit" from the suggestion lands the user on the value they were offered
+/// (D-04). The current reminder time still wins if one is set.
 Future<void> _pickReminderTime(
   BuildContext context,
   WidgetRef ref,
-  UserPreferencesValue prefs,
-) async {
+  UserPreferencesValue prefs, {
+  String? seed,
+}) async {
   // Parse the current reminderTime into a TimeOfDay for the picker's
-  // initialTime; fall back to 08:00 when no time is set yet.
+  // initialTime; fall back to the suggestion, then to 08:00.
   final initial =
       _parseReminderTimeOfDay(prefs.reminderTime) ??
+      _parseReminderTimeOfDay(seed) ??
       const TimeOfDay(hour: 8, minute: 0);
 
   final picked = await showTimePicker(
@@ -490,4 +521,49 @@ Future<void> _setReminderDays(
   await ref
       .read(notificationServiceProvider)
       .scheduleReminder(hhMm: prefs.reminderTime!, days: days);
+}
+
+/// Accept the recalibration suggestion (Phase 33, D-04): adopt [suggestion] as
+/// the reminder time and record it as accepted so it never re-prompts for the
+/// same value. Reschedules immediately if the reminder is enabled.
+Future<void> _acceptSuggestion(
+  WidgetRef ref,
+  UserPreferencesValue prefs,
+  String suggestion,
+) async {
+  await ref
+      .read(userPreferencesDaoProvider)
+      .upsert(
+        _copyPrefs(
+          prefs,
+          reminderTime: suggestion,
+          reminderSuggestionState: ReminderSuggestionState.accepted,
+          reminderSuggestionValue: suggestion,
+        ),
+      );
+  if (prefs.reminderEnabled) {
+    await ref
+        .read(notificationServiceProvider)
+        .scheduleReminder(hhMm: suggestion, days: prefs.reminderDayNumbers);
+  }
+}
+
+/// Dismiss the recalibration suggestion (Phase 33, D-04). Records [suggestion]
+/// as the dismissed value so the same time is remembered indefinitely and only
+/// a materially different suggestion (> 20 min away) can re-surface the card
+/// (T-33-05). Does NOT touch the reminder time.
+Future<void> _dismissSuggestion(
+  WidgetRef ref,
+  UserPreferencesValue prefs,
+  String suggestion,
+) async {
+  await ref
+      .read(userPreferencesDaoProvider)
+      .upsert(
+        _copyPrefs(
+          prefs,
+          reminderSuggestionState: ReminderSuggestionState.dismissed,
+          reminderSuggestionValue: suggestion,
+        ),
+      );
 }

@@ -33,6 +33,8 @@ import 'package:traevy/features/auth/providers/auth_providers.dart';
 import 'package:traevy/features/settings/providers/settings_providers.dart';
 import 'package:traevy/features/settings/screens/settings_screen.dart';
 import 'package:traevy/features/settings/widgets/account_row.dart';
+import 'package:traevy/features/settings/widgets/reminder_day_picker.dart';
+import 'package:traevy/features/settings/widgets/reminder_suggestion_card.dart';
 import 'package:traevy/features/settings/widgets/settings_row.dart';
 import 'package:traevy/features/settings/widgets/settings_section.dart';
 import 'package:traevy/notifications/notification_service.dart';
@@ -159,6 +161,7 @@ Future<_FakeUserPreferencesDao> _pumpSettingsScreen(
   UserPreferencesValue prefs = const UserPreferencesValue.defaults(),
   _FakeNotificationService? notificationService,
   AuthState authState = const AuthGuest(),
+  String? reminderSuggestion,
 }) async {
   final fakeDao = _FakeUserPreferencesDao(prefs);
   final fakeNotif = notificationService ?? _FakeNotificationService();
@@ -170,6 +173,11 @@ Future<_FakeUserPreferencesDao> _pumpSettingsScreen(
         userPreferenceProvider.overrideWith(
           (ref) => Stream<UserPreferencesValue>.value(prefs),
         ),
+        // Phase 33: the suggestion provider watches allTripSummariesProvider,
+        // which would open a real Drift stream and leave a pending timer in
+        // the widget test. Override it with a fixed value so the whole
+        // trip/DB graph stays out of these tests (default: no suggestion).
+        reminderSuggestionProvider.overrideWithValue(reminderSuggestion),
         authStateProvider.overrideWith(() => _FakeAuthNotifier(authState)),
       ],
       child: MaterialApp(
@@ -370,7 +378,7 @@ void main() {
         // of the box.
         await _pumpSettingsScreen(tester);
         final autoPauseRow = find.ancestor(
-          of: find.text(kSettingsAutoPauseLabel),
+          of: find.text(kSettingsAutoPauseLabelV2),
           matching: find.byType(SettingsRow),
         );
         expect(autoPauseRow, findsOneWidget);
@@ -423,7 +431,7 @@ void main() {
           notificationService: fakeNotif,
         );
         final autoPauseRow = find.ancestor(
-          of: find.text(kSettingsAutoPauseLabel),
+          of: find.text(kSettingsAutoPauseLabelV2),
           matching: find.byType(SettingsRow),
         );
         final toggle = find.descendant(
@@ -441,7 +449,7 @@ void main() {
     );
 
     testWidgets(
-      'reminderEnabled subtitle shows "· weekdays" suffix when enabled',
+      'reminderEnabled subtitle shows the day-selection label when enabled',
       (tester) async {
         await _pumpSettingsScreen(
           tester,
@@ -453,6 +461,9 @@ void main() {
             reminderEnabled: true,
             reminderTime: '08:00',
             weekendReminder: false,
+            // Phase 33 (D-02): the weekend boolean is superseded by an explicit
+            // day set. The default weekday set (Mon–Fri) renders as "Weekdays".
+            reminderDays: '1,2,3,4,5',
             weeklyNotificationEnabled: false,
             autoPauseEnabled: false,
             hasSeenOnboarding: false,
@@ -466,11 +477,13 @@ void main() {
         await _scrollTo(tester, find.text('Daily reminder'));
         // The Daily reminder row label is still present.
         expect(find.text('Daily reminder'), findsOneWidget);
-        // The enabled Daily reminder subtitle is "{time} · weekdays", which is
-        // uniquely distinct from the Reminder time row subtitle (just "{time}").
-        // _formatReminderTime('08:00') → '8:00 AM', so the combined subtitle
-        // is '8:00 AM · weekdays'.
-        expect(find.textContaining('· weekdays'), findsOneWidget);
+        // The enabled Daily reminder subtitle is "{time} · {days}". With the
+        // Mon–Fri set that day label is kReminderDaysWeekdaysLabel ("Weekdays"),
+        // so the combined subtitle is "8:00 AM · Weekdays".
+        expect(
+          find.textContaining('· $kReminderDaysWeekdaysLabel'),
+          findsOneWidget,
+        );
       },
     );
   });
@@ -669,6 +682,104 @@ void main() {
         );
       },
     );
+  });
+
+  // ---------------------------------------------------------------------------
+  // Phase 33 (D-02 / D-04): day-of-week picker and recalibration suggestion
+  // ---------------------------------------------------------------------------
+
+  group('SettingsScreen — reminder day picker (Phase 33, D-02)', () {
+    testWidgets('renders the day picker in place of the weekend toggle', (
+      tester,
+    ) async {
+      await _pumpSettingsScreen(tester);
+      await _scrollTo(tester, find.byType(ReminderDayPicker));
+      expect(find.byType(ReminderDayPicker), findsOneWidget);
+    });
+
+    testWidgets(
+      'tapping a day writes the new selection and reschedules onto it',
+      (tester) async {
+        final fakeNotif = _FakeNotificationService();
+        // Reminder ON at 07:00 on weekdays; tapping Saturday adds day 6.
+        final dao = await _pumpSettingsScreen(
+          tester,
+          prefs: const UserPreferencesValue.defaults(),
+          notificationService: fakeNotif,
+        );
+        await _scrollTo(tester, find.byType(ReminderDayPicker));
+        // The seven day dots are GestureDetectors ordered Mon→Sun, so
+        // Saturday (weekday 6) is index 5.
+        final saturdayDot = find
+            .descendant(
+              of: find.byType(ReminderDayPicker),
+              matching: find.byType(GestureDetector),
+            )
+            .at(5);
+        await tester.tap(saturdayDot);
+        await tester.pump();
+
+        expect(dao.writes, isNotEmpty);
+        // The stored day CSV now includes Saturday (6) alongside Mon–Fri.
+        expect(dao.writes.last.reminderDayNumbers, <int>{1, 2, 3, 4, 5, 6});
+        // And the alarm set was rescheduled onto exactly that selection.
+        expect(
+          fakeNotif.calls,
+          contains('scheduleReminder(07:00,1-2-3-4-5-6)'),
+        );
+      },
+    );
+  });
+
+  group('SettingsScreen — recalibration suggestion (Phase 33, D-04)', () {
+    testWidgets('no card is shown when there is no suggestion', (tester) async {
+      await _pumpSettingsScreen(tester);
+      expect(find.byType(ReminderSuggestionCard), findsNothing);
+    });
+
+    testWidgets('accepting the suggestion adopts it as the reminder time', (
+      tester,
+    ) async {
+      final fakeNotif = _FakeNotificationService();
+      final dao = await _pumpSettingsScreen(
+        tester,
+        prefs: const UserPreferencesValue.defaults(),
+        notificationService: fakeNotif,
+        reminderSuggestion: '08:05',
+      );
+      await _scrollTo(tester, find.byType(ReminderSuggestionCard));
+      expect(find.byType(ReminderSuggestionCard), findsOneWidget);
+
+      await tester.tap(find.text(kReminderSuggestionAcceptLabel));
+      await tester.pump();
+
+      expect(dao.writes, isNotEmpty);
+      expect(dao.writes.last.reminderTime, '08:05');
+      // Accepting reschedules the enabled reminder onto the new time.
+      expect(
+        fakeNotif.calls.any((c) => c.startsWith('scheduleReminder(08:05,')),
+        isTrue,
+      );
+    });
+
+    testWidgets('dismissing records the value without changing the time', (
+      tester,
+    ) async {
+      final dao = await _pumpSettingsScreen(
+        tester,
+        prefs: const UserPreferencesValue.defaults(),
+        reminderSuggestion: '08:05',
+      );
+      await _scrollTo(tester, find.byType(ReminderSuggestionCard));
+      await tester.tap(find.text(kReminderSuggestionDismissLabel));
+      await tester.pump();
+
+      expect(dao.writes, isNotEmpty);
+      // The reminder time is untouched (still the 07:00 default)…
+      expect(dao.writes.last.reminderTime, '07:00');
+      // …but the dismissed value is remembered so it never re-prompts.
+      expect(dao.writes.last.reminderSuggestionValue, '08:05');
+    });
   });
 
   // ---------------------------------------------------------------------------
