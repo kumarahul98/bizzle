@@ -2,16 +2,43 @@
 phase: 34-multi-period-stats
 plan: 34-01
 created: 2026-07-21
-status: awaiting_review
+status: accepted
+accepted: 2026-07-22
 mode: manual-gsd
 requirements: [STATS-03]
 result: >
   RnD only. No code written. Answers D-01's six questions with a recommendation
-  each, D-02 and D-03 with a resolution each. Wave 2 is blocked until a human
-  accepts or overrules this document.
+  each, D-02 and D-03 with a resolution each. REVIEWED AND RATIFIED 2026-07-22 —
+  see "Review outcome" at the top. Five of six recommendations accepted as-is;
+  Q6 overruled (the trend chart re-buckets per period). Wave 2/3 unblocked.
 ---
 
 # Phase 34 — Multi-Period Stats — RESEARCH
+
+## Review outcome (ratified 2026-07-22)
+
+The user reviewed this document and decided:
+
+| # | Question | Decision | vs recommendation |
+|---|---|---|---|
+| 1 | Period semantics | **Calendar** | Accepted |
+| 2 | Daily-average denominator | **Per commuting day** | Accepted |
+| 3 | Metrics | **Exclude trip count** (total, stuck, stuck share %, per-commuting-day avg, commuting-day count) | Accepted |
+| 4 | Partial periods | **Label `· so far`, never extrapolate** | Accepted (not separately asked — clearly correct) |
+| 5 | Aggregation | **Extend in-memory `computeStatsSummary`** | Accepted (not separately asked — settled by measurement) |
+| 6 | Trend chart | **Re-bucket per period** — Week→daily, Month→weekly, Year→monthly | **OVERRULED.** The doc recommended leaving `TrendBarsCard` at 28 days; the user wants it period-aware. |
+| — | Stuck share population mismatch | **Fix it** — compute share over the non-blank-manual population on both sides; headline total stays all-trips | Accepted (ratifies the Additional-Findings recommendation) |
+
+**Consequence of the Q6 overrule for Wave 3:** `TrendBarsCard` becomes period-aware and follows `selectedStatsPeriodProvider`. Three bucketings under one card, each with its own axis semantics and its own tests:
+- **Week** → 7 daily bars (one per weekday of the selected calendar week).
+- **Month** → weekly bars (~4–5, one per ISO/calendar week touching the month).
+- **Year** → 12 monthly bars.
+
+This is a genuine design addition, not a parameter flip — the "worst day" / "best day" highlight logic and the empty-bar handling must be reconsidered per bucketing. It moves `TrendBarsCard` out of the fixed-window lower section (Q6's card-mapping table) and up with the period-aware group. `WeekdayChartCard` still stays all-time — it was not overruled.
+
+---
+
+# Phase 34 — Multi-Period Stats — RESEARCH (original, as submitted)
 
 ## Recommendation summary
 
