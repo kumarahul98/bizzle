@@ -65,10 +65,10 @@ result: >
 ## What is NOT done
 
 - **SC#1, #2, #4 real delivery** — the alarms are scheduled and unit-verified, but no notification has fired on a device across real days. Device queue.
-- The **default-on reminder never reaches existing installs** (Decisions as-built). If retroactively enabling them is wanted, it needs a separate, explicit opt-in prompt — not a silent migration flip.
+- The **default-on reminder never reaches existing installs** (Decisions as-built). ~~If retroactively enabling them is wanted, it needs a separate, explicit opt-in prompt.~~ — **MOOT (user, 2026-07-22):** the app is still in development with no real users, so every install is effectively a fresh one and gets the 07:00 default. No back-fill of existing installs is needed. Revisit only if the app ships with a live user base before this code does.
 
 ## Follow-ups
 
 1. Device-verify a weekday-only subset fires on the right days and not the excluded ones, and that a fresh install fires 07:00 without a launch-time permission dialog.
-2. Decide whether existing installs should be offered the default-on reminder via a one-time in-app prompt (the safe equivalent of the migration flip that could not be done).
+2. ~~Decide whether existing installs should be offered the default-on reminder via a one-time in-app prompt.~~ — CLOSED (user, 2026-07-22): moot in dev, no real users.
 3. Device-verify the recalibration suggestion appears after real commutes and matches a hand-computed median.
