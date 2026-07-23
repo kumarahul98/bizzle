@@ -541,9 +541,9 @@ class TripRow extends DataClass implements Insertable<TripRow> {
   /// real `DELETE`. Deleting now stamps this instead, so the trip disappears
   /// from history/dashboard/stats (via the `deletedAt IS NULL` filter on
   /// `watchAllSummaries`) yet remains recoverable from Settings → Deleted trips
-  /// for [kTrashRetentionDays] days, after which the app-start purge hard-deletes
-  /// it. Every historical row reads `null` (live) across the additive v11
-  /// migration — no existing trip is touched.
+  /// for [kTrashRetentionDays] days, after which the app-start purge
+  /// hard-deletes it. Every historical row reads `null` (live) across the
+  /// additive v11 migration — no existing trip is touched.
   final DateTime? deletedAt;
 
   /// Insertion time. Defaults to `CURRENT_TIMESTAMP` so the DAO does
