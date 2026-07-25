@@ -4,6 +4,7 @@ import { Home } from './pages/Home.jsx'
 import { BlogIndex } from './pages/BlogIndex.jsx'
 import { BlogPost } from './pages/BlogPost.jsx'
 import { BlogPreview } from './pages/BlogPreview.jsx'
+import { Privacy } from './pages/Privacy.jsx'
 import { client } from './lib/sanity.js'
 
 export const routes = [
@@ -14,6 +15,13 @@ export const routes = [
       {
         index: true,
         element: <Home />
+      },
+      {
+        // Privacy policy — reachable only at /privacy (the URL used by the Play
+        // Console Data Safety form + store listing). Intentionally not linked
+        // from nav or footer. Static route: vite-react-ssg pre-renders it.
+        path: 'privacy',
+        element: <Privacy />
       },
       {
         path: 'blog',
