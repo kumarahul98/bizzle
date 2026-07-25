@@ -1058,7 +1058,7 @@ Owner of record: `.planning/TRAEVY-DEVICE-CHECKS.xlsx`.
 **Goal**: The v0.3 build on `main` is signed with a real upload key, its data collection is accurately declared, and it is live on the Play **Internal testing** track for real-device validation.
 **Depends on**: Phase 29 (precise-location collection that drives the Data Safety change), Phase 36 (last code batch + the deferred device-UAT it carries)
 **Requirements**: REL-01, LOC-03
-**Status**: 37-01 CODE COMPLETE (release signingConfig wired, `54be9dc`, 2026-07-25). 37-02 human-gated ops remain — keystore, signed AAB, Play Console first-publish, Data Safety, internal-testing release. Blocked on the user, not on code.
+**Status**: 37-01 DONE + VERIFIED end-to-end (`54be9dc`, 2026-07-25) — SC1–SC3 all proven: upload keystore generated, signed `app-release.aab` built, `jarsigner -verify` confirms signer is the upload key (CN=Aparna J), analyze clean + 946 tests green. 37-02 human-gated ops remain — Play Console first-publish (Data Safety, privacy-policy URL, listing, content rating), upload AAB to Internal testing. Privacy page written at landing `/privacy` (needs `npm run deploy` to go live at traevy.com/privacy).
 
 Phase 30 is explicitly NOT a dependency (optional, blocked on the 30-00 drive spike). This phase ships what is already on `main`. Internal testing skips the heavy production review, so the critical path is signing + content declarations, not review latency — and internal testing is itself the vehicle on which the Phase 36 batched device-UAT and the Phase 29 E2E get run against the real shipped build. Full runbook: `.planning/phases/37-release-play-internal-testing/37-PLAN.md`.
 

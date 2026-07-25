@@ -30,15 +30,24 @@ Fail-loud contract: a missing `key.properties` leaves the config's fields null,
 so the release build is **unsigned** and fails on Play upload rather than
 silently producing a debug-signed AAB Play would reject.
 
-## Success criteria
+## Success criteria — ALL VERIFIED end-to-end 2026-07-25
 
-- **SC1** (AAB signed by upload key) / **SC2** (reads gitignored key.properties,
-  fails loud, minify off): code in place. Final proof requires the actual
-  keystore + `flutter build appbundle --release` + `jarsigner -verify` — that is
-  37-02, human-gated.
-- **SC3** (`flutter analyze` clean, `flutter test` green before signing):
-  `flutter analyze` is at its known 295-info baseline (0 errors/warnings). Full
-  `flutter test` re-run belongs to the 37-02 pre-build gate.
+- **SC1** ✅ (AAB signed by upload key): `flutter build appbundle --release`
+  produced a 56 MB `app-release.aab`; `jarsigner -verify -certs` reports
+  `jar verified.` with signer `CN=Aparna J, OU=Traevy, O=Broken Magnet` — the
+  generated upload key, NOT "Android Debug".
+- **SC2** ✅ (reads gitignored key.properties, minify off): Gradle read
+  `android/key.properties` (keyAlias `upload`, storeFile
+  `/Users/coolman/traevy-upload-keystore.jks`) and signed automatically with no
+  prompt. minify stayed off.
+- **SC3** ✅ (analyze clean, tests green before signing): `flutter analyze` 0
+  errors/warnings (295-info baseline); `flutter test` 946 passed / 10 skipped
+  immediately before the build.
+
+Note: the release build emitted a non-fatal "failed to strip debug symbols from
+native libraries" warning (NDK strip unavailable) — the AAB is produced and
+valid, just larger. Fine for internal testing; can be revisited before
+production if bundle size matters.
 
 ## Verification notes
 
