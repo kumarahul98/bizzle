@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: App Improvements
 status: executing
-stopped_at: All outstanding device UAT batched into Phase 36 (last phase) 2026-07-22 — 13 checks incl. the notification work. Phase 23 CLOSED EARLY (48/60 passed, remainder skipped by priority). UAT session 2026-07-21 — 48 of 60 scenarios PASSED on device. 3 open (N05 GPS drift, N08+N15 widget), 8 deferred (backend/sync), 1 N-A. Release still blocked on the Play Data Safety declaration.
-last_updated: "2026-07-20T00:00:00.000Z"
-last_activity: 2026-07-22
+stopped_at: Phase 37 (ship) started 2026-07-25 — 37-01 release signingConfig is CODE COMPLETE (`54be9dc`): release builds now sign with the upload key from gitignored android/key.properties, fail-loud if absent, minify off. 37-02 is entirely human-gated (keystore, signed AAB, Play Console first-publish, Data Safety declaration, internal-testing release, post-upload device UAT) — I cannot run it. Release still blocked on the Play Data Safety declaration + the human ops in 37-02. Earlier: device UAT batched into Phase 36; Phase 23 CLOSED EARLY (48/60 passed); UAT 2026-07-21 48/60 PASSED, 3 open (N05, N08+N15), 8 deferred, 1 N-A.
+last_updated: "2026-07-25T00:00:00.000Z"
+last_activity: 2026-07-25
 progress:
   total_phases: 18
   completed_phases: 13
   total_plans: 47
-  completed_plans: 43
-  percent: 76
+  completed_plans: 44
+  percent: 77
 ---
 
 # Project State

@@ -8,7 +8,7 @@ Deliver an offline-first Android commute tracker that records GPS trips, compute
 
 - ✅ **v0.1 Android MVP** - Phases 1-11 (formally open — 13 device-UAT items deferred, resumable)
 - ⏸️ **v0.2 iOS Support** - Phases 12-16 (PAUSED as of 2026-07-11 — see summary in the v0.2 section; 12/13 complete, 14 code-complete/device-unverified, 15 trimmed & merged (Live Activity dropped), 16 not started)
-- 🚧 **v0.3 App Improvements** - Phases 17-36 (17-29 done or code-complete; 30 blocked on a device spike; 31-36 are the post-UAT bug/feature batch. Phase 36 is last and carries the deferred UAT batch.)
+- 🚧 **v0.3 App Improvements** - Phases 17-37 (17-29 done or code-complete; 30 blocked on a device spike; 31-36 are the post-UAT bug/feature batch. Phase 37 is the v0.3 ship phase — release to Play internal testing.)
 
 ## Phases
 
@@ -1051,10 +1051,41 @@ Owner of record: `.planning/TRAEVY-DEVICE-CHECKS.xlsx`.
 
 **UI hint**: yes (widget layout, confirm dialog)
 
+---
+
+### Phase 37: Release to Play Internal Testing
+
+**Goal**: The v0.3 build on `main` is signed with a real upload key, its data collection is accurately declared, and it is live on the Play **Internal testing** track for real-device validation.
+**Depends on**: Phase 29 (precise-location collection that drives the Data Safety change), Phase 36 (last code batch + the deferred device-UAT it carries)
+**Requirements**: REL-01, LOC-03
+**Status**: 37-01 CODE COMPLETE (release signingConfig wired, `54be9dc`, 2026-07-25). 37-02 human-gated ops remain — keystore, signed AAB, Play Console first-publish, Data Safety, internal-testing release. Blocked on the user, not on code.
+
+Phase 30 is explicitly NOT a dependency (optional, blocked on the 30-00 drive spike). This phase ships what is already on `main`. Internal testing skips the heavy production review, so the critical path is signing + content declarations, not review latency — and internal testing is itself the vehicle on which the Phase 36 batched device-UAT and the Phase 29 E2E get run against the real shipped build. Full runbook: `.planning/phases/37-release-play-internal-testing/37-PLAN.md`.
+
+**Success Criteria** (what must be TRUE):
+
+  1. `flutter build appbundle --release` produces an AAB signed by the **upload key** — not the debug keystore — confirmed by `jarsigner -verify` (signer is not "Android Debug").
+  2. Release signing reads from a gitignored `android/key.properties`; a missing file fails the build loudly rather than silently debug-signing. `minifyEnabled` stays off.
+  3. `flutter analyze` clean and `flutter test` green immediately before the signed build.
+  4. Play Console **Data Safety** declares precise location collected + stored + linked to the account; a privacy-policy URL is present; App-content shows no incomplete banners.
+  5. The AAB is live on the **Internal testing** track and installs via the opt-in link.
+  6. On the installed **release** build: Google Sign-In works, a start/stop trip records, and a sync round-trip completes.
+  7. `.planning/RELEASE-GATES.md` Data-Safety blocker is flipped to satisfied once #4 lands.
+
+Post-upload (gates *widening* beyond internal, not the internal upload itself): Phase 36 batched device UAT (A1–A6, B1–B5, C1–C2) + Phase 29 E2E, recorded in `.planning/TRAEVY-DEVICE-CHECKS.xlsx`.
+
+**Plans**: 2 plans.
+
+Plans:
+- [x] 37-01 — Release signing: wire `key.properties` + `release` signingConfig in `android/app/build.gradle.kts` (SC1–SC3). Code — the only repo change. Done `54be9dc` 2026-07-25.
+- [ ] 37-02 — Ops runbook (human-gated): keystore generation, signed AAB build + verify, Play Console first-publish (Data Safety, privacy policy, listing, content rating), internal-testing release, post-upload UAT (SC4–SC7).
+
+---
+
 ## v0.3 Progress
 
 **Execution Order:**
-v0.3 phases execute in numeric order after the (paused) v0.2 phases: 17 -> 18 -> 19 -> 20 -> 21 -> 22 -> 23 -> 24 -> 25 -> 25.1 -> 26 -> 27 -> 28 -> 29 -> 30 -> 31 -> 32 -> 33 -> 34 -> 35 -> 36
+v0.3 phases execute in numeric order after the (paused) v0.2 phases: 17 -> 18 -> 19 -> 20 -> 21 -> 22 -> 23 -> 24 -> 25 -> 25.1 -> 26 -> 27 -> 28 -> 29 -> 30 -> 31 -> 32 -> 33 -> 34 -> 35 -> 36 -> 37. Phase 37 (release to Play internal testing) is the ship phase; it does not depend on Phase 30, which is optional and blocked on a drive spike.
 
 Phases 31-36 are the post-UAT bug/feature batch (17 reported items), split so that no two phases contend for the same files. Their ordering is load-bearing for two reasons. **Migrations must land in sequence** — 31 (v9) -> 33 (v10) -> 35 (v11) — because each branch is guarded `if (from < N && to >= N)`. And **Phase 31 must precede 32 and 33**, which both consume the shared `InfoSheet` it introduces, while **Phase 32 must precede 33**, because 32 deletes `_AccountSection` from `settings_screen.dart` and 33 restructures the rest of that same file. Phases 34 and 36 are independent of the others and may run any time after 31.
 
@@ -1083,3 +1114,4 @@ Note: Phase 17 is a small, independent UI fix + quick-label and is the safe firs
 | 34. Multi-Period Stats (RnD First) | v0.3 | 3/3 | Code complete (RnD ratified 2026-07-22, Q6 overruled; period-switch pending device) | 2026-07-22 |
 | 35. Deleted Trips (Trash) | v0.3 | 2/2 | Code complete (SC#4/#5 pending device; pre-existing FK bug confirmed + fixed) | 2026-07-22 |
 | 36. Widget & Platform Fixes | v0.3 | 3/3 | Code complete — 4 of 9 SCs verified, 5 pending device; **carries the deferred UAT batch** (13 device checks, run at phase close) | 2026-07-22 |
+| 37. Release to Play Internal Testing | v0.3 | 0/2 | Not started — first-ever publish; no upload keystore yet | - |
