@@ -47,6 +47,30 @@ everywhere.
 
 ---
 
+## 🔴 BLOCKING for production launch — separate prod Firebase project
+
+**Status: NOT DONE as of 2026-07-25.**
+
+The app currently ships against the **dev** Firebase project `travey-298a7`
+(Google Sign-In client, Cloud Functions backend, Firestore). Those are dev
+credentials. Before a real **production** launch, stand up a **separate prod
+Firebase project** and cut the release build over to it:
+
+- New Firebase project + new `google-services.json` (Android) / `GoogleService-Info.plist` (iOS).
+- New Google Sign-In OAuth client, with the **release upload/app-signing SHA-1
+  and SHA-256** registered (the Play App Signing key's fingerprints, not just
+  the local upload key) — otherwise sign-in fails on the store build.
+- Deploy Cloud Functions + Firestore security rules to the prod project; point
+  the client's API base URL at the prod backend.
+- Keep dev and prod data isolated — never mix real user data into `travey-298a7`.
+
+**Scope note:** using the dev backend for the **Internal testing** track (Phase 37,
+≤100 known testers) is acceptable as a stopgap. This gate blocks widening to
+**production / open testing**, where real users' precise-location data would
+otherwise land in the dev project.
+
+---
+
 ## 🟡 Known-unverified — on-device behaviour
 
 None of these are policy problems, but each is a real user-facing risk that no
