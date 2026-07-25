@@ -1,3 +1,6 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // START: FlutterFire Configuration
@@ -6,6 +9,17 @@ plugins {
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+// Release is signed by the upload key described in a gitignored
+// android/key.properties (never committed — see .gitignore). If the file is
+// absent, keystoreProperties stays empty, the release signingConfig resolves to
+// null values, and the build produces an UNSIGNED AAB that fails loudly on Play
+// upload rather than silently falling back to the debug keystore.
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
 android {
@@ -50,13 +64,24 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        create("release") {
+            keyAlias = keystoreProperties["keyAlias"] as String?
+            keyPassword = keystoreProperties["keyPassword"] as String?
+            storeFile = (keystoreProperties["storeFile"] as String?)?.let { file(it) }
+            storePassword = keystoreProperties["storePassword"] as String?
+        }
+    }
+
     buildTypes {
         release {
-            // Sign release builds with the debug keystore so sideloaded APKs
-            // install on physical devices for testing. Replace with a real
-            // release signingConfig before publishing to the Play Store —
-            // debug-signed APKs cannot be uploaded.
-            signingConfig = signingConfigs.getByName("debug")
+            // Signed by the upload key from android/key.properties (loaded above).
+            // A missing key.properties leaves this config's fields null, so the
+            // release build is UNSIGNED and Play upload fails — an explicit failure
+            // instead of a silent debug-signed AAB Play would reject anyway.
+            // minifyEnabled stays unset (R8 off — Flutter default): Firebase and
+            // Google Sign-In need no ProGuard rules while minify is disabled.
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }
