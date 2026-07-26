@@ -203,6 +203,51 @@ class ApiClient {
     }
   }
 
+  /// `DELETE /trips` (Phase 38, DEL-ALL-DATA) — hard-wipe every trip the
+  /// caller owns on the server. Unwraps the same double-wrapped envelope as
+  /// [restoreTrips]: `decoded['body']['data']['deletedCount']`. Throws
+  /// [SyncException.transport] on a malformed envelope rather than silently
+  /// returning `0` — "nothing to delete" and "the response was garbage" must
+  /// not look the same to the caller. Used ONLY by the signed-in "Delete all
+  /// data" flow; a guest has nothing server-side to purge.
+  Future<int> deleteAllTrips() async {
+    final res = await _send(
+      (token) => _client.delete(
+        Uri.parse('$_baseUrl$kDeleteAllTripsPath'),
+        headers: _headers(token),
+      ),
+    );
+
+    try {
+      final decoded = jsonDecode(res.body);
+      if (decoded is! Map<String, dynamic>) {
+        throw const SyncException.transport();
+      }
+      final body = decoded['body'] as Map<String, dynamic>?;
+      final data = body?['data'] as Map<String, dynamic>?;
+      final count = data?['deletedCount'] as int?;
+      if (count == null) throw const SyncException.transport();
+      return count;
+    } on SyncException {
+      rethrow;
+    } on Object {
+      throw const SyncException.transport();
+    }
+  }
+
+  /// `DELETE /account` (Phase 38, DEL-ACCOUNT) — deletes the Firebase Auth
+  /// user, all of that user's trip data, and their preferences document on
+  /// the server. No response body is parsed beyond [_send]'s own 2xx check;
+  /// throws [SyncException.http] on any non-2xx status.
+  Future<void> deleteAccount() async {
+    await _send(
+      (token) => _client.delete(
+        Uri.parse('$_baseUrl$kDeleteAccountPath'),
+        headers: _headers(token),
+      ),
+    );
+  }
+
   /// `POST /preferences/sync` — upsert the caller's saved Home/Office
   /// locations (Phase 29, LOC-03). Body is `{ "savedLocations": {...} }`.
   ///

@@ -336,6 +336,115 @@ void main() {
     });
   });
 
+  group('ApiClient.deleteAllTrips', () {
+    String envelope(int deletedCount) => jsonEncode({
+      'statusCode': 200,
+      'body': {
+        'data': {'deletedCount': deletedCount},
+      },
+    });
+
+    test(
+      'DELETEs /trips with Bearer header and returns deletedCount',
+      () async {
+        late http.Request captured;
+        final client = MockClient((req) async {
+          captured = req;
+          return http.Response(envelope(3), 200);
+        });
+
+        final count = await build(client).deleteAllTrips();
+
+        expect(captured.method, 'DELETE');
+        expect(captured.url.toString(), '$testBaseUrl$kDeleteAllTripsPath');
+        expect(captured.headers['Authorization'], 'Bearer tok1');
+        expect(count, 3);
+      },
+    );
+
+    test('a malformed envelope throws retryable SyncException', () {
+      final client = MockClient(
+        (req) async => http.Response(
+          jsonEncode({
+            'body': {'data': <String, dynamic>{}},
+          }),
+          200,
+        ),
+      );
+
+      expect(
+        () => build(client).deleteAllTrips(),
+        throwsA(
+          isA<SyncException>().having((e) => e.retryable, 'retryable', true),
+        ),
+      );
+    });
+
+    test('non-2xx (500) throws SyncException.http', () {
+      final client = MockClient((req) async => http.Response('{}', 500));
+
+      expect(
+        () => build(client).deleteAllTrips(),
+        throwsA(
+          isA<SyncException>()
+              .having((e) => e.statusCode, 'statusCode', 500)
+              .having((e) => e.retryable, 'retryable', true),
+        ),
+      );
+    });
+
+    test('401 then 200 refreshes token and retries exactly once', () async {
+      var calls = 0;
+      final tokens = <String>[];
+      final client = MockClient((req) async {
+        calls++;
+        tokens.add(req.headers['Authorization']!);
+        return http.Response(envelope(0), calls == 1 ? 401 : 200);
+      });
+      var refreshed = false;
+      Future<String?> getToken({bool forceRefresh = false}) async {
+        if (forceRefresh) refreshed = true;
+        return forceRefresh ? 'tok2' : 'tok1';
+      }
+
+      final count = await build(client, getToken: getToken).deleteAllTrips();
+
+      expect(calls, 2);
+      expect(refreshed, isTrue);
+      expect(tokens, ['Bearer tok1', 'Bearer tok2']);
+      expect(count, 0);
+    });
+  });
+
+  group('ApiClient.deleteAccount', () {
+    test('DELETEs /account with Bearer header; 200 completes', () async {
+      late http.Request captured;
+      final client = MockClient((req) async {
+        captured = req;
+        return http.Response('{}', 200);
+      });
+
+      await build(client).deleteAccount();
+
+      expect(captured.method, 'DELETE');
+      expect(captured.url.toString(), '$testBaseUrl$kDeleteAccountPath');
+      expect(captured.headers['Authorization'], 'Bearer tok1');
+    });
+
+    test('non-2xx (500) throws SyncException.http', () {
+      final client = MockClient((req) async => http.Response('{}', 500));
+
+      expect(
+        () => build(client).deleteAccount(),
+        throwsA(
+          isA<SyncException>()
+              .having((e) => e.statusCode, 'statusCode', 500)
+              .having((e) => e.retryable, 'retryable', true),
+        ),
+      );
+    });
+  });
+
   group('ApiClient injectable base URL', () {
     test('routes all three calls to the injected host', () async {
       final hosts = <String>{};
