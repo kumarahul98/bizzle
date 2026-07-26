@@ -229,6 +229,7 @@ Recent decisions affecting current work:
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260726-m3a | Fix privacy policy retention wording to accurately reflect soft-delete behavior (no purge/TTL in backend) | 2026-07-26 | d969ec7 | [260726-m3a-fix-privacy-policy-retention-wording-to-](./quick/260726-m3a-fix-privacy-policy-retention-wording-to-/) |
+| 260726-lax | Phase 38 Flutter frontend: "Delete all data" (Settings) + "Delete account" (account sheet) — sealed controllers, DAO wipes, ApiClient methods, full unit tests. Backend endpoints (`DELETE /trips`, `/account`) built in parallel, not yet deployed. | 2026-07-26 | 2dc4504 | [260726-lax-implement-flutter-frontend-for-phase-38-](./quick/260726-lax-implement-flutter-frontend-for-phase-38-/) |
 
 ## Deferred Items (carried from v0.1)
 
