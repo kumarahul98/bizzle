@@ -170,6 +170,14 @@ class SyncQueueDao extends DatabaseAccessor<AppDatabase>
     return changed;
   }
 
+  /// HARD-wipe EVERY row in the queue, with no `where` clause. Used by the
+  /// Phase 38 "Delete all data" / "Delete account" flows: once every trip has
+  /// been wiped (locally, and server-side first for a signed-in user), any
+  /// pending queue entry references a trip that no longer exists — keeping it
+  /// around would only produce dead-letter sync attempts. Returns the number
+  /// of rows removed (0 on an already-empty queue).
+  Future<int> clearAll() => delete(syncQueue).go();
+
   /// Increment the retry counter by one. Combined with a `retryCount`
   /// check in the sync engine, this drives the "max 3 retries then
   /// promote to failed" flow documented in CLAUDE.md.

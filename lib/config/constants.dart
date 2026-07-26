@@ -972,6 +972,15 @@ const String kRestoreTripsPath = '/trips/restore';
 /// `'$kDeleteTripPathPrefix$tripId'`.
 const String kDeleteTripPathPrefix = '/trips/';
 
+/// Path for `DELETE /trips` — hard-wipe every trip belonging to the caller on
+/// the server (Phase 38, DEL-ALL-DATA). Used by the signed-in "Delete all
+/// data" flow ONLY — a guest has nothing server-side to purge.
+const String kDeleteAllTripsPath = '/trips';
+
+/// Path for `DELETE /account` — deletes the Firebase Auth user, all of that
+/// user's trip data, and their preferences document (Phase 38, DEL-ACCOUNT).
+const String kDeleteAccountPath = '/account';
+
 /// Path for `POST /preferences/sync` — upsert the caller's saved Home/Office
 /// locations (Phase 29, LOC-03).
 const String kSyncPreferencesPath = '/preferences/sync';
@@ -2013,3 +2022,64 @@ const String kSignOutDialogBody =
 
 /// Confirm-button label on the sign-out dialog.
 const String kSignOutConfirm = 'Sign out';
+
+// ---------------------------------------------------------------------------
+// Phase 38 — Account & Data Deletion (DEL-ALL-DATA, DEL-ACCOUNT)
+// ---------------------------------------------------------------------------
+// Two new destructive actions Google Play requires of any signed-in app:
+// wipe local (+ server, if signed in) trip data while keeping the account,
+// and delete the account entirely. Both flows guard every tap behind an
+// error-styled confirm dialog (mirroring kSignOutDialogTitle/Body/Confirm)
+// and surface failures via a fixed, PII-free snackbar copy — never
+// `error.toString()`.
+
+/// Settings → Data row label for the "wipe all trip data" action.
+const String kDeleteAllDataRowLabel = 'Delete all data';
+
+/// Confirm-dialog title for the "delete all data" action.
+const String kDeleteAllDataDialogTitle = 'Delete all data?';
+
+/// Confirm-dialog body for "delete all data". States plainly that the
+/// ACCOUNT ITSELF IS KEPT — only local (and server, if signed in) trip data
+/// is removed.
+const String kDeleteAllDataDialogBody =
+    'This permanently deletes every trip on this device, and in the cloud if '
+    "you're signed in. Your account stays signed in — this cannot be undone.";
+
+/// Destructive confirm-button label on the "delete all data" dialog.
+const String kDeleteAllDataConfirm = 'Delete all data';
+
+/// Subtitle shown on the "delete all data" row while the wipe is in flight.
+const String kDeleteAllDataInProgress = 'Deleting…';
+
+/// Snackbar shown after "delete all data" completes successfully.
+const String kDeleteAllDataSuccessSnackbar = 'All data deleted';
+
+/// Snackbar shown when "delete all data" fails. Fixed, PII-free copy — never
+/// the underlying error (mirrors [kSettingsRestoreError]'s tone).
+const String kDeleteAllDataErrorSnackbar =
+    "Couldn't delete your data. Try again.";
+
+/// Account-sheet row label for the "delete account" action (signed-in only).
+const String kDeleteAccountRowLabel = 'Delete account';
+
+/// Confirm-dialog title for "delete account".
+const String kDeleteAccountDialogTitle = 'Delete account?';
+
+/// Confirm-dialog body for "delete account". States plainly that this is
+/// IRREVERSIBLE and removes the account and everything in it.
+const String kDeleteAccountDialogBody =
+    'This permanently deletes your account and everything in it — every '
+    'trip, on this device and in the cloud. This cannot be undone.';
+
+/// Destructive confirm-button label on the "delete account" dialog.
+const String kDeleteAccountConfirm = 'Delete account';
+
+/// Subtitle / status copy shown while account deletion is in flight.
+const String kDeleteAccountInProgress = 'Deleting account…';
+
+/// Snackbar shown when "delete account" fails. Fixed, PII-free copy — never
+/// the underlying error. On success the sheet pops instead of showing a
+/// snackbar (the guest row re-renders in its place).
+const String kDeleteAccountErrorSnackbar =
+    "Couldn't delete your account. Try again.";

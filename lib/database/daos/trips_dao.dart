@@ -254,6 +254,17 @@ class TripsDao extends DatabaseAccessor<AppDatabase> with _$TripsDaoMixin {
     return (delete(trips)..where((t) => t.id.equals(id))).go();
   }
 
+  /// HARD-wipe EVERY trip row, with no `where` clause. Cascade removes every
+  /// `trip_breaks` + `trip_stuck_segments` row along with them (both FKs are
+  /// `onDelete: cascade` under `PRAGMA foreign_keys = ON`).
+  ///
+  /// Used by the Phase 38 "Delete all data" / "Delete account" flows ONLY.
+  /// Enqueues nothing in `sync_queue` — for the signed-in path the server was
+  /// already told directly (`ApiClient.deleteAllTrips` / `.deleteAccount`)
+  /// before this runs, so there is nothing left to push. Returns the number
+  /// of trip rows removed (0 on an already-empty table).
+  Future<int> deleteAllTrips() => delete(trips).go();
+
   /// SOFT-delete the trip with [id] by stamping [deletedAtUtc] (Phase 35,
   /// D-01). The row stays in the table — no cascade fires — so its breaks and
   /// stuck segments survive intact for a later restore. `updatedAt` is bumped
