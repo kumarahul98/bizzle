@@ -10,7 +10,7 @@ import { Container } from '../components/ui.jsx'
 // actually collects (precise Home/Office coordinates + commute routes, stored
 // in Firebase and linked to the signed-in Google account).
 
-const LAST_UPDATED = 'July 25, 2026'
+const LAST_UPDATED = 'July 26, 2026'
 const CONTACT_EMAIL = 'connect@traevy.com'
 
 export function Privacy() {
@@ -131,7 +131,13 @@ export function Privacy() {
 
         <H>Data retention and your choices</H>
         <UL>
-          <LI>You can delete any trip in the app; deleted trips are removed from your cloud backup.</LI>
+          <LI>
+            You can delete any trip in the app. Deleting a trip removes it from your device and
+            it is then excluded from cloud sync and restore, so it no longer appears on any
+            device. The underlying backup record is <Strong>retained on our backend</Strong>
+            rather than immediately erased; to have it and all associated cloud data permanently
+            removed, request full account deletion below.
+          </LI>
           <LI>You can clear your Home and Office locations at any time from Settings.</LI>
           <LI>You can use the app entirely offline, without an account, so that no data leaves your device.</LI>
           <LI>
