@@ -8,6 +8,7 @@ import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/providers.dart';
 import 'package:traevy/features/auth/models/auth_state.dart';
 import 'package:traevy/features/auth/services/auth_service.dart';
+import 'package:traevy/sync/api_client.dart';
 
 /// Riverpod 3.x wiring for the authentication feature.
 ///
@@ -94,6 +95,9 @@ final Provider<AuthService> authServiceProvider = Provider<AuthService>(
     prefsDao: ref.watch(userPreferencesDaoProvider),
     syncQueueDao: ref.watch(syncQueueDaoProvider),
     db: ref.watch(appDatabaseProvider),
+    // Phase 38 (DEL-ACCOUNT): AuthService.deleteAccount() calls the real
+    // ApiClient.deleteAccount() before any local wipe.
+    apiClient: ref.watch(apiClientProvider),
   ),
   name: 'authServiceProvider',
 );

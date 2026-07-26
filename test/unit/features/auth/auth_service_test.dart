@@ -33,16 +33,18 @@
 //   - Pitfall 7 (ordering: await backfill before navigate)
 //   - Security Domain (never log idToken)
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/daos/sync_queue_dao.dart';
 import 'package:traevy/database/daos/trips_dao.dart';
 import 'package:traevy/database/daos/user_preferences_dao.dart';
-
-// The following imports will compile once Plan 09-03 creates AuthService.
-// Until then this file is intentionally in RED state.
+// The following import compiled once Plan 09-03 created AuthService — kept
+// alphabetical here now that the file is long past its original RED state.
 import 'package:traevy/features/auth/services/auth_service.dart';
+import 'package:traevy/sync/api_client.dart';
 
 // ---------------------------------------------------------------------------
 // Hand-rolled fakes — mirror _FakeUserPreferencesDao pattern
@@ -305,4 +307,167 @@ void main() {
       expect(kFirebaseIdTokenKey, 'firebase_id_token');
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // Group 5: AuthService.deleteAccount() ordering (Phase 38, DEL-ACCOUNT)
+  // ---------------------------------------------------------------------------
+  group('AuthService.deleteAccount()', () {
+    test(
+      'happy path calls apiClient.deleteAccount -> tripsDao.deleteAllTrips -> '
+      'syncQueueDao.clearAll -> signOut IN THAT ORDER, never touches prefsDao',
+      () async {
+        final order = _CallOrder();
+        final service = AuthService(
+          secureStorage: _OrderedFakeSecureStorage(order),
+          tripsDao: _OrderedFakeTripsDao(order),
+          prefsDao: _FakeUserPreferencesDao(),
+          syncQueueDao: _OrderedFakeSyncQueueDao(order),
+          firebaseAuth: _OrderedFakeFirebaseAuth(order),
+          googleSignIn: _OrderedFakeGoogleSignIn(order),
+          apiClient: _OrderedFakeApiClient(order),
+        );
+
+        await service.deleteAccount();
+
+        expect(order.calls, [
+          'apiClient.deleteAccount',
+          'tripsDao.deleteAllTrips',
+          'syncQueueDao.clearAll',
+          'firebaseAuth.signOut',
+          'googleSignIn.signOut',
+          'secureStorage.delete',
+        ]);
+      },
+    );
+
+    test(
+      'apiClient.deleteAccount throwing PROPAGATES; local wipe/clear/signOut '
+      'are NEVER called (local data intact)',
+      () async {
+        final order = _CallOrder();
+        final service = AuthService(
+          secureStorage: _OrderedFakeSecureStorage(order),
+          tripsDao: _OrderedFakeTripsDao(order),
+          prefsDao: _FakeUserPreferencesDao(),
+          syncQueueDao: _OrderedFakeSyncQueueDao(order),
+          firebaseAuth: _OrderedFakeFirebaseAuth(order),
+          googleSignIn: _OrderedFakeGoogleSignIn(order),
+          apiClient: _OrderedFakeApiClient(order, throwOnDelete: true),
+        );
+
+        await expectLater(
+          service.deleteAccount(),
+          throwsA(isA<SyncException>()),
+        );
+
+        expect(order.calls, ['apiClient.deleteAccount']);
+      },
+    );
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Group 5 fakes — call-order recorders for deleteAccount() (Phase 38)
+// ---------------------------------------------------------------------------
+
+/// Shared call-order recorder threaded through every Group 5 fake so a single
+/// list captures the cross-object sequence `deleteAccount()` produces.
+class _CallOrder {
+  final List<String> calls = <String>[];
+}
+
+class _OrderedFakeApiClient implements ApiClient {
+  _OrderedFakeApiClient(this.order, {this.throwOnDelete = false});
+
+  final _CallOrder order;
+  final bool throwOnDelete;
+
+  @override
+  Future<void> deleteAccount() async {
+    order.calls.add('apiClient.deleteAccount');
+    if (throwOnDelete) throw const SyncException.transport();
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _OrderedFakeTripsDao implements TripsDao {
+  _OrderedFakeTripsDao(this.order);
+
+  final _CallOrder order;
+
+  @override
+  Future<int> deleteAllTrips() async {
+    order.calls.add('tripsDao.deleteAllTrips');
+    return 0;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _OrderedFakeSyncQueueDao implements SyncQueueDao {
+  _OrderedFakeSyncQueueDao(this.order);
+
+  final _CallOrder order;
+
+  @override
+  Future<int> clearAll() async {
+    order.calls.add('syncQueueDao.clearAll');
+    return 0;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _OrderedFakeFirebaseAuth implements FirebaseAuth {
+  _OrderedFakeFirebaseAuth(this.order);
+
+  final _CallOrder order;
+
+  @override
+  Future<void> signOut() async {
+    order.calls.add('firebaseAuth.signOut');
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _OrderedFakeGoogleSignIn implements GoogleSignIn {
+  _OrderedFakeGoogleSignIn(this.order);
+
+  final _CallOrder order;
+
+  @override
+  Future<void> signOut() async {
+    order.calls.add('googleSignIn.signOut');
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _OrderedFakeSecureStorage implements FlutterSecureStorage {
+  _OrderedFakeSecureStorage(this.order);
+
+  final _CallOrder order;
+
+  @override
+  Future<void> delete({
+    required String key,
+    AppleOptions? iOptions,
+    AndroidOptions? aOptions,
+    LinuxOptions? lOptions,
+    WebOptions? webOptions,
+    WindowsOptions? wOptions,
+    AppleOptions? mOptions,
+  }) async {
+    order.calls.add('secureStorage.delete');
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

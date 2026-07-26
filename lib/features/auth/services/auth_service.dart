@@ -6,6 +6,7 @@ import 'package:traevy/database/daos/sync_queue_dao.dart';
 import 'package:traevy/database/daos/trips_dao.dart';
 import 'package:traevy/database/daos/user_preferences_dao.dart';
 import 'package:traevy/database/database.dart';
+import 'package:traevy/sync/api_client.dart';
 
 /// Service that owns the Google → Firebase sign-in sequence, ID-token
 /// cache, and transactional userId backfill.
@@ -52,13 +53,15 @@ class AuthService {
     FirebaseAuth? firebaseAuth,
     GoogleSignIn? googleSignIn,
     AppDatabase? db,
+    ApiClient? apiClient,
   }) : _secureStorage = secureStorage,
        _tripsDao = tripsDao,
        _prefsDao = prefsDao,
        _syncQueueDao = syncQueueDao,
        _firebaseAuthOverride = firebaseAuth,
        _googleSignInOverride = googleSignIn,
-       _db = db;
+       _db = db,
+       _apiClientOverride = apiClient;
 
   final FlutterSecureStorage _secureStorage;
   final TripsDao _tripsDao;
@@ -71,11 +74,26 @@ class AuthService {
   final GoogleSignIn? _googleSignInOverride;
   final AppDatabase? _db;
 
+  // Lazy, Phase 38: accessed only inside deleteAccount(), never at
+  // construction time. There is no ApiClient.instance singleton (unlike
+  // FirebaseAuth/GoogleSignIn), so a test that never calls deleteAccount()
+  // never touches this getter; the production provider (authServiceProvider)
+  // always injects a real one.
+  final ApiClient? _apiClientOverride;
+
   FirebaseAuth get _firebaseAuth =>
       _firebaseAuthOverride ?? FirebaseAuth.instance;
 
   GoogleSignIn get _googleSignIn =>
       _googleSignInOverride ?? GoogleSignIn.instance;
+
+  ApiClient get _apiClient =>
+      _apiClientOverride ??
+      (throw StateError(
+        'AuthService.deleteAccount() requires an ApiClient. '
+        'authServiceProvider always injects one — construct AuthService '
+        'directly with apiClient: for tests that call deleteAccount().',
+      ));
 
   /// Perform the full Google → Firebase sign-in sequence.
   ///
@@ -176,5 +194,27 @@ class AuthService {
     await _firebaseAuth.signOut();
     await _googleSignIn.signOut();
     await _secureStorage.delete(key: kFirebaseIdTokenKey);
+  }
+
+  /// Delete the signed-in user's account entirely (Phase 38, DEL-ACCOUNT).
+  ///
+  /// Ordering is load-bearing (T-38-02): the SERVER deletion
+  /// (`ApiClient.deleteAccount()` — Firebase Auth user + trip data + prefs
+  /// document) MUST succeed before any local wipe. If it throws, this method
+  /// PROPAGATES the error and performs NO local wipe and NO sign-out — the
+  /// account still exists server-side, so wiping local data (or signing out)
+  /// first would strand the user with an undeleted account and no local
+  /// record of it. Only once the server confirms deletion do local trips +
+  /// the sync queue get wiped, followed by [signOut].
+  ///
+  /// Unlike the controller layer (`DeleteAccountController`), this method
+  /// does NOT catch its own errors — it propagates on API failure, exactly
+  /// like [signIn]. Does NOT touch `user_preferences` — device-local
+  /// (theme/reminders), matching [signOut]'s existing scope.
+  Future<void> deleteAccount() async {
+    await _apiClient.deleteAccount();
+    await _tripsDao.deleteAllTrips();
+    await _syncQueueDao.clearAll();
+    await signOut();
   }
 }
