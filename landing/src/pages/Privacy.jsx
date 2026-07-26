@@ -115,17 +115,18 @@ export function Privacy() {
         <P>
           Your trips are stored <Strong>on your device</Strong> as the source of truth. If you are
           signed in, your trips and your Home/Office coordinates are also backed up to our cloud
-          backend (Google Firebase — Cloud Functions and Firestore) so you can restore them on a
-          new device. This backup is <Strong>linked to your Google account</Strong>. If you use the
-          app without signing in, nothing is uploaded and all data stays on your device.
+          backend so you can restore them on a new device. This backup is
+          <Strong> linked to your account</Strong>. If you use the app without signing in, nothing
+          is uploaded and all data stays on your device.
         </P>
 
         <H>How we share information</H>
         <P>
           We do <Strong>not</Strong> sell your data and we do <Strong>not</Strong> share it with
-          third parties for their own purposes. The only processor involved is Google Firebase,
-          which stores your backed-up data and handles authentication on our behalf under Google's
-          data-processing terms. We may disclose information if required by law.
+          third parties for their own purposes. The only processor involved is the third-party
+          cloud provider that hosts our backend, which stores your backed-up data and handles
+          sign-in on our behalf under its data-processing terms. We may disclose information if
+          required by law.
         </P>
 
         <H>Data retention and your choices</H>
@@ -150,8 +151,11 @@ export function Privacy() {
 
         <H>Children</H>
         <P>
-          Traevy is not directed to children and is not intended for use by anyone under the age
-          required by law in their region to consent to the processing described here.
+          Traevy is a general-audience app — people of any age can use it. It is not, however,
+          directed at or designed for young children, and we do not knowingly collect personal
+          information from children under 13 (or the minimum age of digital consent in their
+          region). If you believe a child has provided us personal information, contact us and we
+          will delete it.
         </P>
 
         <H>Changes to this policy</H>
