@@ -951,13 +951,16 @@ const String kCopySignInFailedBody = 'Check your connection and try again.';
 
 /// Base URL for the deployed Phase 10 HTTPS Cloud Functions API.
 ///
-/// D-02: the VERIFIED stable Cloud Functions v2 alias
-/// (`us-central1-travey-298a7.cloudfunctions.net/api`) — health 200, 401 auth
-/// gate confirmed live. This is the canonical base URL; do NOT use the older
-/// `api-rdj4i7kgmq-uc.a.run.app` run.app host. `ApiClient` takes this as an
-/// INJECTABLE default so tests/emulator can override the host cheaply.
+/// Points at the PROD project `traevy-prod` (Phase 37 prod migration). Uses the
+/// stable Cloud Functions v2 alias `us-central1-<project>.cloudfunctions.net/api`
+/// (the `api` = the single `onRequest(app)` export); do NOT use the per-project
+/// hashed `*-uc.a.run.app` run.app host. Confirm this exact URL against the
+/// `firebase deploy` output for traevy-prod before shipping — the alias is
+/// expected but must be verified live (health 200, 401 auth gate) as it was for
+/// the dev project. `ApiClient` takes this as an INJECTABLE default so
+/// tests/emulator can override the host cheaply.
 const String kApiBaseUrl =
-    'https://us-central1-travey-298a7.cloudfunctions.net/api';
+    'https://us-central1-traevy-prod.cloudfunctions.net/api';
 
 /// Path for `POST /trips/sync` — batch upsert of pending trips (D-02).
 const String kSyncTripsPath = '/trips/sync';

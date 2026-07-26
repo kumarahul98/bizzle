@@ -1,5 +1,7 @@
 {
   "projects": {
-    "default": "travey-298a7"
+    "default": "travey-298a7",
+    "dev": "travey-298a7",
+    "prod": "traevy-prod"
   }
 }

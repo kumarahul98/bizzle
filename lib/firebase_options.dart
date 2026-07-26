@@ -50,11 +50,11 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyBiAihllkFBbgj-7sLG7374GcXp0gOCoQU',
-    appId: '1:1076279794226:android:9c1080019a66cee1dd7a2b',
-    messagingSenderId: '1076279794226',
-    projectId: 'travey-298a7',
-    storageBucket: 'travey-298a7.firebasestorage.app',
+    apiKey: 'AIzaSyBSBEWFXEPbqU6VYTxs0FG91cFA7orFYsw',
+    appId: '1:506224691565:android:733f0ac76f1cab1277b264',
+    messagingSenderId: '506224691565',
+    projectId: 'traevy-prod',
+    storageBucket: 'traevy-prod.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
