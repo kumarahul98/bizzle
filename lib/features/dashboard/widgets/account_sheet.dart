@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/features/auth/models/auth_state.dart';
 import 'package:traevy/features/auth/providers/auth_providers.dart';
+import 'package:traevy/features/auth/providers/delete_account_controller.dart';
 import 'package:traevy/features/auth/widgets/sign_in_sheet.dart';
 import 'package:traevy/features/settings/widgets/account_row.dart';
 import 'package:traevy/features/settings/widgets/cloud_sync_row.dart';
@@ -81,6 +82,62 @@ Future<void> _confirmSignOut(BuildContext context, WidgetRef ref) async {
   }
 }
 
+/// Show a delete-account confirmation dialog and delete only on confirm
+/// (Phase 38, DEL-ACCOUNT). Mirrors [_confirmSignOut]'s structure exactly,
+/// with irreversible-deletion copy.
+///
+/// On confirm, [DeleteAccountController.deleteAccount] runs the ordered
+/// server-first wipe (never rethrows). On [DeleteAccountError] a SnackBar
+/// shows the fixed error copy — same `ScaffoldMessenger.maybeOf(context)`
+/// mechanism `DeleteAllDataRow` uses. On [DeleteAccountSuccess] the sheet
+/// pops: `AuthService.deleteAccount()` already called `signOut()`, which
+/// flips [authStateProvider] to [AuthGuest], so `_AccountSheetContent`
+/// re-renders as the guest row the moment this sheet closes — no manual
+/// navigation is needed.
+Future<void> _confirmDeleteAccount(BuildContext context, WidgetRef ref) async {
+  final colorScheme = Theme.of(context).colorScheme;
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text(kDeleteAccountDialogTitle),
+      content: const Text(kDeleteAccountDialogBody),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(false),
+          child: const Text(kDialogCancel),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: colorScheme.error,
+            foregroundColor: colorScheme.onError,
+          ),
+          onPressed: () => Navigator.of(dialogContext).pop(true),
+          child: const Text(kDeleteAccountConfirm),
+        ),
+      ],
+    ),
+  );
+  if (!context.mounted) return;
+  if (!(confirmed ?? false)) return;
+
+  await ref.read(deleteAccountControllerProvider.notifier).deleteAccount();
+
+  if (!context.mounted) return;
+  switch (ref.read(deleteAccountControllerProvider)) {
+    case DeleteAccountError():
+      ScaffoldMessenger.maybeOf(
+        context,
+      )?.showSnackBar(
+        const SnackBar(content: Text(kDeleteAccountErrorSnackbar)),
+      );
+    case DeleteAccountSuccess():
+      Navigator.of(context).pop();
+    case DeleteAccountIdle():
+    case DeleteAccountInProgress():
+      break;
+  }
+}
+
 /// State-aware body of the account sheet.
 ///
 /// Watches [authStateProvider] and switches on the sealed [AuthState], so
@@ -92,6 +149,8 @@ class _AccountSheetContent extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final auth = ref.watch(authStateProvider);
+    final deleteAccountState = ref.watch(deleteAccountControllerProvider);
+    final deletingAccount = deleteAccountState is DeleteAccountInProgress;
 
     final rows = switch (auth) {
       AuthSignedIn(:final name, :final email) => <Widget>[
@@ -111,6 +170,25 @@ class _AccountSheetContent extends ConsumerWidget {
           // confirm, FirebaseAuth.signOut() → authStateChanges emits null →
           // this sheet rebuilds into the guest path below.
           onTap: () => unawaited(_confirmSignOut(context, ref)),
+        ),
+        // Phase 38 (DEL-ACCOUNT): irreversible, so it sits below Sign out and
+        // is guarded by its own confirm dialog. A small spinner replaces the
+        // chevron while the ordered server-first wipe is in flight; the row
+        // is disabled for the same duration to prevent a double-tap.
+        SettingsRow(
+          label: kDeleteAccountRowLabel,
+          subtitle: deletingAccount ? kDeleteAccountInProgress : null,
+          dangerous: true,
+          trailing: deletingAccount
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : null,
+          onTap: deletingAccount
+              ? null
+              : () => unawaited(_confirmDeleteAccount(context, ref)),
         ),
       ],
       // Guest or still loading — single CTA. The sheet pops with the sign-in

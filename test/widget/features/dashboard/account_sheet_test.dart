@@ -40,11 +40,21 @@ class _FakeAuthNotifier extends AuthStateNotifier {
 }
 
 class _FakeAuthService implements AuthService {
+  _FakeAuthService({this.throwOnDeleteAccount = false});
+
+  final bool throwOnDeleteAccount;
   int signOutCallCount = 0;
+  int deleteAccountCallCount = 0;
 
   @override
   Future<void> signOut() async {
     signOutCallCount++;
+  }
+
+  @override
+  Future<void> deleteAccount() async {
+    deleteAccountCallCount++;
+    if (throwOnDeleteAccount) throw const SyncException.transport();
   }
 
   @override
@@ -294,6 +304,75 @@ void main() {
       await _openSheet(tester, authState: signedIn);
       expect(find.text(kCopySettingsSignOut), findsOneWidget);
       expect(find.text(kSettingsRestoreRowLabel), findsOneWidget);
+    });
+
+    testWidgets(
+      'Delete account confirms first, then deletes and pops the sheet '
+      'on success',
+      (tester) async {
+        final fakeAuth = _FakeAuthService();
+        await _openSheet(
+          tester,
+          authState: signedIn,
+          authService: fakeAuth,
+        );
+
+        // Tapping the row opens the confirmation dialog — it does NOT delete.
+        await tester.tap(find.text(kDeleteAccountRowLabel));
+        await tester.pumpAndSettle();
+        expect(find.text(kDeleteAccountDialogTitle), findsOneWidget);
+        expect(fakeAuth.deleteAccountCallCount, equals(0));
+
+        // Confirming (the dialog's FilledButton, distinct from the row of the
+        // same label) deletes exactly once and pops the sheet.
+        await tester.tap(
+          find.widgetWithText(FilledButton, kDeleteAccountConfirm),
+        );
+        await tester.pumpAndSettle();
+        expect(fakeAuth.deleteAccountCallCount, equals(1));
+        expect(find.text(kDeleteAccountRowLabel), findsNothing);
+      },
+    );
+
+    testWidgets('cancelling the delete-account dialog does not delete', (
+      tester,
+    ) async {
+      final fakeAuth = _FakeAuthService();
+      await _openSheet(
+        tester,
+        authState: signedIn,
+        authService: fakeAuth,
+      );
+
+      await tester.tap(find.text(kDeleteAccountRowLabel));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, kDialogCancel));
+      await tester.pumpAndSettle();
+
+      expect(find.text(kDeleteAccountDialogTitle), findsNothing);
+      expect(fakeAuth.deleteAccountCallCount, equals(0));
+    });
+
+    testWidgets('a failing delete-account surfaces the error snackbar', (
+      tester,
+    ) async {
+      final fakeAuth = _FakeAuthService(throwOnDeleteAccount: true);
+      await _openSheet(
+        tester,
+        authState: signedIn,
+        authService: fakeAuth,
+      );
+
+      await tester.tap(find.text(kDeleteAccountRowLabel));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.widgetWithText(FilledButton, kDeleteAccountConfirm),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(kDeleteAccountErrorSnackbar), findsOneWidget);
+      // The sheet stays open on failure — the row is still there.
+      expect(find.text(kDeleteAccountRowLabel), findsOneWidget);
     });
   });
 
