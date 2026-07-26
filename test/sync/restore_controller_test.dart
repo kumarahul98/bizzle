@@ -37,6 +37,16 @@ class FakeApiClient implements ApiClient {
   @override
   Future<SavedLocations> restorePreferences() async =>
       throw UnimplementedError('restore flow must not restore preferences');
+
+  // Phase 38 (DEL-ALL-DATA/DEL-ACCOUNT): the restore-conflict flow must never
+  // touch either — same throw-loudly guard as the preferences overrides above.
+  @override
+  Future<int> deleteAllTrips() async =>
+      throw UnimplementedError('restore flow must not call deleteAllTrips');
+
+  @override
+  Future<void> deleteAccount() async =>
+      throw UnimplementedError('restore flow must not call deleteAccount');
 }
 
 class FakeTripsDao implements TripsDao {

@@ -72,6 +72,18 @@ class FakeApiClient implements ApiClient {
   @override
   Future<SavedLocations> restorePreferences() async =>
       throw UnimplementedError('SyncEngine must not restore preferences');
+
+  // Phase 38 (DEL-ALL-DATA/DEL-ACCOUNT): both are explicit, user-triggered,
+  // outside the trip sync_queue drain — SyncEngine must never call either.
+  // Throwing makes an accidental coupling fail loudly, mirroring the
+  // Phase 29 preferences guards above.
+  @override
+  Future<int> deleteAllTrips() async =>
+      throw UnimplementedError('SyncEngine must not call deleteAllTrips');
+
+  @override
+  Future<void> deleteAccount() async =>
+      throw UnimplementedError('SyncEngine must not call deleteAccount');
 }
 
 /// Builds a live [TripsCompanion] for [id] so `findById` returns a real row.

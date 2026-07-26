@@ -157,21 +157,24 @@ void main() {
     });
 
     group('clearAll (Phase 38, DEL-ALL-DATA)', () {
-      test('removes every row regardless of status, returns the count', () async {
-        final pendingId = await db.syncQueueDao.enqueueCreate('trip-pending');
-        final syncedId = await db.syncQueueDao.enqueueCreate('trip-synced');
-        final failedId = await db.syncQueueDao.enqueueCreate('trip-failed');
-        await db.syncQueueDao.markSynced(syncedId);
-        await db.syncQueueDao.markFailed(failedId);
-        // Keep the pendingId reference alive for clarity even though it is
-        // not asserted individually — clearAll wipes it along with the rest.
-        expect(pendingId, isNotNull);
+      test(
+        'removes every row regardless of status, returns the count',
+        () async {
+          final pendingId = await db.syncQueueDao.enqueueCreate('trip-pending');
+          final syncedId = await db.syncQueueDao.enqueueCreate('trip-synced');
+          final failedId = await db.syncQueueDao.enqueueCreate('trip-failed');
+          await db.syncQueueDao.markSynced(syncedId);
+          await db.syncQueueDao.markFailed(failedId);
+          // Keep the pendingId reference alive for clarity even though it is
+          // not asserted individually — clearAll wipes it along with the rest.
+          expect(pendingId, isNotNull);
 
-        final cleared = await db.syncQueueDao.clearAll();
+          final cleared = await db.syncQueueDao.clearAll();
 
-        expect(cleared, 3);
-        expect(await db.syncQueueDao.getPending(), isEmpty);
-      });
+          expect(cleared, 3);
+          expect(await db.syncQueueDao.getPending(), isEmpty);
+        },
+      );
 
       test('returns 0 on an already-empty queue', () async {
         expect(await db.syncQueueDao.clearAll(), 0);

@@ -79,9 +79,9 @@ void main() {
         expect(await db.tripsDao.getAllTrips(), isEmpty);
         expect(await db.tripBreaksDao.breaksForTrip(id1), isEmpty);
         expect(
-          await (db.select(db.tripStuckSegments)
-                ..where((s) => s.tripId.equals(id1)))
-              .get(),
+          await (db.select(
+            db.tripStuckSegments,
+          )..where((s) => s.tripId.equals(id1))).get(),
           isEmpty,
         );
         // id2 (no children) is gone too.
