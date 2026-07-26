@@ -166,6 +166,7 @@ Phases 25.1 and 26 are platform-agnostic (Dart/backend, shared by both platforms
 
 ### Roadmap Evolution
 
+- Phase 38 added (2026-07-26): Account & Data Deletion — Google Play requires in-app account/data deletion for apps with sign-in; the app currently only has per-trip soft-delete (Trash, Phase 35), no bulk "delete all data" or "delete account" path. Added after Phase 37 (ship phase) since it's a policy gap for wider release, not a blocker for internal testing.
 - Phase 26 added (2026-07-11): Sync Breaks & Edit Metadata to Cloud — extend the Firestore trip payload/zod schema with totalPausedSeconds, isEdited, directionSource, and an embedded breaks array; restore writes trip_breaks; one-time backfill re-sync for trips with breaks/edits; backend deploys before client
 - Phase 25.1 inserted (2026-07-11), urgent, before Phase 26: Fix Sync Conflict & Auto-Retry Bugs — Phase 24's own verification (2026-06-16, gaps_found) caught `SyncEngine._lastAutoRetry` never being assigned (auto-retry throttle permanently open) and the conflict-sheet "Merge" option being a no-op alias for "Use Cloud"; neither was fixed before the branch merged to main. Phase 26 now depends on 25.1 since both touch `sync_engine.dart` / `conflict_resolution_sheet.dart`.
 - Phase 23 rescoped (2026-07-11): a `/gsd-audit-uat` run found Phase 23 ("Resolve Deferred UAT Items") had only ever gotten one thin plan (a home_widget unit test) despite STATE.md previously claiming it complete. Rewrote its Goal/Success Criteria to the real backlog: the v0.1 device checklist (48 items, 0 checked, `.planning/v0.1-DEVICE-CHECKLIST.md`), Phase 14's 3 iOS items (deferred pending Phase 15, now unblocked), and Phase 21/22's UAT sessions (both stalled at test 1, "awaiting user response" since June).
@@ -223,6 +224,12 @@ Recent decisions affecting current work:
 - CONCERN (Phase 22): Home-screen widget is the highest platform-integration risk in v0.3 — native Android AppWidget + background trigger into the tracking service. Plan-phase should flag for deeper research.
 - NOTE (v0.2 paused): Xcode/device-gated v0.2 work (Phases 13/15/16 open) remains resumable; not a v0.3 blocker.
 
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260726-m3a | Fix privacy policy retention wording to accurately reflect soft-delete behavior (no purge/TTL in backend) | 2026-07-26 | d969ec7 | [260726-m3a-fix-privacy-policy-retention-wording-to-](./quick/260726-m3a-fix-privacy-policy-retention-wording-to-/) |
+
 ## Deferred Items (carried from v0.1)
 
 | Category | Phase | Item | Status | Checklist group |
@@ -262,3 +269,4 @@ Separate finding, deliberately NOT fixed here (one concern per commit): the same
 [2026-06-16] Phase 25 Planning complete: generated and verified 3 PLAN.md files. 3 PLAN.md files.
 [2026-06-16] Completed 24-02-PLAN.md
 [2026-06-16] Completed 25-01-PLAN.md
+[2026-07-26] Completed quick task 260726-m3a: Fix privacy policy retention wording to accurately reflect soft-delete behavior (no purge/TTL in backend)
