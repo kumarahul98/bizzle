@@ -47,27 +47,31 @@ everywhere.
 
 ---
 
-## 🔴 BLOCKING for production launch — separate prod Firebase project
+## 🟡 Prod Firebase project — DONE except post-upload SHA (Android)
 
-**Status: NOT DONE as of 2026-07-25.**
+**Status: Android migrated 2026-07-26 (`3701dd3`). One step left + iOS deferred.**
 
-The app currently ships against the **dev** Firebase project `travey-298a7`
-(Google Sign-In client, Cloud Functions backend, Firestore). Those are dev
-credentials. Before a real **production** launch, stand up a **separate prod
-Firebase project** and cut the release build over to it:
+The Android release build now targets a dedicated prod project **`traevy-prod`**
+(#506224691565), not dev `travey-298a7`:
 
-- New Firebase project + new `google-services.json` (Android) / `GoogleService-Info.plist` (iOS).
-- New Google Sign-In OAuth client, with the **release upload/app-signing SHA-1
-  and SHA-256** registered (the Play App Signing key's fingerprints, not just
-  the local upload key) — otherwise sign-in fails on the store build.
-- Deploy Cloud Functions + Firestore security rules to the prod project; point
-  the client's API base URL at the prod backend.
-- Keep dev and prod data isolated — never mix real user data into `travey-298a7`.
+- ✅ `flutterfire configure` regenerated `google-services.json` +
+  `firebase_options.dart` (Android) → traevy-prod.
+- ✅ `kApiBaseUrl` → `https://us-central1-traevy-prod.cloudfunctions.net/api`
+  (verified live: /health 200, /trips/restore 401).
+- ✅ Backend deployed to traevy-prod: Functions (Node 24, 2nd gen) + Firestore
+  rules + indexes; Artifact Registry cleanup policy set. Firestore DB in `nam5`
+  (US multi-region), kept by decision.
+- ⏳ **Remaining (Android):** after the first AAB upload to Play, register the
+  Play **App Signing** SHA-1 **and** SHA-256 in traevy-prod's Android app, then
+  re-download `google-services.json` and rebuild — otherwise Google Sign-In
+  fails on the store build (there is currently no Android OAuth client / cert
+  hash in the prod config; only the web client exists).
+- 🔵 **iOS deferred (v0.2 paused):** the `firebase_options.dart` iOS block and
+  `ios/Runner/GoogleService-Info.plist` still point at dev `travey-298a7`.
+  Re-run `flutterfire configure` for iOS when iOS resumes.
 
-**Scope note:** using the dev backend for the **Internal testing** track (Phase 37,
-≤100 known testers) is acceptable as a stopgap. This gate blocks widening to
-**production / open testing**, where real users' precise-location data would
-otherwise land in the dev project.
+Dev `travey-298a7` remains the emulator/test target and the iOS target for now;
+prod holds real user data. Never mix the two.
 
 ---
 
