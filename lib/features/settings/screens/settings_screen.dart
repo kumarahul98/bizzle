@@ -9,6 +9,7 @@ import 'package:traevy/database/providers.dart';
 import 'package:traevy/features/settings/providers/settings_providers.dart';
 import 'package:traevy/features/settings/screens/location_picker_screen.dart';
 import 'package:traevy/features/settings/services/reminder_suggestion_service.dart';
+import 'package:traevy/features/settings/widgets/delete_all_data_row.dart';
 import 'package:traevy/features/settings/widgets/reminder_day_picker.dart';
 import 'package:traevy/features/settings/widgets/reminder_suggestion_card.dart';
 import 'package:traevy/features/settings/widgets/saved_location_tile.dart';
@@ -282,6 +283,7 @@ class _DataSection extends StatelessWidget {
             ),
           ),
         ),
+        const DeleteAllDataRow(),
       ],
     );
   }
