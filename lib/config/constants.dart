@@ -859,8 +859,13 @@ const String kDirectionToHomeLabel = 'To home';
 // Phase 9 — Authentication (Firebase Auth + Google Sign-In) continued
 // ---------------------------------------------------------------------------
 
+// Phase 37 prod-Firebase migration: this MUST be the web (client_type: 3)
+// OAuth client from the SAME GCP project as google-services.json's Android
+// client, or GoogleSignIn.authenticate() issues an ID token Firebase Auth
+// rejects. Was left pointing at dev (travey-298a7, project 1076279794226)
+// after the traevy-prod migration (project 506224691565) — fixed here.
 const String kGoogleServerClientId =
-    '1076279794226-lfbgqa0td7dtal7ch6s5l6928huo5ij7.apps.googleusercontent.com';
+    '506224691565-6abqullmr7enadsjn7hpgbgit4no3eqf.apps.googleusercontent.com';
 
 /// Secure-storage key under which the cached Firebase ID token is written
 /// by `AuthService.signIn()` for the Phase 11 sync layer.

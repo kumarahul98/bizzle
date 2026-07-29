@@ -14,6 +14,30 @@
       },
       "oauth_client": [
         {
+          "client_id": "506224691565-1jh8mkdooaookrhtfctijdnmt6jfhbf7.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "traevy.traevy",
+            "certificate_hash": "b21989d3734b3884357f0b531d6816862f68f4da"
+          }
+        },
+        {
+          "client_id": "506224691565-2g2pi8hlgsul9j63aqs7blja81u60sdp.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "traevy.traevy",
+            "certificate_hash": "7963fc8828a48992f0fe218d9c89bc7f5140a77d"
+          }
+        },
+        {
+          "client_id": "506224691565-5s5puup74m2088p8qr4qerg4flj3j313.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "traevy.traevy",
+            "certificate_hash": "790001d51dfc313a4b9bdd7f8c1bbf781169021d"
+          }
+        },
+        {
           "client_id": "506224691565-6abqullmr7enadsjn7hpgbgit4no3eqf.apps.googleusercontent.com",
           "client_type": 3
         }
