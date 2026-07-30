@@ -263,7 +263,7 @@ firebase deploy --only firestore:rules  # Deploy Firestore Security Rules
 - **Speed threshold (10 km/h) is a constant.** Define it once in `constants.dart`, reference everywhere.
 - **Auth tokens go in flutter_secure_storage.** Never store in shared preferences or plain text.
 - **Sync queue retries max 3 times** with exponential backoff. After 3 failures, mark as failed and surface to user if needed.
-- **Soft deletes everywhere.** Trips are never hard-deleted from Firestore. Mark `deleted: true`.
+- **Soft deletes everywhere — with one deliberate exception.** Trips are never hard-deleted from Firestore via the per-trip trash flow (`DELETE /trips/:tripId`) or the bulk "delete all my data, keep my account" flow (`DELETE /trips`); both mark `deleted: true`. The ONE exception is full account deletion (`DELETE /account`, Phase 38): it hard-deletes every trip document for that uid (including ones already sitting in Trash), because deleting an account must actually erase the data, not orphan it under a uid that can never authenticate again. Do not "fix" `delete-account.ts` back to soft-delete — this was an explicit, scoped product decision.
 - **Test on real Android devices** for GPS and background service behavior. Emulator GPS simulation is unreliable for traffic calculations.
 
 ---

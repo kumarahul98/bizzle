@@ -203,8 +203,10 @@ class ApiClient {
     }
   }
 
-  /// `DELETE /trips` (Phase 38, DEL-ALL-DATA) — hard-wipe every trip the
-  /// caller owns on the server. Unwraps the same double-wrapped envelope as
+  /// `DELETE /trips` (Phase 38, DEL-ALL-DATA) — soft-delete every trip the
+  /// caller owns on the server (each doc is marked `deleted: true`; nothing is
+  /// removed). Hard deletion happens ONLY via `DELETE /account` — see
+  /// [deleteAccount]. Unwraps the same double-wrapped envelope as
   /// [restoreTrips]: `decoded['body']['data']['deletedCount']`. Throws
   /// [SyncException.transport] on a malformed envelope rather than silently
   /// returning `0` — "nothing to delete" and "the response was garbage" must

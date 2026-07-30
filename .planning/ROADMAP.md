@@ -8,7 +8,7 @@ Deliver an offline-first Android commute tracker that records GPS trips, compute
 
 - ✅ **v0.1 Android MVP** - Phases 1-11 (formally open — 13 device-UAT items deferred, resumable)
 - ⏸️ **v0.2 iOS Support** - Phases 12-16 (PAUSED as of 2026-07-11 — see summary in the v0.2 section; 12/13 complete, 14 code-complete/device-unverified, 15 trimmed & merged (Live Activity dropped), 16 not started)
-- 🚧 **v0.3 App Improvements** - Phases 17-37 (17-29 done or code-complete; 30 blocked on a device spike; 31-36 are the post-UAT bug/feature batch. Phase 37 is the v0.3 ship phase — release to Play internal testing.)
+- 🚧 **v0.3 App Improvements** - Phases 17-38 (17-29 done or code-complete; 30 blocked on a device spike; 31-36 are the post-UAT bug/feature batch. Phase 37 is the v0.3 ship phase — release to Play internal testing. Phase 38 adds in-app account/data deletion, a Play policy requirement, added after 37.)
 
 ## Phases
 
@@ -651,7 +651,6 @@ Plans:
 > real passes would recreate that same phantom-status bug in the opposite
 > direction. Nothing here is blocked or broken — it is deprioritised.
 
-
 **Goal**: Close out the backlog of deferred human/device verification on Android — triaging what's stale, running what's still relevant, and completing the UAT sessions that were started and abandoned mid-run — so no Android phase is left with a phantom "pending" verification status
 **Depends on**: Phase 22
 **Requirements**: UAT-01
@@ -793,12 +792,15 @@ Plans:
 
 Plans:
 **Wave 1**
+
 - [x] Backend: zod schema, both handlers, Firestore converter, tests (`5733236`) — **DEPLOYED + verified live 2026-07-20** (SC#2 satisfied)
 
 **Wave 2**
+
 - [x] Client wire: ApiClient methods, PreferencesSyncService, D-01 dartdoc rewrite (`9843204`)
 
 **Wave 3**
+
 - [x] Triggers: push on picker-confirm, restore-then-push on sign-in, D-03 null-only merge (`bf96bbb`)
 
 **Backend is deployed and live** (2026-07-20) — SC#2 satisfied; all five routes verified, including that the pre-existing trip routes survived the shared-function replacement. **ONE gate remains:** the Play Data Safety declaration must change from *no location collected* to *precise location collected* (D-01) before the CLIENT ships. Deploying endpoints nothing calls collects no data, which is why the deploy went first. The branch merged to `main` at `13ffec9` on 2026-07-20; the declaration gate is now tracked in `.planning/RELEASE-GATES.md` as a 🔴 BLOCKING release item, since the structural guard of an unmerged branch no longer exists.
@@ -826,6 +828,7 @@ Plans:
 **Plans**: TBD (spike first)
 
 Plans:
+
 - [ ] 30-00 — SPIKE: measure EXIT trigger latency on a real drive (throwaway, blocking, P0)
 
 **UI hint**: yes (settings toggle + permission rationale screen)
@@ -854,10 +857,12 @@ Plans:
 
 Plans:
 **Wave 1**
+
 - [ ] 31-01 — interval classification + `trip_stuck_segments` table + migration v9 (SC2, SC3, SC4, SC9) — owns all Drift work
 - [ ] 31-02 — shared `InfoSheet` widget + constants (SC7) — independent, parallel with 31-01
 
 **Wave 2** *(blocked on Wave 1)*
+
 - [ ] 31-03 — remove direction toggle, extract map section + paint segments, rewrite timeline (SC1, SC5, SC6)
 
 **UI hint**: yes (trip detail map, timeline, info sheet)
@@ -884,6 +889,7 @@ Plans:
 
 Plans:
 **Wave 1**
+
 - [ ] 32-01 — header identity wiring + account sheet + remove `_AccountSection` (SC1–SC5, SC7) — owns the settings file
 - [ ] 32-02 — weekly summary info icon (SC6)
 
@@ -915,12 +921,15 @@ Plans:
 
 Plans:
 **Wave 1**
+
 - [ ] 33-01 — schema v10 + prefs DAO 6 touch points + `scheduleReminder` rewrite incl. widened 20–26 cancel sweep (SC1–SC5, SC11) — owns all Drift and notification work
 
 **Wave 2** *(blocked on Wave 1)*
+
 - [ ] 33-02 — `ReminderSuggestionService`: median, 5-trip/28-day gate, 15-min offset, >20-min re-offer rule (SC6, SC7, SC8)
 
 **Wave 3** *(blocked on Waves 1 and 2)*
+
 - [ ] 33-03 — day-of-week picker, remove cutoff row, auto-pause info sheet, suggestion card (SC9, SC10)
 
 **UI hint**: yes (settings restructure, day picker, suggestion card)
@@ -947,12 +956,15 @@ Plans:
 
 Plans:
 **Wave 1** *(review gate — stop here)*
+
 - [ ] 34-01 — write `34-RESEARCH.md`: period semantics, daily-average denominator, metric set, partial periods, aggregation strategy with a measured row count, UI shape (SC1). No code.
 
 **Wave 2** *(blocked on Wave 1 acceptance)*
+
 - [ ] 34-02 — aggregation layer + tests encoding the worked examples (SC3, SC4, SC5)
 
 **Wave 3** *(blocked on Wave 2)*
+
 - [ ] 34-03 — period selector + card updates + `monthTotalSeconds` resolution (SC2, SC6, SC7)
 
 **UI hint**: yes (period selector, period-aware cards)
@@ -981,9 +993,11 @@ Plans:
 
 Plans:
 **Wave 1**
+
 - [ ] 35-01 — schema v11 (`trips.deletedAt`, `trip_breaks` FK cascade rebuild), DAO filter + the three reader decisions, soft delete/restore, startup purge (SC1–SC5, SC8, SC9) — owns all Drift work
 
 **Wave 2** *(blocked on Wave 1)*
+
 - [ ] 35-02 — Trash screen, Settings entry, restore + permanent delete, retention countdown (SC6, SC7)
 
 **UI hint**: yes (Trash screen under Settings)
@@ -1012,6 +1026,7 @@ No schema change; independent of Phases 31–35 and may run in parallel with any
 
 Plans:
 **Wave 1**
+
 - [ ] 36-01 — Android resources: `widget_info.xml`, both layouts, two new drawables (SC1, SC2, SC3). No Dart.
 - [ ] 36-02 — permission deep-link channel + unify the three denial paths + delete `permission_gate.dart` (SC4, SC5, SC6)
 - [ ] 36-03 — stop-confirm relay mirroring the auto-pause pattern (SC7, SC8, SC9) — merges after 36-02, both touch `main_shell.dart` in distinct regions
@@ -1077,8 +1092,21 @@ Post-upload (gates *widening* beyond internal, not the internal upload itself): 
 **Plans**: 2 plans.
 
 Plans:
+
 - [x] 37-01 — Release signing: wire `key.properties` + `release` signingConfig in `android/app/build.gradle.kts` (SC1–SC3). Code — the only repo change. Done `54be9dc` 2026-07-25.
 - [ ] 37-02 — Ops runbook (human-gated): keystore generation, signed AAB build + verify, Play Console first-publish (Data Safety, privacy policy, listing, content rating), internal-testing release, post-upload UAT (SC4–SC7).
+
+### Phase 38: Account & Data Deletion
+
+**Goal:** Users can delete their trip data and/or their account entirely from within the app, satisfying Google Play's in-app account-deletion policy for apps that support sign-in.
+**Scope:** A Settings row exposing (a) delete-all-trip-data and (b) delete-account, each behind a confirmation. Deleting wipes local Drift trips + sync_queue, cancels pending syncs, and calls new backend endpoint(s) to bulk-delete the user's Firestore trips; account deletion additionally deletes the Firebase Auth user server-side and signs the client out. Prior art: Phase 11 (sync engine), Phase 35 (soft-delete trash pattern).
+**Requirements**: TBD (run /gsd:plan-phase 38 to break down)
+**Depends on:** Phase 37 (backend on prod Firebase), Phase 11 (sync engine), Phase 35 (soft-delete trash pattern)
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd:plan-phase 38 to break down)
 
 ---
 

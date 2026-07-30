@@ -4,6 +4,8 @@ import { onRequest } from 'firebase-functions/v2/https';
 import express from 'express';
 import { syncTripsHandler } from './handlers/sync-trips';
 import { deleteTripHandler } from './handlers/delete-trip';
+import { deleteAllTripsHandler } from './handlers/delete-all-trips';
+import { deleteAccountHandler } from './handlers/delete-account';
 import { restoreTripsHandler } from './handlers/restore-trips';
 import { syncPreferencesHandler } from './handlers/sync-preferences';
 import { restorePreferencesHandler } from './handlers/restore-preferences';
@@ -40,7 +42,20 @@ app.get('/health', (_req, res) => {
 
 app.post('/trips/sync', syncTripsHandler);
 app.get('/trips/restore', restoreTripsHandler);
+// Phase 38 (BACK-05): bulk soft-delete ALL of the caller's trips ("delete all
+// my data, keep my account"). Declared BEFORE the `/trips/:tripId` route: the
+// two patterns don't actually collide (Express matches the literal `/trips`
+// segment correctly regardless of order), but placing the exact route first
+// removes any ambiguity for a future reader scanning top-to-bottom.
+app.delete('/trips', deleteAllTripsHandler);
 app.delete('/trips/:tripId', deleteTripHandler);
+
+// Phase 38 (BACK-06): full account deletion (Google Play in-app
+// account-deletion requirement). HARD-deletes all trips (the one deliberate
+// exception to the project's soft-delete rule — see claude.md and the
+// delete-account.ts header), hard-deletes the preferences doc, then deletes
+// the Auth user — see delete-account.ts for the ordering rationale.
+app.delete('/account', deleteAccountHandler);
 
 // Phase 29 (LOC-03): saved Home/Office locations. Separate routes rather than
 // fields on the trip endpoints — different entity, different lifecycle, and
