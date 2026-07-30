@@ -1,0 +1,47 @@
+Traevy turns your daily commute into something you can actually see.
+
+Tap start when you leave. Tap stop when you arrive. Traevy records the trip, works out the distance and duration, and — the part that matters — splits your time into moving versus stuck in traffic.
+
+WHY TRAEVY
+
+Most of us have no real idea what the commute costs us. "About 45 minutes" turns out to be 70 on a bad day, and 20 of those were spent sitting still. Traevy gives you the actual number, week after week, so you can decide what to do about it.
+
+ONE-TAP RECORDING
+Start when you leave, stop when you arrive. No forms, no per-trip setup. Recording keeps running in the background while you travel.
+
+AUTOMATIC TRAFFIC DETECTION
+Traevy separates time spent moving from time spent crawling or stationary, so you can see how much of a trip was traffic rather than distance.
+
+STATS THAT BUILD UP OVER TIME
+• Time lost to traffic, front and centre
+• Moving versus stuck breakdown
+• Week-over-week trends
+• Which weekdays are consistently worst
+• Switch between time periods
+
+YOUR FULL TRIP HISTORY
+Every trip is saved with its route drawn on a map, plus duration, distance and traffic split. Browse by day, open any trip for detail, and edit it if something needs correcting.
+
+HOME AND OFFICE
+Save your home and office locations and Traevy labels trips automatically as heading to work or heading home. You can always change a label yourself.
+
+WORKS COMPLETELY OFFLINE
+Trips are stored on your device first. No signal, no problem — nothing is lost and every feature still works. Underground car parks and dead zones don't break your recording.
+
+OPTIONAL CLOUD BACKUP
+Sign in with Google if you want your trips backed up so you can restore them on a new phone. Signing in is entirely optional — the app works fully without an account.
+
+COMMUTE REMINDERS
+Set a reminder on the days you commute so you don't forget to start recording.
+
+HOME SCREEN WIDGET
+Start and stop a trip without opening the app.
+
+FORGOT TO RECORD ONE?
+Add the trip manually with the times you remember.
+
+YOU STAY IN CONTROL
+Deleted trips go to Trash, so you can bring them back. You can wipe all your data whenever you like, or delete your account entirely — which permanently erases your trips from our servers rather than just hiding them.
+
+ABOUT LOCATION
+Traevy uses precise location, including in the background while a trip is recording, to measure your route, distance and speed. Location is only recorded between the moment you tap start and the moment you tap stop. Your location data is never sold, and it is not shared with third parties.

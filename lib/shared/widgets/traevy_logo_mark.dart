@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:traevy/config/constants.dart';
-import 'package:traevy/config/theme.dart';
 
-/// Traevy brand mark: a rounded square with inverted text/bg colours
-/// containing the short brand name ("tv") in JetBrains Mono 700.
+/// Traevy brand mark: the app's icon artwork (`assets/icons/logo.png`) shown
+/// as a rounded-square tile.
 ///
-/// Uses [Theme.of(context).colorScheme.onSurface] as the square fill
-/// and [Theme.of(context).scaffoldBackgroundColor] as the text colour
-/// so the mark inverts correctly in both light and dark modes.
+/// This is the SAME source file used to generate the Android/iOS launcher
+/// icons via the `flutter_launcher_icons` config in `pubspec.yaml`, so the
+/// in-app mark and the home-screen icon always stay identical.
+///
+/// The artwork (a glowing gold dashed triangle on a solid black background)
+/// is presented unmodified — no tinting, inversion, or theme-based
+/// recoloring — in BOTH light and dark themes, because the black background
+/// is baked into the image and the mark is meant to read like an app icon
+/// regardless of the surrounding theme.
 ///
 /// See: `.planning/phases/08-ui-overhaul/08-UI-SPEC.md` §9 Onboarding 'tv' logo.
 class TraevyLogoMark extends StatelessWidget {
@@ -22,27 +27,14 @@ class TraevyLogoMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final bgColor = theme.colorScheme.onSurface;
-    final textColor = theme.scaffoldBackgroundColor;
-
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Center(
-        child: Text(
-          kBrandShortName,
-          style: TraevyFonts.mono(
-            size: size * 0.5,
-            weight: FontWeight.w700,
-            color: textColor,
-            letterSpacing: -1,
-          ),
-        ),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: Image.asset(
+        'assets/icons/logo.png',
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        semanticLabel: kBrandFullName,
       ),
     );
   }

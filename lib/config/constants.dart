@@ -809,14 +809,6 @@ const String kPlaceholderUserName = 'Traveller';
 /// `.planning/phases/08-ui-overhaul/08-CONTEXT.md`.
 const String kPlaceholderUserInitial = 'T';
 
-/// Short brand mark rendered in the `TraevyLogoMark` widget header — "tv" in
-/// JetBrains Mono 700. Never use this as the canonical app name; use
-/// `kBrandFullName` for that.
-///
-/// Design token source: Specifics block in
-/// `.planning/phases/08-ui-overhaul/08-CONTEXT.md`.
-const String kBrandShortName = 'tv';
-
 /// Full brand name used in headings and accessibility labels.
 ///
 /// Design token source: Specifics block in
