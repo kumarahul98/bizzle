@@ -2,59 +2,76 @@
 status: resolved
 trigger: "the login is not working"
 created: 2026-07-26T00:00:00Z
-updated: 2026-07-29T19:45:00Z
+updated: 2026-07-31T01:30:00Z
 ---
 
 ## Current Focus
 <!-- OVERWRITE on each update - always reflects NOW -->
 
-hypothesis: RESOLVED. Root cause confirmed: Google enforces global
-uniqueness of the pair `(package_name, certificate_SHA-1)` → Android OAuth
-client, across ALL Google Cloud projects, not just within one project. The
-debug keystore cert
+hypothesis: RESOLVED. Two DISTINCT root causes, fixed separately, produced
+the identical `UNREGISTERED_ON_API_CONSOLE` / `Account reauth failed` /
+`Activity finished with error` signature — which is why the investigation
+initially believed one fix would explain everything and had to reopen after
+a Play Store install failed the same way.
+
+Root cause #1 (fixed first, explains the DEBUG-build failures): Google
+enforces global uniqueness of the pair `(package_name, certificate_SHA-1)` →
+Android OAuth client, across ALL Google Cloud projects, not just within one
+project. The debug keystore cert
 (B2:19:89:D3:73:4B:38:84:35:7F:0B:53:1D:68:16:86:2F:68:F4:DA) + package
 `traevy.traevy` already had an auto-created Android OAuth client sitting in
 the OLD dev project `travey-298a7`, left over from Phase 9 development. That
 global lock meant `traevy-prod` could never auto-create its own Android
 OAuth client for that cert. `firebase apps:android:sha:create` accepted the
-SHA row regardless (so `sha:list` showed all 6 hashes registered — which is
-why the earlier investigation believed cert registration had succeeded),
-but the backing OAuth client was never created. See `## Resolution` for the
-full root cause writeup.
-test: Deleted the orphaned Android OAuth client for `traevy.traevy` + the
-debug cert from `travey-298a7` (Google Cloud Console → Google Auth Platform
-→ Clients — no CLI/API path exists for deleting OAuth clients), re-ran
-`firebase apps:android:sha:create` on traevy-prod, regenerated
-`google-services.json`, then verified sign-in on both a release APK (upload
-key) and a fresh debug APK (debug key), each on a clean install, with full
-logcat capture.
-expecting: Both verifications succeeded — zero occurrences of
-`UNREGISTERED_ON_API_CONSOLE`, `Account reauth failed`, or `Activity
-finished with error` across either logcat capture (8,651 lines release /
-8,719 lines debug). The flow now completes:
+SHA row regardless (so `sha:list` showed all 6 hashes registered), but the
+backing OAuth client was never created.
+
+Root cause #2 (found afterward, when the SAME failure recurred on a Play
+Store install even after root cause #1 was fixed): Play App Signing does
+NOT deliver the app signed with the single cert shown on the Play Console
+"App signing key certificate" page. It delivers a THREE-certificate APK
+(v3.0, v3.2 Hybrid Classical, v3.2 Hybrid PQC — the latter pair gated at
+`minSdkVersion=37` for Android's post-quantum signing rollout), and TWO of
+those three certs (v3.0 and v3.2 PQC) were never registered on `traevy-prod`
+because the Play Console page only ever surfaces the v3.2 Classical cert.
+Those two certs are discoverable only by pulling the delivered APK off a
+device and inspecting its signature blocks with `apksigner`. See
+`## Resolution` for both full writeups.
+
+test: For root cause #2 — pulled the Play-delivered APK off the test device
+(`adb shell pm path` + `adb pull`), ran
+`apksigner verify --print-certs --verbose`, identified the two missing
+SHA-1/SHA-256 pairs, registered all four missing hashes (both SHA-1s and
+both SHA-256s) via `firebase apps:android:sha:create`, force-stopped the
+already-installed Play app (no rebuild or re-upload), and re-tested sign-in
+on the SAME installed build (version code 2,
+`installerPackageName=com.android.vending`).
+expecting: Confirmed. Sign-in succeeded on the Play-installed build with no
+new version uploaded. 5,511-line logcat capture, zero occurrences of
+`UNREGISTERED_ON_API_CONSOLE` / `Account reauth failed` / `Activity finished
+with error` / `GetCredentialResponse error`. Flow reads
 `[AccountReauth_flowRunner] Flow completed.`,
 `[GoogleSignIn_flowRunner] Flow completed.`,
-`[GoogleSignInChimeraActivity] Activity finished successfully.`,
-`CredManProvService: GetCredentialResponse returned from framework`.
-next_action: Investigation closed. Outstanding follow-ups (none blocking,
-none part of this bug):
-  1. `lib/firebase_options.dart:61-66` — the iOS block still points at the
+`Activity finished successfully`.
+next_action: Investigation closed — both DEBUG builds and the actual Play
+Store-installed release build are confirmed working. Outstanding follow-ups
+(none blocking, none part of this bug):
+  1. Any future signing-cert rotation by Play will silently reintroduce this
+     failure mode. Re-run `apksigner verify --print-certs --verbose` on the
+     Play-delivered APK (pulled via `adb shell pm path` + `adb pull`) after
+     any future Play signing key change — never trust the Play Console "App
+     signing key certificate" page alone, it has been shown to surface only
+     one of the (potentially several) certs actually delivered.
+  2. `lib/firebase_options.dart:61-66` — the iOS block still points at the
      old dev project (`projectId: 'travey-298a7'`, messagingSenderId
      `1076279794226`, plus a stale `iosClientId`). Harmless today since the
      app is Android-only, but it is an unmigrated Phase 37 remnant — clean
      up before any iOS work starts.
-  2. The debug keystore's SHA-256
+  3. The debug keystore's SHA-256
      (89c4fad775edbd39a2086f1f7491f418b7599e410293ba43356d8ed2e6369ef0) is
      still registered on `travey-298a7`; only its SHA-1 row was deleted
-     during this session. Worth cleaning up if that project is ever
+     during this investigation. Worth cleaning up if that project is ever
      decommissioned.
-  3. Any future signing cert used with package `traevy.traevy` must never be
-     registered on two projects at once — this failure mode will recur
-     silently. Standing detection method: cross-check
-     `firebase apps:android:sha:list` (SHA rows) against
-     `firebase apps:sdkconfig ANDROID <appId> --project <project>` (actual
-     `client_type: 1` OAuth client entries) — a SHA row with no matching
-     OAuth client is the signature of this bug.
 
 ## Symptoms
 <!-- Written during gathering, then immutable -->
@@ -381,10 +398,48 @@ older dev project, likely months ago during initial Phase 9 development.
   these projects by display name in the Console — verify the project ID in
   the URL/selector, not just the display name.
 
+- timestamp: 2026-07-31 (this session, root cause #2 investigation)
+  checked: Google Cloud Console project picker, while attempting to delete
+  the orphaned OAuth client as part of confirming root cause #2.
+  found: A project-navigation trap that cost time: the Console project
+  picker was on the wrong project. The account has three similarly-named
+  projects — `traevy-prod`, `traevy-492415` (display name "traevy"), and
+  `travey-298a7` (display name "travey", MISSPELLED). Deleting the orphaned
+  OAuth client required being in `travey-298a7`; the user was initially in
+  `traevy-prod`, where the two visible Android clients were the (correct,
+  expected) upload and Play App Signing clients.
+  implication: Confirms this is a recurring trap across both root-cause
+  investigations in this file, not a one-off — same three-project confusion
+  as the earlier entry above, hit again in a later session.
+
+- timestamp: 2026-07-31 (this session, root cause #2 investigation)
+  checked: What "proof of registration" actually means, now that two
+  distinct root causes have both hidden behind a passing check.
+  found: The standing detection method now covers BOTH root causes.
+  Root cause #1: cross-check `firebase apps:android:sha:list` against the
+  LIVE `firebase apps:sdkconfig ANDROID <appId> --project <project>`
+  output — a registered SHA row is NOT proof a backing OAuth client exists.
+  Root cause #2: for any Play-distributed build, enumerate the delivered
+  APK's real certs with `apksigner verify --print-certs --verbose` rather
+  than trusting Play Console's single displayed cert — the Console's "App
+  signing key certificate" page shows only one of potentially several certs
+  actually shipped to devices.
+  implication: Both checks are now the standing verification procedure for
+  this app; neither one alone would have caught the other's failure mode.
+
 ## Resolution
 <!-- OVERWRITE as understanding evolves -->
 
-root_cause: CONFIRMED. Google enforces global uniqueness of the pair
+root_cause: CONFIRMED — two DISTINCT root causes, fixed separately, each
+independently capable of producing the exact same
+`UNREGISTERED_ON_API_CONSOLE` / `Account reauth failed` / `Activity
+finished with error` signature. Root cause #1 explains the DEBUG-build
+failures. Root cause #2, found afterward, explains the PLAY-STORE-install
+failures that persisted even after root cause #1 was fixed.
+
+### Root cause #1 — orphaned OAuth client in the old dev project
+
+Google enforces global uniqueness of the pair
 `(package_name, certificate_SHA-1)` → Android OAuth client, across ALL
 Google Cloud projects, not just within one project. The debug keystore cert
 (B2:19:89:D3:73:4B:38:84:35:7F:0B:53:1D:68:16:86:2F:68:F4:DA) + package
@@ -419,18 +474,7 @@ genuinely a missing OAuth client. `VerifyCallerOperation` succeeding was
 misleading — it validates package+cert but does NOT require the OAuth
 client that the later token-mint step needs.
 
-One sub-question remains genuinely unresolved and is stated plainly here
-rather than glossed over: the RELEASE-cert failures on 2026-07-26 (upload
-key) and earlier on 2026-07-29 (Play-installed) are NOT fully explained by
-the OAuth-client conflict, because those two certs DID have valid OAuth
-clients throughout. Between those failures and the eventual success, the
-changes were the consent screen being published to production and elapsed
-propagation time. Candidate causes: (a) OAuth-client/SHA propagation delay
-in Google's auth backend, or (b) the consent-screen publish taking effect.
-This could not be conclusively disambiguated with the evidence gathered —
-neither is asserted as fact.
-
-fix:
+Fix for root cause #1:
   1. `kGoogleServerClientId` corrected to traevy-prod's web client
      `506224691565-6abqullmr7enadsjn7hpgbgit4no3eqf.apps.googleusercontent.com`
      (was pointing at the old dev project's client). `lib/config/constants.dart`.
@@ -446,7 +490,94 @@ fix:
   5. Regenerated `android/app/google-services.json`; the diff was exactly
      the addition of that one new debug android client, nothing else.
 
-verification: Both confirmed by the user on-device, logcat captured.
+Verification for root cause #1: Debug APK (debug key `b21989d3...`), fresh
+install: sign-in succeeded. 8,719-line logcat, zero failure markers, zero
+`[auth]` diagnostic lines (none fired because nothing failed).
+
+### Root cause #2 — Play App Signing delivers THREE certs, Console shows only ONE
+
+After root cause #1 was fixed, the app was uploaded to Play, and sign-in
+STILL failed from a Play Store install with the identical
+`UNREGISTERED_ON_API_CONSOLE` signature. This is what actually broke PLAY
+installs, distinct from the debug-build orphaned-client problem above.
+
+Diagnosis: pulled the Play-delivered APK off the device
+(`adb shell pm path`, `adb pull`) and ran
+`apksigner verify --print-certs --verbose`. The APK Google Play delivers is
+signed with THREE certificates, not one:
+
+| Signer block | SHA-1 | Registered before this fix? |
+|---|---|---|
+| v3.0 | `ded10ff2915411e4d9da886b6f8a80443586a511` | NO |
+| v3.2 Hybrid Classical (minSdkVersion=37) | `7963fc8828a48992f0fe218d9c89bc7f5140a77d` | YES |
+| v3.2 Hybrid PQC (minSdkVersion=37) | `9725820cde6112dbddc31e6d36b62ec359d3af6f` | NO |
+
+Corresponding SHA-256 values:
+- v3.0: `0b32550bd5fb3fae4bad3322781053d02bdc95934ce64ae3416ab23d4b20bdd8`
+- v3.2 Classical: `bbf37ede77769f47810acea970333522b3c55e3cad5e0f1179c4cd35e0f1a047`
+- v3.2 PQC: `1fa212f879a16b1a1cb1e932e155701ece77f9a0455b1be9c1291ec52ea09de5`
+
+The critical trap: Play Console's "App integrity → App signing key
+certificate" page surfaces ONLY the v3.2 Classical cert (`7963fc88…`). That
+is the only one a developer would ever know to register. The other two are
+invisible from the Console and discoverable ONLY by pulling the delivered
+APK from a device and inspecting its signature blocks. Play has rotated
+this app's signing key (the platform reported a lineage:
+`signatures:[cec52fbc], past signatures:[77e1ace9, efffeafd, cec52fbc]`),
+and on Android 17 / SDK 37 it now dual-signs with a post-quantum key — hence
+the v3.2 Hybrid Classical + PQC pair gated at `minSdkVersion=37`. The test
+device (Pixel 9a) runs Android 17, right on that boundary.
+
+Why this was so hard to see, and why it mimicked root cause #1 exactly:
+`VerifyCallerOperation` SUCCEEDED on every attempt, because it accepts any
+cert in the signing lineage. The failure came one step later at token mint,
+where Google looks up an OAuth client for the SPECIFIC cert it resolved. A
+passing `VerifyCallerOperation` is NOT evidence the cert is correctly
+registered — that false signal is exactly what made the earlier
+investigation repeatedly "prove" the certs were fine, for both root causes.
+
+Fix for root cause #2: registered all four missing hashes (both SHA-1s and
+both SHA-256s) on `traevy-prod` via `firebase apps:android:sha:create`. All
+four registered with no 409 conflict. Two new Android OAuth clients
+auto-created:
+  - v3.0 cert → `506224691565-nkfiro9j6bi3uq2ut91hq4cr7p4e5q1`
+  - v3.2 PQC cert → `506224691565-pmunde5c54lsv17i38d8el5i0t9iqif`
+
+No rebuild or re-upload was required — the `(package, cert) → client`
+mapping is resolved server-side in Google's auth backend, not baked into
+the APK. The already-installed Play build began working after a
+force-stop, with no new version uploaded. This is operationally important:
+the fix for root cause #2 is entirely server-side, same as root cause #1.
+
+Verification for root cause #2: user re-tested the SAME Play-installed
+build (version code 2, `installerPackageName=com.android.vending`). Sign-in
+succeeded. 5,511-line logcat capture, zero occurrences of
+`UNREGISTERED_ON_API_CONSOLE` / `Account reauth failed` / `Activity finished
+with error` / `GetCredentialResponse error`. Flows read
+`[AccountReauth_flowRunner] Flow completed.`,
+`[GoogleSignIn_flowRunner] Flow completed.`, `Activity finished
+successfully.`.
+
+### Remaining open question (honestly unresolved)
+
+The PLAY-install failures ARE now fully explained by root cause #2 — the
+2026-07-29 Play-installed-app failure is accounted for by the two missing
+v3.0/v3.2-PQC certs above, and is no longer an open question.
+
+What remains genuinely unresolved, and is stated plainly here rather than
+glossed over: the single 2026-07-26 failure on a locally-built, upload-key-
+signed release APK (i.e. NOT a Play-distributed build, so root cause #2's
+multi-cert mechanism does not apply to it) is not conclusively explained by
+either root cause, since the upload key had a valid, correctly-registered
+OAuth client throughout. Between that failure and the eventual success, the
+changes were the consent screen being published to production and elapsed
+propagation time. Candidate causes: (a) OAuth-client/SHA propagation delay
+in Google's auth backend, or (b) the consent-screen publish taking effect.
+This could not be conclusively disambiguated with the evidence gathered —
+neither is asserted as fact.
+
+verification: Confirmed by the user on-device across both root causes,
+logcat captured each time.
   - Release APK (upload key `790001d5...`), fresh install: sign-in
     succeeded. 8,651-line logcat, zero occurrences of
     `UNREGISTERED_ON_API_CONSOLE` / `Account reauth failed` / `Activity
@@ -454,6 +585,10 @@ verification: Both confirmed by the user on-device, logcat captured.
   - Debug APK (debug key `b21989d3...`), fresh install: sign-in succeeded.
     8,719-line logcat, zero failure markers, zero `[auth]` diagnostic lines
     (none fired because nothing failed).
+  - Play Store-installed build (root cause #2 fix, same installed APK, no
+    reinstall): sign-in succeeded. 5,511-line logcat, zero occurrences of
+    `UNREGISTERED_ON_API_CONSOLE` / `Account reauth failed` / `Activity
+    finished with error` / `GetCredentialResponse error`.
   - The previously-failing steps now read:
     `[AccountReauth_flowRunner] Flow completed.`,
     `[GoogleSignIn_flowRunner] Flow completed.`,
@@ -462,20 +597,23 @@ verification: Both confirmed by the user on-device, logcat captured.
 
 files_changed:
   - lib/config/constants.dart (kGoogleServerClientId fixed to traevy-prod
-    web client — part of the fix)
+    web client — part of the root cause #1 fix)
   - android/app/google-services.json (regenerated via `firebase
     apps:sdkconfig`, now includes the newly auto-created debug Android
-    OAuth client `506224691565-1jh8mkdooaookrhtfctijdnmt6jfhbf7`)
+    OAuth client `506224691565-1jh8mkdooaookrhtfctijdnmt6jfhbf7` from root
+    cause #1)
   - lib/features/auth/screens/login_screen.dart (diagnostic debugPrint left
-    in place; not load-bearing for the fix itself but useful for future
+    in place; not load-bearing for either fix but useful for future
     debugging)
   - lib/features/auth/widgets/sign_in_sheet.dart (diagnostic debugPrint left
-    in place; not load-bearing for the fix itself but useful for future
+    in place; not load-bearing for either fix but useful for future
     debugging)
-  - No app code change was the actual fix — the decisive change was
-    server-side: deleting the orphaned OAuth client from `travey-298a7`
-    (Google Cloud Console, no file/commit associated) and re-registering
-    the SHA on `traevy-prod`.
+  - No app code change was the actual fix for either root cause — both were
+    server-side: root cause #1's fix was deleting the orphaned OAuth client
+    from `travey-298a7` and re-registering the SHA on `traevy-prod`; root
+    cause #2's fix was registering the two previously-invisible Play
+    App Signing certs (v3.0, v3.2 PQC) on `traevy-prod`. Neither required a
+    rebuild, re-upload, or file change.
 
 ---
 
