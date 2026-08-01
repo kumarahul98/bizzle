@@ -147,16 +147,27 @@ class TripManagementNotifier extends Notifier<TripManagementState> {
             ]);
           }
         }
-        // Phase 31 (D-03 invariant): a full edit overwrites timeStuckSeconds
-        // with the user's recomputed value, but the stored stuck segments were
-        // derived from the original recording's per-interval speed
-        // classification. Nothing survives to re-derive them from, so keeping
-        // them would let the map paint more stuck time than the trip measures.
-        // Drop them and let the trip render as a plain route (D-06). The
-        // direction-only path leaves timeStuckSeconds untouched, so its
-        // segments stay valid and are deliberately NOT cleared.
+        // A stuck segment records WHERE the user was physically slow. No
+        // edit of the trip's times can make that stretch of road untrue, so
+        // an edit no longer destroys it (D-2). Only the segments wholly
+        // outside the new window — the parts of the recording the user cut
+        // away — are removed; everything that overlaps the window survives.
+        // A surviving segment is kept entirely UNTOUCHED, not clamped to the
+        // new window (D-3): its point indices address an unedited polyline,
+        // and clamping the timestamps without clamping the geometry in step
+        // would misreport which stretch of road was actually slow.
+        //
+        // Accepted consequence (D-4): `sum(painted segments) <=
+        // timeStuckSeconds` is deliberately ABANDONED for edited trips —
+        // `kStuckInfoBody` no longer claims it. The direction-only path
+        // leaves timeStuckSeconds untouched, so it never runs this and its
+        // segments stay valid.
         if (markEdited) {
-          await stuckSegmentsDao.deleteSegmentsForTrip(tripId);
+          await stuckSegmentsDao.deleteSegmentsOutsideWindow(
+            tripId: tripId,
+            startTimeUtc: startTimeUtc,
+            endTimeUtc: endTimeUtc,
+          );
         }
         await syncDao.enqueueUpdate(tripId);
       });

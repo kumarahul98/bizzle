@@ -26,19 +26,31 @@ class TripStuckSegmentsDao extends DatabaseAccessor<AppDatabase>
     return batch((b) => b.insertAll(tripStuckSegments, rows));
   }
 
-  /// Delete every stuck segment for [tripId].
+  /// Delete only the segments of [tripId] that fall WHOLLY outside the new
+  /// `[startTimeUtc, endTimeUtc]` window — the parts of the recording the
+  /// user cut away by editing the trip's times.
   ///
-  /// Called when a full edit rewrites `timeStuckSeconds` (Phase 31, D-03
-  /// invariant). The stored index ranges were derived from the ORIGINAL
-  /// recording's speed classification; once the user overwrites the stuck
-  /// total by hand there is nothing left to re-derive them from, so keeping
-  /// them would let the map paint more stuck time than the trip claims to
-  /// measure. Dropping them degrades the trip to the D-06 no-segments path,
-  /// which renders a plain route — honest about what is no longer known.
-  Future<void> deleteSegmentsForTrip(String tripId) {
-    return (delete(
-      tripStuckSegments,
-    )..where((s) => s.tripId.equals(tripId))).go();
+  /// A segment is deleted only when `segment.endTime <= startTimeUtc` OR
+  /// `segment.startTime >= endTimeUtc`; anything else — any segment
+  /// overlapping the window at all — is retained. A retained segment is kept
+  /// ENTIRELY UNTOUCHED: its `startTime`/`endTime` are NOT clamped to the new
+  /// window, because its `startPointIndex`/`endPointIndex` address the
+  /// original decoded polyline, and the polyline itself is never edited.
+  /// Clamping the timestamps without also clamping the geometry would
+  /// misreport which stretch of road was actually slow, so partial overflow
+  /// past a window edge is the honest, lesser evil.
+  Future<void> deleteSegmentsOutsideWindow({
+    required String tripId,
+    required DateTime startTimeUtc,
+    required DateTime endTimeUtc,
+  }) {
+    return (delete(tripStuckSegments)..where(
+          (s) =>
+              s.tripId.equals(tripId) &
+              (s.endTime.isSmallerOrEqualValue(startTimeUtc) |
+                  s.startTime.isBiggerOrEqualValue(endTimeUtc)),
+        ))
+        .go();
   }
 
   /// Reactive stream of stuck segments for [tripId], ordered by

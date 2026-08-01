@@ -194,10 +194,9 @@ void main() {
       expect(await db.tripBreaksDao.breaksForTrip(missingTripId), isEmpty);
     });
 
-    /// Phase 31 (D-03 invariant): the map must never paint more stuck time
-    /// than the trip claims to measure. A full edit overwrites
-    /// `timeStuckSeconds` by hand, which strands the segments recorded from
-    /// the original speed classification — so they are dropped.
+    /// A single in-window stuck segment. Used to prove a full edit RETAINS a
+    /// segment overlapping the new window even when the hand-entered
+    /// `timeStuckSeconds` no longer matches it (D-4).
     Future<void> insertStuckSegment(String tripId) {
       return db.tripStuckSegmentsDao.insertSegments([
         TripStuckSegmentsCompanion.insert(
@@ -212,14 +211,20 @@ void main() {
     }
 
     test(
-      'full edit drops stuck segments stranded by the new stuck total',
+      'full edit RETAINS an in-window stuck segment even though the new '
+      'stuck total no longer matches it (D-4, reverses Phase 31 D-06)',
       () async {
         final id = await insertTrip();
         await insertStuckSegment(id);
         expect(await db.tripStuckSegmentsDao.watch(id).first, hasLength(1));
 
         final notifier = container.read(tripManagementProvider.notifier);
-        // New stuck total of 60s is far below the 600s segment already stored.
+        // The window is unchanged (start..end), so the segment still fully
+        // overlaps it. The new stuck total of 60s is far below the 600s
+        // segment already stored — that mismatch is the accepted D-4
+        // consequence, not a reason to delete the segment: a stuck segment
+        // records WHERE the user was physically slow, and no edit to the
+        // trip's times or totals can make that untrue.
         await notifier.editTrip(
           tripId: id,
           direction: kDirectionToOffice,
@@ -236,7 +241,67 @@ void main() {
           container.read(tripManagementProvider),
           isA<TripManagementSaved>(),
         );
-        expect(await db.tripStuckSegmentsDao.watch(id).first, isEmpty);
+        final survivors = await db.tripStuckSegmentsDao.watch(id).first;
+        expect(survivors, hasLength(1));
+        expect(survivors.single.startTime.isAtSameMomentAs(start), isTrue);
+        expect(
+          survivors.single.endTime.isAtSameMomentAs(
+            start.add(const Duration(minutes: 10)),
+          ),
+          isTrue,
+        );
+        expect(survivors.single.startPointIndex, 0);
+        expect(survivors.single.endPointIndex, 40);
+      },
+    );
+
+    test(
+      'full edit deletes only the stuck segment stranded by the new window, '
+      'inside the same transaction as the trip update',
+      () async {
+        final id = await insertTrip();
+        await db.tripStuckSegmentsDao.insertSegments([
+          TripStuckSegmentsCompanion.insert(
+            id: 'early',
+            tripId: id,
+            startPointIndex: 0,
+            endPointIndex: 5,
+            startTime: start,
+            endTime: start.add(const Duration(minutes: 5)),
+          ),
+          TripStuckSegmentsCompanion.insert(
+            id: 'late',
+            tripId: id,
+            startPointIndex: 30,
+            endPointIndex: 40,
+            startTime: start.add(const Duration(minutes: 45)),
+            endTime: start.add(const Duration(minutes: 50)),
+          ),
+        ]);
+        expect(await db.tripStuckSegmentsDao.watch(id).first, hasLength(2));
+
+        // New window starts after the early segment ends, excluding it.
+        final newStart = start.add(const Duration(minutes: 20));
+        final notifier = container.read(tripManagementProvider.notifier);
+        await notifier.editTrip(
+          tripId: id,
+          direction: kDirectionToOffice,
+          startTimeUtc: newStart,
+          endTimeUtc: end,
+          totalPausedSeconds: 0,
+          timeMovingSeconds: 2340,
+          timeStuckSeconds: 300,
+          durationSecondsOverride: 2400,
+          markEdited: true,
+        );
+
+        expect(
+          container.read(tripManagementProvider),
+          isA<TripManagementSaved>(),
+        );
+        final survivors = await db.tripStuckSegmentsDao.watch(id).first;
+        expect(survivors, hasLength(1));
+        expect(survivors.single.id, 'late');
       },
     );
 
