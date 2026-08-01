@@ -31,7 +31,7 @@ void main() {
             displayName: 'To office',
             durationLabel: '30m',
             timeRange: '08:00 → 08:30 · 5 km',
-            stuckMins: 5,
+            stuckSeconds: 300,
           ),
         ),
       );
@@ -43,7 +43,7 @@ void main() {
             displayName: 'To office',
             durationLabel: '30m',
             timeRange: '08:00 → 08:30 · 5 km',
-            stuckMins: 5,
+            stuckSeconds: 300,
             isEdited: true,
           ),
         ),

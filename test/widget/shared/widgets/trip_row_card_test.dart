@@ -1,10 +1,3 @@
-// ignore_for_file: uri_does_not_exist
-// Wave-0 RED test for TripRowCard widget.
-//
-// This file imports shared/widgets/trip_row_card.dart which does not exist yet.
-// The compile failure is the deliberate RED state.
-// Plan 03 creates the production widget that turns this GREEN.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -130,5 +123,31 @@ void main() {
       await tester.pump();
       expect(tapped, isTrue);
     });
+
+    testWidgets(
+      'sub-minute stuck value renders "<1m stuck" (regression guard)',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(
+          ProviderScope(
+            child: MaterialApp(
+              theme: buildLightTheme(),
+              home: Scaffold(
+                body: TripRowCard(
+                  direction: kDirectionToOffice,
+                  durationSeconds: 1800,
+                  startTime: DateTime(2026, 5, 14, 8, 30),
+                  endTime: DateTime(2026, 5, 14, 9, 0),
+                  distanceMeters: 12500,
+                  stuckSeconds: 30,
+                  onTap: () {},
+                ),
+              ),
+            ),
+          ),
+        );
+
+        expect(find.text('<1m stuck'), findsOneWidget);
+      },
+    );
   });
 }
