@@ -1484,14 +1484,26 @@ const String kTourSettingsLocationsBody =
 /// before it is persisted as a `trip_stuck_segments` row and painted on the
 /// trip map (Phase 31, D-03).
 ///
-/// Without a floor every red light produces a ~15-second speck and the map
-/// becomes stippled noise. 60s also matches the user-facing framing: a normal
-/// signal wait is not what anyone means by "stuck".
+/// A floor still exists so a single traffic light — an ~8-15 second speck —
+/// does not stipple the route with noise. Beyond that the user's own
+/// definition of "stuck" wins: every interval under 10 km/h counts, and a
+/// 20-second crawl or slow corner is exactly what they want painted. 60s was
+/// too coarse — it discarded most real slow stretches just to keep a tidier
+/// map.
 ///
-/// Consequence, stated openly in [kStuckInfoBody]: the summed duration of the
-/// painted segments is `<=` the trip's `timeStuckSeconds` — the discarded
-/// short runs still count toward the printed figure.
-const int kStuckSegmentMinSeconds = 60;
+/// **Recording-time limitation.** This floor is applied at trip finalize, not
+/// at display time: the per-interval classification lives only in
+/// `TripAccumulator._intervalClasses` and is cleared once the trip is
+/// finalized, so only the surviving collapsed runs are ever persisted.
+/// Changing this value therefore affects NEWLY RECORDED trips only —
+/// already-recorded trips keep exactly the segments they were saved with and
+/// cannot be back-filled.
+///
+/// No `<=` invariant is claimed between the summed painted segments and the
+/// trip's `timeStuckSeconds` — see `editTrip` in
+/// `trip_management_providers.dart`, where an edited trip retains segments
+/// that overlap its new time window even though the total was rewritten.
+const int kStuckSegmentMinSeconds = 20;
 
 /// Stroke width (logical px) of a stuck-segment polyline on the trip map.
 /// One px wider than the base route so the highlight reads as an overlay on
@@ -1517,17 +1529,18 @@ const String kStuckInfoTitle = 'How stuck time is measured';
 ///
 /// Deliberately jargon-free per SC#7 — no "m/s", no "sample", no
 /// "threshold". The final sentence is the honest statement of D-03's floor:
-/// the map shows only the longer stretches, so it accounts for less time
-/// than the stuck figure above it.
+/// the map leaves out only the briefest halts, and on an edited trip the
+/// highlighted stretches may no longer add up to the total above (D-04).
 const String kStuckInfoBody =
     'Any time you are crawling along slower than 10 km/h counts as stuck. '
     'Traevy checks your speed continuously while it records, so a slow crawl '
     'counts just as much as sitting still.\n\n'
     'Breaks are left out — time is never counted as stuck while your trip is '
     'paused.\n\n'
-    'On the map, Traevy highlights only the longer stretches where you were '
-    'stuck for a minute or more, so brief halts do not clutter your route. '
-    'That means the highlighted stretches add up to less than the total above.';
+    'On the map, Traevy highlights where you were crawling or stopped. Very '
+    'brief halts of just a few seconds are left out so they do not clutter '
+    'your route. If you have edited this trip, the highlighted stretches may '
+    'not add up to the total above.';
 
 // --- Trip timeline copy (Phase 31, D-07) ----------------------------------
 

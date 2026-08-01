@@ -7,8 +7,8 @@ import 'package:traevy/features/tracking/services/stuck_run_collapser.dart';
 /// The fixture builds a synthetic interval list from a compact string where
 /// each character is one interval: `s` = stuck, `m` = moving, `u` =
 /// unattributed. Every interval is [_intervalSeconds] long, so a run of N
-/// stuck characters lasts `N * _intervalSeconds` seconds and the 60s floor is
-/// crossed at exactly 6 characters.
+/// stuck characters lasts `N * _intervalSeconds` seconds and the 20s floor is
+/// crossed at exactly 2 characters.
 const int _intervalSeconds = 10;
 final DateTime _origin = DateTime.utc(2026, 3, 1, 8);
 
@@ -39,13 +39,13 @@ List<StuckRun> collapse(String spec) {
 
 void main() {
   group('collapseStuckRuns — D-03 run collapsing', () {
-    test('the 60s floor sits at 6 ten-second intervals (fixture sanity)', () {
-      expect(kStuckSegmentMinSeconds, 60);
+    test('the 20s floor sits at 2 ten-second intervals (fixture sanity)', () {
+      expect(kStuckSegmentMinSeconds, 20);
       expect(
-        6 * _intervalSeconds,
+        2 * _intervalSeconds,
         greaterThanOrEqualTo(kStuckSegmentMinSeconds),
       );
-      expect(5 * _intervalSeconds, lessThan(kStuckSegmentMinSeconds));
+      expect(1 * _intervalSeconds, lessThan(kStuckSegmentMinSeconds));
     });
 
     test('contiguous stuck intervals merge into ONE run', () {
@@ -84,21 +84,21 @@ void main() {
       },
     );
 
-    test('runs shorter than the 60s floor are discarded entirely', () {
-      // Five ten-second stuck intervals = 50s < 60s.
-      expect(collapse('mmsssssmm'), isEmpty);
+    test('a run below the 20s floor is discarded entirely', () {
+      // One ten-second stuck interval = 10s < 20s.
+      expect(collapse('mmsmm'), isEmpty);
     });
 
     test('a run exactly at the floor is retained', () {
-      final runs = collapse('mmssssssmm');
+      final runs = collapse('mmssmm');
       expect(runs, hasLength(1));
       expect(runs.single.attributedSeconds, kStuckSegmentMinSeconds);
     });
 
     test('short runs are dropped while long ones in the same trip survive', () {
-      // 3 stuck (30s, dropped) · moving · 7 stuck (70s, kept) · moving ·
-      // 2 stuck (20s, dropped).
-      final runs = collapse('sssm${'s' * 7}mss');
+      // 1 stuck (10s, dropped) · moving · 7 stuck (70s, kept) · moving ·
+      // 1 stuck (10s, dropped).
+      final runs = collapse('sm${'s' * 7}ms');
       expect(runs, hasLength(1));
       expect(runs.single.attributedSeconds, 70);
     });
@@ -151,10 +151,14 @@ void main() {
       final f = fixture('ssssssss');
       final runs = collapseStuckRuns(
         intervals: f.intervals,
-        // Truncated sample list — a legacy recovered accumulator.
+        // Truncated sample list — a legacy recovered accumulator. The 20s
+        // floor is crossed well before the truncation point, so this now
+        // emits one run bounded by the shorter list rather than nothing.
         sampleTimes: f.times.sublist(0, 4),
       );
-      expect(runs, isEmpty, reason: '4 points is only 30s of stuck time');
+      expect(runs, hasLength(1));
+      expect(runs.single.endPointIndex, 3);
+      expect(runs.single.attributedSeconds, 30);
     });
   });
 
