@@ -1,4 +1,5 @@
 import 'package:latlong2/latlong.dart';
+import 'package:traevy/config/constants.dart';
 import 'package:traevy/shared/utils/polyline_codec.dart';
 
 /// Format a duration in seconds to a human-readable string.
@@ -47,6 +48,24 @@ String formatStuck(int seconds) {
   final hours = minutes ~/ 60;
   final remMinutes = minutes % 60;
   return remMinutes == 0 ? '${hours}h' : '${hours}h${remMinutes}m';
+}
+
+/// Moving/stuck legend formatter for FINALIZED trips (trip detail screen +
+/// history row), Quick 260801-oux.
+///
+/// Deliberately distinct from [formatStuck] (compact, live-tracking
+/// surfaces, pinned to '0m' under a minute): flooring a finalized trip's
+/// seconds to whole minutes hid real, edited-down stuck values behind the
+/// same '0m' label as an unedited trip, making an edit that changed stuck
+/// time by under a minute look like it did nothing. This formatter surfaces
+/// sub-minute values honestly via [kSubMinuteDurationLabel] instead.
+String formatTrafficDuration(int seconds) {
+  if (seconds <= 0) return '0m';
+  if (seconds < 60) return kSubMinuteDurationLabel;
+  if (seconds < 3600) return '${seconds ~/ 60}m';
+  final h = seconds ~/ 3600;
+  final m = (seconds % 3600) ~/ 60;
+  return m == 0 ? '${h}h' : '${h}h ${m}m';
 }
 
 /// Convert the output of [decodePolyline] to a list of [LatLng] points

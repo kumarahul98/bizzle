@@ -2080,3 +2080,40 @@ const String kDeleteAccountInProgress = 'Deleting account…';
 /// snackbar (the guest row re-renders in its place).
 const String kDeleteAccountErrorSnackbar =
     "Couldn't delete your account. Try again.";
+
+// ---------------------------------------------------------------------------
+// Quick 260801-oux — sub-minute traffic display
+// ---------------------------------------------------------------------------
+// Every render-path consumer of a trip's moving/stuck seconds used to floor
+// to whole minutes before display. An edit that changed stuck time by less
+// than a minute produced the exact same '0m' label as before the edit — the
+// UI looked broken. These constants back the fix: an honest sub-minute label,
+// and an honest "nothing measured" state for a GPS trip that lands at 0/0.
+
+/// Label for a non-zero traffic duration shorter than one minute (moving or
+/// stuck). Flooring to whole minutes rendered a real, edited-down stuck value
+/// as '0m', which reads as "the edit did nothing" — this makes it visible.
+const String kSubMinuteDurationLabel = '<1m';
+
+/// Replaces the StuckBar + moving/stuck legend on a GPS trip whose moving and
+/// stuck seconds are both zero — a trip with no traffic data to show.
+const String kNoTrafficDataLabel = 'No traffic data for this trip';
+
+/// Title of the explainer sheet opened from the no-traffic-data notice.
+const String kNoTrafficDataInfoTitle = 'Why is there no traffic data?';
+
+/// Body of the no-traffic-data explainer sheet. Jargon-free, matching
+/// [kStuckInfoBody]'s tone: states plainly (1) why the split is missing —
+/// the gaps between location updates were too long to tell moving from stuck
+/// apart, usually a weak signal or an interrupted recording; (2) the trip's
+/// duration and route are still correct; (3) editing the trip will not bring
+/// the split back, because there is nothing to rescale — Traevy never
+/// invents numbers it did not measure (the honest statement of D-02).
+const String kNoTrafficDataInfoBody =
+    'Traevy works out how much of this trip was spent moving versus stuck in '
+    'traffic from your speed while it was recording. On this trip, the gaps '
+    'between location updates were too long to tell the two apart — usually '
+    'caused by a weak signal or an interrupted recording.\n\n'
+    "This trip's duration and route are still correct.\n\n"
+    'Editing this trip will not bring the split back, because there is '
+    'nothing to rescale — Traevy will not invent numbers it did not measure.';
