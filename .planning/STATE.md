@@ -230,6 +230,7 @@ Recent decisions affecting current work:
 |---|-------------|------|--------|-----------|
 | 260726-m3a | Fix privacy policy retention wording to accurately reflect soft-delete behavior (no purge/TTL in backend) | 2026-07-26 | d969ec7 | [260726-m3a-fix-privacy-policy-retention-wording-to-](./quick/260726-m3a-fix-privacy-policy-retention-wording-to-/) |
 | 260726-lax | Phase 38 Flutter frontend: "Delete all data" (Settings) + "Delete account" (account sheet) — sealed controllers, DAO wipes, ApiClient methods, full unit tests. Backend endpoints (`DELETE /trips`, `/account`) built in parallel, not yet deployed. | 2026-07-26 | 2dc4504 | [260726-lax-implement-flutter-frontend-for-phase-38-](./quick/260726-lax-implement-flutter-frontend-for-phase-38-/) |
+| 260801-oux | Fix stuck-in-traffic display edges for individual GPS trips: render moving/stuck from seconds (`formatTrafficDuration`, `<1m` instead of a floored `0m`) across the trip detail legend, `StuckBar` flex weights and the history row, and surface a 0/0 GPS trip as an honest "no traffic data" notice. Derived rescale model and `rescaleTraffic` D-02 untouched. | 2026-08-01 | 34e9427 | [260801-oux-fix-stuck-in-traffic-display-edges-for-i](./quick/260801-oux-fix-stuck-in-traffic-display-edges-for-i/) |
 
 ## Deferred Items (carried from v0.1)
 
