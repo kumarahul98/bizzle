@@ -208,20 +208,17 @@ void main() {
       expect(trip.timeStuckSeconds, 0);
     });
 
-    test('a stuck stretch under the 60s floor emits no segment', () {
-      // 4 intervals × 10s = 40s of stuck time — real, counted, but not
+    test('a stuck stretch under the 20s floor emits no segment', () {
+      // 1 interval × 10s = 10s of stuck time — real, counted, but not
       // painted. The printed figure and the map deliberately disagree here,
       // which is what the explainer copy states outright.
       final acc = feed([
         _movingSpeed,
         _stuckSpeed,
-        _stuckSpeed,
-        _stuckSpeed,
-        _stuckSpeed,
         _movingSpeed,
         _movingSpeed,
       ]);
-      final trip = acc.finalize(start.add(const Duration(seconds: 70)));
+      final trip = acc.finalize(start.add(const Duration(seconds: 40)));
       expect(trip.timeStuckSeconds, greaterThan(0));
       expect(trip.stuckSegments, isEmpty);
     });

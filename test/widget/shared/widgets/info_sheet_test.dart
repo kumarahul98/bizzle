@@ -83,11 +83,16 @@ void main() {
       _expectNoJargon(kStuckInfoBody, 'stuck explainer');
     });
 
-    test('states the 10 km/h rule and the map floor honestly (D-03)', () {
+    test('states the 10 km/h rule and the map floor honestly (D-03, D-4)', () {
       expect(kStuckInfoBody, contains('10 km/h'));
-      // T-31-03: the sheet must SAY the highlighted stretches add up to less
-      // than the printed figure rather than hiding the discrepancy.
-      expect(kStuckInfoBody, contains('less than the total'));
+      // D-4 (this quick task): a full edit now RETAINS overlapping stuck
+      // segments instead of wiping them, so the sheet no longer claims the
+      // painted stretches sum to LESS than the printed total — that
+      // invariant is deliberately abandoned for edited trips. It must still
+      // say brief halts are left out, and that an edited trip may not add up
+      // to the total above.
+      expect(kStuckInfoBody.toLowerCase(), contains('brief halts'));
+      expect(kStuckInfoBody.toLowerCase(), contains('may not add up'));
       // And it must say breaks are excluded.
       expect(kStuckInfoBody.toLowerCase(), contains('paused'));
     });
