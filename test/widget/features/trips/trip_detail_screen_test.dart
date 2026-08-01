@@ -81,6 +81,31 @@ void main() {
       return id;
     }
 
+    Future<String> insertZeroTrafficGpsTrip() async {
+      final id = const Uuid().v4();
+      final start = DateTime.utc(2026, 1, 1, 8);
+      final end = DateTime.utc(2026, 1, 1, 8, 45);
+      await db.tripsDao.insertTrip(
+        TripsCompanion.insert(
+          id: id,
+          startTime: start,
+          endTime: end,
+          durationSeconds: 2700,
+          distanceMeters: 5000,
+          routePolyline: const Value(''),
+          direction: kDirectionToOffice,
+          // A GPS trip can legitimately finish with nothing attributable —
+          // e.g. every sample gap exceeded kTrackingMaxAttributableGapSeconds.
+          timeMovingSeconds: 0,
+          timeStuckSeconds: 0,
+          isManualEntry: const Value(false),
+          createdAt: Value(start),
+          updatedAt: Value(start),
+        ),
+      );
+      return id;
+    }
+
     Future<String> insertManualTrip() async {
       final id = const Uuid().v4();
       final start = DateTime.utc(2026, 1, 1, 8);
@@ -276,6 +301,19 @@ void main() {
         // Manual layout never instantiates FlutterMap.
         expect(find.byType(FlutterMap), findsNothing);
         // Manual trips have no stuck data so TrafficInsightCard is not shown.
+        expect(find.byType(TrafficInsightCard), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'a 0/0 GPS trip shows the no-traffic-data notice instead of StuckBar '
+      'or TrafficInsightCard (Quick 260801-oux)',
+      (tester) async {
+        final id = await insertZeroTrafficGpsTrip();
+        await tester.pumpWidget(buildScreen(id));
+        await tester.pumpAndSettle();
+        expect(find.text(kNoTrafficDataLabel), findsOneWidget);
+        expect(find.byType(StuckBar), findsNothing);
         expect(find.byType(TrafficInsightCard), findsNothing);
       },
     );
