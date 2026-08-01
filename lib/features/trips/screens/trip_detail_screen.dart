@@ -13,19 +13,16 @@ import 'package:traevy/features/trips/services/trip_actions.dart'
     as trip_actions;
 import 'package:traevy/features/trips/services/trip_edit_recompute.dart';
 import 'package:traevy/features/trips/widgets/edit_trip_sheet.dart';
-import 'package:traevy/features/trips/widgets/estimated_hint.dart';
 import 'package:traevy/features/trips/widgets/traffic_insight_card.dart';
 import 'package:traevy/features/trips/widgets/trip_map_section.dart';
 import 'package:traevy/features/trips/widgets/trip_timeline.dart';
+import 'package:traevy/features/trips/widgets/trip_traffic_section.dart';
 import 'package:traevy/shared/utils/formatters.dart';
-import 'package:traevy/shared/widgets/info_sheet.dart';
 import 'package:traevy/shared/widgets/section_label.dart';
-import 'package:traevy/shared/widgets/stuck_bar.dart';
 
 const double _kHorizontalPadding = 20;
 const double _kCardBorderRadius = 16;
 const double _kHeaderIconSize = 36;
-const double _kLegendDotSize = 8;
 
 /// Trip detail screen (HIST-03) — Phase 8 Traevy restyle.
 ///
@@ -233,12 +230,12 @@ class _TripDetailBody extends StatelessWidget {
     final dateLabel = DateFormat('EEE, d MMM').format(localStart);
     final timeLabel = DateFormat('HH:mm').format(localStart);
 
-    final movingMinutes = trip.timeMovingSeconds ~/ 60;
-    final stuckMinutes = trip.timeStuckSeconds ~/ 60;
     final totalMinutes = trip.durationSeconds ~/ 60;
-
-    final movingLabel = _formatMinutes(movingMinutes);
-    final stuckLabel = _formatMinutes(stuckMinutes);
+    // TrafficInsightCard's copy is "You lost N minutes stuck in traffic" —
+    // it stays whole-minute and gated on > 0 so it never prints "0 minutes"
+    // for a sub-minute stuck value. TripTrafficSection (below) is the
+    // seconds-precision surface; this card is intentionally out of scope.
+    final insightStuckMinutes = trip.timeStuckSeconds ~/ 60;
 
     final latLngPoints = decodedToLatLng(trip.routePolyline ?? '');
     final isGps = !trip.isManualEntry;
@@ -344,52 +341,16 @@ class _TripDetailBody extends StatelessWidget {
 
                 if (isGps) ...<Widget>[
                   const SizedBox(height: 12),
-                  // StuckBar
-                  StuckBar(
+                  TripTrafficSection(
                     movingSeconds: trip.timeMovingSeconds,
                     stuckSeconds: trip.timeStuckSeconds,
-                  ),
-                  const SizedBox(height: 8),
-                  // Moving / stuck legend row
-                  Row(
-                    children: <Widget>[
-                      _LegendDot(color: tokens.moving),
-                      const SizedBox(width: 6),
-                      Text(
-                        '$movingLabel moving',
-                        style: TraevyFonts.mono(
-                          size: 12,
-                          color: tokens.moving,
-                        ),
-                      ),
-                      const Spacer(),
-                      _LegendDot(color: tokens.stuck),
-                      const SizedBox(width: 6),
-                      Text(
-                        '$stuckLabel stuck',
-                        style: TraevyFonts.mono(
-                          size: 12,
-                          color: tokens.stuck,
-                        ),
-                      ),
-                      // D-08: an honest explanation of how "stuck" is
-                      // measured, including the fact that the map highlights
-                      // only the longer stretches.
-                      const InfoIconButton(
-                        title: kStuckInfoTitle,
-                        body: kStuckInfoBody,
-                      ),
-                      if (trip.isEdited) ...<Widget>[
-                        const SizedBox(width: 8),
-                        const EstimatedHint(size: 12),
-                      ],
-                    ],
+                    isEdited: trip.isEdited,
                   ),
 
-                  if (stuckMinutes > 0) ...<Widget>[
+                  if (insightStuckMinutes > 0) ...<Widget>[
                     const SizedBox(height: 20),
                     TrafficInsightCard(
-                      stuckMinutes: stuckMinutes,
+                      stuckMinutes: insightStuckMinutes,
                       totalMinutes: totalMinutes,
                     ),
                   ],
@@ -439,13 +400,6 @@ class _TripDetailBody extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  String _formatMinutes(int minutes) {
-    if (minutes < 60) return '${minutes}m';
-    final h = minutes ~/ 60;
-    final m = minutes % 60;
-    return m == 0 ? '${h}h' : '${h}h ${m}m';
   }
 }
 
@@ -551,21 +505,6 @@ class _StatColumn extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-/// Small colored circle used in the moving/stuck legend row.
-class _LegendDot extends StatelessWidget {
-  const _LegendDot({required this.color});
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: _kLegendDotSize,
-      height: _kLegendDotSize,
-      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
     );
   }
 }

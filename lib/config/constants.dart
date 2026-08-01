@@ -2110,10 +2110,10 @@ const String kNoTrafficDataInfoTitle = 'Why is there no traffic data?';
 /// the split back, because there is nothing to rescale — Traevy never
 /// invents numbers it did not measure (the honest statement of D-02).
 const String kNoTrafficDataInfoBody =
-    'Traevy works out how much of this trip was spent moving versus stuck in '
-    'traffic from your speed while it was recording. On this trip, the gaps '
-    'between location updates were too long to tell the two apart — usually '
-    'caused by a weak signal or an interrupted recording.\n\n'
+    'Traevy works out moving versus stuck time from your speed while '
+    'recording. On this trip, the gaps between location updates were too '
+    'long to tell the two apart — usually a weak signal or an interrupted '
+    'recording.\n\n'
     "This trip's duration and route are still correct.\n\n"
-    'Editing this trip will not bring the split back, because there is '
-    'nothing to rescale — Traevy will not invent numbers it did not measure.';
+    'Editing this trip will not bring the split back — there is nothing to '
+    'rescale. Traevy will not invent numbers it did not measure.';
