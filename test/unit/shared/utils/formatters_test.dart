@@ -18,6 +18,7 @@
 //   - formatStuck:    compact stuck/moving display ("4m", "1h2m")
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:traevy/config/constants.dart';
 import 'package:traevy/shared/utils/formatters.dart';
 
 void main() {
@@ -119,5 +120,68 @@ void main() {
         expect(formatStuck(60), '1m');
       });
     });
+  });
+
+  group('formatTrafficDuration', () {
+    // Quick 260801-oux: the trip detail legend / history row formatter for
+    // FINALIZED moving/stuck figures. Distinct from formatStuck (compact,
+    // live-tracking surfaces, pinned to '0m' under a minute) — this one
+    // surfaces sub-minute values honestly instead of flooring them away.
+
+    test('formatTrafficDuration(0) == "0m"', () {
+      // Zero seconds — no traffic figure to show, matches formatStuck(0).
+      expect(formatTrafficDuration(0), '0m');
+    });
+
+    test('formatTrafficDuration(1) == kSubMinuteDurationLabel', () {
+      // The smallest non-zero value must still be visibly distinct from 0.
+      expect(formatTrafficDuration(1), kSubMinuteDurationLabel);
+    });
+
+    test('formatTrafficDuration(59) == kSubMinuteDurationLabel', () {
+      // Last value before the 1-minute boundary — still sub-minute.
+      expect(formatTrafficDuration(59), kSubMinuteDurationLabel);
+    });
+
+    test('formatTrafficDuration(60) == "1m"', () {
+      // Exactly 1 minute — first value that renders as a whole minute.
+      expect(formatTrafficDuration(60), '1m');
+    });
+
+    test('formatTrafficDuration(3599) == "59m"', () {
+      // Last value before the 1-hour boundary.
+      expect(formatTrafficDuration(3599), '59m');
+    });
+
+    test('formatTrafficDuration(3600) == "1h"', () {
+      // Exactly 1 hour — no minutes remainder, so omit the minutes part.
+      expect(formatTrafficDuration(3600), '1h');
+    });
+
+    test('formatTrafficDuration(3660) == "1h 1m"', () {
+      // 1 hour 1 minute — space-separated, matching the legend it replaces.
+      expect(formatTrafficDuration(3660), '1h 1m');
+    });
+
+    test(
+      'regression guard: formatTrafficDuration(30) != formatTrafficDuration(0)',
+      () {
+        // This is the reported bug: a real, edited-down stuck value must not
+        // collapse to the same label as "nothing changed".
+        expect(
+          formatTrafficDuration(30),
+          isNot(equals(formatTrafficDuration(0))),
+        );
+      },
+    );
+
+    test(
+      'distinctness guard: formatTrafficDuration(59) != formatStuck(59)',
+      () {
+        // formatStuck stays pinned at '0m' for 59 seconds (live surfaces);
+        // formatTrafficDuration must not share that behaviour.
+        expect(formatTrafficDuration(59), isNot(equals(formatStuck(59))));
+      },
+    );
   });
 }
