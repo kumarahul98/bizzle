@@ -37,9 +37,9 @@ class WeekLossCard extends ConsumerWidget {
 
     return asyncStats.when(
       data: (stats) {
-        final stuckMins = stats.weekStuckSeconds ~/ 60;
+        final weekStuckMinutes = stats.weekStuckSeconds ~/ 60;
         final totalMins = stats.weekTotalSeconds ~/ 60;
-        final movingMins = totalMins - stuckMins;
+        final movingMins = totalMins - weekStuckMinutes;
 
         return Card(
           shape: RoundedRectangleBorder(
@@ -82,7 +82,7 @@ class WeekLossCard extends ConsumerWidget {
                   style: textTheme.bodyMedium?.copyWith(color: tokens.textDim),
                 ),
                 Text(
-                  _formatStuckHm(stuckMins),
+                  _formatStuckHm(weekStuckMinutes),
                   style: TraevyFonts.mono(
                     size: 38,
                     weight: FontWeight.w500,
@@ -96,8 +96,9 @@ class WeekLossCard extends ConsumerWidget {
                 ),
                 const SizedBox(height: 14),
                 StuckBar(
-                  movingMinutes: movingMins,
-                  stuckMinutes: stuckMins,
+                  movingSeconds:
+                      stats.weekTotalSeconds - stats.weekStuckSeconds,
+                  stuckSeconds: stats.weekStuckSeconds,
                 ),
                 const SizedBox(height: 8),
                 Row(

@@ -346,8 +346,8 @@ class _TripDetailBody extends StatelessWidget {
                   const SizedBox(height: 12),
                   // StuckBar
                   StuckBar(
-                    movingMinutes: movingMinutes,
-                    stuckMinutes: stuckMinutes,
+                    movingSeconds: trip.timeMovingSeconds,
+                    stuckSeconds: trip.timeStuckSeconds,
                   ),
                   const SizedBox(height: 8),
                   // Moving / stuck legend row

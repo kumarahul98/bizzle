@@ -87,7 +87,7 @@ class TripRowCard extends StatelessWidget {
                       displayName: _name(direction),
                       durationLabel: _dur(durationSeconds),
                       timeRange: timeRange,
-                      stuckMins: stuckSeconds ~/ 60,
+                      stuckSeconds: stuckSeconds,
                       isEdited: isEdited,
                     ),
                   ),
