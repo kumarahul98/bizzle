@@ -10,11 +10,13 @@
 // way to catch the bug this phase exists to prevent — a cancel sweep that
 // is narrower than the schedule range, stranding weekend alarms forever.
 
+import 'package:drift/native.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:traevy/config/constants.dart';
+import 'package:traevy/database/database.dart';
 import 'package:traevy/notifications/notification_service.dart';
 
 /// Records every cancel and zonedSchedule call, in order.
@@ -23,6 +25,7 @@ class _RecordingPlugin implements FlutterLocalNotificationsPlugin {
   final List<int> scheduledIds = <int>[];
   final List<tz.TZDateTime> scheduledDates = <tz.TZDateTime>[];
   final List<DateTimeComponents?> matchComponents = <DateTimeComponents?>[];
+  final List<AndroidScheduleMode> scheduleModes = <AndroidScheduleMode>[];
 
   /// True once at least one schedule call has happened; used to prove the
   /// cancel sweep runs BEFORE any scheduling.
@@ -48,6 +51,7 @@ class _RecordingPlugin implements FlutterLocalNotificationsPlugin {
     scheduledIds.add(id);
     scheduledDates.add(scheduledDate);
     matchComponents.add(matchDateTimeComponents);
+    scheduleModes.add(androidScheduleMode);
   }
 
   @override
@@ -165,5 +169,90 @@ void main() {
       expect(plugin.cancelledIds, equals(<int>[20, 21, 22, 23, 24, 25, 26]));
       expect(plugin.cancelledIds.length, kReminderNotificationSlotCount);
     });
+
+    test(
+      'every scheduled reminder alarm uses inexactAllowWhileIdle, never '
+      'exactAllowWhileIdle',
+      () async {
+        await service.scheduleReminder(
+          hhMm: '07:00',
+          days: <int>{1, 2, 3, 4, 5},
+        );
+
+        expect(
+          plugin.scheduleModes,
+          isNotEmpty,
+          reason:
+              'this selection must produce 5 alarms — an empty list would '
+              'make everyElement() below pass vacuously',
+        );
+        expect(
+          plugin.scheduleModes,
+          everyElement(AndroidScheduleMode.inexactAllowWhileIdle),
+          reason:
+              'restoring exactAllowWhileIdle reintroduces the need for '
+              'USE_EXACT_ALARM, which Google Play restricts to calendar '
+              'and alarm-clock apps — this test is the only thing that '
+              'would surface that regression before a Play submission '
+              'fails',
+        );
+        expect(
+          plugin.scheduleModes,
+          isNot(contains(AndroidScheduleMode.exactAllowWhileIdle)),
+          reason:
+              'negative control: exactAllowWhileIdle must never appear '
+              'among the recorded modes',
+        );
+      },
+    );
+  });
+
+  group('scheduleWeeklySummary (quick-260802-x1q)', () {
+    late _RecordingPlugin plugin;
+    late NotificationService service;
+    late AppDatabase db;
+
+    setUp(() {
+      plugin = _RecordingPlugin();
+      service = NotificationService(plugin: plugin);
+      db = AppDatabase(NativeDatabase.memory());
+    });
+
+    tearDown(() async {
+      await db.close();
+    });
+
+    test(
+      'schedules the weekly summary alarm on inexactAllowWhileIdle, never '
+      'exactAllowWhileIdle',
+      () async {
+        await service.scheduleWeeklySummary(db);
+
+        expect(
+          plugin.scheduledIds,
+          equals(<int>[kWeeklySummaryNotificationId]),
+          reason: 'exactly one weekly-summary alarm must be scheduled',
+        );
+        expect(
+          plugin.scheduleModes,
+          equals(<AndroidScheduleMode>[
+            AndroidScheduleMode.inexactAllowWhileIdle,
+          ]),
+          reason:
+              'restoring exactAllowWhileIdle reintroduces the need for '
+              'USE_EXACT_ALARM, which Google Play restricts to calendar '
+              'and alarm-clock apps — this test is the only thing that '
+              'would surface that regression before a Play submission '
+              'fails',
+        );
+        expect(
+          plugin.scheduleModes,
+          isNot(contains(AndroidScheduleMode.exactAllowWhileIdle)),
+          reason:
+              'negative control: exactAllowWhileIdle must never appear '
+              'among the recorded modes',
+        );
+      },
+    );
   });
 }

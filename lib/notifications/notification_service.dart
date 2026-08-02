@@ -87,6 +87,15 @@ class NotificationService {
   /// Cancels any existing alarm before rescheduling (Pitfall 3 mitigation).
   /// Builds the notification body by querying the DAO for current week totals.
   ///
+  /// Delivery is approximate, not exact — Android batches inexact alarms
+  /// with other pending work, so actual drift is typically a few minutes.
+  /// This is deliberate: the exact-alarm permission is restricted by Google
+  /// Play to apps whose core functionality is "calendar" or "alarm clock",
+  /// and a commute tracker does not qualify, so exact scheduling is not
+  /// available to this app. Doze wake-up is retained
+  /// (`inexactAllowWhileIdle`, not `inexact`), so this still fires on a
+  /// sleeping device.
+  ///
   /// See D-05, D-06 in `.planning/phases/07-polish-notifications/07-CONTEXT.md`.
   Future<void> scheduleWeeklySummary(AppDatabase db) async {
     await cancelWeeklySummary();
@@ -108,7 +117,7 @@ class NotificationService {
           presentBadge: false,
         ),
       ),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
     );
   }
@@ -141,6 +150,14 @@ class NotificationService {
   ///
   /// An empty [days] therefore cancels everything and schedules nothing —
   /// a valid state meaning "no reminders" (D-02).
+  ///
+  /// Delivery is approximate, not exact — Android batches inexact alarms
+  /// with other pending work, so actual drift from the chosen time is
+  /// typically a few minutes. This is deliberate: the exact-alarm
+  /// permission is restricted by Google Play to apps whose core
+  /// functionality is "calendar" or "alarm clock", and a commute tracker
+  /// does not qualify. Doze wake-up is retained (`inexactAllowWhileIdle`,
+  /// not `inexact`), so this still fires on a sleeping device.
   ///
   /// See D-12 in `.planning/phases/07-polish-notifications/07-CONTEXT.md`
   /// for the original design this replaces.
@@ -179,7 +196,7 @@ class NotificationService {
         body: kReminderNotificationBody,
         scheduledDate: _nextWeekday(weekday, hour, minute),
         notificationDetails: _reminderDetails(),
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
         matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
       );
     }
