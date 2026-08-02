@@ -9,29 +9,41 @@ import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/providers.dart';
 import 'package:traevy/features/settings/widgets/location_picker_confirm_bar.dart';
 import 'package:traevy/features/settings/widgets/location_picker_crosshair.dart';
+import 'package:traevy/features/tracking/providers/tracking_providers.dart';
+import 'package:traevy/features/tracking/services/tracking_permission_service.dart';
 import 'package:traevy/features/trips/providers/geofence_backfill_provider.dart';
 import 'package:traevy/shared/utils/formatters.dart';
 import 'package:traevy/sync/preferences_sync_service.dart';
 
-/// Resolves the device's current location for the picker, or null if it is
-/// unavailable (permission not already granted, services off, or timeout).
+/// Resolves the device's current position for the picker, or null if it is
+/// unavailable (services off or a timeout).
 ///
 /// Injection seam so widget tests can drive the Locate-me control and the
-/// D-13 init fallback without touching the geolocator platform channel.
-/// Production default ([_defaultCurrentLocation]) checks permission WITHOUT
-/// prompting (D-13: do not aggressively prompt) and only then reads a fix.
+/// initial-centre resolution without touching the geolocator platform
+/// channel. Production default ([_defaultCurrentLocation]) reads a fix
+/// ASSUMING the caller has already resolved permission — permission is
+/// handled separately by [TrackingPermissionService] and is NOT this seam's
+/// job.
 typedef CurrentLocationResolver = Future<LatLng?> Function();
 
-/// Full-screen map picker for a Home or Office anchor (LOC-01, D-12, D-13).
+/// Full-screen map picker for a Home or Office anchor (LOC-01, D-12).
 ///
 /// A fixed centre crosshair sits over a pannable flutter_map; the map slides
 /// under the pin. The bottom confirm button reads `mapController.camera.center`
 /// ONLY on tap (read-on-confirm — never mid-pan), persists via the matching
 /// prefs setter, and pops with a confirmation SnackBar.
 ///
-/// Initial camera (D-13): saved coord for this slot ?? device location (if
-/// permission already granted) ?? most recent GPS trip's end point ?? a sane
-/// non-(0,0) default constant.
+/// Initial camera (quick 260802-dgp, D-1): the picker REQUESTS
+/// `locationWhenInUse` on open when the slot has no saved coord, because
+/// landing a location picker on a hardcoded default city is worse than one
+/// prompt at the moment the user has clearly asked to pick a location. This
+/// supersedes the earlier D-13 "never prompt from the picker" rule for this
+/// screen. Background location and notifications are deliberately NOT
+/// requested (D-2). Initial camera chain: saved coord for this slot ??
+/// device location (after the when-in-use request resolves granted) ??
+/// most recent GPS trip's end point ?? a sane non-(0,0) default constant.
+/// Declining the request is a legitimate answer and falls through that
+/// chain silently (D-3).
 ///
 /// PII note (T-21-02-01): the chosen coordinate is written to local Drift only
 /// and is NEVER logged.
@@ -81,7 +93,16 @@ class _LocationPickerScreenState extends ConsumerState<LocationPickerScreen> {
     if (savedLat != null && savedLng != null) {
       center = LatLng(savedLat, savedLng);
     } else {
-      center = await _resolveLocation();
+      // D-1: the user opened a location picker — asking for location here is
+      // expected, not aggressive. D-2: when-in-use only.
+      final status = await ref
+          .read(trackingPermissionServiceProvider)
+          .requestWhenInUse();
+      if (status == LocationWhenInUseStatus.granted) {
+        center = await _resolveLocation();
+      }
+      // D-3: a declined prompt is a legitimate answer — fall through the
+      // remaining chain with no error UI.
       center ??= await _mostRecentTripEnd();
     }
     center ??= const LatLng(kMapDefaultCenterLat, kMapDefaultCenterLng);
@@ -99,10 +120,43 @@ class _LocationPickerScreenState extends ConsumerState<LocationPickerScreen> {
     return points.isEmpty ? null : points.last;
   }
 
+  /// D-4: "Locate me" must never be a silent no-op. Every branch either
+  /// moves the map or shows a SnackBar explaining why it can't.
   Future<void> _locateMe() async {
+    final service = ref.read(trackingPermissionServiceProvider);
+    final status = await service.requestWhenInUse();
+    if (!mounted) return;
+    switch (status) {
+      case LocationWhenInUseStatus.denied:
+        _showSnack(kLocationPickerPermissionDeniedMessage);
+        return;
+      case LocationWhenInUseStatus.permanentlyDenied:
+        _showSnack(
+          kLocationPickerPermissionBlockedMessage,
+          action: SnackBarAction(
+            label: kOpenPermissionSettingsLabel,
+            onPressed: () => unawaited(service.openSystemSettings()),
+          ),
+        );
+        return;
+      case LocationWhenInUseStatus.granted:
+        break;
+    }
     final fix = await _resolveLocation();
-    if (fix == null || !mounted) return;
+    if (!mounted) return;
+    if (fix == null) {
+      // Granted but no fix: services off or timeout. Previously this path
+      // returned silently, so the FAB looked broken.
+      _showSnack(kLocationPickerLocationUnavailableMessage);
+      return;
+    }
     _mapController.move(fix, kLocationPickerInitialZoom);
+  }
+
+  void _showSnack(String message, {SnackBarAction? action}) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message), action: action));
   }
 
   Future<void> _confirm() async {
@@ -167,20 +221,16 @@ class _LocationPickerScreenState extends ConsumerState<LocationPickerScreen> {
     );
   }
 
-  /// Production location resolver: read a fix only when permission is ALREADY
-  /// granted (D-13 — never prompt from the picker). PII-adjacent — never log
-  /// the returned coordinate.
+  /// Production position resolver: reads a fix assuming the caller has
+  /// already resolved permission (permission is the caller's concern, not
+  /// this seam's — see [CurrentLocationResolver]). Returns null when
+  /// location services are off or the read times out. PII-adjacent — the
+  /// returned coordinate is never logged.
   static Future<LatLng?> _defaultCurrentLocation() async {
-    final permission = await Geolocator.checkPermission();
-    final granted =
-        permission == LocationPermission.always ||
-        permission == LocationPermission.whileInUse;
-    if (!granted) return null;
     try {
       final position = await Geolocator.getCurrentPosition();
       return LatLng(position.latitude, position.longitude);
     } on Exception {
-      // Services off / timeout — fall back to the next D-13 source silently.
       return null;
     }
   }
