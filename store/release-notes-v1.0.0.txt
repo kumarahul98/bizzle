@@ -1,0 +1,5 @@
+First release of Traevy.
+
+Track your commute with one tap and see how much of it you actually lose to traffic. Traevy records your route, distance and duration, then splits your time into moving versus stuck — and builds that into weekly trends so you can tell whether your commute is genuinely getting worse.
+
+Works fully offline. Signing in is optional and only used to back up your trips.
