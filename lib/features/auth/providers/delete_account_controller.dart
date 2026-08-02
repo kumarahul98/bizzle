@@ -22,8 +22,9 @@ class DeleteAccountInProgress extends DeleteAccountState {
   const DeleteAccountInProgress();
 }
 
-/// The account was deleted: server account + data gone, local trips + sync
-/// queue wiped, and the device signed out.
+/// The account was deleted: server account + data gone, local trips, sync
+/// queue, and local preferences (including saved Home/Office coordinates)
+/// wiped, and the device signed out.
 class DeleteAccountSuccess extends DeleteAccountState {
   const DeleteAccountSuccess();
 }

@@ -33,6 +33,8 @@
 //   - Pitfall 7 (ordering: await backfill before navigate)
 //   - Security Domain (never log idToken)
 
+import 'package:drift/drift.dart' hide isNotNull, isNull;
+import 'package:drift/native.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -41,6 +43,7 @@ import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/daos/sync_queue_dao.dart';
 import 'package:traevy/database/daos/trips_dao.dart';
 import 'package:traevy/database/daos/user_preferences_dao.dart';
+import 'package:traevy/database/database.dart';
 // The following import compiled once Plan 09-03 created AuthService — kept
 // alphabetical here now that the file is long past its original RED state.
 import 'package:traevy/features/auth/services/auth_service.dart';
@@ -314,13 +317,14 @@ void main() {
   group('AuthService.deleteAccount()', () {
     test(
       'happy path calls apiClient.deleteAccount -> tripsDao.deleteAllTrips -> '
-      'syncQueueDao.clearAll -> signOut IN THAT ORDER, never touches prefsDao',
+      'syncQueueDao.clearAll -> prefsDao.deleteAllPreferences -> signOut '
+      'IN THAT ORDER',
       () async {
         final order = _CallOrder();
         final service = AuthService(
           secureStorage: _OrderedFakeSecureStorage(order),
           tripsDao: _OrderedFakeTripsDao(order),
-          prefsDao: _FakeUserPreferencesDao(),
+          prefsDao: _OrderedFakeUserPreferencesDao(order),
           syncQueueDao: _OrderedFakeSyncQueueDao(order),
           firebaseAuth: _OrderedFakeFirebaseAuth(order),
           googleSignIn: _OrderedFakeGoogleSignIn(order),
@@ -333,6 +337,7 @@ void main() {
           'apiClient.deleteAccount',
           'tripsDao.deleteAllTrips',
           'syncQueueDao.clearAll',
+          'prefsDao.deleteAllPreferences',
           'firebaseAuth.signOut',
           'googleSignIn.signOut',
           'secureStorage.delete',
@@ -348,7 +353,10 @@ void main() {
         final service = AuthService(
           secureStorage: _OrderedFakeSecureStorage(order),
           tripsDao: _OrderedFakeTripsDao(order),
-          prefsDao: _FakeUserPreferencesDao(),
+          // Ordered fake wired in here too: this test now additionally
+          // proves the prefs wipe does not run on server failure, not just
+          // the trips/sync-queue wipes.
+          prefsDao: _OrderedFakeUserPreferencesDao(order),
           syncQueueDao: _OrderedFakeSyncQueueDao(order),
           firebaseAuth: _OrderedFakeFirebaseAuth(order),
           googleSignIn: _OrderedFakeGoogleSignIn(order),
@@ -361,6 +369,50 @@ void main() {
         );
 
         expect(order.calls, ['apiClient.deleteAccount']);
+      },
+    );
+
+    test(
+      'CROSS-ACCOUNT LEAK REPRO: against a real in-memory AppDatabase seeded '
+      'with Home/Office coordinates, deleteAccount() leaves them unreadable',
+      () async {
+        final db = AppDatabase(
+          DatabaseConnection(
+            NativeDatabase.memory(),
+            closeStreamsSynchronously: true,
+          ),
+        );
+        addTearDown(db.close);
+
+        await db.userPreferencesDao.setHomeLocation(12.9716, 77.5946);
+        await db.userPreferencesDao.setOfficeLocation(12.9352, 77.6245);
+
+        // Sanity-assert the seed took BEFORE deleting, so a broken seed
+        // cannot produce a false pass.
+        final seeded = await db.userPreferencesDao.getOrDefault();
+        expect(seeded.homeLat, isNotNull);
+        expect(seeded.homeLng, isNotNull);
+        expect(seeded.officeLat, isNotNull);
+        expect(seeded.officeLng, isNotNull);
+
+        final order = _CallOrder();
+        final service = AuthService(
+          secureStorage: _OrderedFakeSecureStorage(order),
+          tripsDao: db.tripsDao,
+          prefsDao: db.userPreferencesDao,
+          syncQueueDao: db.syncQueueDao,
+          firebaseAuth: _OrderedFakeFirebaseAuth(order),
+          googleSignIn: _OrderedFakeGoogleSignIn(order),
+          apiClient: _OrderedFakeApiClient(order),
+        );
+
+        await service.deleteAccount();
+
+        final after = await db.userPreferencesDao.getOrDefault();
+        expect(after.homeLat, isNull);
+        expect(after.homeLng, isNull);
+        expect(after.officeLat, isNull);
+        expect(after.officeLng, isNull);
       },
     );
   });
@@ -416,6 +468,21 @@ class _OrderedFakeSyncQueueDao implements SyncQueueDao {
   Future<int> clearAll() async {
     order.calls.add('syncQueueDao.clearAll');
     return 0;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _OrderedFakeUserPreferencesDao implements UserPreferencesDao {
+  _OrderedFakeUserPreferencesDao(this.order);
+
+  final _CallOrder order;
+
+  @override
+  Future<int> deleteAllPreferences() async {
+    order.calls.add('prefsDao.deleteAllPreferences');
+    return 1;
   }
 
   @override

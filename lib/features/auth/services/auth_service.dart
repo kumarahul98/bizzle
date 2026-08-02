@@ -204,17 +204,36 @@ class AuthService {
   /// PROPAGATES the error and performs NO local wipe and NO sign-out — the
   /// account still exists server-side, so wiping local data (or signing out)
   /// first would strand the user with an undeleted account and no local
-  /// record of it. Only once the server confirms deletion do local trips +
-  /// the sync queue get wiped, followed by [signOut].
+  /// record of it. Only once the server confirms deletion do local trips,
+  /// the sync queue, and local preferences get wiped, followed by [signOut].
   ///
   /// Unlike the controller layer (`DeleteAccountController`), this method
   /// does NOT catch its own errors — it propagates on API failure, exactly
-  /// like [signIn]. Does NOT touch `user_preferences` — device-local
-  /// (theme/reminders), matching [signOut]'s existing scope.
+  /// like [signIn].
+  ///
+  /// Local preferences ARE wiped here too, including the saved Home/Office
+  /// coordinates — this used to be a gap. Without wiping them, signing in
+  /// with a different Google account on the same device inherited the
+  /// previous user's precise home and work locations: they showed in
+  /// Settings, drove geofence direction labelling for the new user's trips,
+  /// and were pushed up to the NEW account by `PreferencesSyncService`. A
+  /// cross-account PII leak on the exact flow that exists to satisfy Play's
+  /// account-deletion requirement. The whole `user_preferences` row is
+  /// cleared, not just the coordinate columns (D-1) — see
+  /// `UserPreferencesDao.deleteAllPreferences` for why.
+  ///
+  /// This differs from [signOut], which deliberately keeps all local data:
+  /// sign-out is reversible, account deletion is not.
+  ///
+  /// The prefs wipe sits before [signOut] on purpose, mirroring the trips +
+  /// sync-queue wipes: if it throws, the user stays signed in (a visible
+  /// failure) rather than being silently signed out with the coordinates
+  /// still on disk.
   Future<void> deleteAccount() async {
     await _apiClient.deleteAccount();
     await _tripsDao.deleteAllTrips();
     await _syncQueueDao.clearAll();
+    await _prefsDao.deleteAllPreferences();
     await signOut();
   }
 }
