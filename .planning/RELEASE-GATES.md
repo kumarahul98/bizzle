@@ -8,11 +8,28 @@ Check this file before building a release AAB/APK for the Play Store.
 
 ---
 
-## 🔴 BLOCKING — Play Data Safety declaration (Phase 29, LOC-03)
+## 🟢 RESOLVED 2026-08-03 — Play Data Safety declaration (Phase 29, LOC-03)
 
-**Status: NOT DONE as of 2026-08-02.** The declaration content below is now
-fully specified — this is no longer a research problem, only a submission
-task — but it has not been submitted in the Play Console.
+**Status: SUBMITTED.** The App content section — including the Data Safety
+declaration, the content rating questionnaire, target audience, and the
+foreground-service-permissions declaration — was completed in the Play Console
+on 2026-08-03.
+
+The declaration content is preserved below as the record of WHAT was declared.
+If the app's data handling changes, this is the sheet to diff against: any new
+data type, purpose, or third-party SDK means the declaration must be resubmitted
+before that build ships.
+
+Note the two declarations that were REMOVED rather than answered, because the
+app stopped needing the permissions behind them (both 2026-08-02):
+`ACCESS_BACKGROUND_LOCATION` (quick-260802-itr — background GPS now relies on
+the location-typed foreground service) and `USE_EXACT_ALARM` (quick-260802-x1q
+— reminders moved to `inexactAllowWhileIdle`; the app is a commute tracker, not
+an alarm clock or calendar, so it was never eligible). Neither may return
+without re-opening a Play declaration; both are covered by regression tests in
+`test/unit/android_manifest_permissions_test.dart`.
+
+### What was declared (recorded 2026-08-02, submitted 2026-08-03)
 
 `main` now contains code that uploads the user's saved Home and Office
 coordinates to Firestore (`PreferencesSyncService`, merged from
