@@ -182,6 +182,40 @@ None of these are policy problems, but each is a real user-facing risk that no
 test in this repo can catch. Full table with reasons lives under **Phase 23** in
 `ROADMAP.md`.
 
+### ⚠️ UAT-BG-01 — background recording survives leaving the app (HIGHEST PRIORITY)
+
+**Status: OPEN. Scheduled 2026-08-03 (next device session).**
+
+This is the single most important unverified item in the project. Quick task
+260802-itr removed `ACCESS_BACKGROUND_LOCATION`, so background GPS now depends
+**entirely** on the location-typed foreground service (`foregroundServiceType=
+"location"` + `FOREGROUND_SERVICE_LOCATION`). If that does not hold on a real
+device, the app's core feature is broken.
+
+**It fails SILENTLY** — truncated route, frozen timer, no crash, no error
+dialog, nothing in CI. `flutter test` being green proves nothing here. Only
+this check can catch it.
+
+Steps (run OUTDOORS, on the `1.0.0+5` release build, not debug):
+
+1. Tap **Start**, grant the location + notification prompts.
+2. Move at least **200 m** — under `kMinTripDistanceMeters` (100 m) the trip is
+   DISCARDED on Stop and never reaches history, so a stationary run is a false
+   negative, not a failure.
+3. Press Home. Use a different app for **3+ minutes** while still moving.
+4. Confirm the persistent tracking notification stays visible in the status bar
+   the whole time.
+5. Return to Traevy. **PASS = the timer and the distance both advanced during
+   the gap, with no stall.** FAIL = either froze, or the route has a gap.
+6. Tap **Stop**. Confirm the trip saved with a route on the map and a
+   moving/stuck split.
+
+If step 5 fails, STOP — do not promote the release. The fix is to restore
+`ACCESS_BACKGROUND_LOCATION` and file the Play background-location declaration
+(with its mandatory demo video), which is exactly what removing it avoided.
+
+Steps 1-5 are the same beats as the Play demo video, so one session covers both.
+
 - **Edge-to-edge rendering** (targetSdk 35). Android 15 forces edge-to-edge; the
   bottom nav, the `flutter_map` screens, and bottom sheets have never been seen
   on a device under it.
