@@ -4,8 +4,8 @@ milestone: v0.3
 milestone_name: App Improvements
 status: executing
 stopped_at: Phase 37 (ship) started 2026-07-25 — 37-01 release signingConfig is CODE COMPLETE (`54be9dc`): release builds now sign with the upload key from gitignored android/key.properties, fail-loud if absent, minify off. 37-02 is entirely human-gated (keystore, signed AAB, Play Console first-publish, Data Safety declaration, internal-testing release, post-upload device UAT) — I cannot run it. Release still blocked on the Play Data Safety declaration + the human ops in 37-02. Earlier: device UAT batched into Phase 36; Phase 23 CLOSED EARLY (48/60 passed); UAT 2026-07-21 48/60 PASSED, 3 open (N05, N08+N15), 8 deferred, 1 N-A.
-last_updated: "2026-07-25T00:00:00.000Z"
-last_activity: 2026-07-25
+last_updated: "2026-08-02T00:00:00.000Z"
+last_activity: 2026-08-02
 progress:
   total_phases: 18
   completed_phases: 13
@@ -31,14 +31,54 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-06)
 
 **Core value:** Show people the reality of their commute -- time wasted in traffic and how it changes over time.
-**Current focus:** Phase 29 waves are built; two human gates (backend deploy, Play Data Safety) stand between it and release
+**Current focus:** Release prep for Play Store submission. Code is done — Phase 37 (ship) and Phase 38 (account/data deletion) are both shipped to `main` and deployed to `traevy-prod`. What remains is entirely human ops: submit the Play Data Safety declaration (answer sheet now recorded in `RELEASE-GATES.md`) and, after the first AAB upload, register the Play App Signing SHA-1/SHA-256 into `traevy-prod` and rebuild with the re-downloaded `google-services.json`. See `.planning/RELEASE-GATES.md` for the full gate list.
 
 ## Current Position
 
-Phase: 29 code-complete (branch `phase-29-sync-home-office`, unmerged)
-Plan: all 3 waves done
-Status: Blocked on two human gates — see below
-Last activity: 2026-07-20
+Phase: 38 (Account & Data Deletion) shipped and deployed; Phase 37 (ship) code-complete, blocked on the human ops in 37-02 (Play Data Safety declaration submission + post-upload SHA registration — see RELEASE-GATES.md)
+Plan: Phase 29/26 waves merged; Phase 38's backend + Flutter frontend both complete
+Status: No code work blocking release — remaining gates are human ops (Play Console)
+Last activity: 2026-08-02
+
+**2026-08-02 — backend deploy + five quick tasks.** Deployed Cloud Functions to
+`traevy-prod` (`firebase deploy --only functions --project traevy-prod`).
+Deploy output confirmed runtime **Node.js 24 (2nd Gen)**, function
+`api(us-central1)`, URL `https://api-k3uvsqht3q-uc.a.run.app`. Live checks:
+`GET /health` → 200; `DELETE /trips` → 401; `DELETE /account` → 401;
+`POST /trips/sync` → 401; a bogus path → 404 (control, proving routing works
+so the 401s really mean registered + auth-gated). **Hard-delete behavior
+itself is deployed but NOT behaviorally verified** — that needs an
+authenticated token + real data, still outstanding. One non-urgent deploy
+warning: `firebase-functions` package is outdated (`npm install --save
+firebase-functions@latest` in `backend/functions`).
+
+Deletion model changed today: `DELETE /trips` ("Delete all data") went from
+SOFT to HARD delete (`e154ac7`, quick task 260802-ffu) and is now deployed —
+it erases every trip for the uid, including trips already in Trash.
+`DELETE /account` was already hard and remains so. Per-trip trash
+(`DELETE /trips/:tripId`) stays SOFT — Trash restore depends on it.
+Client-side, `AuthService.deleteAccount()` now also wipes the local
+`user_preferences` row (`4882d14`, quick task 260802-fvp), closing a
+cross-account leak where a deleted account's Home/Office coordinates survived
+on-device and would sync up to the next account signed in on that phone.
+
+Five quick tasks completed today/yesterday (260801-oux, 260801-tjx,
+260802-dgp, 260802-ffu, 260802-fvp) — see the Quick Tasks Completed table
+below for details.
+
+**Known open issue (not a blocker):** the in-app "Delete all data" action is
+labelled "all data" but only deletes trips — it retains Home/Office
+coordinates on both device and cloud. Not a compliance problem now that
+account deletion is genuinely complete (that path wipes preferences too), but
+a user-facing mislabel awaiting a decision: fix the scope, or rename the
+action.
+
+**Observation, not a known-broken test:** the backend suite
+(`cd backend/functions && npm test`, which boots the Firebase emulator) was
+seen failing 1 test in 1 of 5 consecutive runs today; the next 4 runs passed
+116/116 and the failure could not be reproduced or pinned to a specific test.
+Most likely emulator/port overlap with a preceding run rather than a real
+defect — watching it, not treating it as broken.
 
 **UAT session 2026-07-21 — first real device pass in this project's history.**
 
@@ -229,11 +269,12 @@ Recent decisions affecting current work:
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260726-m3a | Fix privacy policy retention wording to accurately reflect soft-delete behavior (no purge/TTL in backend) | 2026-07-26 | d969ec7 | [260726-m3a-fix-privacy-policy-retention-wording-to-](./quick/260726-m3a-fix-privacy-policy-retention-wording-to-/) |
-| 260726-lax | Phase 38 Flutter frontend: "Delete all data" (Settings) + "Delete account" (account sheet) — sealed controllers, DAO wipes, ApiClient methods, full unit tests. Backend endpoints (`DELETE /trips`, `/account`) built in parallel, not yet deployed. | 2026-07-26 | 2dc4504 | [260726-lax-implement-flutter-frontend-for-phase-38-](./quick/260726-lax-implement-flutter-frontend-for-phase-38-/) |
+| 260726-lax | Phase 38 Flutter frontend: "Delete all data" (Settings) + "Delete account" (account sheet) — sealed controllers, DAO wipes, ApiClient methods, full unit tests. Backend endpoints (`DELETE /trips`, `/account`) built in parallel, not yet deployed. **Update 2026-08-02: both endpoints ARE deployed now** — `DELETE /account` has been live since the traevy-prod migration; `DELETE /trips` was hard-delete-ified (260802-ffu, `e154ac7`) and deployed to traevy-prod in today's `firebase deploy --only functions` run. | 2026-07-26 | 2dc4504 | [260726-lax-implement-flutter-frontend-for-phase-38-](./quick/260726-lax-implement-flutter-frontend-for-phase-38-/) |
 | 260801-oux | Fix stuck-in-traffic display edges for individual GPS trips: render moving/stuck from seconds (`formatTrafficDuration`, `<1m` instead of a floored `0m`) across the trip detail legend, `StuckBar` flex weights and the history row, and surface a 0/0 GPS trip as an honest "no traffic data" notice. Derived rescale model and `rescaleTraffic` D-02 untouched. | 2026-08-01 | 34e9427 | [260801-oux-fix-stuck-in-traffic-display-edges-for-i](./quick/260801-oux-fix-stuck-in-traffic-display-edges-for-i/) |
 
 | 260801-tjx | Paint shorter slow stretches on the trip map (`kStuckSegmentMinSeconds` 60s → 20s) and stop a full edit wiping stuck segments — `editTrip` now deletes only segments wholly outside the new time window, keeping overlapping ones untouched. Deliberately abandons the `sum(painted) <= timeStuckSeconds` invariant for edited trips. Floor change affects newly recorded trips only. | 2026-08-01 | 452e5bc | [260801-tjx-paint-shorter-slow-stretches-on-the-trip](./quick/260801-tjx-paint-shorter-slow-stretches-on-the-trip/) |
 | 260802-dgp | Location picker requests GPS permission on open: added `TrackingPermissionService.requestWhenInUse()` (narrow, `locationWhenInUse`-only) and rewired the Home/Office picker to request it when a slot has no saved coord, falling back silently on decline. `Locate me` FAB is no longer a silent no-op — every outcome now moves the map or shows a SnackBar (denied / permanently-denied + Open settings / location-unavailable). Real-device fresh-install verification still outstanding (see summary). | 2026-08-02 | 362e682 | [260802-dgp-location-picker-requests-gps-permission-](./quick/260802-dgp-location-picker-requests-gps-permission-/) |
+| 260802-ffu | Made bulk "delete all data" hard-delete server-side: `DELETE /trips` now calls the existing `hardDeleteAllTripsForUser` helper instead of the soft-delete one, so the in-app dialog's "permanently deletes" promise is actually true — erases every trip for the uid including ones already in Trash. Removed `softDeleteAllTripsForUser` as dead code. Corrected `CLAUDE.md`'s deletion-model bullet and the landing-page privacy copy to match. Deployed to traevy-prod in today's backend deploy (not yet behaviorally verified against real data). | 2026-08-02 | e154ac7 | [260802-ffu-make-bulk-delete-all-trips-hard-delete-s](./quick/260802-ffu-make-bulk-delete-all-trips-hard-delete-s/) |
 | 260802-fvp | Closed a cross-account PII leak: `AuthService.deleteAccount()` now wipes the local `user_preferences` row too (`UserPreferencesDao.deleteAllPreferences()`, full-row delete mirroring `deleteAllTrips()`), not just trips + sync queue — previously the previous user's Home/Office coordinates survived a same-device account switch. Wipe sits before `signOut()`, no try/catch. Real-database regression test adversarially verified (fails without the fix, passes with it). Intended side effect: also resets `hasSeenOnboarding`, returning the device to onboarding. "Delete all data" flow (`delete_trips_controller.dart`) deliberately untouched. | 2026-08-02 | 4882d14 | [260802-fvp-account-deletion-must-wipe-local-user-pr](./quick/260802-fvp-account-deletion-must-wipe-local-user-pr/) |
 
 ## Deferred Items (carried from v0.1)
@@ -276,3 +317,9 @@ Separate finding, deliberately NOT fixed here (one concern per commit): the same
 [2026-06-16] Completed 24-02-PLAN.md
 [2026-06-16] Completed 25-01-PLAN.md
 [2026-07-26] Completed quick task 260726-m3a: Fix privacy policy retention wording to accurately reflect soft-delete behavior (no purge/TTL in backend)
+[2026-08-01] Completed quick task 260801-oux: Fix stuck-in-traffic display edges for individual GPS trips (commit 34e9427)
+[2026-08-01] Completed quick task 260801-tjx: Lower stuck-segment floor to 20s + stop full edit from wiping stuck segments (commit 452e5bc)
+[2026-08-02] Completed quick task 260802-dgp: Location picker requests GPS permission on open, Locate-me FAB no longer a silent no-op (commit 362e682)
+[2026-08-02] Completed quick task 260802-ffu: Made bulk "delete all data" hard-delete server-side (commit e154ac7)
+[2026-08-02] Completed quick task 260802-fvp: Account deletion wipes local user preferences, closing cross-account Home/Office coordinate leak (commit 4882d14)
+[2026-08-02] Deployed Cloud Functions to traevy-prod (`firebase deploy --only functions --project traevy-prod`). This closes the 2026-07-20 quick task's NOT DEPLOYED gap: runtime confirmed Node.js 24 (2nd Gen) in deploy output, function `api(us-central1)`, URL `https://api-k3uvsqht3q-uc.a.run.app`. Live checks: GET /health 200; DELETE /trips, DELETE /account, POST /trips/sync all 401; bogus path 404 (control). Hard-delete behavior deployed but not behaviorally verified (needs an authenticated token + real data). Deploy warning: `firebase-functions` package outdated, non-urgent — see RELEASE-GATES.md.
