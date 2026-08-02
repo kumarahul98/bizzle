@@ -121,9 +121,10 @@ submitting this URL to Play — submitting it first would fail validation.
 
 ---
 
-## 🟡 Prod Firebase project — DONE except post-upload SHA (Android)
+## 🟢 Prod Firebase project — DONE (Android); iOS deferred
 
-**Status: Android migrated 2026-07-26 (`3701dd3`). One step left + iOS deferred.**
+**Status: Android migrated 2026-07-26 (`3701dd3`), signing certs registered and
+sign-in verified 2026-07-31 (`b2dc907`). Nothing outstanding for Android.**
 
 The Android release build now targets a dedicated prod project **`traevy-prod`**
 (#506224691565), not dev `travey-298a7`:
@@ -145,11 +146,27 @@ The Android release build now targets a dedicated prod project **`traevy-prod`**
   itself — that needs an authenticated token + real data, still outstanding.
   One non-urgent deploy warning: `firebase-functions` package is outdated
   (`npm install --save firebase-functions@latest` in `backend/functions`).
-- ⏳ **Remaining (Android):** after the first AAB upload to Play, register the
-  Play **App Signing** SHA-1 **and** SHA-256 in traevy-prod's Android app, then
-  re-download `google-services.json` and rebuild — otherwise Google Sign-In
-  fails on the store build (there is currently no Android OAuth client / cert
-  hash in the prod config; only the web client exists).
+- ✅ **Play App Signing certs registered — DONE 2026-07-29 (`793a313`) and
+  2026-07-31 (`b2dc907`).** This bullet previously said registration was still
+  outstanding and claimed "no Android OAuth client / cert hash in the prod
+  config; only the web client exists". That is FALSE and was stale: reading
+  `android/app/google-services.json` shows **three** Android OAuth clients
+  (`client_type: 1`) with cert hashes, plus the web client.
+
+  The history matters, because this took two attempts and the second cause is
+  non-obvious. Play delivers an APK signed with **three** certificates — a v3.0
+  block plus v3.2 Hybrid Classical and v3.2 Hybrid PQC — and Play Console's
+  "App signing key certificate" page surfaces only ONE of them, so that is the
+  only cert a developer would know to register. `b2dc907` records the trap:
+  `VerifyCallerOperation` succeeds on every attempt because it accepts any cert
+  in the lineage, so a passing VerifyCaller is NOT evidence the cert is
+  registered — the failure lands one step later at token mint.
+
+  **No rebuild or re-upload is needed for sign-in.** The `(package, cert) →
+  OAuth client` mapping resolves server-side, so registering a cert fixes
+  already-installed builds after a force-stop. Verified on a Play-installed
+  build (version code 2, installer `com.android.vending`): sign-in succeeded
+  with zero `UNREGISTERED_ON_API_CONSOLE` in a 5,511-line logcat.
 - 🔵 **iOS deferred (v0.2 paused):** the `firebase_options.dart` iOS block and
   `ios/Runner/GoogleService-Info.plist` still point at dev `travey-298a7`.
   Re-run `flutterfire configure` for iOS when iOS resumes.
