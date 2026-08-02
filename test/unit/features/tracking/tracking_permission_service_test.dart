@@ -788,8 +788,9 @@ void main() {
       // still requested locationAlways on iOS. That variant is gone and
       // locationAlways is never touched, so When-In-Use alone now resolves
       // to fullyGranted here too, same as the fully-granted case above.
-      // TODO(v0.2-resume): re-decide iOS background-location strategy —
-      // iOS has no foreground-service equivalent to fall back on.
+      // iOS (v0.2, currently paused): the background-location strategy has
+      // to be re-decided when iOS resumes — iOS has no foreground-service
+      // equivalent to fall back on.
       'returns fullyGranted on iOS when only When-In-Use is granted (DEC-C), '
       'and never probes notification',
       () async {

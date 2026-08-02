@@ -260,8 +260,8 @@ class TrackingPermissionService {
     // Android 13+, but iOS never gates tracking on notification permission).
     // Return here without touching Permission.notification so the iOS
     // Start button is never permanently disabled by a denied notification.
-    // TODO(v0.2-resume): iOS background-location strategy must be
-    // re-decided when the iOS platform resumes (DEC-C) — iOS has no
+    // iOS (v0.2, currently paused): the background-location strategy has to
+    // be re-decided when the iOS platform resumes (DEC-C). iOS has no
     // foreground-service equivalent, so the reasoning that justifies
     // dropping locationAlways on Android does NOT transfer to iOS.
     if (defaultTargetPlatform == TargetPlatform.iOS) {
@@ -334,8 +334,8 @@ class TrackingPermissionService {
     // On iOS, returning here means notificationDenied is never reachable,
     // so the Start button cannot be permanently disabled by a notification
     // permission state (RESEARCH Pitfall 5).
-    // TODO(v0.2-resume): iOS background-location strategy must be
-    // re-decided when the iOS platform resumes (DEC-C) — iOS has no
+    // iOS (v0.2, currently paused): the background-location strategy has to
+    // be re-decided when the iOS platform resumes (DEC-C). iOS has no
     // foreground-service equivalent, so the reasoning that justifies
     // dropping locationAlways on Android does NOT transfer to iOS.
     if (defaultTargetPlatform == TargetPlatform.iOS) {
