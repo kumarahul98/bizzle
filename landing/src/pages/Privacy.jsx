@@ -9,15 +9,29 @@ import { Container } from '../components/ui.jsx'
 // privacy-policy field, so its disclosures must stay accurate to what the app
 // actually collects (precise Home/Office coordinates + commute routes, stored
 // in Firebase and linked to the signed-in Google account).
+//
+// The "Deleting your data" section carries id="delete-account" and doubles as
+// the account-deletion URL required by Google Play's User Data policy
+// (https://traevy.com/privacy#delete-account). Play requires a route to
+// request deletion that does NOT depend on reinstalling the app, which is why
+// the email fallback must stay alongside the in-app steps. Do not remove that
+// id or the email route without providing another public deletion URL first.
 
-const LAST_UPDATED = 'July 26, 2026'
+const LAST_UPDATED = 'August 2, 2026'
 const CONTACT_EMAIL = 'connect@traevy.com'
+// Days a deleted trip stays recoverable in the in-app Trash before it is
+// purged from the device. Mirrors kTrashRetentionDays in the app's
+// lib/config/constants.dart — keep the two in step.
+const TRASH_RETENTION_DAYS = 30
 
 export function Privacy() {
   const { t } = useContext(ThemeCtx)
 
-  const H = ({ children }) => (
-    <h2 style={{ fontSize: '1.375rem', fontWeight: 600, letterSpacing: '-0.02em', color: t.text, margin: '44px 0 14px' }}>
+  // `id` is set on the deletion heading so /privacy#delete-account resolves —
+  // that anchor is the URL submitted to Play. scrollMarginTop keeps the
+  // heading clear of the viewport edge when the browser jumps to it.
+  const H = ({ children, id }) => (
+    <h2 id={id} style={{ fontSize: '1.375rem', fontWeight: 600, letterSpacing: '-0.02em', color: t.text, margin: '44px 0 14px', scrollMarginTop: 24 }}>
       {children}
     </h2>
   )
@@ -84,7 +98,9 @@ export function Privacy() {
             collects precise GPS location in the background to compute your route, distance, speed,
             and the moving-versus-stuck-in-traffic breakdown. If you set Home and Office locations,
             those precise coordinates are stored so the app can automatically label a trip's
-            direction.
+            direction. When you open the Home or Office location picker, the app also reads your
+            current position once to centre the map on you; that reading is used only to position
+            the map and is never stored unless you confirm it as a saved location.
           </LI>
           <LI>
             <Strong>Trip data.</Strong> Start and end times, duration, distance, the recorded
@@ -103,9 +119,11 @@ export function Privacy() {
 
         <H>How location is used</H>
         <P>
-          Location is only collected during an active recording session that you start, and while
-          the reminder or auto-label features you have enabled require it. A persistent notification
-          is shown while a trip is recording so it is always clear when location is being captured.
+          Continuous location is only collected during an active recording session that you start,
+          and while the reminder or auto-label features you have enabled require it. The only other
+          time the app reads your position is the single reading taken when you open the Home or
+          Office location picker, described above. A persistent notification is shown while a trip
+          is recording so it is always clear when location is being captured.
           We never write raw coordinates to logs. Location is used solely to produce your commute
           stats and direction labels — it is not used for profiling, advertising, or tracking you
           across other apps or services.
@@ -132,21 +150,53 @@ export function Privacy() {
         <H>Data retention and your choices</H>
         <UL>
           <LI>
-            You can delete any trip in the app. Deleting a trip removes it from your device and
-            it is then excluded from cloud sync and restore, so it no longer appears on any
-            device. The underlying backup record is <Strong>retained on our backend</Strong>
-            rather than immediately erased; to have it and all associated cloud data permanently
-            removed, request full account deletion below.
+            You can delete any trip in the app. A deleted trip moves to Trash, where it stays
+            recoverable for {TRASH_RETENTION_DAYS} days before it is removed from your device.
+            From the moment you delete it, it is excluded from cloud sync and restore, so it no
+            longer appears on any device. The underlying backup record is
+            <Strong> retained on our backend</Strong> rather than immediately erased; to have it
+            and all associated cloud data permanently removed, delete your account as described
+            below.
           </LI>
           <LI>You can clear your Home and Office locations at any time from Settings.</LI>
           <LI>You can use the app entirely offline, without an account, so that no data leaves your device.</LI>
+        </UL>
+
+        <H id="delete-account">Deleting your data and your account</H>
+        <P>
+          You can delete your data directly in the app, without contacting us. Both options live in{' '}
+          <Strong>Settings</Strong>:
+        </P>
+        <UL>
           <LI>
-            To request deletion of your account and all associated cloud data, email us at{' '}
-            <a href={`mailto:${CONTACT_EMAIL}`} style={{ color: t.accent, fontWeight: 600, textDecoration: 'none' }}>
-              {CONTACT_EMAIL}
-            </a>.
+            <Strong>Delete all data</Strong> — removes every trip from your device and keeps your
+            account, so you can carry on with a clean slate. On our backend those trips are marked
+            deleted and excluded from sync and restore, but the records are
+            <Strong> retained</Strong> rather than erased. To erase them outright, delete your
+            account instead.
+          </LI>
+          <LI>
+            <Strong>Delete account</Strong> — signs you out and permanently erases your account
+            along with <Strong>every trip we hold for it</Strong>, including trips still sitting in
+            Trash. Because the account can never sign in again, these records are erased outright
+            rather than retained as backups. Your Home and Office coordinates and your synced
+            preferences are removed with them. This cannot be undone.
           </LI>
         </UL>
+        <P>
+          If you have already uninstalled the app, or cannot reach these options for any reason,
+          email us at{' '}
+          <a href={`mailto:${CONTACT_EMAIL}`} style={{ color: t.accent, fontWeight: 600, textDecoration: 'none' }}>
+            {CONTACT_EMAIL}
+          </a>{' '}
+          from the address associated with your Google sign-in and ask us to delete your account.
+          We will confirm the request and erase your account and all associated cloud data within
+          30 days.
+        </P>
+        <P>
+          Data held only on your device — trips you recorded while signed out, and app preferences
+          such as theme and reminder times — is removed when you uninstall the app.
+        </P>
 
         <H>Security</H>
         <P>
