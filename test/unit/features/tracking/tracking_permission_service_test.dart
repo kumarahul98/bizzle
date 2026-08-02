@@ -516,6 +516,137 @@ void main() {
     });
   });
 
+  group('TrackingPermissionService.requestWhenInUse', () {
+    test(
+      'returns granted without calling requester when already granted',
+      () async {
+        final log = _CallLog();
+        final service = TrackingPermissionService.forTesting(
+          probe: _staticProbe(<Permission, PermissionStatus>{
+            Permission.locationWhenInUse: PermissionStatus.granted,
+          }, log),
+          requester: _staticRequester(<Permission, PermissionStatus>{}, log),
+        );
+
+        final status = await service.requestWhenInUse();
+
+        expect(status, LocationWhenInUseStatus.granted);
+        expect(log.requestCalls, isEmpty);
+        expect(
+          log.probeCalls.contains(Permission.locationAlways),
+          isFalse,
+        );
+        expect(
+          log.probeCalls.contains(Permission.notification),
+          isFalse,
+        );
+      },
+    );
+
+    test('returns granted when probe denied but request grants', () async {
+      final log = _CallLog();
+      final service = TrackingPermissionService.forTesting(
+        probe: _staticProbe(<Permission, PermissionStatus>{
+          Permission.locationWhenInUse: PermissionStatus.denied,
+        }, log),
+        requester: _staticRequester(<Permission, PermissionStatus>{
+          Permission.locationWhenInUse: PermissionStatus.granted,
+        }, log),
+      );
+
+      final status = await service.requestWhenInUse();
+
+      expect(status, LocationWhenInUseStatus.granted);
+      expect(log.requestCalls, <Permission>[Permission.locationWhenInUse]);
+      expect(
+        log.requestCalls.contains(Permission.locationAlways),
+        isFalse,
+      );
+      expect(
+        log.requestCalls.contains(Permission.notification),
+        isFalse,
+      );
+    });
+
+    test('returns denied when probe denied and request also denies', () async {
+      final log = _CallLog();
+      final service = TrackingPermissionService.forTesting(
+        probe: _staticProbe(<Permission, PermissionStatus>{
+          Permission.locationWhenInUse: PermissionStatus.denied,
+        }, log),
+        requester: _staticRequester(<Permission, PermissionStatus>{
+          Permission.locationWhenInUse: PermissionStatus.denied,
+        }, log),
+      );
+
+      final status = await service.requestWhenInUse();
+
+      expect(status, LocationWhenInUseStatus.denied);
+      expect(
+        log.requestCalls.contains(Permission.locationAlways),
+        isFalse,
+      );
+      expect(
+        log.requestCalls.contains(Permission.notification),
+        isFalse,
+      );
+    });
+
+    test(
+      'returns permanentlyDenied on probe without calling requester',
+      () async {
+        final log = _CallLog();
+        final service = TrackingPermissionService.forTesting(
+          probe: _staticProbe(<Permission, PermissionStatus>{
+            Permission.locationWhenInUse: PermissionStatus.permanentlyDenied,
+          }, log),
+          requester: _staticRequester(<Permission, PermissionStatus>{}, log),
+        );
+
+        final status = await service.requestWhenInUse();
+
+        expect(status, LocationWhenInUseStatus.permanentlyDenied);
+        expect(log.requestCalls, isEmpty);
+        expect(
+          log.probeCalls.contains(Permission.locationAlways),
+          isFalse,
+        );
+        expect(
+          log.probeCalls.contains(Permission.notification),
+          isFalse,
+        );
+      },
+    );
+
+    test(
+      'returns permanentlyDenied when probe denied and request '
+      'permanently denies',
+      () async {
+        final log = _CallLog();
+        final service = TrackingPermissionService.forTesting(
+          probe: _staticProbe(<Permission, PermissionStatus>{
+            Permission.locationWhenInUse: PermissionStatus.denied,
+          }, log),
+          requester: _staticRequester(<Permission, PermissionStatus>{
+            Permission.locationWhenInUse: PermissionStatus.permanentlyDenied,
+          }, log),
+        );
+
+        final status = await service.requestWhenInUse();
+
+        expect(status, LocationWhenInUseStatus.permanentlyDenied);
+        expect(
+          log.requestCalls.contains(Permission.locationAlways),
+          isFalse,
+        );
+        expect(
+          log.requestCalls.contains(Permission.notification),
+          isFalse,
+        );
+      },
+    );
+  });
+
   // -------------------------------------------------------------------------
   // Wave 0 RED scaffolds — iOS branch (IOS-09 / IOS-10)
   //

@@ -1298,6 +1298,36 @@ const double kLocationPickerInitialZoom = 15;
 /// Size (logical pixels) of the fixed centre crosshair icon on the picker.
 const double kLocationPickerCrosshairSize = 40;
 
+// --- Location picker permission feedback (quick 260802-dgp) ---
+
+/// SnackBar copy shown by "Locate me" when `locationWhenInUse` is denied
+/// (soft — the user can be asked again). Paired with no action; the FAB
+/// itself is the retry affordance.
+///
+/// `kOpenPermissionSettingsLabel` is deliberately NOT reused as an action
+/// here — a soft denial doesn't need a settings deep-link, only a retry.
+const String kLocationPickerPermissionDeniedMessage =
+    'Location permission is needed to find you on the map.';
+
+/// SnackBar copy shown by "Locate me" when `locationWhenInUse` is
+/// permanently denied. Paired with a [kOpenPermissionSettingsLabel] action —
+/// that constant IS reused here: it is deliberately the single shared label
+/// for every "take me to the permission page" control in the app, matching
+/// the pattern in `main_shell.dart`.
+///
+/// `kPermissionsRequiredMessage` is NOT reused for this path: it reads
+/// "Traevy needs location and notification permissions to record a
+/// commute", which names a permission the picker never requests (D-2) and
+/// an activity ("record a commute") the user is not doing here.
+const String kLocationPickerPermissionBlockedMessage =
+    'Location permission is blocked. Enable it in settings to find you on '
+    'the map.';
+
+/// SnackBar copy shown by "Locate me" when permission is granted but the
+/// position read itself failed (location services off, or a timeout).
+const String kLocationPickerLocationUnavailableMessage =
+    "Couldn't get your location. Check that location services are on.";
+
 // ---------------------------------------------------------------------------
 // Phase 24 — Automatic Cloud Sync & Restore
 // ---------------------------------------------------------------------------

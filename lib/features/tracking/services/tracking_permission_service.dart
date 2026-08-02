@@ -71,6 +71,31 @@ typedef PermissionRequester =
       Permission permission,
     );
 
+/// Three-way outcome of [TrackingPermissionService.requestWhenInUse].
+///
+/// Deliberately NOT [TrackingPermissionStatus]: that enum's granted variants
+/// encode background+notification state — `fullyGranted` means
+/// `locationAlways` AND `notification` are also granted, and
+/// `foregroundOnly` / `notificationDenied` are only meaningful after the
+/// full [TrackingPermissionService.preflight] dance. A when-in-use-only
+/// caller has exactly three outcomes and must not be handed an enum whose
+/// variants it can neither produce nor honestly interpret. CLAUDE.md
+/// requires an enum (never a bool/String) for finite state, so this is a
+/// new 3-way enum rather than a nullable bool.
+enum LocationWhenInUseStatus {
+  /// `Permission.locationWhenInUse` is granted (already, or just now).
+  granted,
+
+  /// `Permission.locationWhenInUse` was denied (soft — the user can be
+  /// asked again).
+  denied,
+
+  /// `Permission.locationWhenInUse` is permanently denied ("Deny & don't
+  /// ask again" or an OS auto-lock). Only a deep-link to system settings
+  /// can recover from this state.
+  permanentlyDenied,
+}
+
 /// Opens the system settings page where this app's permissions live.
 /// Injection seam so unit tests can observe
 /// [TrackingPermissionService.openSystemSettings] without touching the
@@ -117,7 +142,10 @@ Future<bool> openAppPermissionSettings() async {
 }
 
 /// Wraps `permission_handler` for Phase 2's strict four-step tracking
-/// permission dance (D-07 / RESEARCH Pitfall 5 + UX-03 gap-closure).
+/// permission dance (D-07 / RESEARCH Pitfall 5 + UX-03 gap-closure). Since
+/// quick-260802-dgp, the class is also the app's single permission entry
+/// point for non-tracking callers that need a narrow when-in-use-only
+/// request (the location picker) — see [requestWhenInUse].
 ///
 /// Instances are stateless — safe to share via a Riverpod `Provider`.
 ///
@@ -129,6 +157,9 @@ Future<bool> openAppPermissionSettings() async {
 ///     starting the foreground service.
 ///   * [currentStatus] — classify the current state WITHOUT prompting.
 ///     Used on first build to decide whether Start is enabled.
+///   * [requestWhenInUse] — the narrow when-in-use-only request used by
+///     non-tracking callers that need to centre a map and have no business
+///     asking for background location or notifications.
 ///   * [openSystemSettings] — deep-link into the system app-settings page
 ///     for this app. Used by the [TrackingPermissionStatus.permanentlyDenied]
 ///     CTA (D-09) and by the [TrackingPermissionStatus.notificationDenied]
@@ -138,15 +169,21 @@ Future<bool> openAppPermissionSettings() async {
 ///
 ///   1. `locationAlways` is NEVER probed or requested until
 ///      `locationWhenInUse` has resolved granted (RESEARCH Pitfall 5).
+///      This invariant governs the [preflight] dance.
 ///   2. `notification` is NEVER probed or requested until the location
 ///      dance has resolved to either `fullyGranted` or `foregroundOnly`.
 ///      If fine location is denied or permanently denied, the flow
 ///      short-circuits WITHOUT touching `notification`, so the user is
 ///      never asked for notifications before they have agreed to share
-///      location.
+///      location. This invariant also governs the [preflight] dance.
+///   3. [requestWhenInUse] is NOT part of that dance; it touches
+///      `Permission.locationWhenInUse` and nothing else, so it cannot
+///      violate invariants 1 or 2, and it must never grow a background or
+///      notification step.
 ///
-/// Both invariants are enforced by [preflight] and asserted in the unit
-/// tests.
+/// Invariants 1 and 2 are enforced by [preflight] and asserted in the unit
+/// tests. Invariant 3 is enforced by [requestWhenInUse] and asserted in its
+/// own unit tests.
 class TrackingPermissionService {
   /// Production constructor — wires the real `permission_handler` APIs.
   ///
@@ -256,6 +293,30 @@ class TrackingPermissionService {
     return backgroundGranted
         ? TrackingPermissionStatus.fullyGranted
         : TrackingPermissionStatus.foregroundOnly;
+  }
+
+  /// Requests `Permission.locationWhenInUse` ONLY and returns the resolved
+  /// [LocationWhenInUseStatus].
+  ///
+  /// Probes first and only requests when not already granted; touches ONLY
+  /// `Permission.locationWhenInUse` and NEVER `locationAlways` or
+  /// `notification`. Exists for callers (the location picker) that need to
+  /// centre a map and have no business asking for background location or
+  /// notifications. Uses the same injected probe/requester seams as
+  /// [preflight], so it is unit testable with no platform channel.
+  Future<LocationWhenInUseStatus> requestWhenInUse() async {
+    final status = await _probe(Permission.locationWhenInUse);
+    if (status.isPermanentlyDenied) {
+      return LocationWhenInUseStatus.permanentlyDenied;
+    }
+    if (status.isGranted) return LocationWhenInUseStatus.granted;
+    final requested = await _request(Permission.locationWhenInUse);
+    if (requested.isPermanentlyDenied) {
+      return LocationWhenInUseStatus.permanentlyDenied;
+    }
+    return requested.isGranted
+        ? LocationWhenInUseStatus.granted
+        : LocationWhenInUseStatus.denied;
   }
 
   /// Returns the current [TrackingPermissionStatus] without prompting the
