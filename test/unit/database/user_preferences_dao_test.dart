@@ -298,5 +298,80 @@ void main() {
         expect(read.autoPauseEnabled, isTrue);
       },
     );
+
+    test(
+      'deleteAllPreferences() wipes the seeded row and returns 1 (Phase 38 '
+      'follow-up, DEL-ACCOUNT)',
+      () async {
+        const seeded = UserPreferencesValue(
+          userId: 'real-uid',
+          darkMode: 'dark',
+          morningCutoffHour: 9,
+          eveningCutoffHour: 17,
+          reminderEnabled: true,
+          reminderTime: '08:30',
+          weekendReminder: true,
+          weeklyNotificationEnabled: true,
+          autoPauseEnabled: true,
+          hasSeenOnboarding: true,
+          homeLat: 12.9716,
+          homeLng: 77.5946,
+          officeLat: 12.9352,
+          officeLng: 77.6245,
+          backfillMarkerVersion: 0,
+        );
+        await db.userPreferencesDao.upsert(seeded);
+
+        final deletedCount = await db.userPreferencesDao.deleteAllPreferences();
+
+        expect(deletedCount, 1);
+      },
+    );
+
+    test(
+      'after deleteAllPreferences(), getOrDefault() returns clean defaults '
+      'without throwing (D-04 create-on-demand contract holds)',
+      () async {
+        const seeded = UserPreferencesValue(
+          userId: 'real-uid',
+          darkMode: 'dark',
+          morningCutoffHour: 9,
+          eveningCutoffHour: 17,
+          reminderEnabled: true,
+          reminderTime: '08:30',
+          weekendReminder: true,
+          weeklyNotificationEnabled: true,
+          autoPauseEnabled: true,
+          hasSeenOnboarding: true,
+          homeLat: 12.9716,
+          homeLng: 77.5946,
+          officeLat: 12.9352,
+          officeLng: 77.6245,
+          backfillMarkerVersion: 0,
+        );
+        await db.userPreferencesDao.upsert(seeded);
+
+        await db.userPreferencesDao.deleteAllPreferences();
+
+        final after = await db.userPreferencesDao.getOrDefault();
+        expect(after.homeLat, isNull);
+        expect(after.homeLng, isNull);
+        expect(after.officeLat, isNull);
+        expect(after.officeLng, isNull);
+        expect(after.userId, kDefaultUserId);
+        expect(after.darkMode, kDarkModeSystem);
+        expect(after.hasSeenOnboarding, isFalse);
+      },
+    );
+
+    test(
+      'deleteAllPreferences() on an already-empty table returns 0 and does '
+      'not throw (idempotent)',
+      () async {
+        final deletedCount = await db.userPreferencesDao.deleteAllPreferences();
+
+        expect(deletedCount, 0);
+      },
+    );
   });
 }

@@ -402,4 +402,35 @@ class UserPreferencesDao extends DatabaseAccessor<AppDatabase>
       ),
     );
   }
+
+  /// HARD-wipe the single user-preferences row, with no `where` clause —
+  /// mirrors `TripsDao.deleteAllTrips()`. Called ONLY from
+  /// `AuthService.deleteAccount()` (Phase 38 follow-up, DEL-ACCOUNT).
+  ///
+  /// Deletes the ENTIRE row at `id = 1` — every column, not just the
+  /// PII-adjacent `home_lat`/`home_lng`/`office_lat`/`office_lng`
+  /// coordinates. Clearing only the "sensitive" columns would recreate the
+  /// exact cross-account leak this method exists to close the next time a
+  /// new column is added and the clear list is forgotten (D-1).
+  ///
+  /// Deleting the row is safe, not destructive of the DAO's contract:
+  /// [getOrDefault] and [watch] both already handle an absent row by
+  /// returning `UserPreferencesValue.defaults()` — the D-04 "create on
+  /// demand, no seed row" contract this table has always had. The next
+  /// read after this call recreates defaults; the next write recreates the
+  /// row. A fresh install has no row either, so after this wipe the device
+  /// is in the identical state.
+  ///
+  /// The reset includes `hasSeenOnboarding`, so the device returns to the
+  /// onboarding flow. That is intended: account deletion signs the device
+  /// out anyway, so there is no signed-in state left for onboarding to
+  /// skip past.
+  ///
+  /// Must NOT be called from the "Delete all data" flow
+  /// (`DeleteTripsController` / `lib/sync/delete_trips_controller.dart`),
+  /// which deliberately keeps the user's account and setup, including
+  /// Home/Office.
+  ///
+  /// Returns the number of rows removed (0 or 1).
+  Future<int> deleteAllPreferences() => delete(userPreferences).go();
 }
