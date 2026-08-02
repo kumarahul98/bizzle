@@ -169,11 +169,9 @@ export function Privacy() {
         </P>
         <UL>
           <LI>
-            <Strong>Delete all data</Strong> — removes every trip from your device and keeps your
-            account, so you can carry on with a clean slate. On our backend those trips are marked
-            deleted and excluded from sync and restore, but the records are
-            <Strong> retained</Strong> rather than erased. To erase them outright, delete your
-            account instead.
+            <Strong>Delete all data</Strong> — removes every trip from your device and also erases
+            those trips from our backend, including any trips still sitting in Trash. Your account
+            itself is kept, so you can carry on with a clean slate. This cannot be undone.
           </LI>
           <LI>
             <Strong>Delete account</Strong> — signs you out and permanently erases your account
