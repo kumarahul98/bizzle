@@ -1,13 +1,16 @@
 /**
  * Integration suite for DELETE /trips (Phase 38, BACK-05) against the live app
- * on the emulator. Asserts bulk soft-delete semantics and cross-user ownership
+ * on the emulator. Asserts bulk HARD-delete semantics and cross-user ownership
  * directly on emulator Firestore — no mocks.
  *
  * Covers: AUTH-REJECT (mirrors delete-trip.test.ts), empty-trips success (0
- * deleted is not an error), multi-trip bulk soft-delete leaving `deleted:true`
- * on every one of the caller's non-deleted trips, already-deleted trips left
- * alone (idempotent re-run), and cross-user ownership: userA's bulk delete
- * never touches userB's trips (existence-oracle-adjacent defence, D-08).
+ * deleted is not an error), multi-trip bulk hard-delete erasing every one of
+ * the caller's trip documents, mixed live+Trash trips (the case that
+ * motivated D-1: trips already sitting in Trash must ALSO be erased, not
+ * skipped), idempotent re-run (a second call finds nothing left because the
+ * documents are gone, not because they were filtered out), and cross-user
+ * ownership: userA's bulk delete never touches userB's trips
+ * (existence-oracle-adjacent defence, D-08).
  */
 import request from 'supertest';
 import { randomUUID } from 'node:crypto';
@@ -54,35 +57,51 @@ describe('DELETE /trips', () => {
     });
   });
 
-  describe('multi-trip bulk soft-delete', () => {
-    it('soft-deletes every non-deleted trip owned by the caller', async () => {
+  describe('multi-trip bulk hard-delete', () => {
+    it('hard-deletes every trip owned by the caller', async () => {
       const a1 = randomUUID();
       const a2 = randomUUID();
       const a3 = randomUUID();
-      const alreadyDeleted = randomUUID();
 
       await seedTrip({ id: a1, userId: 'userA', deleted: false });
       await seedTrip({ id: a2, userId: 'userA', deleted: false });
       await seedTrip({ id: a3, userId: 'userA', deleted: false });
-      await seedTrip({ id: alreadyDeleted, userId: 'userA', deleted: true });
 
       const res = await request(app)
         .delete('/trips')
         .set('Authorization', `Bearer ${tokenA}`);
 
       expect(res.status).toBe(200);
-      // Only the 3 non-deleted trips were matched; the already-deleted one
-      // was excluded from the query, not re-processed.
       expect(res.body.body.data.deletedCount).toBe(3);
 
       for (const id of [a1, a2, a3]) {
         const snap = await db.collection('trips').doc(id).get();
-        expect(snap.exists).toBe(true); // NOT hard-deleted
-        const data = snap.data()!;
-        expect(data.deleted).toBe(true);
-        expect(data.deletedAt).not.toBeNull();
-        expect(data.serverUpdatedAt).toBeDefined();
+        expect(snap.exists).toBe(false); // hard-deleted, document gone
       }
+    });
+
+    it('hard-deletes trips already sitting in Trash too (mixed live + Trash, D-1)', async () => {
+      const live1 = randomUUID();
+      const live2 = randomUUID();
+      const trashed1 = randomUUID();
+      const trashed2 = randomUUID();
+
+      await seedTrip({ id: live1, userId: 'userA', deleted: false });
+      await seedTrip({ id: live2, userId: 'userA', deleted: false });
+      await seedTrip({ id: trashed1, userId: 'userA', deleted: true });
+      await seedTrip({ id: trashed2, userId: 'userA', deleted: true });
+
+      const res = await request(app)
+        .delete('/trips')
+        .set('Authorization', `Bearer ${tokenA}`);
+
+      expect(res.status).toBe(200);
+      // All four counted: the hard helper has no `deleted` filter, so
+      // already-trashed trips are erased too, not skipped.
+      expect(res.body.body.data.deletedCount).toBe(4);
+
+      const remaining = await db.collection('trips').where('userId', '==', 'userA').get();
+      expect(remaining.empty).toBe(true);
     });
 
     it('is idempotent: a second call finds nothing left to delete', async () => {
@@ -99,6 +118,8 @@ describe('DELETE /trips', () => {
         .delete('/trips')
         .set('Authorization', `Bearer ${tokenA}`);
       expect(second.status).toBe(200);
+      // deletedCount is 0 because the documents are gone entirely, not
+      // because they were filtered out by a `deleted:true` predicate.
       expect(second.body.body.data.deletedCount).toBe(0);
     });
   });

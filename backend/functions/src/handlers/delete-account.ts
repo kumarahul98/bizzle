@@ -15,15 +15,14 @@ import { usersCollection } from '../utils/firestore';
  *      verified token, never the request.
  *   3. Trust + delete, in a deliberate order:
  *      a. Hard-delete ALL the caller's trips (including any already sitting
- *         in Trash) via {@link hardDeleteAllTripsForUser}. This is a
- *         deliberate, narrow exception to the project's "never hard-delete
- *         trips" rule (D-11) — that rule still governs everywhere else (the
- *         per-trip trash feature in `delete-trip.ts` and the bulk "delete all
- *         my data, keep my account" endpoint in `delete-all-trips.ts` both
- *         remain soft-delete-only, unchanged). The exception is scoped to
- *         full account deletion only, because deleting your account must
- *         actually erase the data — leaving it soft-deleted would orphan it
- *         in Firestore forever with no purge job to reclaim it.
+ *         in Trash) via {@link hardDeleteAllTripsForUser}. Current deletion
+ *         model: per-trip trash (`delete-trip.ts`) stays soft; the bulk
+ *         "delete all my data, keep my account" endpoint
+ *         (`delete-all-trips.ts`) is also hard; account deletion additionally
+ *         removes the preferences doc and the Auth user, because deleting
+ *         your account must actually erase the data — leaving it around
+ *         would orphan it in Firestore forever with no purge job to reclaim
+ *         it.
  *      b. Hard-delete `users/{uid}` (the per-user preferences doc). This was
  *         never trip data and never carried a soft-delete requirement —
  *         `.delete()` on a missing doc does not throw, so a caller with no

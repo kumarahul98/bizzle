@@ -42,7 +42,7 @@ app.get('/health', (_req, res) => {
 
 app.post('/trips/sync', syncTripsHandler);
 app.get('/trips/restore', restoreTripsHandler);
-// Phase 38 (BACK-05): bulk soft-delete ALL of the caller's trips ("delete all
+// Phase 38 (BACK-05): bulk hard-delete ALL of the caller's trips ("delete all
 // my data, keep my account"). Declared BEFORE the `/trips/:tripId` route: the
 // two patterns don't actually collide (Express matches the literal `/trips`
 // segment correctly regardless of order), but placing the exact route first
@@ -51,10 +51,11 @@ app.delete('/trips', deleteAllTripsHandler);
 app.delete('/trips/:tripId', deleteTripHandler);
 
 // Phase 38 (BACK-06): full account deletion (Google Play in-app
-// account-deletion requirement). HARD-deletes all trips (the one deliberate
-// exception to the project's soft-delete rule — see claude.md and the
-// delete-account.ts header), hard-deletes the preferences doc, then deletes
-// the Auth user — see delete-account.ts for the ordering rationale.
+// account-deletion requirement). HARD-deletes all trips (see claude.md and
+// the delete-account.ts header for the current deletion model — trash is
+// soft, both bulk erasure flows are hard), hard-deletes the preferences doc,
+// then deletes the Auth user — see delete-account.ts for the ordering
+// rationale.
 app.delete('/account', deleteAccountHandler);
 
 // Phase 29 (LOC-03): saved Home/Office locations. Separate routes rather than

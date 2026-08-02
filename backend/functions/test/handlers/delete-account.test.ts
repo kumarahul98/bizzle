@@ -4,10 +4,9 @@
  * (including any already sitting in Trash), `users/{uid}` doc gone, and the
  * Auth user gone — directly against emulator Firestore + Auth, no mocks.
  *
- * Hard-delete here is a deliberate, narrow exception to the project's D-11
- * "never hard-delete trips" rule, scoped ONLY to full account deletion — the
- * per-trip trash feature and the bulk `DELETE /trips` endpoint both remain
- * soft-delete-only (see their own test suites).
+ * Current deletion model: the per-trip trash feature stays soft-delete-only
+ * (see its own test suite), while both bulk erasure flows — this endpoint and
+ * `DELETE /trips` — are hard-delete (see `delete-all-trips.test.ts`).
  *
  * Each deletion test mints its OWN dedicated uid (rather than reusing a
  * shared `tokenA`) because deleting the Auth user invalidates that uid for
