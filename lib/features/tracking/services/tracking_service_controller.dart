@@ -91,9 +91,11 @@ class TrackingServiceController {
   /// Pre-conditions the caller MUST have already handled:
   ///
   ///   * `locationWhenInUse` granted (via the permission service's
-  ///     `preflight` method);
-  ///   * ideally `locationAlways` granted too — if it is not, tracking
-  ///     still works while the app is foregrounded (D-08 banner).
+  ///     `preflight` method). That alone is sufficient — tracking always
+  ///     runs inside the location-typed foreground service (started only
+  ///     while the app is in the foreground when the user taps Start), so
+  ///     no background-location permission is requested or required (see
+  ///     `TrackingPermissionService`'s class dartdoc, quick-260802-itr).
   ///
   /// Pre-conditions this method handles:
   ///

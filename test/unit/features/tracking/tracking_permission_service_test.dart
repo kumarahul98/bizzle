@@ -4,11 +4,10 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:traevy/features/tracking/services/tracking_permission_service.dart';
 
 /// Captures the ordered sequence of Permission values passed through an
-/// injected probe or requester closure, so tests can assert the strict
-/// four-step ordering from D-07 / RESEARCH Pitfall 5 + UX-03:
-/// locationWhenInUse MUST resolve before locationAlways is ever touched,
-/// and notification MUST NEVER be touched until the location dance has
-/// fully resolved to a non-denied state.
+/// injected probe or requester closure, so tests can assert the two-step
+/// contract (quick-260802-itr, superseding the earlier four-step dance):
+/// `locationWhenInUse` MUST resolve granted before `notification` is ever
+/// touched, and `Permission.locationAlways` must NEVER be touched at all.
 class _CallLog {
   final List<Permission> probeCalls = <Permission>[];
   final List<Permission> requestCalls = <Permission>[];
@@ -52,14 +51,269 @@ PermissionRequester _staticRequester(
 }
 
 void main() {
+  // ---------------------------------------------------------------------
+  // ACCESS_BACKGROUND_LOCATION regression guard (Permission.locationAlways
+  // is never touched)
+  //
+  // This group is the single most important artifact in this file. A
+  // failure here means the Play Store background-location declaration
+  // requirement (with its mandatory demo video) has silently returned —
+  // quick-260802-itr removed ACCESS_BACKGROUND_LOCATION from the manifest
+  // and Permission.locationAlways from the permission dance specifically to
+  // avoid that requirement, relying instead on the location-typed
+  // foreground service for background GPS.
+  //
+  // Deliberately, NONE of the probe/request maps below seed
+  // Permission.locationAlways, so a stray call to either the probe or the
+  // requester ALSO throws StateError ("Unexpected probe/request call") —
+  // belt and braces on top of the explicit assertions.
+  //
+  // Every reachable outcome of preflight() and currentStatus() is driven,
+  // on both platforms.
+  // ---------------------------------------------------------------------
+  group(
+    'ACCESS_BACKGROUND_LOCATION regression guard '
+    '(Permission.locationAlways is never touched)',
+    () {
+      tearDown(() => debugDefaultTargetPlatformOverride = null);
+
+      void expectLocationAlwaysNeverTouched(_CallLog log) {
+        expect(
+          log.probeCalls.contains(Permission.locationAlways),
+          isFalse,
+          reason:
+              'Permission.locationAlways must never be probed — background '
+              'GPS is covered by the location-typed foreground service, not '
+              'a background-location permission.',
+        );
+        expect(
+          log.requestCalls.contains(Permission.locationAlways),
+          isFalse,
+          reason:
+              'Permission.locationAlways must never be requested — doing so '
+              'would re-trigger the Play Store background-location '
+              'declaration requirement.',
+        );
+      }
+
+      group('preflight()', () {
+        test('fine permanently denied on probe', () async {
+          final log = _CallLog();
+          final service = TrackingPermissionService.forTesting(
+            probe: _staticProbe(<Permission, PermissionStatus>{
+              Permission.locationWhenInUse: PermissionStatus.permanentlyDenied,
+            }, log),
+            requester: _staticRequester(<Permission, PermissionStatus>{}, log),
+          );
+
+          final status = await service.preflight();
+
+          expect(status, TrackingPermissionStatus.permanentlyDenied);
+          expectLocationAlwaysNeverTouched(log);
+        });
+
+        test('fine denied on probe, denied on request', () async {
+          final log = _CallLog();
+          final service = TrackingPermissionService.forTesting(
+            probe: _staticProbe(<Permission, PermissionStatus>{
+              Permission.locationWhenInUse: PermissionStatus.denied,
+            }, log),
+            requester: _staticRequester(<Permission, PermissionStatus>{
+              Permission.locationWhenInUse: PermissionStatus.denied,
+            }, log),
+          );
+
+          final status = await service.preflight();
+
+          expect(status, TrackingPermissionStatus.denied);
+          expectLocationAlwaysNeverTouched(log);
+        });
+
+        test(
+          'fine denied on probe, permanently denied on request',
+          () async {
+            final log = _CallLog();
+            final service = TrackingPermissionService.forTesting(
+              probe: _staticProbe(<Permission, PermissionStatus>{
+                Permission.locationWhenInUse: PermissionStatus.denied,
+              }, log),
+              requester: _staticRequester(<Permission, PermissionStatus>{
+                Permission.locationWhenInUse:
+                    PermissionStatus.permanentlyDenied,
+              }, log),
+            );
+
+            final status = await service.preflight();
+
+            expect(status, TrackingPermissionStatus.permanentlyDenied);
+            expectLocationAlwaysNeverTouched(log);
+          },
+        );
+
+        test(
+          'fine denied on probe, granted on request, notification granted',
+          () async {
+            final log = _CallLog();
+            final service = TrackingPermissionService.forTesting(
+              probe: _staticProbe(<Permission, PermissionStatus>{
+                Permission.locationWhenInUse: PermissionStatus.denied,
+                Permission.notification: PermissionStatus.granted,
+              }, log),
+              requester: _staticRequester(<Permission, PermissionStatus>{
+                Permission.locationWhenInUse: PermissionStatus.granted,
+              }, log),
+            );
+
+            final status = await service.preflight();
+
+            expect(status, TrackingPermissionStatus.fullyGranted);
+            expectLocationAlwaysNeverTouched(log);
+          },
+        );
+
+        test(
+          'fine granted, notification denied on probe and on request',
+          () async {
+            final log = _CallLog();
+            final service = TrackingPermissionService.forTesting(
+              probe: _staticProbe(<Permission, PermissionStatus>{
+                Permission.locationWhenInUse: PermissionStatus.granted,
+                Permission.notification: PermissionStatus.denied,
+              }, log),
+              requester: _staticRequester(<Permission, PermissionStatus>{
+                Permission.notification: PermissionStatus.denied,
+              }, log),
+            );
+
+            final status = await service.preflight();
+
+            expect(status, TrackingPermissionStatus.notificationDenied);
+            expectLocationAlwaysNeverTouched(log);
+          },
+        );
+
+        test('fine granted, notification granted', () async {
+          final log = _CallLog();
+          final service = TrackingPermissionService.forTesting(
+            probe: _staticProbe(<Permission, PermissionStatus>{
+              Permission.locationWhenInUse: PermissionStatus.granted,
+              Permission.notification: PermissionStatus.granted,
+            }, log),
+            requester: _staticRequester(<Permission, PermissionStatus>{}, log),
+          );
+
+          final status = await service.preflight();
+
+          expect(status, TrackingPermissionStatus.fullyGranted);
+          expectLocationAlwaysNeverTouched(log);
+        });
+
+        test('iOS: fine granted resolves fullyGranted', () async {
+          debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+          final log = _CallLog();
+          final service = TrackingPermissionService.forTesting(
+            probe: _staticProbe(<Permission, PermissionStatus>{
+              Permission.locationWhenInUse: PermissionStatus.granted,
+            }, log),
+            requester: _staticRequester(<Permission, PermissionStatus>{}, log),
+          );
+
+          final status = await service.preflight();
+
+          expect(status, TrackingPermissionStatus.fullyGranted);
+          expectLocationAlwaysNeverTouched(log);
+        });
+      });
+
+      group('currentStatus()', () {
+        test('fine permanently denied on probe', () async {
+          final log = _CallLog();
+          final service = TrackingPermissionService.forTesting(
+            probe: _staticProbe(<Permission, PermissionStatus>{
+              Permission.locationWhenInUse: PermissionStatus.permanentlyDenied,
+            }, log),
+            requester: _staticRequester(<Permission, PermissionStatus>{}, log),
+          );
+
+          final status = await service.currentStatus();
+
+          expect(status, TrackingPermissionStatus.permanentlyDenied);
+          expectLocationAlwaysNeverTouched(log);
+        });
+
+        test('fine denied on probe', () async {
+          final log = _CallLog();
+          final service = TrackingPermissionService.forTesting(
+            probe: _staticProbe(<Permission, PermissionStatus>{
+              Permission.locationWhenInUse: PermissionStatus.denied,
+            }, log),
+            requester: _staticRequester(<Permission, PermissionStatus>{}, log),
+          );
+
+          final status = await service.currentStatus();
+
+          expect(status, TrackingPermissionStatus.denied);
+          expectLocationAlwaysNeverTouched(log);
+        });
+
+        test('fine granted, notification denied', () async {
+          final log = _CallLog();
+          final service = TrackingPermissionService.forTesting(
+            probe: _staticProbe(<Permission, PermissionStatus>{
+              Permission.locationWhenInUse: PermissionStatus.granted,
+              Permission.notification: PermissionStatus.denied,
+            }, log),
+            requester: _staticRequester(<Permission, PermissionStatus>{}, log),
+          );
+
+          final status = await service.currentStatus();
+
+          expect(status, TrackingPermissionStatus.notificationDenied);
+          expectLocationAlwaysNeverTouched(log);
+        });
+
+        test('fine granted, notification granted', () async {
+          final log = _CallLog();
+          final service = TrackingPermissionService.forTesting(
+            probe: _staticProbe(<Permission, PermissionStatus>{
+              Permission.locationWhenInUse: PermissionStatus.granted,
+              Permission.notification: PermissionStatus.granted,
+            }, log),
+            requester: _staticRequester(<Permission, PermissionStatus>{}, log),
+          );
+
+          final status = await service.currentStatus();
+
+          expect(status, TrackingPermissionStatus.fullyGranted);
+          expectLocationAlwaysNeverTouched(log);
+        });
+
+        test('iOS: fine granted resolves fullyGranted', () async {
+          debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+          final log = _CallLog();
+          final service = TrackingPermissionService.forTesting(
+            probe: _staticProbe(<Permission, PermissionStatus>{
+              Permission.locationWhenInUse: PermissionStatus.granted,
+            }, log),
+            requester: _staticRequester(<Permission, PermissionStatus>{}, log),
+          );
+
+          final status = await service.currentStatus();
+
+          expect(status, TrackingPermissionStatus.fullyGranted);
+          expectLocationAlwaysNeverTouched(log);
+        });
+      });
+    },
+  );
+
   group('TrackingPermissionService.preflight', () {
-    test('returns fullyGranted when all three permissions are already '
+    test('returns fullyGranted when both permissions are already '
         'granted, never calling requester', () async {
       final log = _CallLog();
       final service = TrackingPermissionService.forTesting(
         probe: _staticProbe(<Permission, PermissionStatus>{
           Permission.locationWhenInUse: PermissionStatus.granted,
-          Permission.locationAlways: PermissionStatus.granted,
           Permission.notification: PermissionStatus.granted,
         }, log),
         requester: _staticRequester(<Permission, PermissionStatus>{}, log),
@@ -69,60 +323,26 @@ void main() {
 
       expect(status, TrackingPermissionStatus.fullyGranted);
       expect(log.requestCalls, isEmpty);
-      // locationAlways must never be probed before locationWhenInUse.
       expect(log.probeCalls.first, Permission.locationWhenInUse);
     });
 
-    test('returns foregroundOnly when fine is already granted, background '
-        'denied at request, and notification already granted', () async {
-      final log = _CallLog();
-      final service = TrackingPermissionService.forTesting(
-        probe: _staticProbe(<Permission, PermissionStatus>{
-          Permission.locationWhenInUse: PermissionStatus.granted,
-          Permission.locationAlways: PermissionStatus.denied,
-          Permission.notification: PermissionStatus.granted,
-        }, log),
-        requester: _staticRequester(<Permission, PermissionStatus>{
-          Permission.locationAlways: PermissionStatus.denied,
-        }, log),
-      );
-
-      final status = await service.preflight();
-
-      expect(status, TrackingPermissionStatus.foregroundOnly);
-      // Pitfall 5 ordering guard: locationWhenInUse was never re-requested
-      // (already granted), and locationAlways was requested exactly once.
-      expect(log.requestCalls, <Permission>[Permission.locationAlways]);
-    });
-
-    test('returns foregroundOnly when fine is denied then granted on '
-        'request, background denied on request, and notification '
-        'already granted', () async {
+    test('returns fullyGranted when fine is denied then granted on '
+        'request, and notification already granted', () async {
       final log = _CallLog();
       final service = TrackingPermissionService.forTesting(
         probe: _staticProbe(<Permission, PermissionStatus>{
           Permission.locationWhenInUse: PermissionStatus.denied,
-          Permission.locationAlways: PermissionStatus.denied,
           Permission.notification: PermissionStatus.granted,
         }, log),
         requester: _staticRequester(<Permission, PermissionStatus>{
           Permission.locationWhenInUse: PermissionStatus.granted,
-          Permission.locationAlways: PermissionStatus.denied,
         }, log),
       );
 
       final status = await service.preflight();
 
-      expect(status, TrackingPermissionStatus.foregroundOnly);
-      // Strict ordering: locationWhenInUse must be requested before
-      // locationAlways is requested.
-      final whenInUseIdx = log.indexOfFirstRequest(
-        Permission.locationWhenInUse,
-      );
-      final alwaysIdx = log.indexOfFirstRequest(Permission.locationAlways);
-      expect(whenInUseIdx, isNonNegative);
-      expect(alwaysIdx, isNonNegative);
-      expect(whenInUseIdx, lessThan(alwaysIdx));
+      expect(status, TrackingPermissionStatus.fullyGranted);
+      expect(log.requestCalls, <Permission>[Permission.locationWhenInUse]);
     });
 
     test(
@@ -141,19 +361,11 @@ void main() {
         final status = await service.preflight();
 
         expect(status, TrackingPermissionStatus.denied);
-        // Background MUST NOT be requested once fine has been denied
-        // (Pitfall 5 ordering guard).
-        expect(
-          log.requestCalls.contains(Permission.locationAlways),
-          isFalse,
-        );
-        expect(
-          log.probeCalls.contains(Permission.locationAlways),
-          isFalse,
-        );
-        // UX-03 ordering guard: notification MUST NOT be touched once
-        // fine has been denied — the user has not agreed to location yet
-        // so we must not escalate to a second permission prompt.
+        // Ordering guard: notification MUST NOT be touched once fine has
+        // been denied — the user has not agreed to location yet so we
+        // must not escalate to a second permission prompt. (This also
+        // implicitly asserts the new locationAlways-never-touched
+        // invariant, since the maps above never seed it.)
         expect(
           log.requestCalls.contains(Permission.notification),
           isFalse,
@@ -179,8 +391,6 @@ void main() {
 
       expect(status, TrackingPermissionStatus.permanentlyDenied);
       expect(log.requestCalls, isEmpty);
-      // UX-03 ordering guard: notification MUST NOT be touched once
-      // fine has resolved permanentlyDenied.
       expect(
         log.probeCalls.contains(Permission.notification),
         isFalse,
@@ -202,17 +412,6 @@ void main() {
       final status = await service.preflight();
 
       expect(status, TrackingPermissionStatus.permanentlyDenied);
-      // Ordering guard: locationAlways must never be touched once fine
-      // has resolved permanentlyDenied.
-      expect(
-        log.requestCalls.contains(Permission.locationAlways),
-        isFalse,
-      );
-      expect(
-        log.probeCalls.contains(Permission.locationAlways),
-        isFalse,
-      );
-      // UX-03 ordering guard: notification must also never be touched.
       expect(
         log.requestCalls.contains(Permission.notification),
         isFalse,
@@ -223,54 +422,8 @@ void main() {
       );
     });
 
-    test('NEVER calls Permission.locationAlways.request() before '
-        'Permission.locationWhenInUse.request() has completed', () async {
-      // This test captures the request-completion-order invariant directly:
-      // we wire the requester to fail the test if locationAlways is called
-      // before locationWhenInUse has fully resolved.
-      final log = _CallLog();
-      var whenInUseCompleted = false;
-
-      Future<PermissionStatus> requester(Permission permission) async {
-        log.requestCalls.add(permission);
-        if (permission == Permission.locationWhenInUse) {
-          // Simulate async resolution.
-          await Future<void>.delayed(Duration.zero);
-          whenInUseCompleted = true;
-          return PermissionStatus.granted;
-        }
-        if (permission == Permission.locationAlways) {
-          if (!whenInUseCompleted) {
-            fail(
-              'Pitfall 5 violation: locationAlways.request() was called '
-              'before locationWhenInUse.request() completed.',
-            );
-          }
-          return PermissionStatus.granted;
-        }
-        throw StateError('Unexpected request call: $permission');
-      }
-
-      final service = TrackingPermissionService.forTesting(
-        probe: _staticProbe(<Permission, PermissionStatus>{
-          Permission.locationWhenInUse: PermissionStatus.denied,
-          Permission.locationAlways: PermissionStatus.denied,
-          Permission.notification: PermissionStatus.granted,
-        }, log),
-        requester: requester,
-      );
-
-      final status = await service.preflight();
-
-      expect(status, TrackingPermissionStatus.fullyGranted);
-      expect(log.requestCalls, <Permission>[
-        Permission.locationWhenInUse,
-        Permission.locationAlways,
-      ]);
-    });
-
-    test('returns notificationDenied when fine + background are granted '
-        'but notification request resolves denied', () async {
+    test('returns notificationDenied when fine is granted but notification '
+        'request resolves denied', () async {
       // UX-03: location is OK, but POST_NOTIFICATIONS denial is a hard
       // block — the persistent foreground notification cannot be shown
       // without it on Android 13+.
@@ -278,7 +431,6 @@ void main() {
       final service = TrackingPermissionService.forTesting(
         probe: _staticProbe(<Permission, PermissionStatus>{
           Permission.locationWhenInUse: PermissionStatus.granted,
-          Permission.locationAlways: PermissionStatus.granted,
           Permission.notification: PermissionStatus.denied,
         }, log),
         requester: _staticRequester(<Permission, PermissionStatus>{
@@ -289,42 +441,12 @@ void main() {
       final status = await service.preflight();
 
       expect(status, TrackingPermissionStatus.notificationDenied);
-      // Ordering: notification must be requested AFTER the location
-      // dance has fully resolved.
+      // Ordering: notification must be requested AFTER locationWhenInUse
+      // has resolved granted.
       expect(
         log.requestCalls,
         <Permission>[Permission.notification],
       );
-    });
-
-    test('returns notificationDenied when fine granted, background denied, '
-        'and notification denied', () async {
-      // Parallel case to foregroundOnly above, but notification is
-      // denied — UX-03 still hard-blocks even when location is only
-      // partially granted.
-      final log = _CallLog();
-      final service = TrackingPermissionService.forTesting(
-        probe: _staticProbe(<Permission, PermissionStatus>{
-          Permission.locationWhenInUse: PermissionStatus.granted,
-          Permission.locationAlways: PermissionStatus.denied,
-          Permission.notification: PermissionStatus.denied,
-        }, log),
-        requester: _staticRequester(<Permission, PermissionStatus>{
-          Permission.locationAlways: PermissionStatus.denied,
-          Permission.notification: PermissionStatus.denied,
-        }, log),
-      );
-
-      final status = await service.preflight();
-
-      expect(status, TrackingPermissionStatus.notificationDenied);
-      // Strict ordering: notification request comes AFTER the
-      // locationAlways request.
-      final alwaysIdx = log.indexOfFirstRequest(Permission.locationAlways);
-      final notifIdx = log.indexOfFirstRequest(Permission.notification);
-      expect(alwaysIdx, isNonNegative);
-      expect(notifIdx, isNonNegative);
-      expect(alwaysIdx, lessThan(notifIdx));
     });
 
     test('returns fullyGranted when notification is already granted on probe, '
@@ -335,7 +457,6 @@ void main() {
       final service = TrackingPermissionService.forTesting(
         probe: _staticProbe(<Permission, PermissionStatus>{
           Permission.locationWhenInUse: PermissionStatus.granted,
-          Permission.locationAlways: PermissionStatus.granted,
           Permission.notification: PermissionStatus.granted,
         }, log),
         requester: _staticRequester(<Permission, PermissionStatus>{}, log),
@@ -356,7 +477,6 @@ void main() {
       final service = TrackingPermissionService.forTesting(
         probe: _staticProbe(<Permission, PermissionStatus>{
           Permission.locationWhenInUse: PermissionStatus.granted,
-          Permission.locationAlways: PermissionStatus.granted,
           Permission.notification: PermissionStatus.denied,
         }, log),
         requester: _staticRequester(<Permission, PermissionStatus>{
@@ -375,13 +495,12 @@ void main() {
   });
 
   group('TrackingPermissionService.currentStatus', () {
-    test('returns fullyGranted when all three permissions are granted, '
+    test('returns fullyGranted when both permissions are granted, '
         'without calling requester', () async {
       final log = _CallLog();
       final service = TrackingPermissionService.forTesting(
         probe: _staticProbe(<Permission, PermissionStatus>{
           Permission.locationWhenInUse: PermissionStatus.granted,
-          Permission.locationAlways: PermissionStatus.granted,
           Permission.notification: PermissionStatus.granted,
         }, log),
         requester: _staticRequester(<Permission, PermissionStatus>{}, log),
@@ -390,24 +509,6 @@ void main() {
       final status = await service.currentStatus();
 
       expect(status, TrackingPermissionStatus.fullyGranted);
-      expect(log.requestCalls, isEmpty);
-    });
-
-    test('returns foregroundOnly when fine granted, background denied, '
-        'and notification granted, without calling requester', () async {
-      final log = _CallLog();
-      final service = TrackingPermissionService.forTesting(
-        probe: _staticProbe(<Permission, PermissionStatus>{
-          Permission.locationWhenInUse: PermissionStatus.granted,
-          Permission.locationAlways: PermissionStatus.denied,
-          Permission.notification: PermissionStatus.granted,
-        }, log),
-        requester: _staticRequester(<Permission, PermissionStatus>{}, log),
-      );
-
-      final status = await service.currentStatus();
-
-      expect(status, TrackingPermissionStatus.foregroundOnly);
       expect(log.requestCalls, isEmpty);
     });
 
@@ -425,8 +526,6 @@ void main() {
 
       expect(status, TrackingPermissionStatus.denied);
       expect(log.requestCalls, isEmpty);
-      // UX-03 ordering: notification must not be probed once fine is
-      // denied (mirrors preflight).
       expect(
         log.probeCalls.contains(Permission.notification),
         isFalse,
@@ -462,28 +561,6 @@ void main() {
       final service = TrackingPermissionService.forTesting(
         probe: _staticProbe(<Permission, PermissionStatus>{
           Permission.locationWhenInUse: PermissionStatus.granted,
-          Permission.locationAlways: PermissionStatus.granted,
-          Permission.notification: PermissionStatus.denied,
-        }, log),
-        requester: _staticRequester(<Permission, PermissionStatus>{}, log),
-      );
-
-      final status = await service.currentStatus();
-
-      expect(status, TrackingPermissionStatus.notificationDenied);
-      expect(log.requestCalls, isEmpty);
-    });
-
-    test('returns notificationDenied when fine granted, background denied, '
-        'and notification denied', () async {
-      // Mirrors the preflight parallel case: foreground-only location
-      // combined with a denied notification still resolves to the
-      // blocking notificationDenied state.
-      final log = _CallLog();
-      final service = TrackingPermissionService.forTesting(
-        probe: _staticProbe(<Permission, PermissionStatus>{
-          Permission.locationWhenInUse: PermissionStatus.granted,
-          Permission.locationAlways: PermissionStatus.denied,
           Permission.notification: PermissionStatus.denied,
         }, log),
         requester: _staticRequester(<Permission, PermissionStatus>{}, log),
@@ -648,17 +725,19 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
-  // Wave 0 RED scaffolds — iOS branch (IOS-09 / IOS-10)
+  // iOS branch (IOS-09 / IOS-10)
   //
-  // These tests exercise the iOS platform branch added by Plan 02.
-  // They are RED until Plan 02 inserts the `defaultTargetPlatform ==
-  // TargetPlatform.iOS` guard in `preflight()` and `currentStatus()`.
+  // These tests exercise the iOS platform branch in preflight() and
+  // currentStatus(). Since quick-260802-itr, D-2 is unconditional
+  // (Permission.locationAlways is never touched on ANY platform), so the
+  // iOS branch collapses to: locationWhenInUse granted -> fullyGranted,
+  // with neither locationAlways nor notification ever probed or requested.
   //
-  // Key invariant (D-06 / RESEARCH Pitfall 5):
-  //   On iOS, the dance ends after the location step. `Permission.notification`
-  //   is NEVER probed or requested, and
-  //   `TrackingPermissionStatus.notificationDenied` is NEVER returned.
-  //   Tracking Start depends only on location on iOS.
+  // DEC-C: iOS is a PAUSED platform (v0.2). This collapse is accepted as a
+  // side effect for now; iOS background-location strategy must be
+  // re-decided when the platform resumes — iOS has no Android
+  // foreground-service equivalent, so the reasoning that justifies this
+  // change on Android does NOT transfer to iOS.
   //
   // Test technique: `debugDefaultTargetPlatformOverride = TargetPlatform.iOS`
   // exercises the iOS code path without dart:io Platform (Pitfall 2).
@@ -668,8 +747,8 @@ void main() {
     tearDown(() => debugDefaultTargetPlatformOverride = null);
 
     test(
-      'returns fullyGranted on iOS when locationAlways is granted, '
-      'and never probes Permission.notification',
+      'returns fullyGranted on iOS once locationWhenInUse resolves granted, '
+      'and never probes locationAlways or notification',
       () async {
         debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
 
@@ -677,38 +756,42 @@ void main() {
         final service = TrackingPermissionService.forTesting(
           probe: _staticProbe(<Permission, PermissionStatus>{
             Permission.locationWhenInUse: PermissionStatus.granted,
-            Permission.locationAlways: PermissionStatus.granted,
-            // notification is intentionally absent — must never be probed
+            // locationAlways and notification intentionally absent — must
+            // never be probed.
           }, log),
           requester: _staticRequester(<Permission, PermissionStatus>{}, log),
         );
 
         final status = await service.preflight();
 
-        // D-06: iOS with background location → fullyGranted
         expect(status, TrackingPermissionStatus.fullyGranted);
-
-        // D-06 invariant: notification is NEVER probed on iOS
+        expect(
+          log.probeCalls.contains(Permission.locationAlways),
+          isFalse,
+        );
         expect(
           log.probeCalls.contains(Permission.notification),
           isFalse,
-          reason:
-              'D-06: preflight() on iOS must never probe '
-              'Permission.notification',
+          reason: 'preflight() on iOS must never probe Permission.notification',
         );
         expect(
           log.requestCalls.contains(Permission.notification),
           isFalse,
           reason:
-              'D-06: preflight() on iOS must never request '
-              'Permission.notification',
+              'preflight() on iOS must never request Permission.notification',
         );
       },
     );
 
     test(
-      'returns foregroundOnly on iOS when only When-In-Use is granted (D-03), '
-      'and never probes Permission.notification',
+      // DEC-C: this state used to resolve to `foregroundOnly` when the app
+      // still requested locationAlways on iOS. That variant is gone and
+      // locationAlways is never touched, so When-In-Use alone now resolves
+      // to fullyGranted here too, same as the fully-granted case above.
+      // TODO(v0.2-resume): re-decide iOS background-location strategy —
+      // iOS has no foreground-service equivalent to fall back on.
+      'returns fullyGranted on iOS when only When-In-Use is granted (DEC-C), '
+      'and never probes notification',
       () async {
         debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
 
@@ -716,25 +799,16 @@ void main() {
         final service = TrackingPermissionService.forTesting(
           probe: _staticProbe(<Permission, PermissionStatus>{
             Permission.locationWhenInUse: PermissionStatus.granted,
-            Permission.locationAlways: PermissionStatus.denied,
           }, log),
-          requester: _staticRequester(<Permission, PermissionStatus>{
-            Permission.locationAlways: PermissionStatus.denied,
-          }, log),
+          requester: _staticRequester(<Permission, PermissionStatus>{}, log),
         );
 
         final status = await service.preflight();
 
-        // D-03: When-In-Use only on iOS → foregroundOnly (degraded mode)
-        expect(status, TrackingPermissionStatus.foregroundOnly);
-
-        // D-06: notification MUST NOT be probed even in foregroundOnly state
+        expect(status, TrackingPermissionStatus.fullyGranted);
         expect(
           log.probeCalls.contains(Permission.notification),
           isFalse,
-          reason:
-              'D-06: preflight() on iOS must never probe notification even '
-              'in foregroundOnly state',
         );
         expect(
           log.requestCalls.contains(Permission.notification),
@@ -744,30 +818,24 @@ void main() {
     );
 
     test(
-      'never returns notificationDenied on iOS (D-06 / RESEARCH Pitfall 5)',
+      'never returns notificationDenied on iOS (RESEARCH Pitfall 5)',
       () async {
         debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
 
         final log = _CallLog();
-        // Simulate iOS where location is granted but notification is denied —
-        // on iOS, preflight() must NOT return notificationDenied because
-        // tracking on iOS does not depend on notification permission.
+        // Simulate iOS where location is granted — on iOS, preflight()
+        // must NOT return notificationDenied because tracking on iOS does
+        // not depend on notification permission, and notification is
+        // never even probed.
         final service = TrackingPermissionService.forTesting(
           probe: _staticProbe(<Permission, PermissionStatus>{
             Permission.locationWhenInUse: PermissionStatus.granted,
-            Permission.locationAlways: PermissionStatus.granted,
-            // notification denied — but must not affect iOS result
-            Permission.notification: PermissionStatus.denied,
           }, log),
-          requester: _staticRequester(<Permission, PermissionStatus>{
-            Permission.notification: PermissionStatus.denied,
-          }, log),
+          requester: _staticRequester(<Permission, PermissionStatus>{}, log),
         );
 
         final status = await service.preflight();
 
-        // On iOS, result must be fullyGranted (location is granted), never
-        // notificationDenied.
         expect(
           status,
           isNot(equals(TrackingPermissionStatus.notificationDenied)),
@@ -783,20 +851,17 @@ void main() {
     tearDown(() => debugDefaultTargetPlatformOverride = null);
 
     test(
-      'never returns notificationDenied on iOS when location is fully granted '
+      'never returns notificationDenied on iOS when location is granted '
       '(RESEARCH Pitfall 5)',
       () async {
         debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
 
         final log = _CallLog();
         // On iOS, currentStatus() must not reach the notification probe —
-        // even if notification is denied, the result should reflect
-        // location-only state.
+        // the result reflects location-only state.
         final service = TrackingPermissionService.forTesting(
           probe: _staticProbe(<Permission, PermissionStatus>{
             Permission.locationWhenInUse: PermissionStatus.granted,
-            Permission.locationAlways: PermissionStatus.granted,
-            Permission.notification: PermissionStatus.denied,
           }, log),
           requester: _staticRequester(<Permission, PermissionStatus>{}, log),
         );
@@ -811,14 +876,13 @@ void main() {
               'notificationDenied on iOS — Start button would be permanently '
               'disabled even though location is granted',
         );
-        // Specifically, with both location permissions granted on iOS,
-        // the status must be fullyGranted.
         expect(status, TrackingPermissionStatus.fullyGranted);
       },
     );
 
     test(
-      'never probes Permission.notification on iOS in currentStatus()',
+      'never probes Permission.notification or Permission.locationAlways '
+      'on iOS in currentStatus()',
       () async {
         debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
 
@@ -826,8 +890,8 @@ void main() {
         final service = TrackingPermissionService.forTesting(
           probe: _staticProbe(<Permission, PermissionStatus>{
             Permission.locationWhenInUse: PermissionStatus.granted,
-            Permission.locationAlways: PermissionStatus.granted,
-            // notification absent — currentStatus() must not reach it
+            // notification and locationAlways absent — currentStatus()
+            // must not reach either.
           }, log),
           requester: _staticRequester(<Permission, PermissionStatus>{}, log),
         );
@@ -838,6 +902,10 @@ void main() {
           log.probeCalls.contains(Permission.notification),
           isFalse,
           reason: 'D-06: currentStatus() on iOS must never probe notification',
+        );
+        expect(
+          log.probeCalls.contains(Permission.locationAlways),
+          isFalse,
         );
       },
     );

@@ -3,33 +3,23 @@ import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:traevy/config/constants.dart';
 
-/// Five-way classification of the device's tracking permission state as
+/// Four-way classification of the device's tracking permission state as
 /// it relates to Phase 2 tracking requirements.
 ///
-/// Mapped from Phase 2 context decisions D-07 (two-step location flow),
-/// D-08 (background-denied banner), D-09 (permanent-deny "open settings"
-/// CTA), and UX-03 (persistent foreground notification while recording).
-/// Consumers — the home screen pre-flight (plan 02-04) and the
-/// service-isolate starter (plan 02-03) — switch on this enum to decide
-/// whether Start is enabled, whether to show the limitation banner, and
-/// whether to deep-link into system settings.
-///
-/// The four original variants keep their original semantics — they
-/// describe LOCATION state only. The fifth variant, [notificationDenied],
-/// is a strict superset-addition introduced by the gap-closure plan
-/// 02-1: it means "location is resolved well enough to start tracking,
-/// but POST_NOTIFICATIONS is denied" — which on Android 13+ silently
-/// blocks the UX-03 foreground notification. Start MUST be disabled in
-/// this state.
+/// Mapped from Phase 2 context decisions D-09 (permanent-deny "open
+/// settings" CTA) and UX-03 (persistent foreground notification while
+/// recording). Since quick-260802-itr, this is a `locationWhenInUse` +
+/// `notification` classification only — the app never requests
+/// `Permission.locationAlways` (see the class dartdoc). Consumers — the
+/// home screen pre-flight (plan 02-04) and the service-isolate starter
+/// (plan 02-03) — switch on this enum to decide whether Start is enabled
+/// and whether to deep-link into system settings.
 enum TrackingPermissionStatus {
-  /// Fine + background location both granted, AND POST_NOTIFICATIONS
-  /// granted. Full feature set; no banner.
+  /// `locationWhenInUse` granted AND `notification` granted. Full feature
+  /// set; no banner. Background GPS is covered entirely by the
+  /// location-typed foreground service, not by a background-location
+  /// permission.
   fullyGranted,
-
-  /// Fine granted, background denied. POST_NOTIFICATIONS granted.
-  /// Tracking works only while the app is foregrounded. UI must show
-  /// the D-08 dismissible banner.
-  foregroundOnly,
 
   /// Fine denied (first-time or after a soft "Deny"). Start button
   /// disabled. UI must show the "Grant location" CTA.
@@ -39,15 +29,15 @@ enum TrackingPermissionStatus {
   /// auto-lock). UI must show the D-09 "Open settings" CTA.
   permanentlyDenied,
 
-  /// Fine + background (or fine-only) location are resolved, but the
-  /// POST_NOTIFICATIONS runtime permission is denied. Required for
-  /// UX-03 (persistent notification while GPS tracking is active). On
-  /// Android 13+ (minSdk 34 for this app, so every device) the system
-  /// silently drops every notification posted by
-  /// `flutter_local_notifications` until this permission is granted —
-  /// `numEnqueuedByApp` increases but `numPostedByApp` stays at 0. The
-  /// UI must show the "Grant notifications" CTA with an Open-settings
-  /// deep-link, and Start must be disabled until the user grants it.
+  /// `locationWhenInUse` is resolved granted, but the POST_NOTIFICATIONS
+  /// runtime permission is denied. Required for UX-03 (persistent
+  /// notification while GPS tracking is active). On Android 13+ (minSdk
+  /// 34 for this app, so every device) the system silently drops every
+  /// notification posted by `flutter_local_notifications` until this
+  /// permission is granted — `numEnqueuedByApp` increases but
+  /// `numPostedByApp` stays at 0. The UI must show the "Grant
+  /// notifications" CTA with an Open-settings deep-link, and Start must
+  /// be disabled until the user grants it.
   notificationDenied,
 }
 
@@ -73,15 +63,14 @@ typedef PermissionRequester =
 
 /// Three-way outcome of [TrackingPermissionService.requestWhenInUse].
 ///
-/// Deliberately NOT [TrackingPermissionStatus]: that enum's granted variants
-/// encode background+notification state — `fullyGranted` means
-/// `locationAlways` AND `notification` are also granted, and
-/// `foregroundOnly` / `notificationDenied` are only meaningful after the
-/// full [TrackingPermissionService.preflight] dance. A when-in-use-only
-/// caller has exactly three outcomes and must not be handed an enum whose
-/// variants it can neither produce nor honestly interpret. CLAUDE.md
-/// requires an enum (never a bool/String) for finite state, so this is a
-/// new 3-way enum rather than a nullable bool.
+/// Deliberately NOT [TrackingPermissionStatus]: that enum's granted variant
+/// encodes notification state too — `fullyGranted` means `locationWhenInUse`
+/// AND `notification` are both granted, and `notificationDenied` is only
+/// meaningful after the full [TrackingPermissionService.preflight] dance. A
+/// when-in-use-only caller has exactly three outcomes and must not be
+/// handed an enum whose variants it can neither produce nor honestly
+/// interpret. CLAUDE.md requires an enum (never a bool/String) for finite
+/// state, so this is a new 3-way enum rather than a nullable bool.
 enum LocationWhenInUseStatus {
   /// `Permission.locationWhenInUse` is granted (already, or just now).
   granted,
@@ -141,25 +130,40 @@ Future<bool> openAppPermissionSettings() async {
   }
 }
 
-/// Wraps `permission_handler` for Phase 2's strict four-step tracking
-/// permission dance (D-07 / RESEARCH Pitfall 5 + UX-03 gap-closure). Since
-/// quick-260802-dgp, the class is also the app's single permission entry
-/// point for non-tracking callers that need a narrow when-in-use-only
-/// request (the location picker) — see [requestWhenInUse].
+/// Wraps `permission_handler` for Phase 2's tracking permission dance, now a
+/// two-step `locationWhenInUse` → `notification` flow (D-07, revised by
+/// quick-260802-itr / UX-03 gap-closure). Since quick-260802-dgp, the class
+/// is also the app's single permission entry point for non-tracking callers
+/// that need a narrow when-in-use-only request (the location picker) — see
+/// [requestWhenInUse].
+///
+/// **`Permission.locationAlways` is NEVER touched by this class**, on
+/// either platform. Background GPS during tracking is covered entirely by
+/// the app's location-typed foreground service
+/// (`android:foregroundServiceType="location"`, started only while the app
+/// is in the foreground when the user taps Start): Android 10+ keeps
+/// delivering location updates to a running foreground service with only
+/// `ACCESS_FINE_LOCATION` granted "while using the app". Requesting
+/// `locationAlways` would additionally trigger the Google Play
+/// background-location declaration requirement (a separate, strictly
+/// reviewed listing step with a mandatory demo video) for a permission the
+/// app does not need. See the source-manifest regression guard in
+/// `test/unit/android_manifest_permissions_test.dart` and the
+/// `locationAlways`-never-touched guard in this class's own test file.
 ///
 /// Instances are stateless — safe to share via a Riverpod `Provider`.
 ///
 /// The public contract is:
 ///
-///   * [preflight] — run the ordered four-step request
-///     (`locationWhenInUse` → `locationAlways` → `notification`) and
-///     return the resolved status. Callers MUST await this before
-///     starting the foreground service.
+///   * [preflight] — run the ordered two-step request
+///     (`locationWhenInUse` → `notification`) and return the resolved
+///     status. Callers MUST await this before starting the foreground
+///     service.
 ///   * [currentStatus] — classify the current state WITHOUT prompting.
 ///     Used on first build to decide whether Start is enabled.
 ///   * [requestWhenInUse] — the narrow when-in-use-only request used by
 ///     non-tracking callers that need to centre a map and have no business
-///     asking for background location or notifications.
+///     asking for notifications.
 ///   * [openSystemSettings] — deep-link into the system app-settings page
 ///     for this app. Used by the [TrackingPermissionStatus.permanentlyDenied]
 ///     CTA (D-09) and by the [TrackingPermissionStatus.notificationDenied]
@@ -167,23 +171,21 @@ Future<bool> openAppPermissionSettings() async {
 ///
 /// Ordering invariants:
 ///
-///   1. `locationAlways` is NEVER probed or requested until
-///      `locationWhenInUse` has resolved granted (RESEARCH Pitfall 5).
-///      This invariant governs the [preflight] dance.
-///   2. `notification` is NEVER probed or requested until the location
-///      dance has resolved to either `fullyGranted` or `foregroundOnly`.
-///      If fine location is denied or permanently denied, the flow
-///      short-circuits WITHOUT touching `notification`, so the user is
-///      never asked for notifications before they have agreed to share
-///      location. This invariant also governs the [preflight] dance.
-///   3. [requestWhenInUse] is NOT part of that dance; it touches
+///   1. `notification` is NEVER probed or requested until
+///      `locationWhenInUse` has resolved granted. This is enforced
+///      structurally: [preflight] returns early on every non-granted
+///      location outcome (denied / permanentlyDenied), so control flow
+///      never reaches the notification step unless location has already
+///      resolved granted — there is no local flag or assert to keep in
+///      sync. This invariant governs the [preflight] dance.
+///   2. [requestWhenInUse] is NOT part of that dance; it touches
 ///      `Permission.locationWhenInUse` and nothing else, so it cannot
-///      violate invariants 1 or 2, and it must never grow a background or
-///      notification step.
+///      violate invariant 1, and it must never grow a notification (or
+///      background-location) step.
 ///
-/// Invariants 1 and 2 are enforced by [preflight] and asserted in the unit
-/// tests. Invariant 3 is enforced by [requestWhenInUse] and asserted in its
-/// own unit tests.
+/// Invariant 1 is enforced by [preflight]'s control flow and asserted in
+/// the unit tests. Invariant 2 is enforced by [requestWhenInUse] and
+/// asserted in its own unit tests.
 class TrackingPermissionService {
   /// Production constructor — wires the real `permission_handler` APIs.
   ///
@@ -210,41 +212,39 @@ class TrackingPermissionService {
   final PermissionRequester _request;
   final SettingsOpener _openSettings;
 
-  /// Runs the four-step permission dance and returns the resolved
+  /// Runs the two-step permission dance and returns the resolved
   /// [TrackingPermissionStatus].
   ///
   /// Step order (strictly enforced):
   ///
   ///   1. Probe / request `locationWhenInUse`. Short-circuits to
   ///      [TrackingPermissionStatus.permanentlyDenied] or
-  ///      [TrackingPermissionStatus.denied] WITHOUT touching
-  ///      `locationAlways` or `notification` if fine is not granted.
-  ///   2. Probe / request `locationAlways`. Never touched before fine
-  ///      has resolved granted (RESEARCH Pitfall 5).
-  ///   3. Probe / request `notification` (UX-03 gap-closure). Never
-  ///      touched until the location dance has resolved; required on
-  ///      Android 13+ for the UX-03 foreground notification to be
+  ///      [TrackingPermissionStatus.denied] WITHOUT touching `notification`
+  ///      if fine is not granted.
+  ///   2. Probe / request `notification` (UX-03 gap-closure). Never
+  ///      touched until `locationWhenInUse` has resolved granted; required
+  ///      on Android 13+ for the UX-03 foreground notification to be
   ///      visible at all. If denied, returns
   ///      [TrackingPermissionStatus.notificationDenied].
   ///
-  /// Short-circuit cases that return WITHOUT touching `locationAlways`
-  /// or `notification`:
+  /// `Permission.locationAlways` is NEVER probed or requested — see the
+  /// class dartdoc for why.
+  ///
+  /// Short-circuit cases that return WITHOUT touching `notification`:
   ///
   ///   a. Fine is already permanently denied on initial probe.
   ///   b. Fine request resolves permanently denied.
   ///   c. Fine request resolves denied (non-permanent).
   ///
-  /// If fine is already granted, step 2 still runs from its current
-  /// probe. Step 3 runs whenever the location dance resolves to either
-  /// [TrackingPermissionStatus.fullyGranted] or
-  /// [TrackingPermissionStatus.foregroundOnly].
+  /// Every one of those is an early `return`, so by the time control flow
+  /// reaches the notification step, `locationWhenInUse` is granted by
+  /// construction — that ordering is structural, not asserted.
   Future<TrackingPermissionStatus> preflight() async {
     final fineStatus = await _probe(Permission.locationWhenInUse);
     if (fineStatus.isPermanentlyDenied) {
       return TrackingPermissionStatus.permanentlyDenied;
     }
-    var fineGranted = fineStatus.isGranted;
-    if (!fineGranted) {
+    if (!fineStatus.isGranted) {
       final requested = await _request(Permission.locationWhenInUse);
       if (requested.isPermanentlyDenied) {
         return TrackingPermissionStatus.permanentlyDenied;
@@ -252,37 +252,27 @@ class TrackingPermissionService {
       if (!requested.isGranted) {
         return TrackingPermissionStatus.denied;
       }
-      fineGranted = true;
     }
-    // Strict ordering guard: locationAlways is only touched once
-    // locationWhenInUse has fully resolved granted (Pitfall 5).
-    assert(
-      fineGranted,
-      'locationAlways must never be touched before locationWhenInUse '
-      'resolves granted.',
-    );
-    final bgStatus = await _probe(Permission.locationAlways);
-    var backgroundGranted = bgStatus.isGranted;
-    if (!backgroundGranted) {
-      final bgRequested = await _request(Permission.locationAlways);
-      backgroundGranted = bgRequested.isGranted;
-    }
+    // From here on, locationWhenInUse is granted by control flow: every
+    // non-granted outcome above already returned.
     // D-06: On iOS, tracking depends only on location. The notification
     // permission dance is Android-only (UX-03 requires POST_NOTIFICATIONS on
     // Android 13+, but iOS never gates tracking on notification permission).
     // Return here without touching Permission.notification so the iOS
     // Start button is never permanently disabled by a denied notification.
+    // TODO(v0.2-resume): iOS background-location strategy must be
+    // re-decided when the iOS platform resumes (DEC-C) — iOS has no
+    // foreground-service equivalent, so the reasoning that justifies
+    // dropping locationAlways on Android does NOT transfer to iOS.
     if (defaultTargetPlatform == TargetPlatform.iOS) {
-      return backgroundGranted
-          ? TrackingPermissionStatus.fullyGranted
-          : TrackingPermissionStatus.foregroundOnly;
+      return TrackingPermissionStatus.fullyGranted;
     }
-    // UX-03: notifications are a hard requirement. Fine+background (or
-    // fine-only) resolved means location is OK; we still must ensure
-    // POST_NOTIFICATIONS so the foreground notification (D-14) is
-    // actually visible on Android 13+. Ordering guard: we only reach
-    // this point after the entire location dance has resolved — the
-    // user is never asked for notifications before location.
+    // UX-03: notifications are a hard requirement. Fine location resolved
+    // means location is OK; we still must ensure POST_NOTIFICATIONS so the
+    // foreground notification (D-14) is actually visible on Android 13+.
+    // Ordering guard: we only reach this point after locationWhenInUse has
+    // resolved granted — the user is never asked for notifications before
+    // location.
     final notifStatus = await _probe(Permission.notification);
     if (!notifStatus.isGranted) {
       final notifRequested = await _request(Permission.notification);
@@ -290,20 +280,19 @@ class TrackingPermissionService {
         return TrackingPermissionStatus.notificationDenied;
       }
     }
-    return backgroundGranted
-        ? TrackingPermissionStatus.fullyGranted
-        : TrackingPermissionStatus.foregroundOnly;
+    return TrackingPermissionStatus.fullyGranted;
   }
 
   /// Requests `Permission.locationWhenInUse` ONLY and returns the resolved
   /// [LocationWhenInUseStatus].
   ///
   /// Probes first and only requests when not already granted; touches ONLY
-  /// `Permission.locationWhenInUse` and NEVER `locationAlways` or
-  /// `notification`. Exists for callers (the location picker) that need to
-  /// centre a map and have no business asking for background location or
-  /// notifications. Uses the same injected probe/requester seams as
-  /// [preflight], so it is unit testable with no platform channel.
+  /// `Permission.locationWhenInUse` and NEVER `notification` (and, like the
+  /// rest of this class, never `locationAlways` — see the class dartdoc).
+  /// Exists for callers (the location picker) that need to centre a map and
+  /// have no business asking for notifications. Uses the same injected
+  /// probe/requester seams as [preflight], so it is unit testable with no
+  /// platform channel.
   Future<LocationWhenInUseStatus> requestWhenInUse() async {
     final status = await _probe(Permission.locationWhenInUse);
     if (status.isPermanentlyDenied) {
@@ -327,12 +316,12 @@ class TrackingPermissionService {
   /// in build-time code paths without risking a permission dialog. This
   /// is a hard invariant: even when `notification` is denied, this method
   /// returns [TrackingPermissionStatus.notificationDenied] based on the
-  /// probe alone and does NOT trigger a system prompt.
+  /// probe alone and does NOT trigger a system prompt. `locationAlways` is
+  /// never probed (see the class dartdoc).
   ///
-  /// Mirrors [preflight]'s ordering: location is classified first, and
-  /// the notification probe only runs when the location state is either
-  /// [TrackingPermissionStatus.fullyGranted] or
-  /// [TrackingPermissionStatus.foregroundOnly].
+  /// Mirrors [preflight]'s ordering: location is classified first, and the
+  /// notification probe only runs once `locationWhenInUse` has probed
+  /// granted.
   Future<TrackingPermissionStatus> currentStatus() async {
     final fineStatus = await _probe(Permission.locationWhenInUse);
     if (fineStatus.isPermanentlyDenied) {
@@ -341,22 +330,24 @@ class TrackingPermissionService {
     if (!fineStatus.isGranted) {
       return TrackingPermissionStatus.denied;
     }
-    final bgStatus = await _probe(Permission.locationAlways);
-    final locationStatus = bgStatus.isGranted
-        ? TrackingPermissionStatus.fullyGranted
-        : TrackingPermissionStatus.foregroundOnly;
     // D-06: iOS resolves on location alone — never probe notification.
     // On iOS, returning here means notificationDenied is never reachable,
     // so the Start button cannot be permanently disabled by a notification
     // permission state (RESEARCH Pitfall 5).
-    if (defaultTargetPlatform == TargetPlatform.iOS) return locationStatus;
+    // TODO(v0.2-resume): iOS background-location strategy must be
+    // re-decided when the iOS platform resumes (DEC-C) — iOS has no
+    // foreground-service equivalent, so the reasoning that justifies
+    // dropping locationAlways on Android does NOT transfer to iOS.
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      return TrackingPermissionStatus.fullyGranted;
+    }
     // UX-03: location is OK; now classify notifications. Probe-only —
     // never call the requester from currentStatus (build-time safety).
     final notifStatus = await _probe(Permission.notification);
     if (!notifStatus.isGranted) {
       return TrackingPermissionStatus.notificationDenied;
     }
-    return locationStatus;
+    return TrackingPermissionStatus.fullyGranted;
   }
 
   /// Deep-links into this app's PERMISSION LIST in system settings (D-09,

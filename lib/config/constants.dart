@@ -1096,9 +1096,15 @@ const String kTrackingReducedAccuracyBlockedMessage =
 // ---------------------------------------------------------------------------
 
 /// iOS permission banner body copy variant for the When-In-Use degraded state
-/// (D-03/D-05). Shown on iOS when `TrackingPermissionStatus.foregroundOnly`
-/// and the user has not granted Always. Platform-branched at the banner call
-/// site — Android uses the existing banner copy.
+/// (D-03/D-05). Parked Phase 15 iOS copy for a When-In-Use-only degraded
+/// state that the CURRENT Android-only `TrackingPermissionStatus` enum no
+/// longer models (that enum's `foregroundOnly` variant was removed by
+/// quick-260802-itr, which drops `ACCESS_BACKGROUND_LOCATION` /
+/// `Permission.locationAlways` for Android in favour of the location-typed
+/// foreground service). This constant is unused in `lib/` pending the v0.2
+/// iOS resume, at which point iOS background-location strategy — which has
+/// no foreground-service equivalent — must be re-decided from scratch
+/// (DEC-C) before this copy (or a replacement) is wired up again.
 ///
 /// See D-05, Surface B in `.planning/phases/15-notifications-permissions-onboarding-ux-on-ios/15-UI-SPEC.md`.
 const String kIosPermissionBannerBody =

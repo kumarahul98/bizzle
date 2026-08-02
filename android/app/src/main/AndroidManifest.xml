@@ -60,10 +60,14 @@
     <!-- Fine-grained GPS — required for TRACK-02 GPS capture. -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
-    <!-- Background location for Android 10+, requested as step 2 per D-07. -->
-    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>
     <!-- Generic foreground-service permission (Android 9+). -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <!-- No background-location permission: tracking is always user-initiated -->
+    <!-- from the foreground and runs inside the location-typed foreground -->
+    <!-- service below, so ACCESS_FINE_LOCATION granted "while using the app" -->
+    <!-- is sufficient to keep receiving updates on Android 10+. Deliberately -->
+    <!-- omitted to avoid the Play Store background-location declaration -->
+    <!-- (and its mandatory demo video). -->
     <!-- Android 14 typed sub-permission. Omitting this makes startForeground() -->
     <!-- throw ForegroundServiceTypeException on Android 14 (RESEARCH Pitfall 1). -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>

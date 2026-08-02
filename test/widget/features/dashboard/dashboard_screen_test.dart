@@ -72,14 +72,6 @@ _PermissionHarness _buildFakePermissionService(
     case TrackingPermissionStatus.fullyGranted:
       probeValues = <Permission, PermissionStatus>{
         Permission.locationWhenInUse: PermissionStatus.granted,
-        Permission.locationAlways: PermissionStatus.granted,
-        Permission.notification: PermissionStatus.granted,
-      };
-      requestValues = const <Permission, PermissionStatus>{};
-    case TrackingPermissionStatus.foregroundOnly:
-      probeValues = <Permission, PermissionStatus>{
-        Permission.locationWhenInUse: PermissionStatus.granted,
-        Permission.locationAlways: PermissionStatus.denied,
         Permission.notification: PermissionStatus.granted,
       };
       requestValues = const <Permission, PermissionStatus>{};
@@ -98,7 +90,6 @@ _PermissionHarness _buildFakePermissionService(
     case TrackingPermissionStatus.notificationDenied:
       probeValues = <Permission, PermissionStatus>{
         Permission.locationWhenInUse: PermissionStatus.granted,
-        Permission.locationAlways: PermissionStatus.granted,
         Permission.notification: PermissionStatus.denied,
       };
       // preflight() re-requests when the probe returns denied.
