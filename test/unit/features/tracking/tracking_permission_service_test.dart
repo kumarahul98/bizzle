@@ -656,8 +656,9 @@ void main() {
   //
   // Key invariant (D-06 / RESEARCH Pitfall 5):
   //   On iOS, the dance ends after the location step. `Permission.notification`
-  //   is NEVER probed or requested, and `TrackingPermissionStatus.notificationDenied`
-  //   is NEVER returned. Tracking Start depends only on location on iOS.
+  //   is NEVER probed or requested, and
+  //   `TrackingPermissionStatus.notificationDenied` is NEVER returned.
+  //   Tracking Start depends only on location on iOS.
   //
   // Test technique: `debugDefaultTargetPlatformOverride = TargetPlatform.iOS`
   // exercises the iOS code path without dart:io Platform (Pitfall 2).
@@ -692,13 +693,15 @@ void main() {
           log.probeCalls.contains(Permission.notification),
           isFalse,
           reason:
-              'D-06: preflight() on iOS must never probe Permission.notification',
+              'D-06: preflight() on iOS must never probe '
+              'Permission.notification',
         );
         expect(
           log.requestCalls.contains(Permission.notification),
           isFalse,
           reason:
-              'D-06: preflight() on iOS must never request Permission.notification',
+              'D-06: preflight() on iOS must never request '
+              'Permission.notification',
         );
       },
     );
