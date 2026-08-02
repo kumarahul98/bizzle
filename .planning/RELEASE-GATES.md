@@ -52,13 +52,34 @@ everywhere.
 Declare as **COLLECTED**, all **"Linked to the user"**, **NONE shared** with
 third parties:
 
-| Category | Data type | Purpose |
-|----------|-----------|---------|
-| Location | Precise location (route polylines + Home/Office coords uploaded to Firestore) | App functionality |
-| Personal info | Email address (Firebase Auth via Google Sign-In) | Account management |
-| Personal info | Name (`user.displayName`) | Account management |
-| Personal info | User IDs (Firebase uid on every trip doc) | App functionality, Account management |
-| App activity | Other user-generated content (trip records: times, duration, distance, direction, breaks) | App functionality |
+| Category | Data type | Purpose | Required? |
+|----------|-----------|---------|-----------|
+| Location | Precise location (route polylines + Home/Office coords uploaded to Firestore) | App functionality | **Required** |
+| Personal info | Email address (Firebase Auth via Google Sign-In) | Account management | Optional |
+| Personal info | Name (`user.displayName`) | Account management | Optional |
+| Personal info | User IDs (Firebase uid on every trip doc) | App functionality, Account management | Optional |
+| App activity | Other user-generated content (trip records: times, duration, distance, direction, breaks) | App functionality | **Required** |
+
+For every one of the five, the remaining two per-type questions answer the
+same way: **Collected** (never "Shared"), and **not** processed ephemerally
+(all of it is persisted).
+
+On "Shared" — Firebase / Google Cloud is a **processor acting on our behalf**,
+which Play explicitly excludes from its definition of sharing. The presence of
+a third-party backend is not by itself a reason to tick "Shared". Nothing is
+sold or handed to any third party for their own purposes.
+
+**Required vs optional — the reasoning, in case it is ever questioned.**
+The three Personal-info types are Optional because guest mode is real
+(`AuthGuest`): the app is fully usable signed out, so the user genuinely
+chooses whether to provide them. Precise location and trip content are
+declared **Required** because GPS recording is the product's core purpose —
+decided 2026-08-02. Note the arguable counter-position, recorded honestly:
+Play's literal test for "optional" is whether the app remains usable without
+the data, and it does (manual trip entry, history and stats all work with the
+location permission denied). Required is the more conservative declaration and
+was chosen deliberately; do not "correct" it to Optional without revisiting
+this paragraph.
 
 Declare **NOT collected**: advertising ID, contacts, photos, microphone,
 financial info, health, messages, calendar, files. Verified by audit: the app
