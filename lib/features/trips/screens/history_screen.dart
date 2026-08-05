@@ -100,6 +100,11 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                   // Calendar toggle icon button — 36dp surface circle.
                   _IconCircleButton(
                     onTap: _toggleCalendar,
+                    // Names the destination view, not the current one — the
+                    // control toggles, so this is what a tap will do.
+                    semanticLabel: _view == HistoryView.calendar
+                        ? kHistoryShowListSemanticLabel
+                        : kHistoryShowCalendarSemanticLabel,
                     // surfaceContainer maps to t.surface in buildLightTheme.
                     backgroundColor: Theme.of(
                       context,
@@ -113,6 +118,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                     key: TourKeys.tripsAdd,
                     child: _IconCircleButton(
                       onTap: _showManualEntry,
+                      semanticLabel: kHistoryAddTripSemanticLabel,
                       backgroundColor: Theme.of(context).colorScheme.onSurface,
                       icon: Icons.add_rounded,
                       iconColor: bgColor,
@@ -183,28 +189,42 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
 class _IconCircleButton extends StatelessWidget {
   const _IconCircleButton({
     required this.onTap,
+    required this.semanticLabel,
     required this.backgroundColor,
     required this.icon,
     required this.iconColor,
   });
 
   final VoidCallback onTap;
+
+  /// Screen-reader label. Required, not optional: the button renders an icon
+  /// with no visible text, so an unlabelled instance is announced as nothing.
+  final String semanticLabel;
+
   final Color backgroundColor;
   final IconData icon;
   final Color iconColor;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          color: backgroundColor,
-          shape: BoxShape.circle,
+    return Semantics(
+      button: true,
+      label: semanticLabel,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            shape: BoxShape.circle,
+          ),
+          // Excluded so the icon's own (absent) semantics cannot shadow the
+          // label above.
+          child: ExcludeSemantics(
+            child: Icon(icon, size: 18, color: iconColor),
+          ),
         ),
-        child: Icon(icon, size: 18, color: iconColor),
       ),
     );
   }

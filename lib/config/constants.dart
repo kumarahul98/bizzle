@@ -465,6 +465,22 @@ const String kHistoryCalendarEmptyDate = 'No trips on this day.';
 /// Placeholder shown in calendar sub-list when no date is selected (HIST-02).
 const String kHistoryCalendarNoSelection = 'Tap a date to see trips.';
 
+// --- Trips toolbar accessibility labels -----------------------------------
+//
+// The two toolbar controls are icon-only circles with no visible text, so
+// without an explicit semantic label a screen reader announces nothing at all.
+// The view control TOGGLES, so its label names the destination view rather
+// than the current one — it must describe what a tap will do.
+
+/// Screen-reader label for the view toggle while the LIST is showing.
+const String kHistoryShowCalendarSemanticLabel = 'Show calendar';
+
+/// Screen-reader label for the view toggle while the CALENDAR is showing.
+const String kHistoryShowListSemanticLabel = 'Show list';
+
+/// Screen-reader label for the add-a-trip button in the Trips toolbar.
+const String kHistoryAddTripSemanticLabel = 'Add missed commute';
+
 /// Badge text on the trip detail screen for manually-entered trips (D-05).
 const String kManualEntryBadge = 'Manually entered — no route recorded';
 

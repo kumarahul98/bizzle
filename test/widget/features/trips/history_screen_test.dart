@@ -144,5 +144,61 @@ void main() {
       await tester.pump();
       expect(find.byType(TableCalendar<TripSummary>), findsNothing);
     });
+
+    // The two toolbar controls are icon-only circles. Without an explicit
+    // Semantics label a screen reader announces nothing at all for them —
+    // confirmed on device, where `uiautomator` reported empty content-desc
+    // for both nodes.
+    testWidgets('toolbar icon buttons expose screen-reader labels', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(buildScreen(trips: <TripSummary>[makeSummary()]));
+      await tester.pump();
+
+      expect(
+        find.bySemanticsLabel(kHistoryAddTripSemanticLabel),
+        findsOneWidget,
+      );
+      expect(
+        find.bySemanticsLabel(kHistoryShowCalendarSemanticLabel),
+        findsOneWidget,
+      );
+
+      handle.dispose();
+    });
+
+    testWidgets('view toggle label names the view a tap will open', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(buildScreen(trips: <TripSummary>[makeSummary()]));
+      await tester.pump();
+
+      // Showing the list → the control offers the calendar.
+      expect(
+        find.bySemanticsLabel(kHistoryShowCalendarSemanticLabel),
+        findsOneWidget,
+      );
+      expect(
+        find.bySemanticsLabel(kHistoryShowListSemanticLabel),
+        findsNothing,
+      );
+
+      await tester.tap(find.text('Calendar'));
+      await tester.pump();
+
+      // Showing the calendar → it now offers the list.
+      expect(
+        find.bySemanticsLabel(kHistoryShowListSemanticLabel),
+        findsOneWidget,
+      );
+      expect(
+        find.bySemanticsLabel(kHistoryShowCalendarSemanticLabel),
+        findsNothing,
+      );
+
+      handle.dispose();
+    });
   });
 }
