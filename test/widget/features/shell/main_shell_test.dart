@@ -448,6 +448,70 @@ void main() {
         );
       },
     );
+
+    // The FRESH-INSTALL path. app.dart routes an unseen-onboarding guest to
+    // LoginScreen, so MainShell is NOT mounted yet; signing in flips AuthState
+    // to AuthSignedIn and mounts this shell for the first time — meaning the
+    // shell's ref.listen is created AFTER the transition it was supposed to
+    // catch, and ref.listen never fires for the value already present.
+    //
+    // Auto-restore therefore never ran, and a user reinstalling on a new phone
+    // landed on an empty app with every trip still sitting in the cloud. The
+    // tests above pass either way because they mount as a guest FIRST and then
+    // transition, which is the already-onboarded path.
+    //
+    // _FakeRestoreController.build() returns RestoreIdle and its restore()
+    // sets RestoreSuccess, so the controller's own state is the signal for
+    // whether auto-restore ran at all.
+    testWidgets(
+      'mounting ALREADY signed in still runs auto-restore (fresh install)',
+      (tester) async {
+        await _pumpShell(
+          tester,
+          db: db,
+          authState: const AuthSignedIn(uid: 'u', name: 'n', email: 'e'),
+        );
+        // Settle the post-frame callback and the async restore sequence.
+        await tester.pump();
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 5));
+
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(MainShell)),
+        );
+        expect(
+          container.read(restoreControllerProvider),
+          isA<RestoreSuccess>(),
+          reason:
+              'auto-restore must run when sign-in is what mounted the shell, '
+              'not only on a guest -> signed-in transition',
+        );
+      },
+    );
+
+    testWidgets(
+      'auto-restore runs exactly once when mounted already signed in',
+      (tester) async {
+        // Guards the other direction: the mount-time check and the listener
+        // must not both fire and double-restore.
+        final tripId = await seedEditedTrip();
+
+        await _pumpShell(
+          tester,
+          db: db,
+          authState: const AuthSignedIn(uid: 'u', name: 'n', email: 'e'),
+        );
+        await tester.pump();
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 5));
+
+        // The backfill runs once per install behind its marker, so a second
+        // pass would re-enqueue this trip and produce two pending rows.
+        final pending = await db.syncQueueDao.getPending();
+        expect(pending, hasLength(1));
+        expect(pending.single.tripId, tripId);
+      },
+    );
   });
 
   group('MainShell stop confirmation (Phase 36, D-04)', () {

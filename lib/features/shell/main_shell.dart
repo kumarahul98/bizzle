@@ -55,6 +55,35 @@ class _MainShellState extends ConsumerState<MainShell>
     // Phase 28: seed the idle stats once the first frame's providers resolve
     // (the ref.listen below only fires on subsequent changes).
     WidgetsBinding.instance.addPostFrameCallback((_) => _pushWidgetIdleStats());
+    // Same reason, for auto-restore. On a FRESH INSTALL the gate in app.dart
+    // routes an unseen-onboarding guest to LoginScreen, so MainShell is not
+    // mounted yet; signing in flips AuthState to AuthSignedIn and mounts this
+    // shell for the first time — with the listener below created AFTER the
+    // transition it was meant to catch. Auto-restore therefore never ran and
+    // the user landed on an empty app with their trips still in the cloud,
+    // which is exactly the new-phone case cloud backup exists for.
+    //
+    // An already-onboarded guest is a different path: they are already on
+    // MainShell, so signing in IS a subsequent change and the listener fires.
+    // That path worked, which is why this went unnoticed.
+    //
+    // The `_hasRunAutoRestoreForCurrentSession` flag keeps the two entry
+    // points from both firing.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _maybeRunAutoRestore(ref.read(authStateProvider));
+    });
+  }
+
+  /// Run auto-restore once per shell session when [state] is signed in.
+  ///
+  /// Shared by the mount-time check above and the [ref.listen] below so the
+  /// once-only guard lives in exactly one place.
+  void _maybeRunAutoRestore(AuthState state) {
+    if (state is! AuthSignedIn) return;
+    if (_hasRunAutoRestoreForCurrentSession) return;
+    _hasRunAutoRestoreForCurrentSession = true;
+    _runAutoRestoreThenBackfill();
   }
 
   @override
@@ -353,24 +382,25 @@ class _MainShellState extends ConsumerState<MainShell>
       (_, __) => _pushWidgetIdleStats(),
     );
 
-    ref.listen<TrackingState>(trackingStateProvider, (previous, next) {
-      if (next is TrackingInterrupted) {
-        showDialog<void>(
-          context: context,
-          barrierDismissible: false,
-          builder: (_) => const RecoveryPromptDialog(),
-        );
-      } else if (previous is TrackingInterrupted) {
-        Navigator.of(context, rootNavigator: true).pop();
-      }
-    });
-
-    ref.listen<AuthState>(authStateProvider, (previous, next) {
-      if (next is AuthSignedIn && !_hasRunAutoRestoreForCurrentSession) {
-        _hasRunAutoRestoreForCurrentSession = true;
-        _runAutoRestoreThenBackfill();
-      }
-    });
+    ref
+      ..listen<TrackingState>(trackingStateProvider, (previous, next) {
+        if (next is TrackingInterrupted) {
+          showDialog<void>(
+            context: context,
+            barrierDismissible: false,
+            builder: (_) => const RecoveryPromptDialog(),
+          );
+        } else if (previous is TrackingInterrupted) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
+      })
+      // Catches the guest -> signed-in transition while this shell stays
+      // mounted. The mount-time check in initState covers the case where
+      // signing in is what mounted the shell in the first place.
+      ..listen<AuthState>(
+        authStateProvider,
+        (previous, next) => _maybeRunAutoRestore(next),
+      );
 
     // 2026-07-21 (D-02/D-03): the auto-pause prompt's Pause action opens the
     // app and asks here, instead of pausing silently from the notification.
