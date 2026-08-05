@@ -564,6 +564,11 @@ const String kDashboardFabIdleLabel = 'Start commute';
 /// FAB label when tracking is active (D-03).
 const String kDashboardFabActiveLabel = 'Go to tracking';
 
+/// Leading fragment of the hero card's idle auto-label row. Completed at the
+/// call site with [kDirectionToOfficeLabel] / [kDirectionToHomeLabel], which
+/// are styled differently from this prefix — hence two spans, not one string.
+const String kAutoLabelledPrefix = 'Auto-labelled ';
+
 /// Section heading above today's trip list (D-02).
 const String kDashboardTodaySectionLabel = 'Today';
 

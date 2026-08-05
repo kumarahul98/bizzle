@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/config/theme.dart';
+import 'package:traevy/database/daos/user_preferences_dao.dart';
+import 'package:traevy/features/settings/providers/settings_providers.dart';
 import 'package:traevy/features/tracking/providers/tracking_providers.dart';
 import 'package:traevy/features/tracking/services/tracking_service_controller.dart';
 import 'package:traevy/features/tracking/state/tracking_state.dart';
@@ -16,6 +18,7 @@ import 'package:traevy/features/tracking/widgets/stop_button.dart';
 import 'package:traevy/features/tracking/widgets/tracking_error_layout.dart';
 import 'package:traevy/features/tracking/widgets/tracking_status_layout.dart';
 import 'package:traevy/features/tracking/widgets/tracking_tiles_row.dart';
+import 'package:traevy/features/trips/services/direction_label_service.dart';
 import 'package:traevy/shared/widgets/section_label.dart';
 
 const double _kButtonDiameter = 124;
@@ -30,27 +33,17 @@ const double _kIconSize = 36;
 /// Closes Phase 8 UAT gaps 1 and 4. See `.planning/phases/08-ui-overhaul/08-08-PLAN.md`.
 class HeroRecordCard extends ConsumerWidget {
   /// Create the hero card.
-  const HeroRecordCard({
-    required this.onStart,
-    this.autoLabelDirection,
-    this.autoLabelTime,
-    super.key,
-  });
+  const HeroRecordCard({required this.onStart, super.key});
 
   /// Permission-preflight wrapper. Parent owns permission UX; the hero
   /// only fires this when the user taps START while idle/error.
   final VoidCallback onStart;
 
-  /// Auto-labelled direction string (e.g. 'To office'). Shown when idle.
-  final String? autoLabelDirection;
-
-  /// Auto-labelled departure time (e.g. '08:30'). Shown when idle.
-  final String? autoLabelTime;
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tokens = Theme.of(context).extension<TraevyTokensExt>()!;
     final state = ref.watch(trackingStateProvider);
+    final prefs = ref.watch(userPreferenceProvider).asData?.value;
 
     // Surface the persist-result snackbar on the Stopping → Idle edge.
     // Lifted from the deleted TrackingScreen.build (08-08 task 1).
@@ -78,8 +71,7 @@ class HeroRecordCard extends ConsumerWidget {
           TrackingIdle() => _HeroIdle(
             tokens: tokens,
             onStart: onStart,
-            autoLabelDirection: autoLabelDirection,
-            autoLabelTime: autoLabelTime,
+            autoLabelDirection: _autoLabelDirection(prefs),
           ),
           TrackingStarting() => const TrackingStatusLayout(
             label: 'Starting GPS...',
@@ -138,6 +130,32 @@ class HeroRecordCard extends ConsumerWidget {
     );
   }
 
+  /// Display label for the direction a trip started RIGHT NOW would receive.
+  ///
+  /// Mirrors the auto-label half of [TrackingNotifier.resolvedDirection]: the
+  /// user's morning/evening cutoffs fed to [DirectionLabelService], falling
+  /// back to [kDefaultDirectionCutoffHour] until prefs load. There is no
+  /// manual-override half here — an override only exists once a trip is
+  /// active.
+  ///
+  /// Computed in `build` rather than cached in a provider on purpose: a
+  /// `Provider` holds its value until a dependency changes, so a label
+  /// computed in the morning would still read 'To office' at 23:00 for a
+  /// session left open. `DateTime.now()` is already local, which is what
+  /// [DirectionLabelService] requires.
+  String _autoLabelDirection(UserPreferencesValue? prefs) {
+    final morning = prefs?.morningCutoffHour ?? kDefaultDirectionCutoffHour;
+    final evening = prefs?.eveningCutoffHour ?? kDefaultDirectionCutoffHour;
+    final direction = const DirectionLabelService().label(
+      DateTime.now(),
+      morning,
+      evening,
+    );
+    return direction == kDirectionToHome
+        ? kDirectionToHomeLabel
+        : kDirectionToOfficeLabel;
+  }
+
   void _handlePersistResult(BuildContext context, PersistResult? result) {
     if (result == null || !context.mounted) return;
     final messenger = ScaffoldMessenger.maybeOf(context);
@@ -158,13 +176,13 @@ class _HeroIdle extends StatelessWidget {
     required this.tokens,
     required this.onStart,
     required this.autoLabelDirection,
-    required this.autoLabelTime,
   });
 
   final TraevyTokensExt tokens;
   final VoidCallback onStart;
-  final String? autoLabelDirection;
-  final String? autoLabelTime;
+
+  /// Already-resolved display label ('To office' / 'To home').
+  final String autoLabelDirection;
 
   Color _shadowColor(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -216,11 +234,7 @@ class _HeroIdle extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        _AutoLabelRow(
-          direction: autoLabelDirection,
-          time: autoLabelTime,
-          tokens: tokens,
-        ),
+        _AutoLabelRow(direction: autoLabelDirection, tokens: tokens),
       ],
     );
   }
@@ -329,41 +343,31 @@ class _HeroActiveState extends State<_HeroActive> {
 }
 
 class _AutoLabelRow extends StatelessWidget {
-  const _AutoLabelRow({
-    required this.direction,
-    required this.time,
-    required this.tokens,
-  });
-  final String? direction;
-  final String? time;
+  const _AutoLabelRow({required this.direction, required this.tokens});
+
+  /// Already-resolved display label ('To office' / 'To home').
+  final String direction;
   final TraevyTokensExt tokens;
 
   @override
   Widget build(BuildContext context) {
     final onSurface = Theme.of(context).colorScheme.onSurface;
-    final dir = direction ?? 'To office';
-    final t = time ?? '';
     return RichText(
       textAlign: TextAlign.center,
       text: TextSpan(
         children: [
           TextSpan(
-            text: 'Auto-labelled ',
+            text: kAutoLabelledPrefix,
             style: TraevyFonts.ui(size: 12.5, color: tokens.textDim),
           ),
           TextSpan(
-            text: dir,
+            text: direction,
             style: TraevyFonts.ui(
               size: 12.5,
               weight: FontWeight.w700,
               color: onSurface,
             ),
           ),
-          if (t.isNotEmpty)
-            TextSpan(
-              text: ' · $t',
-              style: TraevyFonts.mono(size: 12.5, color: tokens.textDim),
-            ),
         ],
       ),
     );
