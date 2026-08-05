@@ -42,4 +42,38 @@ void main() {
       expect(kSyncStatusFailed, 'failed');
     });
   });
+
+  group('delete-trip dialog copy describes the SOFT delete it performs', () {
+    // Per-trip delete moves the trip to Trash — the row survives with a
+    // `deleted_at` stamp and is restorable. The copy said "permanently
+    // removed", which described the wrong operation and contradicted both the
+    // published privacy policy and CLAUDE.md's deletion model.
+    const body =
+        '$kTripDeleteDialogBodyPrefix'
+        '$kTrashRetentionDays'
+        '$kTripDeleteDialogBodySuffix';
+
+    test('does not claim the trip is permanently removed', () {
+      expect(body.toLowerCase(), isNot(contains('permanent')));
+      expect(body.toLowerCase(), isNot(contains('cannot be recovered')));
+    });
+
+    test('names the Trash destination and says it is restorable', () {
+      expect(body, contains(kTrashScreenTitle));
+      expect(body.toLowerCase(), contains('restore'));
+    });
+
+    test('states the retention window from kTrashRetentionDays', () {
+      expect(body, contains('$kTrashRetentionDays days'));
+    });
+
+    test('stays distinct from the permanent-delete copy', () {
+      expect(body, isNot(kTrashPermanentDeleteDialogBody));
+      // The Trash action's own copy must still be the blunt one.
+      expect(
+        kTrashPermanentDeleteDialogBody.toLowerCase(),
+        contains('cannot be recovered'),
+      );
+    });
+  });
 }

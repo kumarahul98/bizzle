@@ -22,7 +22,11 @@ Future<void> handleDeleteTrip(
     context: context,
     builder: (dialogContext) => AlertDialog(
       title: const Text(kTripDeleteDialogTitle),
-      content: const Text(kTripDeleteDialogBody),
+      content: const Text(
+        '$kTripDeleteDialogBodyPrefix'
+        '$kTrashRetentionDays'
+        '$kTripDeleteDialogBodySuffix',
+      ),
       actions: <Widget>[
         TextButton(
           onPressed: () => Navigator.of(dialogContext).pop(false),

@@ -623,8 +623,26 @@ const String kDialogOpenSettings = 'Open settings';
 /// Delete-trip confirmation dialog title (T-03-14).
 const String kTripDeleteDialogTitle = 'Delete trip?';
 
-/// Delete-trip confirmation dialog body (T-03-14).
-const String kTripDeleteDialogBody = 'This trip will be permanently removed.';
+/// Delete-trip confirmation dialog body fragments (T-03-14).
+///
+/// Per-trip delete is SOFT (Phase 35, D-05): the row keeps its `deleted_at`
+/// stamp, a tombstone syncs, and the trip is restorable from Trash until the
+/// retention window lapses. The previous copy — "This trip will be permanently
+/// removed." — described the wrong operation, and was near-identical to
+/// [kTrashPermanentDeleteDialogBody], which describes the genuinely
+/// irreversible Trash action.
+///
+/// Assembled at the call site around [kTrashRetentionDays], mirroring
+/// [kTrashEmptyBodyPrefix] / [kTrashEmptyBodySuffix], so the retention window
+/// is never hardcoded twice.
+/// Full copy: 'This trip moves to Deleted trips, where it is kept for 30 days.
+/// You can restore it any time before then.'
+const String kTripDeleteDialogBodyPrefix =
+    'This trip moves to Deleted trips, where it is kept for ';
+
+/// See [kTripDeleteDialogBodyPrefix].
+const String kTripDeleteDialogBodySuffix =
+    ' days. You can restore it any time before then.';
 
 /// Destructive confirm label on the delete-trip dialog (T-03-14).
 const String kTripDeleteConfirm = 'Delete';
