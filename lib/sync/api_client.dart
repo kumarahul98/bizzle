@@ -128,16 +128,21 @@ class ApiClient {
 
   /// `POST /trips/sync` — batch upsert of [trips] (D-02). Body is
   /// `{ "trips": [ <serialized> ] }`. A trip with no entry in
-  /// [breaksByTripId] serializes with an empty `breaks` array (never
-  /// throws). Throws on non-2xx.
+  /// [breaksByTripId] or [stuckSegmentsByTripId] serializes with an empty
+  /// array for that field (never throws). Throws on non-2xx.
   Future<void> syncTrips(
     List<TripRow> trips,
     Map<String, List<TripBreakRow>> breaksByTripId,
+    Map<String, List<TripStuckSegmentRow>> stuckSegmentsByTripId,
   ) async {
     final body = jsonEncode({
       'trips': trips
           .map(
-            (t) => TripSerializer.toJson(t, breaksByTripId[t.id] ?? const []),
+            (t) => TripSerializer.toJson(
+              t,
+              breaksByTripId[t.id] ?? const [],
+              stuckSegmentsByTripId[t.id] ?? const [],
+            ),
           )
           .toList(),
     });

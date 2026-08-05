@@ -33,6 +33,34 @@ const tripBreakSchema = z.object({
 });
 
 /**
+ * Maximum number of stuck-in-traffic stretches accepted per trip.
+ *
+ * Deliberately much higher than {@link kMaxBreaksPerTrip}. A break is a
+ * user-initiated pause, so 50 is generous. A stuck segment is produced
+ * automatically by the accumulator for every slow run clearing
+ * `kStuckSegmentMinSeconds` (20 s), so a long stop-and-go commute can
+ * legitimately generate hundreds — capping these at 50 would silently truncate
+ * real data on exactly the commutes this app exists to measure.
+ *
+ * Still bounded: 200 segments is a few KB of JSON, far under Firestore's 1 MiB
+ * document limit even alongside a max-length polyline, and it rejects an
+ * abusive payload with a 400 before any Firestore work.
+ */
+export const kMaxStuckSegmentsPerTrip = 200;
+
+/**
+ * zod schema for a single embedded stuck stretch. The two indices address the
+ * decoded `routePolyline` and so must be non-negative integers; the timestamps
+ * reuse the same `.datetime()` validator as every other time field.
+ */
+const stuckSegmentSchema = z.object({
+  startPointIndex: z.number().int().nonnegative(),
+  endPointIndex: z.number().int().nonnegative(),
+  startTime: z.string().datetime(),
+  endTime: z.string().datetime(),
+});
+
+/**
  * zod schema mirroring the {@link import('../types/trip').Trip} contract.
  *
  * `id` is a UUID (D-09: the doc id is the client trip UUID). `userId` is
@@ -67,6 +95,14 @@ export const tripSchema = z.object({
   isEdited: z.boolean().default(false),
   directionSource: z.enum(['manual', 'geofence', 'time']).default('time'),
   breaks: z.array(tripBreakSchema).max(kMaxBreaksPerTrip).default([]),
+  // `.default([])` for the same old-client-compatibility reason as the Phase 26
+  // fields above: every trip document written before this field existed omits
+  // it, and every client older than this release will keep omitting it. Both
+  // must keep validating.
+  stuckSegments: z
+    .array(stuckSegmentSchema)
+    .max(kMaxStuckSegmentsPerTrip)
+    .default([]),
 });
 
 /**

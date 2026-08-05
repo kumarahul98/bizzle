@@ -84,7 +84,7 @@ void main() {
   group('TripSerializer.toJson', () {
     test('produces exactly the zod tripSchema key set (Phase 26), minus '
         'userId', () {
-      final json = TripSerializer.toJson(gpsTrip(), const []);
+      final json = TripSerializer.toJson(gpsTrip(), const [], const []);
 
       expect(json.keys.toSet(), {
         'id',
@@ -103,6 +103,7 @@ void main() {
         'isEdited',
         'directionSource',
         'breaks',
+        'stuckSegments',
       });
       expect(json.containsKey('userId'), isFalse);
       // Phase 29 (LOC-03) guard: Home/Office coordinates sync on their OWN
@@ -114,7 +115,7 @@ void main() {
     });
 
     test('timestamps serialize as UTC ISO-8601 ending with Z', () {
-      final json = TripSerializer.toJson(gpsTrip(), const []);
+      final json = TripSerializer.toJson(gpsTrip(), const [], const []);
 
       for (final key in ['startTime', 'endTime', 'createdAt', 'updatedAt']) {
         expect(json[key], isA<String>());
@@ -146,7 +147,7 @@ void main() {
         updatedAt: localStart,
       );
 
-      final json = TripSerializer.toJson(row, const []);
+      final json = TripSerializer.toJson(row, const [], const []);
 
       expect((json['startTime']! as String).endsWith('Z'), isTrue);
       expect(
@@ -158,7 +159,7 @@ void main() {
     test(
       'manual-entry serializes numerics as 0 (not null) and polyline null',
       () {
-        final json = TripSerializer.toJson(manualTrip(), const []);
+        final json = TripSerializer.toJson(manualTrip(), const [], const []);
 
         expect(json['durationSeconds'], 0);
         expect(json['distanceMeters'], 0);
@@ -173,11 +174,11 @@ void main() {
 
     test('direction passes through unchanged as the stored literal', () {
       expect(
-        TripSerializer.toJson(gpsTrip(), const [])['direction'],
+        TripSerializer.toJson(gpsTrip(), const [], const [])['direction'],
         kDirectionToOffice,
       );
       expect(
-        TripSerializer.toJson(manualTrip(), const [])['direction'],
+        TripSerializer.toJson(manualTrip(), const [], const [])['direction'],
         kDirectionToHome,
       );
     });
@@ -188,7 +189,7 @@ void main() {
       'toJson(trip, []) includes totalPausedSeconds/isEdited/directionSource '
       'and an empty breaks array',
       () {
-        final json = TripSerializer.toJson(gpsTrip(), const []);
+        final json = TripSerializer.toJson(gpsTrip(), const [], const []);
 
         expect(json['totalPausedSeconds'], 0);
         expect(json['isEdited'], false);
@@ -202,7 +203,11 @@ void main() {
       'toJson emits non-default totalPausedSeconds/isEdited/directionSource '
       'unchanged',
       () {
-        final json = TripSerializer.toJson(editedPausedTrip(), const []);
+        final json = TripSerializer.toJson(
+          editedPausedTrip(),
+          const [],
+          const [],
+        );
 
         expect(json['totalPausedSeconds'], 600);
         expect(json['isEdited'], true);
@@ -217,7 +222,7 @@ void main() {
       '{startTime, endTime} ISO-8601 UTC string maps, ordered as given',
       () {
         final breaks = buildBreaks('t', 2);
-        final json = TripSerializer.toJson(gpsTrip(), breaks);
+        final json = TripSerializer.toJson(gpsTrip(), breaks, const []);
 
         final breaksJson = json['breaks']! as List<dynamic>;
         expect(breaksJson, hasLength(2));
@@ -241,7 +246,7 @@ void main() {
       'keeping the FIRST 50 chronologically (oldest-first retention)',
       () {
         final breaks = buildBreaks('t', kMaxBreaksPerTrip + 1);
-        final json = TripSerializer.toJson(gpsTrip(), breaks);
+        final json = TripSerializer.toJson(gpsTrip(), breaks, const []);
 
         final breaksJson = json['breaks']! as List<dynamic>;
         expect(breaksJson, hasLength(kMaxBreaksPerTrip));
@@ -270,7 +275,7 @@ void main() {
       'unchanged (at-cap boundary, no off-by-one)',
       () {
         final breaks = buildBreaks('t', kMaxBreaksPerTrip);
-        final json = TripSerializer.toJson(gpsTrip(), breaks);
+        final json = TripSerializer.toJson(gpsTrip(), breaks, const []);
 
         final breaksJson = json['breaks']! as List<dynamic>;
         expect(breaksJson, hasLength(kMaxBreaksPerTrip));
@@ -291,7 +296,7 @@ void main() {
           startTime: DateTime.utc(2026, 5, 31, 8, 50),
         );
 
-        final json = TripSerializer.toJson(gpsTrip(), [closed, open]);
+        final json = TripSerializer.toJson(gpsTrip(), [closed, open], const []);
 
         final breaksJson = json['breaks']! as List<dynamic>;
         expect(breaksJson, hasLength(1));
@@ -307,7 +312,7 @@ void main() {
     test('round-trips toJson(row, []) back into an equal ParsedTrip.trip', () {
       final row = gpsTrip();
       final parsed = TripSerializer.fromJson(
-        TripSerializer.toJson(row, const []),
+        TripSerializer.toJson(row, const [], const []),
       );
       final companion = parsed.trip;
 
@@ -331,7 +336,7 @@ void main() {
 
     test('does NOT set userId even when the server JSON includes it', () {
       // Server restore payload includes userId; the client must ignore it.
-      final json = TripSerializer.toJson(gpsTrip(), const [])
+      final json = TripSerializer.toJson(gpsTrip(), const [], const [])
         ..['userId'] = 'server-uid-should-be-ignored';
 
       final parsed = TripSerializer.fromJson(json);
@@ -340,7 +345,7 @@ void main() {
     });
 
     test('parses ISO timestamps into UTC DateTimes', () {
-      final json = TripSerializer.toJson(manualTrip(), const []);
+      final json = TripSerializer.toJson(manualTrip(), const [], const []);
 
       final parsed = TripSerializer.fromJson(json);
 
@@ -357,7 +362,7 @@ void main() {
       () {
         final row = editedPausedTrip();
         final breaks = buildBreaks(row.id, 2);
-        final json = TripSerializer.toJson(row, breaks);
+        final json = TripSerializer.toJson(row, breaks, const []);
 
         final parsed = TripSerializer.fromJson(json);
 
@@ -419,12 +424,105 @@ void main() {
       () {
         final row = gpsTrip();
         final breaks = buildBreaks(row.id, kMaxBreaksPerTrip);
-        final json = TripSerializer.toJson(row, breaks);
+        final json = TripSerializer.toJson(row, breaks, const []);
 
         final parsed = TripSerializer.fromJson(json);
 
         expect(parsed.breaks, hasLength(kMaxBreaksPerTrip));
       },
     );
+  });
+
+  // Stuck segments were device-only until they joined the wire contract, so a
+  // reinstall silently dropped every painted slow stretch even though the
+  // aggregate timeStuckSeconds restored fine.
+  group('TripSerializer — stuck segments', () {
+    List<TripStuckSegmentRow> buildSegments(String tripId, int n) => [
+      for (var i = 0; i < n; i++)
+        TripStuckSegmentRow(
+          id: 'seg-$i',
+          tripId: tripId,
+          startPointIndex: i * 4,
+          endPointIndex: i * 4 + 3,
+          startTime: DateTime.utc(2026, 5, 31, 8, 30).add(
+            Duration(minutes: i),
+          ),
+          endTime: DateTime.utc(2026, 5, 31, 8, 30, 40).add(
+            Duration(minutes: i),
+          ),
+        ),
+    ];
+
+    test('toJson emits each segment with its polyline indices', () {
+      final row = gpsTrip();
+      final json = TripSerializer.toJson(
+        row,
+        const [],
+        buildSegments(row.id, 2),
+      );
+
+      final segments = json['stuckSegments'] as List<dynamic>;
+      expect(segments, hasLength(2));
+      final first = segments.first as Map<String, dynamic>;
+      expect(first.keys.toSet(), {
+        'startPointIndex',
+        'endPointIndex',
+        'startTime',
+        'endTime',
+      });
+      expect(first['startPointIndex'], 0);
+      expect(first['endPointIndex'], 3);
+      // RFC-3339 UTC, same as every other time field on the wire.
+      expect(first['startTime'], endsWith('Z'));
+    });
+
+    test('toJson truncates to kMaxStuckSegmentsPerTrip', () {
+      // A payload over the backend cap earns a non-retryable 400 and would
+      // strand the trip in the sync queue forever, so the client mirrors the
+      // cap defensively — same contract as breaks.
+      final row = gpsTrip();
+      final json = TripSerializer.toJson(
+        row,
+        const [],
+        buildSegments(row.id, kMaxStuckSegmentsPerTrip + 5),
+      );
+
+      expect(
+        json['stuckSegments'] as List<dynamic>,
+        hasLength(kMaxStuckSegmentsPerTrip),
+      );
+    });
+
+    test('round-trips segments through toJson -> fromJson intact', () {
+      final row = gpsTrip();
+      final json = TripSerializer.toJson(
+        row,
+        const [],
+        buildSegments(row.id, 3),
+      );
+
+      final parsed = TripSerializer.fromJson(json);
+
+      expect(parsed.stuckSegments, hasLength(3));
+      // The indices are the whole point — they address the decoded polyline,
+      // so losing them would leave the segment unplaceable on the map.
+      expect(parsed.stuckSegments.first.startPointIndex.value, 0);
+      expect(parsed.stuckSegments.first.endPointIndex.value, 3);
+      expect(parsed.stuckSegments.last.startPointIndex.value, 8);
+      // Every parsed segment is re-parented to the trip it came from.
+      for (final s in parsed.stuckSegments) {
+        expect(s.tripId.value, row.id);
+      }
+    });
+
+    test('fromJson tolerates a payload with no stuckSegments key', () {
+      // Every trip document written before the field existed omits it.
+      final json = TripSerializer.toJson(gpsTrip(), const [], const [])
+        ..remove('stuckSegments');
+
+      final parsed = TripSerializer.fromJson(json);
+
+      expect(parsed.stuckSegments, isEmpty);
+    });
   });
 }

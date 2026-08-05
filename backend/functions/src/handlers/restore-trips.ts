@@ -66,6 +66,9 @@ export async function restoreTripsHandler(
         isEdited: doc.isEdited,
         directionSource: doc.directionSource,
         breaks: doc.breaks,
+        // Defaulted to [] by tripConverter.fromFirestore for documents written
+        // before the field existed.
+        stuckSegments: doc.stuckSegments,
       };
     });
 

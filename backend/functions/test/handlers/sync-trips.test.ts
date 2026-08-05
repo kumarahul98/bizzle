@@ -85,6 +85,51 @@ describe('POST /trips/sync', () => {
       expect(d2.directionSource).toBe('geofence');
       expect(d2.breaks).toEqual(t2.breaks);
     });
+
+    it('persists stuckSegments losslessly, indices included', async () => {
+      // The painted slow stretches on the trip map are reconstructed from
+      // these indices against the decoded routePolyline. Before this field
+      // existed they were device-only and a reinstall silently lost them.
+      const stuckSegments = [
+        {
+          startPointIndex: 2,
+          endPointIndex: 9,
+          startTime: '2026-05-01T08:11:00.000Z',
+          endTime: '2026-05-01T08:13:20.000Z',
+        },
+        {
+          startPointIndex: 14,
+          endPointIndex: 27,
+          startTime: '2026-05-01T08:26:00.000Z',
+          endTime: '2026-05-01T08:31:00.000Z',
+        },
+      ];
+      const trip = makeTrip({ stuckSegments });
+
+      const res = await request(app)
+        .post('/trips/sync')
+        .set('Authorization', `Bearer ${tokenA}`)
+        .send({ trips: [trip] });
+
+      expect(res.status).toBe(200);
+
+      const doc = (await db.collection('trips').doc(trip.id).get()).data()!;
+      expect(doc.stuckSegments).toEqual(stuckSegments);
+    });
+
+    it('defaults stuckSegments to [] for a client that omits the key', async () => {
+      const trip = makeTrip();
+      delete (trip as Partial<typeof trip>).stuckSegments;
+
+      const res = await request(app)
+        .post('/trips/sync')
+        .set('Authorization', `Bearer ${tokenA}`)
+        .send({ trips: [trip] });
+
+      expect(res.status).toBe(200);
+      const doc = (await db.collection('trips').doc(trip.id).get()).data()!;
+      expect(doc.stuckSegments).toEqual([]);
+    });
   });
 
   describe('server-forces-ownership (D-08, criterion 1 hardening)', () => {

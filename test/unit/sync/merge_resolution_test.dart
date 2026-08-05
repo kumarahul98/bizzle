@@ -306,4 +306,107 @@ void main() {
       },
     );
   });
+
+  // Stuck segments deliberately do NOT follow the startTime ride-along rule
+  // that breaks use. Their point indices address the DECODED routePolyline,
+  // and the merged trip always takes cloud's polyline, so a segment from the
+  // wrong side would paint the wrong stretch of road as slow.
+  group('resolveMerge — stuck segments follow the polyline, not startTime', () {
+    TripStuckSegmentRow localSegment({int startIndex = 1}) =>
+        TripStuckSegmentRow(
+          id: 'local-seg',
+          tripId: 'trip1',
+          startPointIndex: startIndex,
+          endPointIndex: startIndex + 2,
+          startTime: DateTime.utc(2026, 5, 1, 8, 5),
+          endTime: DateTime.utc(2026, 5, 1, 8, 7),
+        );
+
+    TripStuckSegmentsCompanion cloudSegment({int startIndex = 40}) =>
+        TripStuckSegmentsCompanion.insert(
+          id: 'cloud-seg',
+          tripId: 'trip1',
+          startPointIndex: startIndex,
+          endPointIndex: startIndex + 2,
+          startTime: DateTime.utc(2026, 5, 1, 9, 5),
+          endTime: DateTime.utc(2026, 5, 1, 9, 7),
+        );
+
+    test('cloud segments win even when local wins startTime', () {
+      // The giveaway case: breaks would ride along with local here, but the
+      // merged polyline is cloud's, so only cloud segments are placeable.
+      final result = resolveMerge(
+        local: _local(),
+        cloud: _cloud(),
+        selections: const {},
+        localStuckSegments: [localSegment()],
+        cloudStuckSegments: [cloudSegment()],
+      );
+
+      expect(result.stuckSegments, hasLength(1));
+      expect(result.stuckSegments.single.startPointIndex.value, 40);
+      // Re-parented onto the local trip id, never the cloud copy's.
+      expect(result.stuckSegments.single.tripId.value, 'trip1');
+    });
+
+    test('local segments are adopted when the geometry is identical', () {
+      // Both polylines null here (the helpers' default), so local indices are
+      // just as valid — and this is the case that matters right after the
+      // field shipped, when local trips have segments but cloud copies do not.
+      final result = resolveMerge(
+        local: _local(),
+        cloud: _cloud(),
+        selections: const {},
+        localStuckSegments: [localSegment()],
+      );
+
+      expect(result.stuckSegments, hasLength(1));
+      expect(result.stuckSegments.single.startPointIndex.value, 1);
+    });
+
+    test('local segments are dropped when the merged geometry differs', () {
+      // Local recorded one route, the cloud copy carries another. Local
+      // indices address a polyline the merged trip will not have, so there is
+      // no honest way to place them — better to paint nothing than the wrong
+      // stretch.
+      final localWithRoute = TripRow(
+        id: 'trip1',
+        userId: 'user',
+        startTime: DateTime.utc(2026, 5, 1, 8),
+        endTime: DateTime.utc(2026, 5, 1, 8, 30),
+        durationSeconds: 100,
+        totalPausedSeconds: 0,
+        distanceMeters: 1000,
+        routePolyline: 'local_polyline',
+        direction: 'to_office',
+        directionSource: 'time',
+        timeMovingSeconds: 1200,
+        timeStuckSeconds: 600,
+        isManualEntry: false,
+        isEdited: false,
+        createdAt: DateTime.utc(2026, 5, 1, 8, 30),
+        updatedAt: DateTime.utc(2026, 5, 1, 8, 30),
+      );
+      final cloudWithRoute = TripsCompanion.insert(
+        id: 'trip1',
+        startTime: DateTime.utc(2026, 5, 1, 9),
+        endTime: DateTime.utc(2026, 5, 1, 9, 30),
+        durationSeconds: 999,
+        distanceMeters: 2000,
+        direction: 'to_home',
+        timeMovingSeconds: 1200,
+        timeStuckSeconds: 600,
+        routePolyline: const Value('cloud_polyline'),
+      );
+
+      final result = resolveMerge(
+        local: localWithRoute,
+        cloud: cloudWithRoute,
+        selections: const {},
+        localStuckSegments: [localSegment()],
+      );
+
+      expect(result.stuckSegments, isEmpty);
+    });
+  });
 }

@@ -23,6 +23,27 @@ export interface TripBreak {
 }
 
 /**
+ * A single stuck-in-traffic stretch within a trip. Mirrors a row in the
+ * client's `trip_stuck_segments` table, projected to its four wire-relevant
+ * fields.
+ *
+ * `startPointIndex`/`endPointIndex` index into the trip's DECODED
+ * `routePolyline`, which is why they round-trip losslessly: the polyline is
+ * itself part of the same document, so a restored trip's indices still address
+ * the same coordinates they did on the originating device.
+ *
+ * Without these the aggregate `timeStuckSeconds` still restores, but the
+ * painted slow stretches on the trip map do not — they were device-only until
+ * this field existed.
+ */
+export interface StuckSegment {
+  startPointIndex: number;
+  endPointIndex: number;
+  startTime: string;
+  endTime: string;
+}
+
+/**
  * The cross-phase trip contract (Phase 10 server <-> Phase 11 client).
  *
  * Fields mirror the Drift `trips` table (lib/database/tables/trips_table.dart)
@@ -53,6 +74,12 @@ export interface Trip {
   directionSource: DirectionSource;
   /** Embedded paused segments for this trip (Phase 26), bounded by `kMaxBreaksPerTrip`. */
   breaks: TripBreak[];
+  /**
+   * Embedded stuck-in-traffic stretches, bounded by
+   * `kMaxStuckSegmentsPerTrip`. Added after the pre-release smoke test found
+   * that restored trips lost their painted slow stretches.
+   */
+  stuckSegments: StuckSegment[];
 }
 
 /**

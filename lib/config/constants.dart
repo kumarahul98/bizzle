@@ -1430,6 +1430,21 @@ const String kRecoveryDiscardAction = 'Discard';
 /// backend would reject.
 const int kMaxBreaksPerTrip = 50;
 
+/// Maximum number of stuck-in-traffic stretches embedded in a single trip's
+/// sync payload. Must numerically match the backend's
+/// `kMaxStuckSegmentsPerTrip` in
+/// `backend/functions/src/utils/validation.ts`; like [kMaxBreaksPerTrip] it is
+/// ALSO enforced client-side in `TripSerializer.toJson`, so sync never emits a
+/// payload the backend would reject with a non-retryable 400.
+///
+/// Deliberately far higher than [kMaxBreaksPerTrip]. A break is a
+/// user-initiated pause, so 50 is generous. A stuck segment is emitted
+/// automatically for every slow run clearing [kStuckSegmentMinSeconds], so a
+/// long stop-and-go commute can legitimately produce hundreds — capping these
+/// at the breaks limit would truncate real data on exactly the commutes this
+/// app exists to measure.
+const int kMaxStuckSegmentsPerTrip = 200;
+
 /// Target backfill schema version (Phase 26, D-03): "backfill done for
 /// payload schema v2". Compared against
 /// `UserPreferencesDao.getBackfillMarkerVersion()` — when the stored marker

@@ -8,6 +8,12 @@ import 'package:traevy/database/database.dart';
 /// [localBreaks] (existing `trip_breaks` rows) — so Plan 06's merge sheet
 /// and breaks-differ indicator never need a second DB read. Both default to
 /// `const []` so pre-Phase-26 construction sites compile unchanged.
+///
+/// The two stuck-segment lists ride along for the same reason: resolving a
+/// conflict rewrites the trip's `routePolyline`, and a stuck segment's point
+/// indices are only meaningful against the polyline they were computed from,
+/// so the resolver needs both sides in hand to decide which segments remain
+/// index-coherent.
 @immutable
 sealed class RestoreConflict {
   const RestoreConflict();
@@ -20,6 +26,13 @@ sealed class RestoreConflict {
 
   /// The local trip's existing `trip_breaks` rows, `startTime` ascending.
   List<TripBreakRow> get localBreaks;
+
+  /// The cloud copy's stuck segments as parsed insert companions.
+  List<TripStuckSegmentsCompanion> get cloudStuckSegments;
+
+  /// The local trip's existing `trip_stuck_segments` rows,
+  /// `startPointIndex` ascending.
+  List<TripStuckSegmentRow> get localStuckSegments;
 }
 
 class SameUuidConflict extends RestoreConflict {
@@ -28,6 +41,8 @@ class SameUuidConflict extends RestoreConflict {
     required this.cloudTrip,
     this.cloudBreaks = const [],
     this.localBreaks = const [],
+    this.cloudStuckSegments = const [],
+    this.localStuckSegments = const [],
   });
 
   @override
@@ -41,6 +56,12 @@ class SameUuidConflict extends RestoreConflict {
 
   @override
   final List<TripBreakRow> localBreaks;
+
+  @override
+  final List<TripStuckSegmentsCompanion> cloudStuckSegments;
+
+  @override
+  final List<TripStuckSegmentRow> localStuckSegments;
 }
 
 class OverlapConflict extends RestoreConflict {
@@ -49,6 +70,8 @@ class OverlapConflict extends RestoreConflict {
     required this.cloudTrip,
     this.cloudBreaks = const [],
     this.localBreaks = const [],
+    this.cloudStuckSegments = const [],
+    this.localStuckSegments = const [],
   });
 
   @override
@@ -62,4 +85,10 @@ class OverlapConflict extends RestoreConflict {
 
   @override
   final List<TripBreakRow> localBreaks;
+
+  @override
+  final List<TripStuckSegmentsCompanion> cloudStuckSegments;
+
+  @override
+  final List<TripStuckSegmentRow> localStuckSegments;
 }

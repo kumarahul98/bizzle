@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/daos/sync_queue_dao.dart';
 import 'package:traevy/database/daos/trip_breaks_dao.dart';
+import 'package:traevy/database/daos/trip_stuck_segments_dao.dart';
 import 'package:traevy/database/daos/trips_dao.dart';
 import 'package:traevy/database/database.dart';
 import 'package:traevy/database/providers.dart';
@@ -49,6 +50,7 @@ class SyncEngine {
     required SyncQueueDao syncQueueDao,
     required TripsDao tripsDao,
     required TripBreaksDao tripBreaksDao,
+    required TripStuckSegmentsDao tripStuckSegmentsDao,
     required SyncStatusNotifier status,
     required bool Function() isSignedIn,
     required Future<bool> Function() isOnline,
@@ -57,6 +59,7 @@ class SyncEngine {
        _queueDao = syncQueueDao,
        _tripsDao = tripsDao,
        _tripBreaksDao = tripBreaksDao,
+       _tripStuckSegmentsDao = tripStuckSegmentsDao,
        _status = status,
        _isSignedIn = isSignedIn,
        _isOnline = isOnline,
@@ -66,6 +69,7 @@ class SyncEngine {
   final SyncQueueDao _queueDao;
   final TripsDao _tripsDao;
   final TripBreaksDao _tripBreaksDao;
+  final TripStuckSegmentsDao _tripStuckSegmentsDao;
   final SyncStatusNotifier _status;
   final bool Function() _isSignedIn;
   final Future<bool> Function() _isOnline;
@@ -217,10 +221,12 @@ class SyncEngine {
     }
 
     // Phase 26: ONE batch break-fetch for the whole drain, before the chunk
-    // loop — never N+1 (once per chunk or once per trip).
-    final breaksByTripId = await _tripBreaksDao.breaksForTripIds(
-      liveTrips.map((t) => t.id).toList(),
-    );
+    // loop — never N+1 (once per chunk or once per trip). Stuck segments are
+    // fetched the same way and for the same reason.
+    final liveTripIds = liveTrips.map((t) => t.id).toList();
+    final breaksByTripId = await _tripBreaksDao.breaksForTripIds(liveTripIds);
+    final stuckSegmentsByTripId = await _tripStuckSegmentsDao
+        .segmentsForTripIds(liveTripIds);
 
     for (var i = 0; i < liveTrips.length; i += kMaxSyncBatchTrips) {
       final end = (i + kMaxSyncBatchTrips < liveTrips.length)
@@ -228,7 +234,7 @@ class SyncEngine {
           : liveTrips.length;
       final chunk = liveTrips.sublist(i, end);
       try {
-        await _api.syncTrips(chunk, breaksByTripId);
+        await _api.syncTrips(chunk, breaksByTripId, stuckSegmentsByTripId);
         for (final trip in chunk) {
           await _markAllSynced(effForTrip[trip.id]!);
         }
@@ -428,6 +434,7 @@ final Provider<SyncEngine> syncEngineProvider = Provider<SyncEngine>(
       syncQueueDao: ref.watch(syncQueueDaoProvider),
       tripsDao: ref.watch(tripsDaoProvider),
       tripBreaksDao: ref.watch(tripBreaksDaoProvider),
+      tripStuckSegmentsDao: ref.watch(tripStuckSegmentsDaoProvider),
       status: ref.read(syncStatusProvider.notifier),
       isSignedIn: () => ref.read(authStateProvider) is AuthSignedIn,
       isOnline: () async => (await Connectivity().checkConnectivity()).any(

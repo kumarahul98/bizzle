@@ -4,7 +4,13 @@ import {
   QueryDocumentSnapshot,
   Timestamp,
 } from 'firebase-admin/firestore';
-import type { Direction, DirectionSource, TripBreak, TripDoc } from '../types/trip';
+import type {
+  Direction,
+  DirectionSource,
+  StuckSegment,
+  TripBreak,
+  TripDoc,
+} from '../types/trip';
 import type { PreferencesDoc } from '../types/preferences';
 
 /**
@@ -64,6 +70,9 @@ export const tripConverter: FirestoreDataConverter<TripDoc> = {
       isEdited: (data.isEdited as boolean | undefined) ?? false,
       directionSource: (data.directionSource as DirectionSource | undefined) ?? 'time',
       breaks: (data.breaks as TripBreak[] | undefined) ?? [],
+      // Same field-by-field defaulting as the Phase 26 block above: every trip
+      // document written before this field existed omits it entirely.
+      stuckSegments: (data.stuckSegments as StuckSegment[] | undefined) ?? [],
       deleted: data.deleted as boolean,
       deletedAt: toNullableTimestamp(data.deletedAt),
       serverUpdatedAt:

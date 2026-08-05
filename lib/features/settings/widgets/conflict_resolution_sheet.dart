@@ -29,6 +29,7 @@ class _ConflictResolutionSheetState
   Future<void> _applyAll(String defaultAction) async {
     final tripsDao = ref.read(tripsDaoProvider);
     final breaksDao = ref.read(tripBreaksDaoProvider);
+    final stuckSegmentsDao = ref.read(tripStuckSegmentsDaoProvider);
     final database = ref.read(appDatabaseProvider);
     int resolvedCount = 0;
 
@@ -54,11 +55,23 @@ class _ConflictResolutionSheetState
           for (final b in conflict.cloudBreaks)
             b.copyWith(tripId: drift.Value(localTripId)),
         ];
+        // Stuck segments must be replaced wholesale, not left in place: the
+        // trip's routePolyline is being overwritten with the cloud copy's, and
+        // the existing local segments' point indices address the OLD polyline.
+        // Leaving them would paint the wrong stretch of road as slow.
+        final remappedSegments = [
+          for (final s in conflict.cloudStuckSegments)
+            s.copyWith(tripId: drift.Value(localTripId)),
+        ];
         await database.transaction(() async {
           await tripsDao.updateTrip(companion);
           await breaksDao.deleteBreaksForTrip(localTripId);
           if (remappedBreaks.isNotEmpty) {
             await breaksDao.insertBreaks(remappedBreaks);
+          }
+          await stuckSegmentsDao.deleteSegmentsForTrip(localTripId);
+          if (remappedSegments.isNotEmpty) {
+            await stuckSegmentsDao.insertSegments(remappedSegments);
           }
         });
         resolvedCount++;
@@ -73,12 +86,21 @@ class _ConflictResolutionSheetState
           selections: selections,
           localBreaks: conflict.localBreaks,
           cloudBreaks: conflict.cloudBreaks,
+          localStuckSegments: conflict.localStuckSegments,
+          cloudStuckSegments: conflict.cloudStuckSegments,
         );
         await database.transaction(() async {
           await tripsDao.updateTrip(result.trip);
           await breaksDao.deleteBreaksForTrip(localTripId);
           if (result.breaks.isNotEmpty) {
             await breaksDao.insertBreaks(result.breaks);
+          }
+          // resolveMerge already dropped any segment that would be
+          // index-incoherent with the merged polyline, so this is a straight
+          // replace.
+          await stuckSegmentsDao.deleteSegmentsForTrip(localTripId);
+          if (result.stuckSegments.isNotEmpty) {
+            await stuckSegmentsDao.insertSegments(result.stuckSegments);
           }
         });
         resolvedCount++;

@@ -32,7 +32,13 @@ import 'package:traevy/sync/trip_serializer.dart';
 class _FakeApiClient implements ApiClient {
   _FakeApiClient(List<TripsCompanion> companions, {this.throwOnRestore = false})
     : _parsedTrips = companions
-          .map((c) => (trip: c, breaks: const <TripBreaksCompanion>[]))
+          .map(
+            (c) => (
+              trip: c,
+              breaks: const <TripBreaksCompanion>[],
+              stuckSegments: const <TripStuckSegmentsCompanion>[],
+            ),
+          )
           .toList();
 
   _FakeApiClient.parsed(this._parsedTrips) : throwOnRestore = false;
@@ -66,6 +72,7 @@ Map<String, dynamic> _tripJson(
   bool isEdited = false,
   String directionSource = kDirectionSourceTime,
   List<Map<String, String>> breaks = const [],
+  List<Map<String, dynamic>> stuckSegments = const [],
 }) => <String, dynamic>{
   'id': id,
   'startTime': startTime,
@@ -83,6 +90,7 @@ Map<String, dynamic> _tripJson(
   'isEdited': isEdited,
   'directionSource': directionSource,
   'breaks': breaks,
+  'stuckSegments': stuckSegments,
 };
 
 TripsCompanion _companion(
@@ -113,6 +121,7 @@ ParsedTrip _parsedTrip(
   bool isEdited = false,
   String directionSource = kDirectionSourceTime,
   List<Map<String, String>> breaks = const [],
+  List<Map<String, dynamic>> stuckSegments = const [],
 }) => TripSerializer.fromJson(
   _tripJson(
     id,
@@ -124,6 +133,7 @@ ParsedTrip _parsedTrip(
     isEdited: isEdited,
     directionSource: directionSource,
     breaks: breaks,
+    stuckSegments: stuckSegments,
   ),
 );
 
@@ -522,6 +532,91 @@ void main() {
         expect((state as RestoreSuccess).count, 2);
         expect(await db.tripBreaksDao.breaksForTrip('b2'), isEmpty);
         expect((await db.tripBreaksDao.breaksForTrip('b3')).length, 1);
+      },
+    );
+
+    // The gap this closes: stuck segments were device-only, so a reinstall
+    // restored the trip and its aggregate timeStuckSeconds but silently lost
+    // every painted slow stretch on the map.
+    test(
+      'cloud trip carrying stuck segments inserts them alongside the trip, '
+      'polyline indices intact',
+      () async {
+        final api = _FakeApiClient.parsed([
+          _parsedTrip(
+            's1',
+            stuckSegments: const [
+              {
+                'startPointIndex': 2,
+                'endPointIndex': 9,
+                'startTime': '2026-05-01T08:05:00.000Z',
+                'endTime': '2026-05-01T08:07:20.000Z',
+              },
+              {
+                'startPointIndex': 14,
+                'endPointIndex': 21,
+                'startTime': '2026-05-01T08:18:00.000Z',
+                'endTime': '2026-05-01T08:21:00.000Z',
+              },
+            ],
+          ),
+        ]);
+        final container = phase26Container(api);
+
+        await container.read(restoreControllerProvider.notifier).restore();
+
+        expect(
+          container.read(restoreControllerProvider),
+          isA<RestoreSuccess>(),
+        );
+        expect(await db.tripsDao.findById('s1'), isNotNull);
+
+        final segments = await db.tripStuckSegmentsDao.segmentsForTrip('s1');
+        expect(segments, hasLength(2));
+        // Ordered by startPointIndex, and the indices must survive — they are
+        // what places the stretch on the decoded polyline.
+        expect(segments.first.startPointIndex, 2);
+        expect(segments.first.endPointIndex, 9);
+        expect(segments.last.startPointIndex, 14);
+        expect(segments.last.endPointIndex, 21);
+
+        // Restore is a pure download — never enqueues.
+        expect(await db.syncQueueDao.watchPending().first, isEmpty);
+      },
+    );
+
+    test(
+      'a trip already present locally with no segments is enriched with the '
+      'cloud copy segments',
+      () async {
+        // The upgrade path: the trip restored before this field existed, so
+        // it sits locally with zero segments while the cloud copy now has
+        // them. Enrichment fills the gap without touching anything else.
+        await db.tripsDao.insertOrIgnoreTrips(<TripsCompanion>[
+          _companion('s2'),
+        ]);
+        expect(await db.tripStuckSegmentsDao.segmentsForTrip('s2'), isEmpty);
+
+        final api = _FakeApiClient.parsed([
+          _parsedTrip(
+            's2',
+            stuckSegments: const [
+              {
+                'startPointIndex': 5,
+                'endPointIndex': 11,
+                'startTime': '2026-05-01T08:06:00.000Z',
+                'endTime': '2026-05-01T08:09:00.000Z',
+              },
+            ],
+          ),
+        ]);
+        final container = phase26Container(api);
+
+        await container.read(restoreControllerProvider.notifier).restore();
+
+        final segments = await db.tripStuckSegmentsDao.segmentsForTrip('s2');
+        expect(segments, hasLength(1));
+        expect(segments.single.startPointIndex, 5);
       },
     );
   });

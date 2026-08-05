@@ -92,7 +92,13 @@ class _FakeApiClient implements ApiClient {
   Future<List<ParsedTrip>> restoreTrips() async {
     if (throwOnRestore) throw const SyncException.transport();
     return _companions
-        .map((c) => (trip: c, breaks: const <TripBreaksCompanion>[]))
+        .map(
+          (c) => (
+            trip: c,
+            breaks: const <TripBreaksCompanion>[],
+            stuckSegments: const <TripStuckSegmentsCompanion>[],
+          ),
+        )
         .toList();
   }
 

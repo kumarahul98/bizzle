@@ -83,6 +83,9 @@ export async function syncTripsHandler(
           isEdited: trip.isEdited,
           directionSource: trip.directionSource,
           breaks: trip.breaks,
+          // Likewise already-defaulted to [] by tripSchema for any client that
+          // predates the field.
+          stuckSegments: trip.stuckSegments,
           // `deleted:false` is deliberate (D-11, client-authoritative): re-syncing
           // an id resurrects a server-soft-deleted trip. An offline client that
           // never saw the delete will un-delete it on next sync — by design.

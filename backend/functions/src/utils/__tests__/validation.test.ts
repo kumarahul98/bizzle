@@ -4,6 +4,7 @@ import {
   tripIdParam,
   kMaxSyncBatchTrips,
   kMaxBreaksPerTrip,
+  kMaxStuckSegmentsPerTrip,
 } from '../validation';
 
 const VALID_UUID = '3f2504e0-4f89-41d3-9a0c-0305e82c3301';
@@ -26,7 +27,18 @@ function makeValidTrip(overrides: Record<string, unknown> = {}): Record<string, 
     isEdited: false,
     directionSource: 'time',
     breaks: [],
+    stuckSegments: [],
     ...overrides,
+  };
+}
+
+/** One well-formed stuck stretch, for array-building in the tests below. */
+function makeStuckSegment(): Record<string, unknown> {
+  return {
+    startPointIndex: 4,
+    endPointIndex: 11,
+    startTime: '2026-06-01T08:12:00.000Z',
+    endTime: '2026-06-01T08:14:30.000Z',
   };
 }
 
@@ -138,7 +150,94 @@ describe('tripSchema — Phase 26 metadata fields', () => {
       tripSchema.safeParse(makeValidTrip({ directionSource: 'bogus' })).success,
     ).toBe(false);
   });
+});
 
+describe('tripSchema — stuckSegments', () => {
+  it('defaults stuckSegments to [] when omitted (old-client compatibility)', () => {
+    // Every client older than this release, and every document already in
+    // Firestore, omits the key entirely. Both must keep validating.
+    const trip = makeValidTrip();
+    delete trip.stuckSegments;
+    const parsed = tripSchema.safeParse(trip);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.stuckSegments).toEqual([]);
+    }
+  });
+
+  it('accepts a trip carrying stuck segments and preserves the indices', () => {
+    const parsed = tripSchema.safeParse(
+      makeValidTrip({ stuckSegments: [makeStuckSegment()] }),
+    );
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.stuckSegments).toHaveLength(1);
+      // The indices address the decoded polyline — losing them would strand
+      // the segment with no way back to a map position.
+      expect(parsed.data.stuckSegments[0].startPointIndex).toBe(4);
+      expect(parsed.data.stuckSegments[0].endPointIndex).toBe(11);
+    }
+  });
+
+  it('accepts an array at the kMaxStuckSegmentsPerTrip cap', () => {
+    const stuckSegments = Array.from(
+      { length: kMaxStuckSegmentsPerTrip },
+      makeStuckSegment,
+    );
+    expect(tripSchema.safeParse(makeValidTrip({ stuckSegments })).success).toBe(true);
+  });
+
+  it('rejects an array over kMaxStuckSegmentsPerTrip', () => {
+    const stuckSegments = Array.from(
+      { length: kMaxStuckSegmentsPerTrip + 1 },
+      makeStuckSegment,
+    );
+    expect(tripSchema.safeParse(makeValidTrip({ stuckSegments })).success).toBe(false);
+  });
+
+  it('allows far more stuck segments than breaks — a busy commute has many', () => {
+    // Guards the deliberate asymmetry: capping stuck stretches at the breaks
+    // limit would truncate real data on exactly the commutes this measures.
+    expect(kMaxStuckSegmentsPerTrip).toBeGreaterThan(kMaxBreaksPerTrip);
+    const stuckSegments = Array.from(
+      { length: kMaxBreaksPerTrip + 1 },
+      makeStuckSegment,
+    );
+    expect(tripSchema.safeParse(makeValidTrip({ stuckSegments })).success).toBe(true);
+  });
+
+  it('rejects a non-integer point index', () => {
+    expect(
+      tripSchema.safeParse(
+        makeValidTrip({
+          stuckSegments: [{ ...makeStuckSegment(), startPointIndex: 2.5 }],
+        }),
+      ).success,
+    ).toBe(false);
+  });
+
+  it('rejects a negative point index', () => {
+    expect(
+      tripSchema.safeParse(
+        makeValidTrip({
+          stuckSegments: [{ ...makeStuckSegment(), endPointIndex: -1 }],
+        }),
+      ).success,
+    ).toBe(false);
+  });
+
+  it('rejects a malformed segment timestamp', () => {
+    expect(
+      tripSchema.safeParse(
+        makeValidTrip({
+          stuckSegments: [{ ...makeStuckSegment(), startTime: 'not-a-date' }],
+        }),
+      ).success,
+    ).toBe(false);
+  });
+});
+
+describe('tripSchema — directionSource enum', () => {
   it.each(['manual', 'geofence', 'time'])(
     'accepts directionSource %s (matches client kDirectionSource* constants)',
     (value) => {

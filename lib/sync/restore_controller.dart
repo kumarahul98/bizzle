@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/daos/trip_breaks_dao.dart';
+import 'package:traevy/database/daos/trip_stuck_segments_dao.dart';
 import 'package:traevy/database/daos/trips_dao.dart';
 import 'package:traevy/database/database.dart';
 import 'package:traevy/database/providers.dart';
@@ -95,6 +96,7 @@ class RestoreController extends Notifier<RestoreState> {
       final database = ref.read(appDatabaseProvider);
       final tripsDao = ref.read(tripsDaoProvider);
       final tripBreaksDao = ref.read(tripBreaksDaoProvider);
+      final tripStuckSegmentsDao = ref.read(tripStuckSegmentsDaoProvider);
 
       final localTrips = await tripsDao.getAllTrips();
       // Lookup structures built once so the per-cloud-trip work below stays
@@ -107,16 +109,18 @@ class RestoreController extends Notifier<RestoreState> {
       final localsByStart = [...localTrips]
         ..sort((a, b) => a.startTime.compareTo(b.startTime));
       final conflicts = <RestoreConflict>[];
-      // Split insert path (RESEARCH.md Pitfall 2): breakless new trips keep
-      // the single-batch insertOrIgnoreTrips fast path; trips carrying
-      // breaks are inserted per-trip inside a transaction so the trip row
-      // and its break rows can never be separated by a crash.
-      final nonConflictsNoBreaks = <TripsCompanion>[];
-      final nonConflictsWithBreaks = <ParsedTrip>[];
+      // Split insert path (RESEARCH.md Pitfall 2): new trips with NO child
+      // rows keep the single-batch insertOrIgnoreTrips fast path; trips
+      // carrying breaks and/or stuck segments are inserted per-trip inside a
+      // transaction so the trip row and its children can never be separated
+      // by a crash.
+      final nonConflictsNoChildren = <TripsCompanion>[];
+      final nonConflictsWithChildren = <ParsedTrip>[];
 
       for (final parsed in parsedTrips) {
         final cloud = parsed.trip;
         final cloudBreaks = parsed.breaks;
+        final cloudSegments = parsed.stuckSegments;
         bool isConflict = false;
 
         final sameUuidLocal = localById[cloud.id.value];
@@ -130,6 +134,10 @@ class RestoreController extends Notifier<RestoreState> {
                 localBreaks: await tripBreaksDao.breaksForTrip(
                   sameUuidLocal.id,
                 ),
+                cloudStuckSegments: cloudSegments,
+                localStuckSegments: await tripStuckSegmentsDao.segmentsForTrip(
+                  sameUuidLocal.id,
+                ),
               ),
             );
             isConflict = true;
@@ -138,9 +146,11 @@ class RestoreController extends Notifier<RestoreState> {
               database: database,
               tripsDao: tripsDao,
               tripBreaksDao: tripBreaksDao,
+              tripStuckSegmentsDao: tripStuckSegmentsDao,
               local: sameUuidLocal,
               cloud: cloud,
               cloudBreaks: cloudBreaks,
+              cloudSegments: cloudSegments,
             );
           }
         } else if (cloud.startTime.present && cloud.endTime.present) {
@@ -155,6 +165,9 @@ class RestoreController extends Notifier<RestoreState> {
                   cloudTrip: cloud,
                   cloudBreaks: cloudBreaks,
                   localBreaks: await tripBreaksDao.breaksForTrip(local.id),
+                  cloudStuckSegments: cloudSegments,
+                  localStuckSegments: await tripStuckSegmentsDao
+                      .segmentsForTrip(local.id),
                 ),
               );
               isConflict = true;
@@ -164,22 +177,25 @@ class RestoreController extends Notifier<RestoreState> {
         }
 
         if (!isConflict && sameUuidLocal == null) {
-          if (cloudBreaks.isEmpty) {
-            nonConflictsNoBreaks.add(cloud);
+          if (cloudBreaks.isEmpty && cloudSegments.isEmpty) {
+            nonConflictsNoChildren.add(cloud);
           } else {
-            nonConflictsWithBreaks.add(parsed);
+            nonConflictsWithChildren.add(parsed);
           }
         }
       }
 
-      var inserted = await tripsDao.insertOrIgnoreTrips(nonConflictsNoBreaks);
-      for (final entry in nonConflictsWithBreaks) {
-        // Atomic trip + breaks insert — mirrors the finalize-time pattern in
-        // tracking_service_controller.dart, MINUS the enqueue call: restore
-        // is a download and never touches sync_queue.
+      var inserted = await tripsDao.insertOrIgnoreTrips(nonConflictsNoChildren);
+      for (final entry in nonConflictsWithChildren) {
+        // Atomic trip + children insert — mirrors the finalize-time pattern
+        // in tracking_service_controller.dart, MINUS the enqueue call:
+        // restore is a download and never touches sync_queue. Both child
+        // inserts share the transaction, so a crash can never leave a trip
+        // with half its stuck segments.
         await database.transaction(() async {
           await tripsDao.insertTrip(entry.trip);
           await tripBreaksDao.insertBreaks(entry.breaks);
+          await tripStuckSegmentsDao.insertSegments(entry.stuckSegments);
         });
         inserted++;
       }
@@ -200,6 +216,9 @@ class RestoreController extends Notifier<RestoreState> {
   /// INDEPENDENTLY, and only when the local value is still at its default
   /// while the cloud carries a real value:
   ///   * breaks — local has none AND cloud has some (D-10);
+  ///   * stuck segments — local has none AND cloud has some (same rule as
+  ///     breaks; this is what lets a trip already present locally, but
+  ///     recorded before segments were synced, regain its painted stretches);
   ///   * `totalPausedSeconds` — local 0 AND cloud non-zero;
   ///   * `directionSource` — local `'time'` AND cloud non-`'time'`;
   ///   * `isEdited` — local false AND cloud true.
@@ -210,12 +229,16 @@ class RestoreController extends Notifier<RestoreState> {
     required AppDatabase database,
     required TripsDao tripsDao,
     required TripBreaksDao tripBreaksDao,
+    required TripStuckSegmentsDao tripStuckSegmentsDao,
     required TripRow local,
     required TripsCompanion cloud,
     required List<TripBreaksCompanion> cloudBreaks,
+    required List<TripStuckSegmentsCompanion> cloudSegments,
   }) async {
     final localBreaks = await tripBreaksDao.breaksForTrip(local.id);
     final enrichBreaks = localBreaks.isEmpty && cloudBreaks.isNotEmpty;
+    final localSegments = await tripStuckSegmentsDao.segmentsForTrip(local.id);
+    final enrichSegments = localSegments.isEmpty && cloudSegments.isNotEmpty;
     final enrichPaused =
         local.totalPausedSeconds == 0 &&
         cloud.totalPausedSeconds.present &&
@@ -228,6 +251,7 @@ class RestoreController extends Notifier<RestoreState> {
         !local.isEdited && cloud.isEdited.present && cloud.isEdited.value;
 
     if (!enrichBreaks &&
+        !enrichSegments &&
         !enrichPaused &&
         !enrichDirectionSource &&
         !enrichIsEdited) {
@@ -259,6 +283,14 @@ class RestoreController extends Notifier<RestoreState> {
         // construction, but the local row is the FK parent being enriched).
         await tripBreaksDao.insertBreaks(
           cloudBreaks.map((b) => b.copyWith(tripId: Value(local.id))).toList(),
+        );
+      }
+      if (enrichSegments) {
+        // Same defensive tripId remap as breaks above.
+        await tripStuckSegmentsDao.insertSegments(
+          cloudSegments
+              .map((s) => s.copyWith(tripId: Value(local.id)))
+              .toList(),
         );
       }
     });

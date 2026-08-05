@@ -31,6 +31,7 @@ export function makeTrip(overrides: Partial<Trip> = {}): Trip {
     isEdited: false,
     directionSource: 'time',
     breaks: [],
+    stuckSegments: [],
     ...overrides,
   };
 }

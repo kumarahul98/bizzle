@@ -131,6 +131,10 @@ describe('GET /trips/restore', () => {
       expect(trip!.isEdited).toBe(false);
       expect(trip!.directionSource).toBe('time');
       expect(trip!.breaks).toEqual([]);
+      // Same legacy path for stuckSegments: every document written before the
+      // field existed omits it, and the converter must default rather than
+      // hand the client an undefined.
+      expect(trip!.stuckSegments).toEqual([]);
     });
 
     it('round-trips explicit non-default metadata unchanged', async () => {
@@ -159,6 +163,31 @@ describe('GET /trips/restore', () => {
       expect(trip!.isEdited).toBe(true);
       expect(trip!.directionSource).toBe('manual');
       expect(trip!.breaks).toEqual(breaks);
+    });
+
+    it('returns stuck segments with their polyline indices intact', async () => {
+      // This is the whole point of the field: a restored trip must be able to
+      // repaint its slow stretches, which requires the indices to survive.
+      const id = randomUUID();
+      const stuckSegments = [
+        {
+          startPointIndex: 3,
+          endPointIndex: 17,
+          startTime: '2026-05-01T08:14:00.000Z',
+          endTime: '2026-05-01T08:19:40.000Z',
+        },
+      ];
+      await seedTrip({ id, userId: 'userA', stuckSegments });
+
+      const res = await request(app)
+        .get('/trips/restore')
+        .set('Authorization', `Bearer ${tokenA}`);
+
+      expect(res.status).toBe(200);
+      const trips = res.body.body.data.trips as Trip[];
+      const trip = trips.find((t) => t.id === id);
+      expect(trip).toBeDefined();
+      expect(trip!.stuckSegments).toEqual(stuckSegments);
     });
   });
 });

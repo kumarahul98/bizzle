@@ -19,7 +19,12 @@ import {
   FieldValue,
   Timestamp,
 } from 'firebase-admin/firestore';
-import type { DirectionSource, TripBreak, TripDoc } from '../../src/types/trip';
+import type {
+  DirectionSource,
+  StuckSegment,
+  TripBreak,
+  TripDoc,
+} from '../../src/types/trip';
 
 const FIRESTORE_HOST = process.env.FIRESTORE_EMULATOR_HOST;
 const AUTH_HOST = process.env.FIREBASE_AUTH_EMULATOR_HOST;
@@ -71,6 +76,7 @@ export interface SeedTripInput {
   isEdited?: boolean;
   directionSource?: DirectionSource;
   breaks?: TripBreak[];
+  stuckSegments?: StuckSegment[];
 }
 
 /**
@@ -106,6 +112,7 @@ export async function seedTrip(input: SeedTripInput): Promise<void> {
     isEdited: input.isEdited ?? false,
     directionSource: input.directionSource ?? 'time',
     breaks: input.breaks ?? [],
+    stuckSegments: input.stuckSegments ?? [],
     deleted,
     deletedAt: deleted ? Timestamp.now() : null,
     serverUpdatedAt: Timestamp.now(),

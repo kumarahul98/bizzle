@@ -15,13 +15,20 @@ class FakeApiClient implements ApiClient {
   Future<List<TripsCompanion>> Function()? restoreTripsImpl;
   @override
   Future<List<ParsedTrip>> restoreTrips() async => (await restoreTripsImpl!())
-      .map((c) => (trip: c, breaks: const <TripBreaksCompanion>[]))
+      .map(
+        (c) => (
+          trip: c,
+          breaks: const <TripBreaksCompanion>[],
+          stuckSegments: const <TripStuckSegmentsCompanion>[],
+        ),
+      )
       .toList();
 
   @override
   Future<void> syncTrips(
     List<TripRow> trips,
     Map<String, List<TripBreakRow>> breaksByTripId,
+    Map<String, List<TripStuckSegmentRow>> stuckSegmentsByTripId,
   ) async {}
 
   @override

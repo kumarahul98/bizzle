@@ -4,9 +4,14 @@ import 'package:traevy/database/database.dart';
 import 'package:uuid/uuid.dart';
 
 /// The result of [TripSerializer.fromJson]: the parsed trip companion plus
-/// its embedded break companions, returned as one unit so a caller never has
-/// to re-derive break `tripId`s or forget to persist them (Phase 26, Plan 03).
-typedef ParsedTrip = ({TripsCompanion trip, List<TripBreaksCompanion> breaks});
+/// its embedded break and stuck-segment companions, returned as one unit so a
+/// caller never has to re-derive child `tripId`s or forget to persist them
+/// (Phase 26, Plan 03).
+typedef ParsedTrip = ({
+  TripsCompanion trip,
+  List<TripBreaksCompanion> breaks,
+  List<TripStuckSegmentsCompanion> stuckSegments,
+});
 
 /// Wire (de)serialization between a Drift [TripRow] (+ its breaks) and the
 /// backend trip JSON.
@@ -22,7 +27,9 @@ typedef ParsedTrip = ({TripsCompanion trip, List<TripBreaksCompanion> breaks});
 ///   * `routePolyline` nullable; `direction` the stored `'to_office'` /
 ///     `'to_home'` literal passed through unchanged;
 ///   * `totalPausedSeconds`/`isEdited`/`directionSource` (Phase 26) always
-///     emitted; `breaks` always emitted, truncated to [kMaxBreaksPerTrip].
+///     emitted; `breaks` always emitted, truncated to [kMaxBreaksPerTrip];
+///     `stuckSegments` always emitted, truncated to
+///     [kMaxStuckSegmentsPerTrip].
 ///
 /// [fromJson] is the restore parser: it maps a server trip JSON object back to
 /// a [ParsedTrip] (trip companion + break companions) for insert-or-ignore.
@@ -55,35 +62,58 @@ class TripSerializer {
   /// (an unbounded re-drain, not a clean terminal failure). Filtering keeps
   /// the `!` provably safe and degrades a malformed break to "skipped", not
   /// "chunk stuck".
-  static Map<String, dynamic> toJson(TripRow t, List<TripBreakRow> breaks) =>
-      <String, dynamic>{
-        'id': t.id,
-        'startTime': t.startTime.toUtc().toIso8601String(),
-        'endTime': t.endTime.toUtc().toIso8601String(),
-        'durationSeconds': t.durationSeconds,
-        'distanceMeters': t.distanceMeters,
-        'routePolyline': t.routePolyline,
-        'direction': t.direction,
-        'timeMovingSeconds': t.timeMovingSeconds,
-        'timeStuckSeconds': t.timeStuckSeconds,
-        'isManualEntry': t.isManualEntry,
-        'createdAt': t.createdAt.toUtc().toIso8601String(),
-        'updatedAt': t.updatedAt.toUtc().toIso8601String(),
-        'totalPausedSeconds': t.totalPausedSeconds,
-        'isEdited': t.isEdited,
-        'directionSource': t.directionSource,
-        'breaks': breaks
-            .where((b) => b.endTime != null)
-            .take(kMaxBreaksPerTrip)
-            .map(
-              (b) => <String, dynamic>{
-                'startTime': b.startTime.toUtc().toIso8601String(),
-                // Provably safe `!`: open breaks are filtered above (WR-01).
-                'endTime': b.endTime!.toUtc().toIso8601String(),
-              },
-            )
-            .toList(),
-      };
+  static Map<String, dynamic> toJson(
+    TripRow t,
+    List<TripBreakRow> breaks,
+    List<TripStuckSegmentRow> stuckSegments,
+  ) => <String, dynamic>{
+    'id': t.id,
+    'startTime': t.startTime.toUtc().toIso8601String(),
+    'endTime': t.endTime.toUtc().toIso8601String(),
+    'durationSeconds': t.durationSeconds,
+    'distanceMeters': t.distanceMeters,
+    'routePolyline': t.routePolyline,
+    'direction': t.direction,
+    'timeMovingSeconds': t.timeMovingSeconds,
+    'timeStuckSeconds': t.timeStuckSeconds,
+    'isManualEntry': t.isManualEntry,
+    'createdAt': t.createdAt.toUtc().toIso8601String(),
+    'updatedAt': t.updatedAt.toUtc().toIso8601String(),
+    'totalPausedSeconds': t.totalPausedSeconds,
+    'isEdited': t.isEdited,
+    'directionSource': t.directionSource,
+    'breaks': breaks
+        .where((b) => b.endTime != null)
+        .take(kMaxBreaksPerTrip)
+        .map(
+          (b) => <String, dynamic>{
+            'startTime': b.startTime.toUtc().toIso8601String(),
+            // Provably safe `!`: open breaks are filtered above (WR-01).
+            'endTime': b.endTime!.toUtc().toIso8601String(),
+          },
+        )
+        .toList(),
+    // Truncated to kMaxStuckSegmentsPerTrip for the same poison-pill
+    // reason as breaks: exceeding the backend cap would earn a
+    // non-retryable 400 and strand the trip in the sync queue forever.
+    // Callers supply segments ordered by startPointIndex ascending, so
+    // .take() keeps the earliest stretches of the route.
+    //
+    // Unlike breaks there is no open-segment case to filter: both
+    // timestamps on trip_stuck_segments are non-nullable, because a
+    // segment is only ever written at finalize, already closed.
+    'stuckSegments': stuckSegments
+        .take(kMaxStuckSegmentsPerTrip)
+        .map(
+          (s) => <String, dynamic>{
+            'startPointIndex': s.startPointIndex,
+            'endPointIndex': s.endPointIndex,
+            'startTime': s.startTime.toUtc().toIso8601String(),
+            'endTime': s.endTime.toUtc().toIso8601String(),
+          },
+        )
+        .toList(),
+  };
 
   /// Parse a server trip JSON object into a [ParsedTrip] (D-08, Phase 26).
   /// ISO strings become UTC `DateTime`s; `userId` is intentionally NOT set on
@@ -138,6 +168,30 @@ class TripSerializer {
         )
         .toList();
 
-    return (trip: tripCompanion, breaks: breakCompanions);
+    // Stuck segments carry no id on the wire (same shape rule as breaks), so
+    // they get fresh client-side UUIDs on parse. The point indices DO survive:
+    // they address the decoded `routePolyline`, which is part of the same
+    // document, so a restored trip can repaint exactly the stretches the
+    // originating device painted.
+    final segmentsJson = json['stuckSegments'] as List<dynamic>? ?? const [];
+    final segmentCompanions = segmentsJson
+        .map(
+          (e) => TripStuckSegmentsCompanion.insert(
+            id: const Uuid().v4(),
+            tripId: tripId,
+            startPointIndex:
+                ((e as Map<String, dynamic>)['startPointIndex'] as num).toInt(),
+            endPointIndex: (e['endPointIndex'] as num).toInt(),
+            startTime: DateTime.parse(e['startTime'] as String).toUtc(),
+            endTime: DateTime.parse(e['endTime'] as String).toUtc(),
+          ),
+        )
+        .toList();
+
+    return (
+      trip: tripCompanion,
+      breaks: breakCompanions,
+      stuckSegments: segmentCompanions,
+    );
   }
 }

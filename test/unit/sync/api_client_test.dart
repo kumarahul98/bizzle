@@ -51,7 +51,9 @@ void main() {
         return http.Response('{"statusCode":200,"body":{"data":{}}}', 200);
       });
 
-      return build(client).syncTrips([sampleTrip()], const {}).then((_) {
+      return build(client).syncTrips([sampleTrip()], const {}, const {}).then((
+        _,
+      ) {
         expect(captured.method, 'POST');
         expect(captured.url.toString(), '$testBaseUrl$kSyncTripsPath');
         expect(captured.headers['Authorization'], 'Bearer tok1');
@@ -84,7 +86,7 @@ void main() {
       await build(
         client,
         getToken: getToken,
-      ).syncTrips([sampleTrip()], const {});
+      ).syncTrips([sampleTrip()], const {}, const {});
 
       expect(calls, 2);
       expect(refreshed, isTrue);
@@ -97,7 +99,7 @@ void main() {
         final client = MockClient((req) async => http.Response('{}', 401));
 
         expect(
-          () => build(client).syncTrips([sampleTrip()], const {}),
+          () => build(client).syncTrips([sampleTrip()], const {}, const {}),
           throwsA(
             isA<SyncException>()
                 .having((e) => e.statusCode, 'statusCode', 401)
@@ -111,7 +113,7 @@ void main() {
       final client = MockClient((req) async => http.Response('{}', 503));
 
       expect(
-        () => build(client).syncTrips([sampleTrip()], const {}),
+        () => build(client).syncTrips([sampleTrip()], const {}, const {}),
         throwsA(
           isA<SyncException>()
               .having((e) => e.statusCode, 'statusCode', 503)
@@ -124,7 +126,7 @@ void main() {
       final client = MockClient((req) async => http.Response('{}', 400));
 
       expect(
-        () => build(client).syncTrips([sampleTrip()], const {}),
+        () => build(client).syncTrips([sampleTrip()], const {}, const {}),
         throwsA(
           isA<SyncException>()
               .having((e) => e.statusCode, 'statusCode', 400)
@@ -139,7 +141,7 @@ void main() {
       });
 
       expect(
-        () => build(client).syncTrips([sampleTrip()], const {}),
+        () => build(client).syncTrips([sampleTrip()], const {}, const {}),
         throwsA(
           isA<SyncException>()
               .having((e) => e.statusCode, 'statusCode', isNull)
@@ -161,7 +163,7 @@ void main() {
           () => build(
             client,
             getToken: getToken,
-          ).syncTrips([sampleTrip()], const {}),
+          ).syncTrips([sampleTrip()], const {}, const {}),
           throwsA(
             isA<SyncException>()
                 .having((e) => e.retryable, 'retryable', true)
@@ -183,7 +185,7 @@ void main() {
         () => build(
           client,
           getToken: nullToken,
-        ).syncTrips([sampleTrip()], const {}),
+        ).syncTrips([sampleTrip()], const {}, const {}),
         throwsA(
           isA<SyncException>()
               .having((e) => e.notSignedIn, 'notSignedIn', true)
@@ -250,8 +252,8 @@ void main() {
     test(
       'unwraps the FULL envelope body.data.trips into parsed trips',
       () async {
-        final t1 = TripSerializer.toJson(sampleTrip(), const []);
-        final t2 = TripSerializer.toJson(sampleTrip(), const [])
+        final t1 = TripSerializer.toJson(sampleTrip(), const [], const []);
+        final t2 = TripSerializer.toJson(sampleTrip(), const [], const [])
           ..['id'] = '22222222-2222-4222-8222-222222222222';
         late http.Request captured;
         final client = MockClient((req) async {
@@ -469,7 +471,7 @@ void main() {
         getToken: fixedToken('tok1'),
       );
 
-      await api.syncTrips([sampleTrip()], const {});
+      await api.syncTrips([sampleTrip()], const {}, const {});
       await api.deleteTrip('trip-1');
       await api.restoreTrips();
 

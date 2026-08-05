@@ -46,6 +46,7 @@ class FakeApiClient implements ApiClient {
   Future<void> syncTrips(
     List<TripRow> trips,
     Map<String, List<TripBreakRow>> breaksByTripId,
+    Map<String, List<TripStuckSegmentRow>> stuckSegmentsByTripId,
   ) async {
     syncCalls.add(trips.map((t) => t.id).toList());
     syncBreaksCalls.add(breaksByTripId);
@@ -119,6 +120,7 @@ void main() {
         syncQueueDao: queueDao,
         tripsDao: tripsDao,
         tripBreaksDao: db.tripBreaksDao,
+        tripStuckSegmentsDao: db.tripStuckSegmentsDao,
         status: status,
         isSignedIn: () => signedIn,
         isOnline: () async => online,
@@ -596,6 +598,7 @@ void main() {
         syncQueueDao: queueDao,
         tripsDao: tripsDao,
         tripBreaksDao: db.tripBreaksDao,
+        tripStuckSegmentsDao: db.tripStuckSegmentsDao,
         status: status,
         isSignedIn: () => true,
         isOnline: () async => true,
@@ -673,6 +676,7 @@ void main() {
         syncQueueDao: queueDao,
         tripsDao: tripsDao,
         tripBreaksDao: db.tripBreaksDao,
+        tripStuckSegmentsDao: db.tripStuckSegmentsDao,
         status: status,
         isSignedIn: () => true,
         isOnline: () async => true,
