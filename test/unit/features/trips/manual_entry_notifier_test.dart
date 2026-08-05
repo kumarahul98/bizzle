@@ -2,6 +2,7 @@ import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:traevy/config/constants.dart';
 import 'package:traevy/database/database.dart';
 import 'package:traevy/database/providers.dart';
 import 'package:traevy/features/trips/providers/trip_management_providers.dart';
@@ -116,6 +117,34 @@ void main() {
           summaries.single.startTime.millisecondsSinceEpoch,
           startUtc.millisecondsSinceEpoch,
         );
+      },
+    );
+
+    test(
+      "direction_source is 'manual', not the column default 'time'",
+      () async {
+        // The direction on a manual entry is authored by the user in the
+        // entry sheet. Recording it as 'time' made the row eligible for the
+        // restore enrichment in `restore_controller.dart` (local 'time' +
+        // cloud non-'time' => cloud direction wins), which could silently
+        // overwrite the user's own pick.
+        final startUtc = DateTime(2026, 4, 25).toUtc();
+        final endUtc = startUtc.add(const Duration(minutes: 45));
+
+        await container
+            .read(tripManagementProvider.notifier)
+            .insertManualTrip(
+              startTimeUtc: startUtc,
+              endTimeUtc: endUtc,
+              direction: kDirectionToHome,
+            );
+
+        final rows = await db.select(db.trips).get();
+        expect(rows, hasLength(1));
+        expect(rows.single.directionSource, kDirectionSourceManual);
+        expect(rows.single.directionSource, isNot(kDirectionSourceTime));
+        // The chosen direction itself must survive untouched.
+        expect(rows.single.direction, kDirectionToHome);
       },
     );
   });

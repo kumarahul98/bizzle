@@ -297,6 +297,14 @@ class TripManagementNotifier extends Notifier<TripManagementState> {
             distanceMeters: clampedDistance,
             routePolyline: const Value(''),
             direction: direction,
+            // The direction on a manual entry is authored by the user in the
+            // entry sheet, so its provenance is 'manual' — not the column
+            // default 'time'. Leaving it at 'time' made the trip eligible for
+            // the restore enrichment at `restore_controller.dart` (local
+            // source 'time' + cloud source non-'time' => cloud direction
+            // wins), which could overwrite the user's own pick — precisely
+            // what T-21-03-01 forbids.
+            directionSource: const Value(kDirectionSourceManual),
             timeMovingSeconds: durationSeconds - clampedStuck,
             timeStuckSeconds: clampedStuck,
             isManualEntry: const Value(true),
